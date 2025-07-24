@@ -229,7 +229,7 @@ export default function SelectVehicleScreen() {
     try {
       await TTMBLEManager.stopScan(); // Stop scanning before connecting
       // Connect using the TTM SDK bridge, including user-provided IMEI and passcode
-      await TTMBLEManager.connect(selectedDeviceForPasscode.id, imei, passcode);
+      await TTMBLEManager.connect(selectedDeviceForPasscode.id, imei, false);
 
       // If connection and authentication (including passcode) are successful:
       Alert.alert("Success", `Connected to ${selectedDeviceForPasscode.name || selectedDeviceForPasscode.id}`);

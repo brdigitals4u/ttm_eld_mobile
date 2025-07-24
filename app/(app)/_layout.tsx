@@ -10,6 +10,7 @@ export default function AppLayout() {
       <Stack.Screen name="status-update" />
       <Stack.Screen name="inspector-mode" />
       <Stack.Screen name="select-vehicle" />
+      <Stack.Screen name="select-demo-vehicle" />
     </Stack>
   );
 }

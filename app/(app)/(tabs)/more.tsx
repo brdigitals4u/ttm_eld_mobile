@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Building, CheckSquare, FileText, Settings, Truck, Users } from 'lucide-react-native';
+import { Building, CheckSquare, FileText, Settings, Truck, Users, Zap } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Card from '@/components/Card';
@@ -42,7 +42,7 @@ function MenuItem({ title, subtitle, icon, onPress }: MenuItemProps) {
 export default function MoreScreen() {
   const { colors } = useTheme();
 
-  const menuItems = [
+  const baseMenuItems = [
     {
       title: 'Co-Drivers',
       subtitle: 'Manage co-drivers and team members',
@@ -80,12 +80,24 @@ export default function MoreScreen() {
       onPress: () => router.push('/settings'),
     },
     {
-      title: 'Eld Pairing',
-      subtitle: 'Eld bluetooth pairing and connection',
+      title: 'ELD Pairing',
+      subtitle: 'Bluetooth pairing and connection to real ELD',
       icon: <Settings size={24} color={colors.primary} />,
- onPress: () => router.push('/(app)/select-vehicle'),
+      onPress: () => router.push('/select-vehicle'),
     },
   ];
+
+  // Add dev-only items
+  const devMenuItems = __DEV__ ? [
+    {
+      title: 'ELD Simulator Demo',
+      subtitle: 'Test with simulated ELD devices and scenarios',
+      icon: <Zap size={24} color='#10B981' />,
+      onPress: () => router.push('/select-demo-vehicle' as any),
+    },
+  ] : [];
+
+  const menuItems = [...baseMenuItems, ...devMenuItems];
 
   return (
     <ScrollView 

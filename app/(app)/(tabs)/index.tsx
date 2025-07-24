@@ -254,16 +254,7 @@ export default function DashboardScreen() {
         </View>
       </Modal>
 
-      {Platform.OS === 'web' && (
-        <Card style={styles.webNoticeCard}>
-          <Text style={[styles.webNoticeTitle, { color: colors.text }]}>
-            Web Demo Mode
-          </Text>
-          <Text style={[styles.webNoticeText, { color: colors.inactive }]}>
-            Some features like Bluetooth connectivity are simulated in web mode. For full functionality, please run this app on a mobile device.
-          </Text>
-        </Card>
-      )}
+
 
       <View style={styles.vehicleInfo}>
         <Text style={[styles.vehicleInfoTitle, { color: colors.inactive }]}>
@@ -479,5 +470,35 @@ const styles = StyleSheet.create({
   webNoticeText: {
     fontSize: 14,
     lineHeight: 20,
+    marginBottom: 16,
+  },
+  demoButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  demoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  demoCard: {
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+  },
+  demoCardTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+  },
+  demoCardText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
   },
 });
