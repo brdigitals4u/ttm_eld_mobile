@@ -10,7 +10,7 @@ import { useTheme } from '@/context/theme-context';
 import { EldDevice } from '@/types/eld';
 
 // Check if running on web
-const isWeb = Platform.OS === 'web' || typeof window !== 'undefined';
+const isWeb = false;
 
 export default function EldPairingScreen() {
   const { colors, isDark } = useTheme();

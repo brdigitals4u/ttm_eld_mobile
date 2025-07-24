@@ -79,6 +79,12 @@ export default function MoreScreen() {
       icon: <Settings size={24} color={colors.primary} />,
       onPress: () => router.push('/settings'),
     },
+    {
+      title: 'Eld Pairing',
+      subtitle: 'Eld bluetooth pairing and connection',
+      icon: <Settings size={24} color={colors.primary} />,
+ onPress: () => router.push('/(app)/select-vehicle'),
+    },
   ];
 
   return (

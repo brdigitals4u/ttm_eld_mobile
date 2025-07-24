@@ -9,6 +9,7 @@ export default function AppLayout() {
       <Stack.Screen name="eld-pairing" />
       <Stack.Screen name="status-update" />
       <Stack.Screen name="inspector-mode" />
+      <Stack.Screen name="select-vehicle" />
     </Stack>
   );
 }

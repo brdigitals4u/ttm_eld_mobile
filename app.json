@@ -13,13 +13,22 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.shobhitgoel27.TruckLogELD"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",  
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.shobhitgoel27.TruckLogELD"
     },
     "web": {
       "bundler": "metro",
@@ -28,7 +37,20 @@
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-ble-manager",
+        {
+          "isBackgroundEnabled": true,
+          "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to connect to ELD hardware.",
+          "bluetoothPeripheralPermission": "Allow $(PRODUCT_NAME) to find and connect to ELD hardware.",
+          "peripherals": [
+            "*"
+          ],
+          "restoreStateIdentifier": "com.trucklogeld.blemanager",
+          "restoreStateFunction": "restoreBleManagerState"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
