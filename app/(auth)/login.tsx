@@ -40,7 +40,7 @@ export default function LoginScreen() {
     >
       <View style={styles.logoContainer}>
         <Truck size={64} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.text }]}>TruckLog ELD</Text>
+        <Text style={[styles.title, { color: colors.text }]}>TTM Connect</Text>
         <Text style={[styles.subtitle, { color: colors.inactive }]}>
           Electronic Logging Device for Professional Drivers
         </Text>
