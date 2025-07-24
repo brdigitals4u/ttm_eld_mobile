@@ -1,0 +1,551 @@
+import { router } from 'expo-router';
+import { ArrowLeft, Building, Edit, Mail, MapPin, Phone } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Button from '@/components/Button';
+import Card from '@/components/Card';
+import { useCarrier } from '@/context/carrier-context';
+import { useTheme } from '@/context/theme-context';
+import { CarrierInfo } from '@/types/carrier';
+
+export default function CarrierScreen() {
+  const { colors, isDark } = useTheme();
+  const { carrierInfo, updateCarrierInfo, isLoading } = useCarrier();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<CarrierInfo | null>(carrierInfo);
+
+  const handleEdit = () => {
+    setFormData(carrierInfo);
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setFormData(carrierInfo);
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!formData) return;
+    
+    await updateCarrierInfo(formData);
+    setIsEditing(false);
+  };
+
+  const updateFormData = (field: keyof CarrierInfo, value: any) => {
+    if (!formData) return;
+    
+    if (field === 'address') {
+      setFormData({
+        ...formData,
+        address: { ...formData.address, ...value },
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [field]: value,
+      });
+    }
+  };
+
+  if (!carrierInfo || !formData) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={colors.text} />
+          </Pressable>
+          <Text style={[styles.title, { color: colors.text }]}>Carrier Info</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.inactive }]}>
+            Loading carrier information...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: colors.text }]}>Carrier Info</Text>
+        {!isEditing ? (
+          <Button
+            title="Edit"
+            onPress={handleEdit}
+            icon={<Edit size={16} color={isDark ? colors.text : '#fff'} />}
+          />
+        ) : (
+          <View style={styles.placeholder} />
+        )}
+      </View>
+
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Building size={24} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Company Information
+            </Text>
+          </View>
+
+          <View style={styles.infoGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Company Name</Text>
+            {isEditing ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? colors.card : '#F3F4F6',
+                    color: colors.text,
+                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  },
+                ]}
+                value={formData.name}
+                onChangeText={(text) => updateFormData('name', text)}
+                placeholder="Company name"
+                placeholderTextColor={colors.inactive}
+              />
+            ) : (
+              <Text style={[styles.value, { color: colors.text }]}>
+                {carrierInfo.name}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.infoGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>DOT Number</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? colors.card : '#F3F4F6',
+                      color: colors.text,
+                      borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    },
+                  ]}
+                  value={formData.dotNumber}
+                  onChangeText={(text) => updateFormData('dotNumber', text)}
+                  placeholder="DOT number"
+                  placeholderTextColor={colors.inactive}
+                />
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.dotNumber}
+                </Text>
+              )}
+            </View>
+
+            <View style={[styles.infoGroup, { flex: 1, marginLeft: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>MC Number</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? colors.card : '#F3F4F6',
+                      color: colors.text,
+                      borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    },
+                  ]}
+                  value={formData.mcNumber || ''}
+                  onChangeText={(text) => updateFormData('mcNumber', text)}
+                  placeholder="MC number"
+                  placeholderTextColor={colors.inactive}
+                />
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.mcNumber || 'N/A'}
+                </Text>
+              )}
+            </View>
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MapPin size={24} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Address
+            </Text>
+          </View>
+
+          <View style={styles.infoGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Street Address</Text>
+            {isEditing ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? colors.card : '#F3F4F6',
+                    color: colors.text,
+                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  },
+                ]}
+                value={formData.address.street}
+                onChangeText={(text) => updateFormData('address', { street: text })}
+                placeholder="Street address"
+                placeholderTextColor={colors.inactive}
+              />
+            ) : (
+              <Text style={[styles.value, { color: colors.text }]}>
+                {carrierInfo.address.street}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.infoGroup, { flex: 2, marginRight: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>City</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? colors.card : '#F3F4F6',
+                      color: colors.text,
+                      borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    },
+                  ]}
+                  value={formData.address.city}
+                  onChangeText={(text) => updateFormData('address', { city: text })}
+                  placeholder="City"
+                  placeholderTextColor={colors.inactive}
+                />
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.address.city}
+                </Text>
+              )}
+            </View>
+
+            <View style={[styles.infoGroup, { flex: 1, marginHorizontal: 4 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>State</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? colors.card : '#F3F4F6',
+                      color: colors.text,
+                      borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    },
+                  ]}
+                  value={formData.address.state}
+                  onChangeText={(text) => updateFormData('address', { state: text })}
+                  placeholder="State"
+                  placeholderTextColor={colors.inactive}
+                  autoCapitalize="characters"
+                />
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.address.state}
+                </Text>
+              )}
+            </View>
+
+            <View style={[styles.infoGroup, { flex: 1, marginLeft: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>ZIP</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? colors.card : '#F3F4F6',
+                      color: colors.text,
+                      borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    },
+                  ]}
+                  value={formData.address.zipCode}
+                  onChangeText={(text) => updateFormData('address', { zipCode: text })}
+                  placeholder="ZIP"
+                  placeholderTextColor={colors.inactive}
+                  keyboardType="numeric"
+                />
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.address.zipCode}
+                </Text>
+              )}
+            </View>
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Phone size={24} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Contact Information
+            </Text>
+          </View>
+
+          <View style={styles.infoGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
+            {isEditing ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? colors.card : '#F3F4F6',
+                    color: colors.text,
+                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  },
+                ]}
+                value={formData.phone}
+                onChangeText={(text) => updateFormData('phone', text)}
+                placeholder="Phone number"
+                placeholderTextColor={colors.inactive}
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <Text style={[styles.value, { color: colors.text }]}>
+                {carrierInfo.phone}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.infoGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+            {isEditing ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? colors.card : '#F3F4F6',
+                    color: colors.text,
+                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  },
+                ]}
+                value={formData.email}
+                onChangeText={(text) => updateFormData('email', text)}
+                placeholder="Email address"
+                placeholderTextColor={colors.inactive}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            ) : (
+              <Text style={[styles.value, { color: colors.text }]}>
+                {carrierInfo.email}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.infoGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Contact Person</Text>
+            {isEditing ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? colors.card : '#F3F4F6',
+                    color: colors.text,
+                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  },
+                ]}
+                value={formData.contactPerson}
+                onChangeText={(text) => updateFormData('contactPerson', text)}
+                placeholder="Contact person name"
+                placeholderTextColor={colors.inactive}
+              />
+            ) : (
+              <Text style={[styles.value, { color: colors.text }]}>
+                {carrierInfo.contactPerson}
+              </Text>
+            )}
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            HOS Configuration
+          </Text>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.infoGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>Cycle Type</Text>
+              {isEditing ? (
+                <View style={styles.cycleSelector}>
+                  {[
+                    { key: '60-7', label: '60-hour/7-day' },
+                    { key: '70-8', label: '70-hour/8-day' },
+                  ].map((cycle) => (
+                    <Pressable
+                      key={cycle.key}
+                      onPress={() => updateFormData('cycleType', cycle.key)}
+                      style={[
+                        styles.cycleButton,
+                        {
+                          backgroundColor: formData.cycleType === cycle.key ? colors.primary : 'transparent',
+                          borderColor: colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.cycleButtonText,
+                          {
+                            color: formData.cycleType === cycle.key ? '#fff' : colors.primary,
+                          },
+                        ]}
+                      >
+                        {cycle.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.cycleType === '60-7' ? '60-hour/7-day' : '70-hour/8-day'}
+                </Text>
+              )}
+            </View>
+
+            <View style={[styles.infoGroup, { flex: 1, marginLeft: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>Restart Hours</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? colors.card : '#F3F4F6',
+                      color: colors.text,
+                      borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    },
+                  ]}
+                  value={formData.restartHours.toString()}
+                  onChangeText={(text) => updateFormData('restartHours', parseInt(text) || 34)}
+                  placeholder="34"
+                  placeholderTextColor={colors.inactive}
+                  keyboardType="numeric"
+                />
+              ) : (
+                <Text style={[styles.value, { color: colors.text }]}>
+                  {carrierInfo.restartHours} hours
+                </Text>
+              )}
+            </View>
+          </View>
+        </Card>
+
+        {isEditing && (
+          <View style={styles.editButtons}>
+            <Button
+              title="Cancel"
+              onPress={handleCancel}
+              variant="outline"
+              style={{ flex: 1, marginRight: 8 }}
+            />
+            <Button
+              title="Save Changes"
+              onPress={handleSave}
+              loading={isLoading}
+              style={{ flex: 1, marginLeft: 8 }}
+            />
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  backButton: {
+    padding: 8,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  placeholder: {
+    width: 60,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    marginLeft: 12,
+  },
+  infoGroup: {
+    marginBottom: 16,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginBottom: 6,
+  },
+  value: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+  },
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+  },
+  cycleSelector: {
+    gap: 8,
+  },
+  cycleButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  cycleButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  editButtons: {
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+});

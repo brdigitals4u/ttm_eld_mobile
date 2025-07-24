@@ -1,0 +1,650 @@
+import { router } from 'expo-router';
+import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Alert, FlatList, Modal, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Button from '@/components/Button';
+import Card from '@/components/Card';
+import LogEntry from '@/components/LogEntry';
+import { useAuth } from '@/context/auth-context';
+import { useStatus } from '@/context/status-context';
+import { useTheme } from '@/context/theme-context';
+import { StatusUpdate } from '@/types/status';
+
+export default function LogsScreen() {
+  const { colors, isDark } = useTheme();
+  const { statusHistory, certification, certifyLogs, canUpdateStatus, uncertifyLogs } = useStatus();
+  const { user, vehicleInfo } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showCertificationModal, setShowCertificationModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showEldMaterialsModal, setShowEldMaterialsModal] = useState(false);
+  const [signature, setSignature] = useState('');
+  const [transferEmail, setTransferEmail] = useState('');
+
+  const handleTransferLogs = () => {
+    setShowTransferModal(true);
+  };
+
+  const handleEldMaterials = () => {
+    setShowEldMaterialsModal(true);
+  };
+
+  const handleTransferOption = async (option: 'wireless' | 'email-dot' | 'email-self') => {
+    setShowTransferModal(false);
+    
+    if (option === 'wireless') {
+      Alert.prompt(
+        'Wireless Transfer',
+        'Enter email address for wireless web services transfer:',
+        async (email) => {
+          if (email) {
+            await shareLogsViaEmail(email, 'Wireless Web Services Transfer');
+          }
+        },
+        'plain-text',
+        transferEmail
+      );
+    } else if (option === 'email-dot') {
+      Alert.prompt(
+        'Email to DOT',
+        'Enter DOT email address:',
+        async (email) => {
+          if (email) {
+            await shareLogsViaEmail(email, 'DOT Transfer');
+          }
+        },
+        'plain-text',
+        transferEmail
+      );
+    } else if (option === 'email-self') {
+      await shareLogsViaEmail(user?.email || '', 'Self Transfer');
+    }
+  };
+
+  const shareLogsViaEmail = async (email: string, transferType: string) => {
+    try {
+      const formattedDate = selectedDate.toLocaleDateString();
+      const driverName = user?.name || 'Driver';
+      const vehicleId = vehicleInfo?.vehicleNumber || 'Unknown';
+      
+      const filteredLogs = getFilteredLogs();
+      
+      const logsText = filteredLogs
+        .map(log => {
+          const date = new Date(log.timestamp).toLocaleString();
+          return `${date} - ${log.status.toUpperCase()}: ${log.reason}`;
+        })
+        .join('\n');
+      
+      const certificationText = certification.isCertified 
+        ? `\n\nCERTIFIED by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}\nSignature: ${certification.certificationSignature}`
+        : '\n\nNOT CERTIFIED';
+      
+      const shareText = `${transferType} - Driver Logs\nDate: ${formattedDate}\nDriver: ${driverName}\nVehicle: ${vehicleId}\nEmail: ${email}\n\n${logsText}${certificationText}`;
+      
+      const result = await Share.share({
+        message: shareText,
+        title: `${transferType} - Driver Logs`,
+      });
+      
+      if (result.action === Share.sharedAction) {
+        Alert.alert('Success', `Logs transferred successfully via ${transferType}`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to transfer logs');
+      console.error('Transfer error:', error);
+    }
+  };
+
+  const handleInspectorMode = () => {
+    router.push('/inspector-mode');
+  };
+
+  const handleCertifyLogs = () => {
+    if (certification.isCertified) {
+      Alert.alert(
+        'Logs Already Certified',
+        `Logs were certified by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}`,
+        [
+          { text: 'OK' },
+          { text: 'Uncertify', onPress: uncertifyLogs, style: 'destructive' }
+        ]
+      );
+      return;
+    }
+    setShowCertificationModal(true);
+  };
+
+  const handleSubmitCertification = async () => {
+    if (!signature.trim()) {
+      Alert.alert('Error', 'Please enter your signature');
+      return;
+    }
+
+    await certifyLogs(signature.trim());
+    setShowCertificationModal(false);
+    setSignature('');
+  };
+
+  const getFilteredLogs = (): StatusUpdate[] => {
+    // Filter logs for the selected date
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    return statusHistory
+      .filter(log => {
+        const logDate = new Date(log.timestamp);
+        return logDate >= startOfDay && logDate <= endOfDay;
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+  };
+
+  const handlePreviousDay = () => {
+    const prevDay = new Date(selectedDate);
+    prevDay.setDate(prevDay.getDate() - 1);
+    setSelectedDate(prevDay);
+  };
+
+  const handleNextDay = () => {
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    // Don't allow selecting future dates
+    if (nextDay <= new Date()) {
+      setSelectedDate(nextDay);
+    }
+  };
+
+  const handleSelectToday = () => {
+    setSelectedDate(new Date());
+  };
+
+  const filteredLogs = getFilteredLogs();
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Hours of Service Logs
+        </Text>
+        
+        {certification.isCertified && (
+          <View style={[styles.certificationBadge, { backgroundColor: colors.success }]}>
+            <Lock size={16} color="#fff" />
+            <Text style={styles.certificationBadgeText}>CERTIFIED</Text>
+          </View>
+        )}
+        
+        <View style={styles.dateSelector}>
+          <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
+            <Text style={[styles.dateButtonText, { color: colors.primary }]}>
+              ◀
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={handleSelectToday}
+            style={[
+              styles.dateDisplay,
+              { backgroundColor: isDark ? colors.card : '#F3F4F6' }
+            ]}
+          >
+            <Calendar size={16} color={colors.primary} style={styles.calendarIcon} />
+            <Text style={[styles.dateText, { color: colors.text }]}>
+              {selectedDate.toLocaleDateString(undefined, { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+              })}
+              {isToday ? ' (Today)' : ''}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={handleNextDay} 
+            style={styles.dateButton}
+            disabled={isToday}
+          >
+            <Text 
+              style={[
+                styles.dateButtonText, 
+                { 
+                  color: isToday ? colors.inactive : colors.primary 
+                }
+              ]}
+            >
+              ▶
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.actionsContainer}>
+        <View style={styles.actionButton}>
+          <Button
+            title="Transfer Logs"
+            onPress={handleTransferLogs}
+            variant="outline"
+            icon={<Share2 size={18} color={colors.primary} />}
+            fullWidth
+          />
+        </View>
+        <View style={styles.actionButton}>
+          <Button
+            title="ELD Materials"
+            onPress={handleEldMaterials}
+            variant="outline"
+            icon={<FileText size={18} color={colors.primary} />}
+            fullWidth
+          />
+        </View>
+        <View style={styles.actionButton}>
+          <Button
+            title="Inspector Mode"
+            onPress={handleInspectorMode}
+            icon={<Download size={18} color={isDark ? colors.text : '#fff'} />}
+            fullWidth
+          />
+        </View>
+      </View>
+
+      <View style={styles.certificationContainer}>
+        <Button
+          title={certification.isCertified ? "View Certification" : "Certify Logs"}
+          onPress={handleCertifyLogs}
+          variant={certification.isCertified ? "secondary" : "primary"}
+          icon={<Lock size={18} color="#fff" />}
+          style={{ marginBottom: 16 }}
+        />
+      </View>
+
+      {showCertificationModal && (
+        <Card style={styles.certificationModal}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>
+            Certify Your Logs
+          </Text>
+          <Text style={[styles.modalDescription, { color: colors.inactive }]}>
+            By certifying these logs, you confirm their accuracy. Once certified, no changes can be made.
+          </Text>
+          
+          <TextInput
+            style={[
+              styles.signatureInput,
+              {
+                backgroundColor: isDark ? colors.card : '#F3F4F6',
+                color: colors.text,
+                borderColor: isDark ? 'transparent' : '#E5E7EB',
+              },
+            ]}
+            placeholder="Enter your digital signature"
+            placeholderTextColor={colors.inactive}
+            value={signature}
+            onChangeText={setSignature}
+          />
+          
+          <View style={styles.modalButtons}>
+            <View style={styles.modalButton}>
+              <Button
+                title="Cancel"
+                onPress={() => {
+                  setShowCertificationModal(false);
+                  setSignature('');
+                }}
+                variant="outline"
+                fullWidth
+              />
+            </View>
+            <View style={styles.modalButton}>
+              <Button
+                title="Certify"
+                onPress={handleSubmitCertification}
+                fullWidth
+              />
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {/* Transfer Logs Modal */}
+      <Modal
+        visible={showTransferModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTransferModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Transfer Logs
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.inactive }]}>
+              Select transfer method as per FMCSA standard:
+            </Text>
+            
+            <View style={styles.transferOptions}>
+              <TouchableOpacity
+                style={[styles.transferOption, styles.preferredOption, { backgroundColor: colors.primary }]}
+                onPress={() => handleTransferOption('wireless')}
+              >
+                <Wifi size={24} color="#fff" />
+                <View style={styles.transferOptionText}>
+                  <Text style={[styles.transferOptionTitle, { color: '#fff' }]}>
+                    Wireless Web Services
+                  </Text>
+                  <Text style={[styles.transferOptionSubtitle, { color: '#fff' }]}>
+                    Preferred method
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.transferOption, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => handleTransferOption('email-dot')}
+              >
+                <Mail size={24} color={colors.text} />
+                <View style={styles.transferOptionText}>
+                  <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
+                    Email to DOT
+                  </Text>
+                  <Text style={[styles.transferOptionSubtitle, { color: colors.inactive }]}>
+                    Send to DOT inspector
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.transferOption, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => handleTransferOption('email-self')}
+              >
+                <Mail size={24} color={colors.text} />
+                <View style={styles.transferOptionText}>
+                  <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
+                    Email to Myself
+                  </Text>
+                  <Text style={[styles.transferOptionSubtitle, { color: colors.inactive }]}>
+                    Send to your email
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+            
+            <Button
+              title="Cancel"
+              onPress={() => setShowTransferModal(false)}
+              variant="outline"
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ELD Materials Modal */}
+      <Modal
+        visible={showEldMaterialsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEldMaterialsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              ELD in Cab Materials
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.inactive }]}>
+              Required documentation and instructions:
+            </Text>
+            
+            <View style={styles.eldMaterials}>
+              <TouchableOpacity
+                style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
+                onPress={() => {
+                  Alert.alert('Driver Manual', 'This would open the driver manual PDF or documentation.');
+                }}
+              >
+                <FileText size={24} color={colors.primary} />
+                <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                  Driver Manual
+                </Text>
+                <Text style={[styles.eldMaterialSubtitle, { color: colors.inactive }]}>
+                  Complete ELD operation guide
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
+                onPress={() => {
+                  Alert.alert('Transfer Instructions', 'This would open the transfer page instruction sheet.');
+                }}
+              >
+                <Share2 size={24} color={colors.primary} />
+                <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                  Transfer Page Instructions
+                </Text>
+                <Text style={[styles.eldMaterialSubtitle, { color: colors.inactive }]}>
+                  Step-by-step transfer guide
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Button
+              title="Close"
+              onPress={() => setShowEldMaterialsModal(false)}
+              variant="outline"
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {filteredLogs.length === 0 ? (
+        <Card style={styles.emptyContainer}>
+          <FileText size={48} color={colors.inactive} />
+          <Text style={[styles.emptyText, { color: colors.text }]}>
+            No logs recorded for this date
+          </Text>
+          <Text style={[styles.emptySubtext, { color: colors.inactive }]}>
+            Status changes will appear here
+          </Text>
+        </Card>
+      ) : (
+        <FlatList
+          data={filteredLogs}
+          renderItem={({ item }) => <LogEntry log={item} />}
+          keyExtractor={(item) => item.timestamp.toString()}
+          style={styles.logsList}
+          contentContainerStyle={styles.logsListContent}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    padding: 20,
+    paddingBottom: 0,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    marginBottom: 16,
+  },
+  certificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  certificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginLeft: 4,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  dateButton: {
+    padding: 8,
+  },
+  dateButtonText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+  },
+  dateDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginHorizontal: 8,
+  },
+  calendarIcon: {
+    marginRight: 8,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  certificationContainer: {
+    paddingHorizontal: 20,
+  },
+  certificationModal: {
+    margin: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  signatureInput: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  logsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  logsListContent: {
+    paddingBottom: 20,
+  },
+  emptyContainer: {
+    margin: 20,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 24,
+    borderRadius: 12,
+    maxHeight: '80%',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  transferOptions: {
+    marginBottom: 20,
+  },
+  transferOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  preferredOption: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  transferOptionText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  transferOptionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  transferOptionSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  eldMaterials: {
+    marginBottom: 20,
+  },
+  eldMaterialItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  eldMaterialTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginLeft: 12,
+    flex: 1,
+  },
+  eldMaterialSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+    marginLeft: 12,
+    flex: 1,
+  },
+});
