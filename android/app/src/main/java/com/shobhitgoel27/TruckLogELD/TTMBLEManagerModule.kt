@@ -21,6 +21,14 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
 
     private var bleSDK: BluetoothLESDK? = null
     private val TAG = "TTMBLEManagerModule"
+    
+    init {
+        Log.d(TAG, "TTMBLEManagerModule initialized")
+    }
+
+    override fun canOverrideExistingModule(): Boolean {
+        return true
+    }
 
     companion object {
         const val ON_DEVICE_SCANNED = "onDeviceScanned"
@@ -44,10 +52,14 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
         const val ON_DRIVER_AUTH_INFO = "onDriverAuthInfo"
     }
 
-    override fun getName() = "TTMBLEManager"
+    override fun getName(): String {
+        Log.d(TAG, "getName() called, returning: TTMBLEManager")
+        return "TTMBLEManager"
+    }
 
     override fun getConstants(): Map<String, Any> {
-        return mapOf(
+        Log.d(TAG, "getConstants() called")
+        val constants = mapOf(
             "ON_DEVICE_SCANNED" to ON_DEVICE_SCANNED,
             "ON_SCAN_STOP" to ON_SCAN_STOP,
             "ON_SCAN_FINISH" to ON_SCAN_FINISH,
@@ -66,6 +78,8 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
             "ON_CUSTOM_COMMAND_REPLY" to ON_CUSTOM_COMMAND_REPLY,
             "ON_DRIVER_AUTH_INFO" to ON_DRIVER_AUTH_INFO
         )
+        Log.d(TAG, "getConstants() returning: $constants")
+        return constants
     }
 
     private fun sendEvent(eventName: String, data: WritableMap?) {
@@ -154,6 +168,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
 
     @ReactMethod
     fun initSDK(promise: Promise) {
+        Log.d(TAG, "initSDK() called from JavaScript")
         try {
             val configBuilder = BluetoothConfig.Builder()
             configBuilder.setProtocol(ObdProtocol())

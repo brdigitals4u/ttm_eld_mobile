@@ -60,9 +60,19 @@ export interface NotifyData {
 // Get the native module
 const { TTMBLEManager } = NativeModules;
 
-if (!TTMBLEManager) {
-  throw new Error('TTMBLEManager native module is not available');
+// Debug: Log native module availability in development
+if (__DEV__) {
+  console.log('TTMBLEManager native module loaded:', !!TTMBLEManager);
 }
+
+if (!TTMBLEManager) {
+  console.error('TTMBLEManager native module is not available');
+  console.error('Available modules:', Object.keys(NativeModules));
+  throw new Error('TTMBLEManager native module is not available, js engine: hermes');
+}
+
+// In React Native's new architecture, methods are not enumerable but they work!
+console.log('TTMBLEManager is ready for use!');
 
 // Create event emitter
 const eventEmitter = new NativeEventEmitter(TTMBLEManager);
@@ -193,6 +203,33 @@ class TTMBLEManagerWrapper {
 
   onNotifyReceived(callback: (data: NotifyData) => void) {
     return this.addListener(this.constants.ON_NOTIFY_RECEIVED, callback);
+  }
+
+  // Convenience methods that match the usage in the React component
+  addScanListener(callback: (device: BLEDevice) => void) {
+    return this.onDeviceScanned(callback);
+  }
+
+  removeScanListener(callback: (device: BLEDevice) => void) {
+    // Note: React Native EventEmitter doesn't have a direct way to remove specific callbacks
+    // You would need to store the subscription and call remove() on it
+    console.warn('removeScanListener: Store the subscription returned by addScanListener and call remove() on it');
+  }
+
+  addConnectFailureListener(callback: (failure: ConnectionFailure) => void) {
+    return this.onConnectFailure(callback);
+  }
+
+  removeConnectFailureListener(callback: (failure: ConnectionFailure) => void) {
+    console.warn('removeConnectFailureListener: Store the subscription returned by addConnectFailureListener and call remove() on it');
+  }
+
+  addDisconnectListener(callback: () => void) {
+    return this.onDisconnected(callback);
+  }
+
+  removeDisconnectListener(callback: () => void) {
+    console.warn('removeDisconnectListener: Store the subscription returned by addDisconnectListener and call remove() on it');
   }
 }
 

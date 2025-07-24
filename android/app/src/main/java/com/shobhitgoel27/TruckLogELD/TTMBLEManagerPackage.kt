@@ -1,5 +1,6 @@
 package com.shobhitgoel27.TruckLogELD
 
+import android.util.Log
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
@@ -12,8 +13,11 @@ class TTMBLEManagerPackage : ReactPackage {
     }
 
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+        Log.d("TTMBLEManagerPackage", "createNativeModules called")
         val modules = ArrayList<NativeModule>()
-        modules.add(TTMBLEManagerModule(reactContext))
+        val ttmModule = TTMBLEManagerModule(reactContext)
+        modules.add(ttmModule)
+        Log.d("TTMBLEManagerPackage", "TTMBLEManagerModule created and added, module name: ${ttmModule.name}")
         return modules
     }
 }

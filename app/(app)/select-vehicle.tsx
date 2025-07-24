@@ -16,19 +16,14 @@ import {
   Modal,
   KeyboardAvoidingView,
 } from "react-native";
-import TTMBLEManager from "@/src/utils/TTMBLEManager"; // Direct TTM integration
+import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "@/src/utils/TTMBLEManager"; // Direct TTM integration
 import { router } from "expo-router";
 import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions'; // Recommended package for permissions
 
 const { width, height } = Dimensions.get('window');
 
-// Define a type for devices returned by TTM SDK (simplified based on doc)
-interface TTMDevice {
-  id: string; // MAC address
-  address: string; // MAC address
-  name?: string; // Device name
-  signal?: number; // Signal strength (RSSI)
-}
+// Use the BLEDevice type from TTMBLEManager
+type TTMDevice = BLEDevice;
 
 export default function SelectVehicleScreen() {
   const [scannedDevices, setScannedDevices] = useState<TTMDevice[]>([]);
@@ -83,8 +78,22 @@ export default function SelectVehicleScreen() {
   }, []);
 
   useEffect(() => {
-    // Set up listeners for TTM SDK events via your BluetoothService
-    const scanListener = (device: TTMDevice) => {
+    // Initialize TTM SDK when component mounts
+    const initializeSDK = async () => {
+      try {
+        await TTMBLEManager.initSDK();
+        console.log('TTM SDK initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize TTM SDK:', error);
+        Alert.alert('SDK Error', 'Failed to initialize Bluetooth SDK. Some features may not work.');
+      }
+    };
+
+    initializeSDK();
+
+    // Set up listeners for TTM SDK events
+    const scanSubscription = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
+      console.log('Device found:', device);
       setScannedDevices((prevDevices) => {
         // Avoid duplicates in the list
         if (prevDevices.find((p) => p.id === device.id)) {
@@ -99,7 +108,8 @@ export default function SelectVehicleScreen() {
 
         // Animate the new device in
         setTimeout(() => {
-          Animated.spring(deviceAnimations[device.id] || new Animated.Value(0), {
+          const anim = deviceAnimations[device.id] || new Animated.Value(0);
+          Animated.spring(anim, {
             toValue: 1,
             useNativeDriver: true,
             tension: 100,
@@ -109,34 +119,47 @@ export default function SelectVehicleScreen() {
 
         return [...prevDevices, device];
       });
-    };
+    });
 
-    const connectFailureListener = (error) => {
-      console.error("Connection failed listener:", error);
+    const connectFailureSubscription = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
+      console.error("Connection failed:", error);
       Alert.alert("Connection Failed", error.message || "Could not connect to the device. Please try again.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
-    };
+    });
 
-    const disconnectListener = () => {
-      // Handle passive disconnections
+    const disconnectSubscription = TTMBLEManager.onDisconnected(() => {
+      console.log('Device disconnected');
       Alert.alert("Disconnected", "The ELD device has disconnected.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
-      // Potentially restart scan or prompt user for re-connection
-    };
+      setIsConnected(false);
+    });
 
-    TTMBLEManager.addScanListener(scanListener);
-    TTMBLEManager.addConnectFailureListener(connectFailureListener);
-    TTMBLEManager.addDisconnectListener(disconnectListener);
+    const connectedSubscription = TTMBLEManager.onConnected(() => {
+      console.log('Device connected successfully');
+      setIsConnected(true);
+    });
+
+    const authSubscription = TTMBLEManager.onAuthenticationPassed(() => {
+      console.log('Device authentication passed');
+    });
+
+    const notifySubscription = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
+      console.log('Received ELD data:', data);
+      setReceivedData(prev => [...prev, data]);
+    });
 
     // Cleanup listeners when component unmounts
     return () => {
-      TTMBLEManager.removeScanListener(scanListener);
-      TTMBLEManager.removeConnectFailureListener(connectFailureListener);
-      TTMBLEManager.removeDisconnectListener(disconnectListener);
+      scanSubscription.remove();
+      connectFailureSubscription.remove();
+      disconnectSubscription.remove();
+      connectedSubscription.remove();
+      authSubscription.remove();
+      notifySubscription.remove();
     };
-  }, [deviceAnimations]);
+  }, []);
 
   // Start scanning animation
   const startScanAnimation = () => {
@@ -211,7 +234,13 @@ export default function SelectVehicleScreen() {
       // If connection and authentication (including passcode) are successful:
       Alert.alert("Success", `Connected to ${selectedDeviceForPasscode.name || selectedDeviceForPasscode.id}`);
       // Start ELD data collection after successful connection/authentication
-      await TTMBLEManager.startELDDataCollection();
+      try {
+        await TTMBLEManager.startReportEldData();
+        console.log('Started ELD data reporting');
+      } catch (dataError) {
+        console.warn('Could not start ELD data reporting:', dataError);
+        // Continue anyway as this method might not be fully implemented yet
+      }
       router.replace('/(app)/(tabs)'); // Navigate to main app screen after successful connection and data start
     } catch (error: any) {
       console.error("Connection attempt failed:", error);
