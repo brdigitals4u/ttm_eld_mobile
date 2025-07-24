@@ -1,6 +1,6 @@
 // services/BluetoothService.ts
 import { NativeModules, NativeEventEmitter } from "react-native";
-import { TTMBLEManager, TTMBLEManagerEmitter, TTM_EVENTS } from "./TTMBLEManager";
+import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "../src/utils/TTMBLEManager";
 
 // Define a type for devices returned by TTM SDK (simplified based on doc)
 interface TTMDevice {
@@ -12,6 +12,7 @@ interface TTMDevice {
 
 class BluetoothService {
   private peripherals = new Map<string, TTMDevice>();
+  private listeners: Array<{ remove: () => void }> = [];
 
   constructor() {
     // Initialize your TTM SDK through the bridge
@@ -24,13 +25,12 @@ class BluetoothService {
   /**
    * Starts scanning for nearby Bluetooth devices using the TTM SDK.
    * @param scanSeconds The duration to scan in seconds.
-   * @param filters An optional array of UUID strings to filter by.
    */
-  async scan(scanSeconds: number = 10, filters: string[] = []): Promise<void> {
+  async scan(scanSeconds: number = 10): Promise<void> {
     console.log("Starting TTM BLE scan...");
     try {
-      // TTM SDK's startScan takes duration in milliseconds and optional filters (UUID strings)
-      await TTMBLEManager.startScan(scanSeconds * 1000, filters);
+      // TTM SDK's startScan takes duration in milliseconds
+      await TTMBLEManager.startScan(scanSeconds * 1000);
       console.log("TTM Scan initiated.");
     } catch (error) {
       console.error("TTM Scan error:", error);
@@ -41,11 +41,14 @@ class BluetoothService {
   /**
    * Stops the ongoing Bluetooth scan.
    */
-  stopScan(): void {
-    // TTM SDK's stopScan method
-    TTMBLEManager.stopScan()
-      .then(() => console.log("TTM Scan stopped."))
-      .catch((e: Error) => console.error("Failed to stop TTM scan:", e));
+  async stopScan(): Promise<void> {
+    try {
+      await TTMBLEManager.stopScan();
+      console.log("TTM Scan stopped.");
+    } catch (error) {
+      console.error("Failed to stop TTM scan:", error);
+      throw error;
+    }
   }
 
   /**
@@ -54,78 +57,60 @@ class BluetoothService {
    * @param imei The IMEI of the ELD device.
    * @param passcode The 8-digit passcode for ELD verification.
    */
-  async connect(deviceId: string, imei: string, passcode: string): Promise<void> {
+  async connect(deviceId: string, imei: string, passcode?: string): Promise<void> {
     console.log(`Attempting to connect to ${deviceId} with IMEI ${imei}`);
     try {
-      // needPair is false as TTM SDK handles pairing internally after connection
+      // For now, just do basic connection - the password methods are not implemented yet
       await TTMBLEManager.connect(deviceId, imei, false);
-      console.log(`Successfully initiated connection to ${deviceId}. Waiting for authentication...`);
-
-      // We'll handle the authentication/password flow via listeners
+      console.log(`Successfully initiated connection to ${deviceId}`);
+      
+      // Return a promise that resolves when connected or rejects on failure
       return new Promise<void>((resolve, reject) => {
-        const authPassedListener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_AUTHENTICATION_PASSED, async () => {
-          console.log("Authentication passed, checking password status...");
-          authPassedListener.remove(); // Remove listener after use
-
-          try {
-            // Check if password feature is enabled on the device
-            await TTMBLEManager.checkPasswordEnable();
-
-            const passwordStateListener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_PASSWORD_STATE_CHECKED, async (data) => {
-              passwordStateListener.remove(); // Remove listener
-
-              if (data.isSet) { // Password enabled on ELD
-                console.log("Password enabled on ELD, verifying...");
-                // Validate with provided passcode
-                await TTMBLEManager.validatePassword(passcode);
-
-                const passwordVerifyListener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_PASSWORD_VERIFY_RESULT, (verifyData) => {
-                  passwordVerifyListener.remove(); // Remove listener
-
-                  if (verifyData.success) { // Password verification successful
-                    console.log("Password verification successful.");
-                    resolve(); // Connection and authentication complete
-                  } else { // Password verification failed
-                    console.error("Password verification failed.");
-                    reject(new Error("Incorrect password."));
-                    // Disconnect on failure
-                    TTMBLEManager.disconnect();
-                  }
-                });
-              } else { // Password disabled on ELD
-                console.log("Password disabled on ELD. Proceeding with data collection.");
-                resolve(); // Connection and authentication complete
-              }
-            });
-          } catch (e) {
-            console.error("Error during password check/validation:", e);
-            reject(e);
+        let isResolved = false;
+        
+        const connectedListener = TTMBLEManager.onConnected(() => {
+          if (!isResolved) {
+            isResolved = true;
+            connectedListener.remove();
+            connectFailureListener.remove();
+            disconnectedListener.remove();
+            console.log("Connection successful");
+            resolve();
           }
         });
 
-        const connectFailureListener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_CONNECT_FAILURE, (error) => {
-          console.error("TTM Connect Failure:", error);
-          authPassedListener.remove(); // Ensure listeners are cleaned
-          connectFailureListener.remove();
-          reject(new Error(`Connection failed: ${error.message}`));
-        });
-
-        const disconnectListener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_DISCONNECTED, () => {
-            console.warn("TTM Device disconnected during connection/auth flow.");
-            authPassedListener.remove();
+        const connectFailureListener = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
+          if (!isResolved) {
+            isResolved = true;
+            connectedListener.remove();
             connectFailureListener.remove();
-            disconnectListener.remove();
-            reject(new Error("Device disconnected during connection or authentication."));
+            disconnectedListener.remove();
+            console.error("Connection failed:", error);
+            reject(new Error(`Connection failed: ${error.message}`));
+          }
         });
 
+        const disconnectedListener = TTMBLEManager.onDisconnected(() => {
+          if (!isResolved) {
+            isResolved = true;
+            connectedListener.remove();
+            connectFailureListener.remove();
+            disconnectedListener.remove();
+            console.warn("Device disconnected during connection");
+            reject(new Error("Device disconnected during connection"));
+          }
+        });
 
-        // Add a timeout for the entire connection/authentication process
+        // Timeout after 30 seconds
         setTimeout(() => {
-          authPassedListener.remove();
-          connectFailureListener.remove();
-          disconnectListener.remove();
-          reject(new Error("Connection and authentication timed out."));
-        }, 30000); // 30 seconds timeout
+          if (!isResolved) {
+            isResolved = true;
+            connectedListener.remove();
+            connectFailureListener.remove();
+            disconnectedListener.remove();
+            reject(new Error("Connection timed out"));
+          }
+        }, 30000);
       });
 
     } catch (error) {
@@ -183,14 +168,23 @@ class BluetoothService {
    * @returns A function to remove the listener.
    */
   addScanListener(handler: (device: TTMDevice) => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_DEVICE_SCANNED, (device: TTMDevice) => {
+    const listener = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
+      // Convert BLEDevice to TTMDevice format
+      const ttmDevice: TTMDevice = {
+        id: device.address,
+        address: device.address,
+        name: device.name,
+        signal: device.signal
+      };
+      
       // Ensure the device object has expected properties
-      if (device.name || device.address) {
-        this.peripherals.set(device.id, device);
-        handler(device);
+      if (ttmDevice.name || ttmDevice.address) {
+        this.peripherals.set(ttmDevice.id, ttmDevice);
+        handler(ttmDevice);
       }
     });
-    return () => listener.remove(); // Return a function to remove this specific listener
+    this.listeners.push(listener);
+    return () => listener.remove();
   }
 
   /**
@@ -199,7 +193,8 @@ class BluetoothService {
    * @returns A function to remove the listener.
    */
   addConnectListener(handler: () => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_CONNECTED, handler);
+    const listener = TTMBLEManager.onConnected(handler);
+    this.listeners.push(listener);
     return () => listener.remove();
   }
 
@@ -209,7 +204,8 @@ class BluetoothService {
    * @returns A function to remove the listener.
    */
   addDisconnectListener(handler: () => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_DISCONNECTED, handler);
+    const listener = TTMBLEManager.onDisconnected(handler);
+    this.listeners.push(listener);
     return () => listener.remove();
   }
 
@@ -219,7 +215,8 @@ class BluetoothService {
    * @returns A function to remove the listener.
    */
   addConnectFailureListener(handler: (error: { status: number, message: string }) => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_CONNECT_FAILURE, handler);
+    const listener = TTMBLEManager.onConnectFailure(handler);
+    this.listeners.push(listener);
     return () => listener.remove();
   }
 
@@ -229,7 +226,8 @@ class BluetoothService {
    * @returns A function to remove the listener.
    */
   addAuthenticationPassedListener(handler: () => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_AUTHENTICATION_PASSED, handler);
+    const listener = TTMBLEManager.onAuthenticationPassed(handler);
+    this.listeners.push(listener);
     return () => listener.remove();
   }
 
@@ -239,37 +237,8 @@ class BluetoothService {
    * @returns A function to remove the listener.
    */
   addNotifyReceivedListener(handler: (data: any) => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_NOTIFY_RECEIVED, handler);
-    return () => listener.remove();
-  }
-
-  /**
-   * Adds a listener for the result of checking password enable status.
-   * @param handler Callback function with `isSet` boolean.
-   * @returns A function to remove the listener.
-   */
-  addPasswordStateCheckedListener(handler: (data: { isSet: boolean }) => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_PASSWORD_STATE_CHECKED, handler);
-    return () => listener.remove();
-  }
-
-  /**
-   * Adds a listener for the result of password verification.
-   * @param handler Callback function with `success` boolean.
-   * @returns A function to remove the listener.
-   */
-  addPasswordVerifyResultListener(handler: (data: { success: boolean }) => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_PASSWORD_VERIFY_RESULT, handler);
-    return () => listener.remove();
-  }
-
-  /**
-   * Adds a listener for the result of setting/disabling password.
-   * @param handler Callback function with `isSuccess` boolean.
-   * @returns A function to remove the listener.
-   */
-  addPasswordSetResultListener(handler: (data: { isSuccess: boolean }) => void): () => void {
-    const listener = TTMBLEManagerEmitter.addListener(TTM_EVENTS.ON_PASSWORD_SET_RESULT, handler);
+    const listener = TTMBLEManager.onNotifyReceived(handler);
+    this.listeners.push(listener);
     return () => listener.remove();
   }
 
@@ -277,17 +246,14 @@ class BluetoothService {
    * Removes all registered listeners from the TTM Bluetooth SDK.
    */
   removeListeners(): void {
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_DEVICE_SCANNED);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_SCAN_STOP);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_SCAN_FINISH);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_CONNECTED);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_DISCONNECTED);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_CONNECT_FAILURE);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_AUTHENTICATION_PASSED);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_NOTIFY_RECEIVED);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_PASSWORD_STATE_CHECKED);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_PASSWORD_VERIFY_RESULT);
-    TTMBLEManagerEmitter.removeAllListeners(TTM_EVENTS.ON_PASSWORD_SET_RESULT);
+    this.listeners.forEach(listener => {
+      try {
+        listener.remove();
+      } catch (error) {
+        console.warn('Error removing listener:', error);
+      }
+    });
+    this.listeners = [];
     console.log("All TTM BLE listeners removed.");
   }
 }

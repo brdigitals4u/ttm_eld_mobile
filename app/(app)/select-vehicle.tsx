@@ -16,7 +16,7 @@ import {
   Modal,
   KeyboardAvoidingView,
 } from "react-native";
-import { bluetoothService } from "@/services/BluetoothService"; // Your updated service
+import TTMBLEManager from "@/src/utils/TTMBLEManager"; // Direct TTM integration
 import { router } from "expo-router";
 import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions'; // Recommended package for permissions
 
@@ -39,7 +39,11 @@ export default function SelectVehicleScreen() {
   const [deviceAnimations, setDeviceAnimations] = useState<{[key: string]: Animated.Value}>({});
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcode, setPasscode] = useState('');
+  const [imei, setImei] = useState('');
   const [selectedDeviceForPasscode, setSelectedDeviceForPasscode] = useState<TTMDevice | null>(null);
+  const [receivedData, setReceivedData] = useState<NotifyData[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Request Bluetooth permissions using react-native-permissions
   const requestAppPermissions = useCallback(async () => {
@@ -62,10 +66,9 @@ export default function SelectVehicleScreen() {
       // iOS permissions are primarily handled by Info.plist, but `react-native-permissions`
       // can help check and request status.
       permissionsToRequest = [
-        PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL, // Required for BLE operations
         PERMISSIONS.IOS.LOCATION_WHEN_IN_USE, // Often needed for BLE scanning on iOS
-        // PERMISSIONS.IOS.LOCATION_ALWAYS, // Use if background scanning is required
-      ];
+        PERMISSIONS.IOS.LOCATION_ALWAYS, // Use if background scanning is required
+      ] as any;
     }
 
     const statuses = await requestMultiple(permissionsToRequest);
@@ -81,7 +84,7 @@ export default function SelectVehicleScreen() {
 
   useEffect(() => {
     // Set up listeners for TTM SDK events via your BluetoothService
-    const removeScanListener = bluetoothService.addScanListener((device: TTMDevice) => {
+    const scanListener = (device: TTMDevice) => {
       setScannedDevices((prevDevices) => {
         // Avoid duplicates in the list
         if (prevDevices.find((p) => p.id === device.id)) {
@@ -106,30 +109,32 @@ export default function SelectVehicleScreen() {
 
         return [...prevDevices, device];
       });
-    });
+    };
 
-    const removeConnectFailureListener = bluetoothService.addConnectFailureListener((error) => {
+    const connectFailureListener = (error) => {
       console.error("Connection failed listener:", error);
       Alert.alert("Connection Failed", error.message || "Could not connect to the device. Please try again.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
-    });
+    };
 
-    const removeDisconnectListener = bluetoothService.addDisconnectListener(() => {
+    const disconnectListener = () => {
       // Handle passive disconnections
       Alert.alert("Disconnected", "The ELD device has disconnected.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
       // Potentially restart scan or prompt user for re-connection
-    });
+    };
+
+    TTMBLEManager.addScanListener(scanListener);
+    TTMBLEManager.addConnectFailureListener(connectFailureListener);
+    TTMBLEManager.addDisconnectListener(disconnectListener);
 
     // Cleanup listeners when component unmounts
     return () => {
-      removeScanListener();
-      removeConnectFailureListener();
-      removeDisconnectListener();
-      // Ensure all listeners from bluetoothService are removed on component unmount
-      bluetoothService.removeListeners();
+      TTMBLEManager.removeScanListener(scanListener);
+      TTMBLEManager.removeConnectFailureListener(connectFailureListener);
+      TTMBLEManager.removeDisconnectListener(disconnectListener);
     };
   }, [deviceAnimations]);
 
@@ -171,7 +176,7 @@ export default function SelectVehicleScreen() {
     startScanAnimation();
 
     // The scan duration is now handled by the TTM SDK's startScan method directly
-    bluetoothService.scan(10) // Scan for 10 seconds
+    TTMBLEManager.startScan(10) // Scan for 10 seconds
       .finally(() => {
         setIsScanning(false);
         stopScanAnimation();
@@ -189,23 +194,24 @@ export default function SelectVehicleScreen() {
       return;
     }
 
+    if (!imei || imei.length < 10) { // IMEI should be at least 10 digits
+      Alert.alert("Error", "Please enter a valid IMEI (at least 10 digits).");
+      return;
+    }
+
     setShowPasscodeModal(false); // Hide modal while connection attempt is in progress
     setIsConnecting(true);
     setConnectingDeviceId(selectedDeviceForPasscode.id);
 
     try {
-      await bluetoothService.stopScan(); // Stop scanning before connecting
-      // Connect using the TTM SDK bridge, including IMEI and passcode
-      // IMPORTANT: Replace "YOUR_ELD_IMEI_HERE" with the actual IMEI of your ELD device.
-      // This is crucial for the TTM SDK's authentication process.
-      const ELD_IMEI = "YOUR_ELD_IMEI_HERE";
-
-      await bluetoothService.connect(selectedDeviceForPasscode.id, ELD_IMEI, passcode);
+      await TTMBLEManager.stopScan(); // Stop scanning before connecting
+      // Connect using the TTM SDK bridge, including user-provided IMEI and passcode
+      await TTMBLEManager.connect(selectedDeviceForPasscode.id, imei, passcode);
 
       // If connection and authentication (including passcode) are successful:
       Alert.alert("Success", `Connected to ${selectedDeviceForPasscode.name || selectedDeviceForPasscode.id}`);
       // Start ELD data collection after successful connection/authentication
-      await bluetoothService.startELDDataCollection();
+      await TTMBLEManager.startELDDataCollection();
       router.replace('/(app)/(tabs)'); // Navigate to main app screen after successful connection and data start
     } catch (error: any) {
       console.error("Connection attempt failed:", error);
@@ -368,19 +374,33 @@ export default function SelectVehicleScreen() {
           style={styles.modalBackground}
         >
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Enter ELD Passcode</Text>
+            <Text style={styles.modalTitle}>Connect to ELD Device</Text>
             <Text style={styles.modalSubtitle}>
-              Please enter the 8-digit passcode displayed on your ELD device:
+              Please enter the device IMEI and 8-digit passcode:
             </Text>
+            
+            <Text style={styles.inputLabel}>IMEI (at least 10 digits)</Text>
             <TextInput
-              style={styles.passcodeTextInput}
+              style={styles.textInput}
+              placeholder="Device IMEI"
+              placeholderTextColor="#8B949E"
+              keyboardType="numeric"
+              maxLength={15}
+              value={imei}
+              onChangeText={setImei}
+              autoFocus
+            />
+            
+            <Text style={styles.inputLabel}>Passcode (8 digits)</Text>
+            <TextInput
+              style={styles.textInput}
               placeholder="••••••••"
               placeholderTextColor="#8B949E"
               keyboardType="numeric"
               maxLength={8}
               value={passcode}
               onChangeText={setPasscode}
-              autoFocus
+              secureTextEntry={true}
             />
             <View style={styles.modalButtonContainer}>
               <Pressable
@@ -614,5 +634,25 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  inputLabel: {
+    alignSelf: 'flex-start',
+    color: '#F0F6FC',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 10,
+  },
+  textInput: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#0D1117',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#30363D',
+    color: '#F0F6FC',
+    fontSize: 16,
+    paddingHorizontal: 15,
+    marginBottom: 10,
   },
 });
