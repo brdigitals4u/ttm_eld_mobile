@@ -1,6 +1,6 @@
 // app/(app)/select-vehicle.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,56 +8,127 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  PermissionsAndroid,
+  PermissionsAndroid, // For Android runtime permissions
   Platform,
   Animated,
   Dimensions,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
-import { Peripheral } from "react-native-ble-manager";
-import { bluetoothService } from "@/services/BluetoothService";
+import { bluetoothService } from "@/services/BluetoothService"; // Your updated service
 import { router } from "expo-router";
+import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions'; // Recommended package for permissions
 
 const { width, height } = Dimensions.get('window');
 
+// Define a type for devices returned by TTM SDK (simplified based on doc)
+interface TTMDevice {
+  id: string; // MAC address
+  address: string; // MAC address
+  name?: string; // Device name
+  signal?: number; // Signal strength (RSSI)
+}
+
 export default function SelectVehicleScreen() {
-  const [scannedDevices, setScannedDevices] = useState<Peripheral[]>([]);
+  const [scannedDevices, setScannedDevices] = useState<TTMDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null);
   const [scanAnimation] = useState(new Animated.Value(0));
   const [deviceAnimations, setDeviceAnimations] = useState<{[key: string]: Animated.Value}>({});
+  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+  const [passcode, setPasscode] = useState('');
+  const [selectedDeviceForPasscode, setSelectedDeviceForPasscode] = useState<TTMDevice | null>(null);
+
+  // Request Bluetooth permissions using react-native-permissions
+  const requestAppPermissions = useCallback(async () => {
+    let permissionsToRequest = [] as any;
+    if (Platform.OS === 'android') {
+      const apiLevel = parseInt(Platform.Version.toString(), 10);
+      if (apiLevel >= 31) { // Android 12+
+        permissionsToRequest = [
+          PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
+          PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION, // Still needed for some devices/scenarios
+          // PERMISSIONS.ANDROID.FOREGROUND_SERVICE, // Consider adding if app needs to run continuously in background
+        ];
+      } else { // Android < 12 (but >= 8.0 for location)
+        permissionsToRequest = [
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+        ];
+      }
+    } else if (Platform.OS === 'ios') {
+      // iOS permissions are primarily handled by Info.plist, but `react-native-permissions`
+      // can help check and request status.
+      permissionsToRequest = [
+        PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL, // Required for BLE operations
+        PERMISSIONS.IOS.LOCATION_WHEN_IN_USE, // Often needed for BLE scanning on iOS
+        // PERMISSIONS.IOS.LOCATION_ALWAYS, // Use if background scanning is required
+      ];
+    }
+
+    const statuses = await requestMultiple(permissionsToRequest);
+    let allGranted = true;
+    for (const permission of permissionsToRequest) {
+      if (statuses[permission] !== RESULTS.GRANTED) {
+        allGranted = false;
+        break;
+      }
+    }
+    return allGranted;
+  }, []);
 
   useEffect(() => {
-    const handleDiscoveredPeripheral = (peripheral: Peripheral) => {
+    // Set up listeners for TTM SDK events via your BluetoothService
+    const removeScanListener = bluetoothService.addScanListener((device: TTMDevice) => {
       setScannedDevices((prevDevices) => {
         // Avoid duplicates in the list
-        if (prevDevices.find((p) => p.id === peripheral.id)) {
+        if (prevDevices.find((p) => p.id === device.id)) {
           return prevDevices;
         }
-        
+
         // Add animation for new device
         setDeviceAnimations(prev => ({
           ...prev,
-          [peripheral.id]: new Animated.Value(0)
+          [device.id]: new Animated.Value(0)
         }));
-        
+
         // Animate the new device in
         setTimeout(() => {
-          Animated.spring(deviceAnimations[peripheral.id] || new Animated.Value(0), {
+          Animated.spring(deviceAnimations[device.id] || new Animated.Value(0), {
             toValue: 1,
             useNativeDriver: true,
             tension: 100,
             friction: 8,
           }).start();
         }, 100);
-        
-        return [...prevDevices, peripheral];
+
+        return [...prevDevices, device];
       });
-    };
+    });
 
-    bluetoothService.addScanListener(handleDiscoveredPeripheral);
+    const removeConnectFailureListener = bluetoothService.addConnectFailureListener((error) => {
+      console.error("Connection failed listener:", error);
+      Alert.alert("Connection Failed", error.message || "Could not connect to the device. Please try again.");
+      setIsConnecting(false);
+      setConnectingDeviceId(null);
+    });
 
+    const removeDisconnectListener = bluetoothService.addDisconnectListener(() => {
+      // Handle passive disconnections
+      Alert.alert("Disconnected", "The ELD device has disconnected.");
+      setIsConnecting(false);
+      setConnectingDeviceId(null);
+      // Potentially restart scan or prompt user for re-connection
+    });
+
+    // Cleanup listeners when component unmounts
     return () => {
+      removeScanListener();
+      removeConnectFailureListener();
+      removeDisconnectListener();
+      // Ensure all listeners from bluetoothService are removed on component unmount
       bluetoothService.removeListeners();
     };
   }, [deviceAnimations]);
@@ -87,69 +158,80 @@ export default function SelectVehicleScreen() {
   };
 
   const startScan = async () => {
-    // On Android, we need to request permissions at runtime
-    if (Platform.OS === "android") {
-      try {
-        const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        ]);
-
-        if (
-          granted["android.permission.BLUETOOTH_SCAN"] !== PermissionsAndroid.RESULTS.GRANTED ||
-          granted["android.permission.BLUETOOTH_CONNECT"] !== PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          Alert.alert("Permission Required", "Bluetooth permissions are required to scan for ELD devices.");
-          return;
-        }
-      } catch (err) {
-        console.warn(err);
-        return;
-      }
+    // Request app-level permissions first
+    const granted = await requestAppPermissions();
+    if (!granted) {
+      Alert.alert("Permission Required", "Bluetooth and Location permissions are required to scan for ELD devices.");
+      return;
     }
 
     setScannedDevices([]);
     setDeviceAnimations({});
     setIsScanning(true);
     startScanAnimation();
-    
-    bluetoothService.scan(10).finally(() => {
-      setIsScanning(false);
-      stopScanAnimation();
-    });
+
+    // The scan duration is now handled by the TTM SDK's startScan method directly
+    bluetoothService.scan(10) // Scan for 10 seconds
+      .finally(() => {
+        setIsScanning(false);
+        stopScanAnimation();
+      });
   };
 
-  const handleConnect = async (peripheral: Peripheral) => {
+  const handleConnectInitiation = (device: TTMDevice) => {
+    setSelectedDeviceForPasscode(device);
+    setShowPasscodeModal(true); // Always prompt for passcode first, as per ELD standard security practices
+  };
+
+  const handlePasscodeSubmit = async () => {
+    if (!selectedDeviceForPasscode || passcode.length !== 8) { // Assuming 8-digit passcode
+      Alert.alert("Error", "Please enter an 8-digit passcode.");
+      return;
+    }
+
+    setShowPasscodeModal(false); // Hide modal while connection attempt is in progress
     setIsConnecting(true);
-    setConnectingDeviceId(peripheral.id);
-    
+    setConnectingDeviceId(selectedDeviceForPasscode.id);
+
     try {
-      await bluetoothService.stopScan();
-      await bluetoothService.connect(peripheral.id);
-      Alert.alert("Success", `Connected to ${peripheral.name}`);
-      router.replace('/(app)/(tabs)');
-    } catch (error) {
-      Alert.alert("Connection Failed", "Could not connect to the device.");
+      await bluetoothService.stopScan(); // Stop scanning before connecting
+      // Connect using the TTM SDK bridge, including IMEI and passcode
+      // IMPORTANT: Replace "YOUR_ELD_IMEI_HERE" with the actual IMEI of your ELD device.
+      // This is crucial for the TTM SDK's authentication process.
+      const ELD_IMEI = "YOUR_ELD_IMEI_HERE";
+
+      await bluetoothService.connect(selectedDeviceForPasscode.id, ELD_IMEI, passcode);
+
+      // If connection and authentication (including passcode) are successful:
+      Alert.alert("Success", `Connected to ${selectedDeviceForPasscode.name || selectedDeviceForPasscode.id}`);
+      // Start ELD data collection after successful connection/authentication
+      await bluetoothService.startELDDataCollection();
+      router.replace('/(app)/(tabs)'); // Navigate to main app screen after successful connection and data start
+    } catch (error: any) {
+      console.error("Connection attempt failed:", error);
+      Alert.alert("Connection Failed", error.message || "Could not connect to the device. Ensure it's in pairing mode and the passcode is correct.");
     } finally {
       setIsConnecting(false);
       setConnectingDeviceId(null);
+      setPasscode(''); // Clear passcode field
+      setSelectedDeviceForPasscode(null);
     }
   };
 
-  // Generate random positions for devices
+  // Generate random positions for devices on the UI
   const getDevicePosition = (index: number) => {
     const angle = (index * 137.5) % 360; // Golden angle for better distribution
     const radius = Math.min(width, height) * 0.25 + (index % 3) * 40;
     const centerX = width / 2;
     const centerY = height / 2 - 50;
-    
+
     return {
       x: centerX + Math.cos(angle * Math.PI / 180) * radius - 40,
       y: centerY + Math.sin(angle * Math.PI / 180) * radius - 40,
     };
   };
 
-  const renderDeviceCircle = (device: Peripheral, index: number) => {
+  const renderDeviceCircle = (device: TTMDevice, index: number) => {
     const position = getDevicePosition(index);
     const deviceAnim = deviceAnimations[device.id] || new Animated.Value(0);
     const isConnectingThis = connectingDeviceId === device.id;
@@ -178,7 +260,7 @@ export default function SelectVehicleScreen() {
             styles.deviceButton,
             isConnectingThis && styles.connectingDevice,
           ]}
-          onPress={() => handleConnect(device)}
+          onPress={() => handleConnectInitiation(device)} // Trigger passcode modal
           disabled={isConnecting}
         >
           {isConnectingThis ? (
@@ -263,7 +345,61 @@ export default function SelectVehicleScreen() {
             Found {scannedDevices.length} device{scannedDevices.length > 1 ? 's' : ''}. Tap to connect.
           </Text>
         )}
+        {isConnecting && (
+          <Text style={styles.connectingText}>
+            Connecting to {connectingDeviceId ? `device ${connectingDeviceId.substring(connectingDeviceId.length - 4)}` : 'ELD'}...
+          </Text>
+        )}
       </View>
+
+      {/* Passcode Input Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPasscodeModal}
+        onRequestClose={() => {
+          setShowPasscodeModal(false);
+          setPasscode('');
+          setSelectedDeviceForPasscode(null);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackground}
+        >
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Enter ELD Passcode</Text>
+            <Text style={styles.modalSubtitle}>
+              Please enter the 8-digit passcode displayed on your ELD device:
+            </Text>
+            <TextInput
+              style={styles.passcodeTextInput}
+              placeholder="••••••••"
+              placeholderTextColor="#8B949E"
+              keyboardType="numeric"
+              maxLength={8}
+              value={passcode}
+              onChangeText={setPasscode}
+              autoFocus
+            />
+            <View style={styles.modalButtonContainer}>
+              <Pressable
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowPasscodeModal(false);
+                  setPasscode('');
+                  setSelectedDeviceForPasscode(null);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalButtonSubmit} onPress={handlePasscodeSubmit}>
+                <Text style={styles.modalButtonText}>Connect</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -406,5 +542,77 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  connectingText: {
+    color: '#FD7E14',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 10,
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContainer: {
+    width: '80%',
+    backgroundColor: '#161B22',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#30363D',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#F0F6FC',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#8B949E',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  passcodeTextInput: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#0D1117',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#30363D',
+    color: '#F0F6FC',
+    fontSize: 24,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#6A737D',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    width: '45%',
+    alignItems: 'center',
+  },
+  modalButtonSubmit: {
+    backgroundColor: '#2F81F7',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    width: '45%',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
