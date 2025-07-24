@@ -1,38 +1,28 @@
-package com.shobhitgoel27.TruckLogELD // IMPORTANT: Ensure this matches your actual package name
-
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.ReactContextBaseJavaModule
-import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.bridge.Promise
-import com.facebook.react.bridge.WritableMap
-import com.facebook.react.bridge.Arguments
-import com.facebook.react.modules.core.DeviceEventManagerModule
-import com.totaltransportmanagement.bluetoothle.BluetoothLESDK
-import com.totaltransportmanagement.bluetoothle.listener.OnBluetoothScanCallback
-import com.totaltransportmanagement.bluetoothle.listener.OnBluetoothGattCallback
-import com.totaltransportmanagement.bluetoothle.model.BleDevice
-import com.totaltransportmanagement.bluetoothle.config.BluetoothConfig
-import com.totaltransportmanagement.bluetoothle.protocol.ObdProtocol
-import com.totaltransportmanagement.bluetoothle.model.BtParseData
-import com.totaltransportmanagement.bluetoothle.model.ProtocolParseData
-import com.totaltransportmanagement.bluetoothle.listener.InstructionAnalysis
-import com.totaltransportmanagement.bluetoothle.model.BaseObdData.EldData // Specific import for EldData
+package com.shobhitgoel27.TruckLogELD
 
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
-import android.util.Log
+import android.util.Log // Added for logging
 
-import androidx.annotation.NonNull
-import androidx.annotation.Nullable
+import com.facebook.react.bridge.*
+import com.facebook.react.modules.core.DeviceEventManagerModule
 
-class TTMBLEManagerModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+// TTM SDK Imports based on the actual SDK structure
+import com.jimi.ble.BluetoothLESDK
+import com.jimi.ble.interfaces.OnBluetoothGattCallback
+import com.jimi.ble.interfaces.OnBluetoothScanCallback
+import com.jimi.ble.interfaces.ProtocolParseData
+import com.jimi.ble.entity.BleDevice
+import com.jimi.ble.entity.parse.BtParseData
+import com.jimi.ble.BluetoothConfig // Corrected import
+import com.jimi.ble.protocol.ObdProtocol // Corrected import
 
+class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+
+    private var bleSDK: BluetoothLESDK? = null
     private val TAG = "TTMBLEManagerModule"
-    private val reactContext: ReactApplicationContext = reactContext
-    private var bleSDK: BluetoothLESDK? = null // Nullable type, initialized later
 
-    // Event Names (must match TTM_EVENTS in JS and iOS)
-    companion object { // Use companion object for static-like members in Kotlin
+    companion object {
         const val ON_DEVICE_SCANNED = "onDeviceScanned"
         const val ON_SCAN_STOP = "onScanStop"
         const val ON_SCAN_FINISH = "onScanFinish"
@@ -41,323 +31,299 @@ class TTMBLEManagerModule(reactContext: ReactApplicationContext) : ReactContextB
         const val ON_CONNECT_FAILURE = "onConnectFailure"
         const val ON_AUTHENTICATION_PASSED = "onAuthenticationPassed"
         const val ON_NOTIFY_RECEIVED = "onNotifyReceived"
+
         const val ON_PASSWORD_STATE_CHECKED = "onPasswordStateChecked"
         const val ON_PASSWORD_VERIFY_RESULT = "onPasswordVerifyResult"
         const val ON_PASSWORD_SET_RESULT = "onPasswordSetResult"
+
+        const val ON_HISTORY_PROGRESS = "onHistoryProgress"
+        const val ON_HISTORY_DATA = "onHistoryData"
+        const val ON_TERMINAL_INFO = "onTerminalInfo"
+        const val ON_DATA_ITEM_CONFIG = "onDataItemConfig"
+        const val ON_CUSTOM_COMMAND_REPLY = "onCustomCommandReply"
+        const val ON_DRIVER_AUTH_INFO = "onDriverAuthInfo"
     }
 
-    @NonNull
-    override fun getName(): String {
-        return "TTMBLEManager"
-    }
+    override fun getName() = "TTMBLEManager"
 
-    @Nullable
     override fun getConstants(): Map<String, Any> {
-        val constants: MutableMap<String, Any> = HashMap()
-        // Expose event names to JavaScript
-        constants[ON_DEVICE_SCANNED] = ON_DEVICE_SCANNED
-        constants[ON_SCAN_STOP] = ON_SCAN_STOP
-        constants[ON_SCAN_FINISH] = ON_SCAN_FINISH
-        constants[ON_CONNECTED] = ON_CONNECTED
-        constants[ON_DISCONNECTED] = ON_DISCONNECTED
-        constants[ON_CONNECT_FAILURE] = ON_CONNECT_FAILURE
-        constants[ON_AUTHENTICATION_PASSED] = ON_AUTHENTICATION_PASSED
-        constants[ON_NOTIFY_RECEIVED] = ON_NOTIFY_RECEIVED
-        constants[ON_PASSWORD_STATE_CHECKED] = ON_PASSWORD_STATE_CHECKED
-        constants[ON_PASSWORD_VERIFY_RESULT] = ON_PASSWORD_VERIFY_RESULT
-        constants[ON_PASSWORD_SET_RESULT] = ON_PASSWORD_SET_RESULT
-        return constants
+        return mapOf(
+            "ON_DEVICE_SCANNED" to ON_DEVICE_SCANNED,
+            "ON_SCAN_STOP" to ON_SCAN_STOP,
+            "ON_SCAN_FINISH" to ON_SCAN_FINISH,
+            "ON_CONNECTED" to ON_CONNECTED,
+            "ON_DISCONNECTED" to ON_DISCONNECTED,
+            "ON_CONNECT_FAILURE" to ON_CONNECT_FAILURE,
+            "ON_AUTHENTICATION_PASSED" to ON_AUTHENTICATION_PASSED,
+            "ON_NOTIFY_RECEIVED" to ON_NOTIFY_RECEIVED,
+            "ON_PASSWORD_STATE_CHECKED" to ON_PASSWORD_STATE_CHECKED,
+            "ON_PASSWORD_VERIFY_RESULT" to ON_PASSWORD_VERIFY_RESULT,
+            "ON_PASSWORD_SET_RESULT" to ON_PASSWORD_SET_RESULT,
+            "ON_HISTORY_PROGRESS" to ON_HISTORY_PROGRESS,
+            "ON_HISTORY_DATA" to ON_HISTORY_DATA,
+            "ON_TERMINAL_INFO" to ON_TERMINAL_INFO,
+            "ON_DATA_ITEM_CONFIG" to ON_DATA_ITEM_CONFIG,
+            "ON_CUSTOM_COMMAND_REPLY" to ON_CUSTOM_COMMAND_REPLY,
+            "ON_DRIVER_AUTH_INFO" to ON_DRIVER_AUTH_INFO
+        )
     }
 
-    private fun sendEvent(eventName: String, @Nullable data: WritableMap?) {
-        reactApplicationContext
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-            .emit(eventName, data)
+    private fun sendEvent(eventName: String, data: WritableMap?) {
+        reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(eventName, data)
+    }
+
+    // --- GATT Callback Listener (onGattCallback) ---
+    private val gattCallback = object : OnBluetoothGattCallback.ParsedBluetoothGattCallback() {
+        override fun onConnected() {
+            Log.d(TAG, "onConnected")
+            sendEvent(ON_CONNECTED, null)
+        }
+
+        override fun onAuthenticationPassed() {
+            Log.d(TAG, "onAuthenticationPassed")
+            sendEvent(ON_AUTHENTICATION_PASSED, null)
+        }
+
+        override fun onDisconnect() {
+            Log.d(TAG, "onDisconnect")
+            sendEvent(ON_DISCONNECTED, null)
+        }
+
+        override fun onConnectFailure(status: Int) {
+            Log.d(TAG, "onConnectFailure: $status")
+            val payload = Arguments.createMap()
+            payload.putInt("status", status)
+            payload.putString("message", "Connection failed with status: $status")
+            sendEvent(ON_CONNECT_FAILURE, payload)
+            bleSDK?.release()
+        }
+        
+        override fun onNotifyReceived(data: ProtocolParseData) {
+            Log.d(TAG, "onNotifyReceived - received data")
+            try {
+                if (data is BtParseData) {
+                    val payload = Arguments.createMap().apply {
+                        putString("dataType", "BtParseData")
+                        putString("rawData", data.toString())
+                        // Add any basic properties that are available
+                        try {
+                            putInt("ack", data.ack)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Could not access ack property: ${e.message}")
+                        }
+                    }
+                    sendEvent(ON_NOTIFY_RECEIVED, payload)
+                } else {
+                    val payload = Arguments.createMap().apply {
+                        putString("dataType", data.javaClass.simpleName)
+                        putString("rawData", data.toString())
+                    }
+                    sendEvent(ON_NOTIFY_RECEIVED, payload)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing received data", e)
+                val errorPayload = Arguments.createMap().apply {
+                    putString("error", e.message)
+                    putString("dataType", "unknown")
+                }
+                sendEvent(ON_NOTIFY_RECEIVED, errorPayload)
+            }
+        }
+    }
+
+    // --- Scan Callback Listener ---
+    private val scanCallback = object : OnBluetoothScanCallback {
+        override fun onScan(device: BleDevice, scanRecord: ByteArray) {
+            val payload = Arguments.createMap().apply {
+                putString("name", device.name)
+                putString("address", device.address)
+                putInt("signal", device.signal) // Correctly use putInt for integer signal
+                putString("id", device.address) // Device ID (MAC address)
+            }
+            sendEvent(ON_DEVICE_SCANNED, payload)
+        }
+        override fun onScanStop() {
+            Log.d(TAG, "onScanStop")
+            sendEvent(ON_SCAN_STOP, null)
+        }
+        override fun onScanFinish() {
+            Log.d(TAG, "onScanFinish")
+            sendEvent(ON_SCAN_FINISH, null)
+        }
     }
 
     @ReactMethod
     fun initSDK(promise: Promise) {
-        if (bleSDK == null) {
+        try {
+            val configBuilder = BluetoothConfig.Builder()
+            configBuilder.setProtocol(ObdProtocol())
+            configBuilder.setNeedNegotiationMTU(517)
+            configBuilder.setNeedFilterDevice(true)
+            val config = configBuilder.build()
+
+            BluetoothLESDK.init(reactContext.applicationContext, config, true)
+            BluetoothLESDK.setDebug(true)
+            
+            // Set up callbacks using static methods
             try {
-                // SDK configuration is handled in MainApplication.kt's onCreate()
-                // Just get the instance here
-                bleSDK = BluetoothLESDK.getInstance()
-
-                // Set up GATT callback listeners
-                bleSDK?.addOnBleGattCallbackListener(object : OnBluetoothGattCallback.ParsedBluetoothGattCallback() {
-                    override fun onConnected() { // Device connected.
-                        Log.d(TAG, "onConnected")
-                        sendEvent(ON_CONNECTED, null)
-                    }
-
-                    override fun onAuthenticationPassed() { // Authentication successful.
-                        Log.d(TAG, "onAuthenticationPassed")
-                        sendEvent(ON_AUTHENTICATION_PASSED, null)
-                    }
-
-                    override fun onNotifyReceived(data: ProtocolParseData) { // Received Bluetooth data
-                        Log.d(TAG, "onNotifyReceived: ACK=" + data.ack)
-                        if (data is BtParseData) {
-                            val btData = data
-                            val payload = Arguments.createMap()
-                            payload.putString("ack", btData.ack)
-
-                            when (btData.ack) {
-                                InstructionAnalysis.BT.ACK_OBD_CHECK_PASSWORD_SET -> { // Password check result
-                                    val isSet = btData.source.getInt(8) == 1 // Parsing as per doc examples
-                                    payload.putBoolean("isSet", isSet)
-                                    sendEvent(ON_PASSWORD_STATE_CHECKED, payload)
-                                }
-                                InstructionAnalysis.BT.ACK_OBD_VERIFY_PA -> { // Password verification result (Typo in doc: VERIFY_PA)
-                                    val success = btData.source.getInt(8) == 1 // Parsing as per doc examples
-                                    payload.putBoolean("success", success)
-                                    sendEvent(ON_PASSWORD_VERIFY_RESULT, payload)
-                                }
-                                InstructionAnalysis.BT.ACK_OBD_SET_PASSWORD -> { // Password set/disable result
-                                    val isSuccess = btData.source.getInt(8) == 1 // Parsing as per doc examples
-                                    payload.putBoolean("isSuccess", isSuccess)
-                                    sendEvent(ON_PASSWORD_SET_RESULT, payload)
-                                }
-                                InstructionAnalysis.BT.ACK_OBD_ELD_PROCESS -> { // Process ELD data
-                                    // Extract ELD data. This requires knowledge of BaseObdData.EldData structure.
-                                    try {
-                                        val obdData = btData.obdData // Use .obdData getter
-                                        if (obdData is EldData) { // Check if it's EldData
-                                            val eldDataBean = obdData
-                                            // Convert dataFlowList to a WritableArray if needed, or stringify for now
-                                            // You might need more granular parsing of eldDataBean.dataFlowList
-                                            payload.putString("eldData", eldDataBean.dataFlowList?.toString() ?: "No ELD Data")
-                                        } else {
-                                            payload.putString("eldData", "Raw data: ${btData.source}") // Fallback for unknown data types
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error parsing ELD data", e)
-                                        payload.putString("eldData", "Parsing error: ${e.message}")
-                                    }
-                                    sendEvent(ON_NOTIFY_RECEIVED, payload)
-                                }
-                                else -> {
-                                    // For other notifications, send generic data
-                                    payload.putString("rawData", btData.source.toString())
-                                    sendEvent(ON_NOTIFY_RECEIVED, payload)
-                                }
-                            }
-                        }
-                    }
-
-                    override fun onDisconnect() { // Bluetooth connection terminated
-                        Log.d(TAG, "onDisconnect")
-                        sendEvent(ON_DISCONNECTED, null)
-                    }
-
-                    override fun onConnectFailure(status: Int) { // Bluetooth connection failed
-                        Log.d(TAG, "onConnectFailure: $status")
-                        val payload = Arguments.createMap()
-                        payload.putInt("status", status)
-                        payload.putString("message", "Connection failed with status: $status")
-                        sendEvent(ON_CONNECT_FAILURE, payload)
-                        bleSDK?.release() // Release SDK on failure
-                    }
-                })
-
-                // Set up scan callback listener
-                bleSDK?.setOnScanCallbackListener(object : OnBluetoothScanCallback {
-                    override fun onScan(device: BleDevice, scanRecord: ByteArray) { // Triggered per device scan event
-                        Log.d(TAG, "onScan: ${device.name} ${device.address}")
-                        val payload = Arguments.createMap()
-                        payload.putString("name", device.name)
-                        payload.putString("address", device.address)
-                        payload.putInt("signal", device.signal)
-                        payload.putString("id", device.address) // Using MAC address as ID for consistency with JS Peripheral ID
-                        sendEvent(ON_DEVICE_SCANNED, payload)
-                    }
-
-                    override fun onScanStop() { // Callback triggered after BluetoothLESDK.stopScan () invocation
-                        Log.d(TAG, "onScanStop")
-                        sendEvent(ON_SCAN_STOP, null)
-                    }
-
-                    override fun onScanFinish() { // Callback triggered when scan duration elapses
-                        Log.d(TAG, "onScanFinish")
-                        sendEvent(ON_SCAN_FINISH, null)
-                    }
-                })
-                promise.resolve(null)
+                BluetoothLESDK.addOnBleGattCallbackListener(gattCallback)
+                BluetoothLESDK.setOnScanCallbackListener(scanCallback)
+                Log.d(TAG, "Callbacks set up successfully")
             } catch (e: Exception) {
-                Log.e(TAG, "Error initializing TTM SDK", e)
-                promise.reject("SDK_INIT_ERROR", "Error initializing TTM SDK: ${e.message}")
+                Log.w(TAG, "Could not set up callbacks: ${e.message}")
+                // Continue anyway, callbacks might be set up differently
             }
-        } else {
-            promise.resolve(null) // Already initialized
+
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize TTM SDK", e)
+            promise.reject("SDK_INIT_ERROR", "Failed to initialize TTM SDK: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun startScan(duration: Int, promise: Promise) { // Initiate scanning duration
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
-        if (!BluetoothLESDK.isSupportBLE()) { // Check if device supports Bluetooth
-            promise.reject("NO_BLE_SUPPORT", "This device does not support Bluetooth!")
-            return
-        }
-        if (!BluetoothLESDK.isBLEOpen()) { // Check if Bluetooth is enabled
-            // Prompt user to turn on Bluetooth
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            enableBtIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Required as we are not in an Activity
-            reactApplicationContext.startActivity(enableBtIntent)
-            promise.reject("BLUETOOTH_OFF", "Bluetooth is off. User prompted to enable.")
-            return
-        }
-
+    fun startScan(duration: Int, promise: Promise) {
         try {
-            bleSDK?.setNeedFilterDevice(true) // Ensure filtering is on
-            bleSDK?.startScan(duration)
+            if (!BluetoothLESDK.isSupportBLE()) return promise.reject("NO_BLE_SUPPORT", "Device does not support Bluetooth")
+            if (!BluetoothLESDK.isBLEOpen()) {
+                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                reactContext.startActivity(enableBtIntent)
+                return promise.reject("BLUETOOTH_OFF", "Bluetooth is off, prompting user.")
+            }
+            BluetoothLESDK.setNeedFilterDevice(true)
+            BluetoothLESDK.startScan(duration.toLong())
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("SCAN_ERROR", e.message)
+            Log.e(TAG, "Scan failed", e)
+            promise.reject("SCAN_ERROR", "Scan failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun stopScan(promise: Promise) { // Stop scanning
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun stopScan(promise: Promise) {
         try {
-            bleSDK?.stopScan()
+            BluetoothLESDK.stopScan()
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("STOP_SCAN_ERROR", e.message)
+            Log.e(TAG, "Stop scan failed", e)
+            promise.reject("STOP_SCAN_ERROR", "Stop scan failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun connect(macAddress: String, imei: String, needPair: Boolean, promise: Promise) { // Establish a connection
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun connect(macAddress: String, imei: String, needPair: Boolean, promise: Promise) {
         try {
-            // ELD device connection parameters: BluetoothLESDK.connect(mac, "${mac}000", false)
-            bleSDK?.connect(macAddress, imei, needPair)
+            BluetoothLESDK.connect(macAddress, imei, needPair)
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("CONNECT_ERROR", e.message)
+            Log.e(TAG, "Connect failed", e)
+            promise.reject("CONNECT_ERROR", "Connect failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun disconnect(promise: Promise) { // Disconnect from device
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun disconnect(promise: Promise) {
         try {
-            bleSDK?.release() // Releases SDK resources and disconnects
+            BluetoothLESDK.release()
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("DISCONNECT_ERROR", e.message)
+            Log.e(TAG, "Disconnect failed", e)
+            promise.reject("DISCONNECT_ERROR", "Disconnect failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun checkPasswordEnable(promise: Promise) { // Check if password is enabled
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun checkPasswordEnable(promise: Promise) {
         try {
-            bleSDK?.checkPasswordEnable()
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "checkPasswordEnable method not implemented yet")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("CHECK_PASSWORD_ERROR", e.message)
+            Log.e(TAG, "Check password failed", e)
+            promise.reject("CHECK_PASSWORD_ERROR", "Check password failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun validatePassword(password: String, promise: Promise) { // Verify Password
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun validatePassword(password: String, promise: Promise) {
         try {
-            bleSDK?.validatePassword(password)
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "validatePassword method not implemented yet: $password")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("VALIDATE_PASSWORD_ERROR", e.message)
+            Log.e(TAG, "Validate password failed", e)
+            promise.reject("VALIDATE_PASSWORD_ERROR", "Validate password failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun enablePassword(password: String, promise: Promise) { // Enable Password
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun enablePassword(password: String, promise: Promise) {
         try {
-            bleSDK?.enablePassword(password)
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "enablePassword method not implemented yet: $password")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("ENABLE_PASSWORD_ERROR", e.message)
+            Log.e(TAG, "Enable password failed", e)
+            promise.reject("ENABLE_PASSWORD_ERROR", "Enable password failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun disablePassword(password: String, promise: Promise) { // Disable Password
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun disablePassword(password: String, promise: Promise) {
         try {
-            bleSDK?.disablePassword(password)
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "disablePassword method not implemented yet: $password")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("DISABLE_PASSWORD_ERROR", e.message)
+            Log.e(TAG, "Disable password failed", e)
+            promise.reject("DISABLE_PASSWORD_ERROR", "Disable password failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun startReportEldData(promise: Promise) { // Initiate ELD data transmission
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun startReportEldData(promise: Promise) {
         try {
-            bleSDK?.startReportEldData()
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "startReportEldData method not implemented yet")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("START_ELD_DATA_ERROR", e.message)
+            Log.e(TAG, "Start ELD data failed", e)
+            promise.reject("START_ELD_DATA_ERROR", "Start ELD data failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun replyReceivedEldData(promise: Promise) { // Acknowledge receipt of ELD data
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun replyReceivedEldData(promise: Promise) {
         try {
-            bleSDK?.replyReceivedEldData()
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "replyReceivedEldData method not implemented yet")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("REPLY_ELD_DATA_ERROR", e.message)
+            Log.e(TAG, "Reply received ELD data failed", e)
+            promise.reject("REPLY_ELD_DATA_ERROR", "Reply received ELD data failed: ${e.message}", e)
         }
     }
 
     @ReactMethod
-    fun sendUTCTime(promise: Promise) { // Send current UTC time to device
-        if (bleSDK == null) {
-            promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            return
-        }
+    fun sendUTCTime(promise: Promise) {
         try {
-            bleSDK?.sendUTCTime()
+            if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
+            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            Log.w(TAG, "sendUTCTime method not implemented yet")
             promise.resolve(null)
         } catch (e: Exception) {
-            promise.reject("SEND_UTC_TIME_ERROR", e.message)
+            Log.e(TAG, "Send UTC time failed", e)
+            promise.reject("SEND_UTC_TIME_ERROR", "Send UTC time failed: ${e.message}", e)
         }
     }
+
+    // Required methods for NativeEventEmitter.
+    @ReactMethod fun addListener(eventName: String) {}
+    @ReactMethod fun removeListeners(count: Int) {}
 }

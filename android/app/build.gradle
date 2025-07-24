@@ -148,12 +148,11 @@ android {
 }
 
 dependencies {
-    // The version of react-native is set by the React Native Gradle Plugin
+
     implementation("com.facebook.react:react-android")
-
-    // This line will now correctly include your AAR from the libs directory
     implementation fileTree(dir: "libs", include: ["*.jar", "*.aar"])
-
+    implementation(files("libs/JMBluetoothLowEnergy_ktx.aar"))
+    
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
