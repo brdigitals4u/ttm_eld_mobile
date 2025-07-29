@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { PermissionsAndroid, Platform, Alert } from 'react-native';
+import { PermissionsAndroid, Platform, Alert, DeviceEventEmitter } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { FirebaseLogger } from './FirebaseService';
 import { SentryLogger } from './SentryService';
+import TTMBLEManager from '../utils/TTMBLEManager';
 
 export class ELDService {
   private isInitialized = false;
@@ -32,33 +33,33 @@ export class ELDService {
   private subscribeToEvents(): void {
     this.clearSubscriptions();
 
-    const deviceScanned = BleManager.onDeviceScanned((device: any) =e {
+    const deviceScannedSub = DeviceEventEmitter.addListener('BleManagerDiscoverPeripheral', (device: any) => {
       SentryLogger.logBluetoothEvent('device_scanned', { device });
       FirebaseLogger.logBluetoothEvent('device_scanned', { device });
     });
 
-    const connectedSub = BleManager.onConnected(() =e {
+    const connectedSub = DeviceEventEmitter.addListener('BleManagerConnectPeripheral', () => {
       this.reconnectAttempts = 0;
       SentryLogger.logELDEvent('connected');
       FirebaseLogger.logELDEvent('connected');
     });
 
-    const disconnectedSub = BleManager.onDisconnected(() =e {
+    const disconnectedSub = DeviceEventEmitter.addListener('BleManagerDisconnectPeripheral', () => {
       SentryLogger.logELDEvent('disconnected');
       FirebaseLogger.logELDEvent('disconnected');
 
       if (this.config.autoReconnect) this.attemptReconnect();
     });
 
-    this.subscriptions = [deviceScanned, connectedSub, disconnectedSub];
+    this.subscriptions = [deviceScannedSub, connectedSub, disconnectedSub];
   }
 
   private attemptReconnect(): void {
     this.reconnectAttempts++;
 
-    if (this.reconnectAttempts e= this.config.maxReconnectAttempts) return;
+    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) return;
 
-    setTimeout(() =e {
+    setTimeout(() => {
       console.log('Trying to reconnect...');
       FirebaseLogger.logELDEvent('reconnect_attempt');
       SentryLogger.logELDEvent('reconnect_attempt');
@@ -68,11 +69,11 @@ export class ELDService {
   }
 
   private clearSubscriptions(): void {
-    this.subscriptions.forEach((sub) =e sub.remove());
+    this.subscriptions.forEach(sub => sub.remove());
     this.subscriptions = [];
   }
 
-  async requestBluetoothPermissions(): Promisecbooleane {
+  async requestBluetoothPermissions(): Promise<boolean> {
     if (Platform.OS !== 'android') return true;
 
     const requiredPermissions = [
@@ -83,65 +84,84 @@ export class ELDService {
 
     const granted = await PermissionsAndroid.requestMultiple(requiredPermissions);
 
-    return Object.values(granted).every(status =e status === PermissionsAndroid.RESULTS.GRANTED);
+    return Object.values(granted).every(status => status === PermissionsAndroid.RESULTS.GRANTED);
   }
 
-  async connect(macAddress: string, credentials: any): Promisecvoide {
-    this.pairWithDevice(macAddress, credentials);
+  async connect(macAddress: string, credentials: any): Promise<void> {
+    // This method defers to pairWithDevice - which handles UI prompts etc.
+    await this.pairWithDevice(macAddress, credentials);
   }
 
-  pairWithDevice(device: string, credentials?: any): void {
-    Alert.prompt(
-      'Machine Number',
-      'Enter the machine number for the ELD device:',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => console.log('Pairing cancelled'),
-        },
-        {
-          text: 'Pair',
-          onPress: async (machineNumber) => {
-            if (!machineNumber) return;
-
-            Alert.prompt(
-              'Passcode',
-              'Enter the passcode for the ELD device:',
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                  onPress: () => console.log('Cancelled passcode'),
-                },
-                {
-                  text: 'Connect',
-                  onPress: async (passcode) => {
-                    if (!passcode) return;
-
-                    try {
-                      await BleManager.connect(device);
-                      console.log('Connected to ELD device:', device);
-                      SentryLogger.logELDEvent('device_connected', { device, machineNumber });
-                      FirebaseLogger.logELDEvent('device_connected', { device, machineNumber });
-                    } catch (error) {
-                      console.error('Connection failed:', error);
-                      SentryLogger.captureException(error, { context: 'pairWithDevice' });
-                      FirebaseLogger.recordError(error as Error, { context: 'pairWithDevice' });
-                    }
-                  },
-                },
-              ],
-              'secure-text'
-            );
+  async pairWithDevice(device: string, credentials?: any): Promise<void> {
+    if (Platform.OS === 'ios') {
+      // iOS supports Alert.prompt
+      Alert.prompt(
+        'Machine Number',
+        'Enter the machine number for the ELD device:',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => console.log('Pairing cancelled'),
           },
-        },
-      ]
-    );
+          {
+            text: 'Next',
+            onPress: (machineNumber) => {
+              if (!machineNumber) return;
+
+              Alert.prompt(
+                'Passcode',
+                'Enter the passcode for the ELD device:',
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: () => console.log('Cancelled passcode'),
+                  },
+                  {
+                    text: 'Connect',
+                    onPress: async (passcode) => {
+                      if (!passcode) return;
+
+                      try {
+                        // Initialize TTM SDK first
+                        await TTMBLEManager.initSDK();
+                        
+                        // Use TTMBLEManager.connect with correct parameters:
+                        // macAddress, imei (machine number), needPair (true for pairing)
+                        await TTMBLEManager.connect(device, machineNumber, true);
+                        
+                        // After connection, validate the passcode
+                        await TTMBLEManager.validatePassword(passcode);
+                        
+                        console.log('Connected to ELD device:', device, 'Machine Number:', machineNumber);
+                        SentryLogger.logELDEvent('device_connected', { device, machineNumber });
+                        FirebaseLogger.logELDEvent('device_connected', { device, machineNumber });
+                      } catch (error) {
+                        console.error('Connection failed:', error);
+                        SentryLogger.captureException(error, { context: 'pairWithDevice' });
+                        FirebaseLogger.recordError(error as Error, { context: 'pairWithDevice' });
+                      }
+                    },
+                  },
+                ],
+                'secure-text'
+              );
+            },
+          },
+        ],
+        'plain-text'
+      );
+    } else {
+      // Android does not support Alert.prompt - fallback or implement custom modal
+      console.log('pairWithDevice: UI prompt not supported on Android. Please implement a custom modal.');
+      // Here you would open a modal or other UI to collect machineNumber and passcode
+      // For now, just log
+    }
   }
 }
 
-export const useELDService = () =e {
+export const useELDService = () => {
   const { state, actions } = useGlobalContext();
   const [scanning, setScanning] = useState(false);
 
@@ -153,7 +173,7 @@ export const useELDService = () =e {
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       ]).then(result => {
-        if (result['android.permission.BLUETOOTH_SCAN'] === PermissionsAndroid.RESULTS.GRANTED) {
+        if (result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED) {
           console.log('Bluetooth scan permission granted');
         } else {
           console.log('Bluetooth scan permission denied');
@@ -164,30 +184,36 @@ export const useELDService = () =e {
     }
   }, []);
 
-  const pairWithDevice = (device) => {
-    Alert.prompt(
-      'Pair with ELD?',
-      'Enter machine number and passcode',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => console.log('Cancel pairing'),
-        },
-        {
-          text: 'Pair',
-          onPress: (value) => {
-            if (!value) return;
-            const [machineNumber, passcode] = value.split(',');
-            console.log('Pairing with:', machineNumber, passcode);
-            // Call SDK function to connect here
-            actions.addEldEvent('Pairing initiated', { machineNumber });
-            FirebaseLogger.logELDEvent('PAIR_INITIATED', { machineNumber });
+  const pairWithDevice = (device: string) => {
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        'Pair with ELD?',
+        'Enter machine number and passcode separated by comma (e.g. 12345,67890)',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => console.log('Cancel pairing'),
           },
-        },
-      ],
-      'plain-text'
-    );
+          {
+            text: 'Pair',
+            onPress: (value) => {
+              if (!value) return;
+              const [machineNumber, passcode] = value.split(',');
+              console.log('Pairing with:', machineNumber, passcode);
+              // Call SDK function to connect here
+              actions.addEldEvent('Pairing initiated', { machineNumber });
+              FirebaseLogger.logELDEvent('PAIR_INITIATED', { machineNumber });
+              // You can trigger actual connection using ELDService here
+            },
+          },
+        ],
+        'plain-text'
+      );
+    } else {
+      // Android fallback
+      console.log('pairWithDevice: UI prompt not supported on Android. Implement custom modal.');
+    }
   };
 
   const startScan = () => {
@@ -224,8 +250,7 @@ export const useELDService = () =e {
     startScan,
     stopScan,
     device: state.eldDevice,
-    setDevice: actions.setEldDevice,
-    connect: actions.updateEldConnectionStatus,
+    setDevice: actions.setEldDevice, // assuming it exists in actions
+    connect: actions.updateEldConnectionStatus, // assuming you want to update connection status
   };
 };
-

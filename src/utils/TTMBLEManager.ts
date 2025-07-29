@@ -154,7 +154,7 @@ class TTMBLEManagerWrapper {
   }
 
   // Connection methods
-  async connect(macAddress: string, imei: string, needPair: boolean = false): Promise<void> {
+  async connect(macAddress: string, imei: string, needPair: boolean = true ): Promise<void> {
     try {
       const result = await this.nativeModule.connect(macAddress, imei, needPair);
       SentryLogger.logELDEvent('connection_initiated', { macAddress, imei, needPair });
@@ -275,70 +275,86 @@ class TTMBLEManagerWrapper {
 
   // Event listener methods
   addListener(eventName: string, callback: (data: any) => void) {
+    FirebaseLogger.logELDEvent('event_listener_added', { eventName });
     return this.eventEmitter.addListener(eventName, callback);
   }
 
   removeAllListeners(eventName: string) {
+    FirebaseLogger.logELDEvent('event_listeners_removed', { eventName });
     this.eventEmitter.removeAllListeners(eventName);
   }
 
   // Typed event listeners
   onDeviceScanned(callback: (device: BLEDevice) => void) {
+    FirebaseLogger.logBluetoothEvent('device_scanned_listener_added');
     return this.addListener(this.constants.ON_DEVICE_SCANNED, callback);
   }
 
   onScanStop(callback: () => void) {
+    FirebaseLogger.logBluetoothEvent('scan_stop_listener_added');
     return this.addListener(this.constants.ON_SCAN_STOP, callback);
   }
 
   onScanFinish(callback: () => void) {
+    FirebaseLogger.logBluetoothEvent('scan_finish_listener_added');
     return this.addListener(this.constants.ON_SCAN_FINISH, callback);
   }
 
   onConnected(callback: () => void) {
+    FirebaseLogger.logELDEvent('connected_listener_added');
     return this.addListener(this.constants.ON_CONNECTED, callback);
   }
 
   onDisconnected(callback: () => void) {
+    FirebaseLogger.logELDEvent('disconnected_listener_added');
     return this.addListener(this.constants.ON_DISCONNECTED, callback);
   }
 
   onConnectFailure(callback: (failure: ConnectionFailure) => void) {
+    FirebaseLogger.logELDEvent('connect_failure_listener_added');
     return this.addListener(this.constants.ON_CONNECT_FAILURE, callback);
   }
 
   onAuthenticationPassed(callback: () => void) {
+    FirebaseLogger.logELDEvent('authentication_passed_listener_added');
     return this.addListener(this.constants.ON_AUTHENTICATION_PASSED, callback);
   }
 
   onNotifyReceived(callback: (data: NotifyData) => void) {
+    FirebaseLogger.logELDEvent('notify_received_listener_added');
     return this.addListener(this.constants.ON_NOTIFY_RECEIVED, callback);
   }
 
   // Convenience methods that match the usage in the React component
   addScanListener(callback: (device: BLEDevice) => void) {
+    FirebaseLogger.logBluetoothEvent('scan_listener_added_convenience');
     return this.onDeviceScanned(callback);
   }
 
   removeScanListener(callback: (device: BLEDevice) => void) {
     // Note: React Native EventEmitter doesn't have a direct way to remove specific callbacks
     // You would need to store the subscription and call remove() on it
+    FirebaseLogger.logBluetoothEvent('scan_listener_remove_warning');
     console.warn('removeScanListener: Store the subscription returned by addScanListener and call remove() on it');
   }
 
   addConnectFailureListener(callback: (failure: ConnectionFailure) => void) {
+    FirebaseLogger.logELDEvent('connect_failure_listener_added_convenience');
     return this.onConnectFailure(callback);
   }
 
   removeConnectFailureListener(callback: (failure: ConnectionFailure) => void) {
+    FirebaseLogger.logELDEvent('connect_failure_listener_remove_warning');
     console.warn('removeConnectFailureListener: Store the subscription returned by addConnectFailureListener and call remove() on it');
   }
 
   addDisconnectListener(callback: () => void) {
+    FirebaseLogger.logELDEvent('disconnect_listener_added_convenience');
     return this.onDisconnected(callback);
   }
 
   removeDisconnectListener(callback: () => void) {
+    FirebaseLogger.logELDEvent('disconnect_listener_remove_warning');
     console.warn('removeDisconnectListener: Store the subscription returned by addDisconnectListener and call remove() on it');
   }
 }
