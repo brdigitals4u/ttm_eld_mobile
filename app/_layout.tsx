@@ -6,6 +6,9 @@ import { useEffect } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GlobalProvider } from "@/contexts/GlobalContext";
+import { initSentry } from "@/services/SentryService";
+import { initFirebase } from "@/services/FirebaseService";
 import { AuthProvider } from "@/context/auth-context";
 import { EldProvider } from "@/context/eld-context";
 import { StatusProvider } from "@/context/status-context";
@@ -46,32 +49,40 @@ export default function RootLayout() {
 
 
   useEffect(() => {
+    // Initialize Sentry
+    initSentry();
+    
+    // Initialize Firebase
+    initFirebase();
+    
     SplashScreen.hideAsync();
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <CarrierProvider>
-            <EldProvider>
-              <StatusProvider>
-                <CoDriverProvider>
-                  <FuelProvider>
-                    <InspectionProvider>
-                      <AssetsProvider>
-                        <GestureHandlerRootView style={{ flex: 1 }}>
-                          <RootLayoutNav />
-                        </GestureHandlerRootView>
-                      </AssetsProvider>
-                    </InspectionProvider>
-                  </FuelProvider>
-                </CoDriverProvider>
-              </StatusProvider>
-            </EldProvider>
-          </CarrierProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GlobalProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <CarrierProvider>
+              <EldProvider>
+                <StatusProvider>
+                  <CoDriverProvider>
+                    <FuelProvider>
+                      <InspectionProvider>
+                        <AssetsProvider>
+                          <GestureHandlerRootView style={{ flex: 1 }}>
+                            <RootLayoutNav />
+                          </GestureHandlerRootView>
+                        </AssetsProvider>
+                      </InspectionProvider>
+                    </FuelProvider>
+                  </CoDriverProvider>
+                </StatusProvider>
+              </EldProvider>
+            </CarrierProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GlobalProvider>
   );
 }

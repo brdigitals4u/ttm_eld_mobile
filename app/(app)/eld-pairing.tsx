@@ -50,9 +50,9 @@ export default function EldPairingScreen() {
     setSelectedDevice(device);
   };
 
-  const handlePairDevice = async () => {
+const handlePairDevice = async () => {
     if (!selectedDevice) return;
-    
+
     if (isWeb) {
       Alert.alert('Web Limitation', 'Bluetooth connection is not available on web.');
       
@@ -69,23 +69,99 @@ export default function EldPairingScreen() {
       router.replace('/(app)/(tabs)');
       return;
     }
-    
-    try {
-      await connectToDevice(selectedDevice.id);
-      
-      if (vehicleInfo) {
-        const updatedVehicleInfo = {
-          ...vehicleInfo,
-          eldConnected: true,
-          eldId: selectedDevice.id,
-        };
-        await setVehicleInfo(updatedVehicleInfo);
-      }
-      
-      router.replace('/(app)/(tabs)');
-    } catch (error) {
-      console.error('Failed to pair device:', error);
-    }
+
+    // Prompt for machine number first
+    Alert.prompt(
+      'Machine Number',
+      'Enter the machine number for the ELD device:',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => console.log('Pairing cancelled'),
+        },
+        {
+          text: 'Next',
+          onPress: async (machineNumber) => {
+            if (!machineNumber?.trim()) {
+              Alert.alert('Error', 'Machine number is required');
+              return;
+            }
+
+            // Prompt for passcode
+            Alert.prompt(
+              'Passcode',
+              'Enter the passcode for the ELD device:',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                  onPress: () => console.log('Passcode cancelled'),
+                },
+                {
+                  text: 'Connect',
+                  onPress: async (passcode) => {
+                    if (!passcode?.trim()) {
+                      Alert.alert('Error', 'Passcode is required');
+                      return;
+                    }
+
+                    try {
+                      // Check for Bluetooth permissions
+                      if (Platform.OS === 'android') {
+                        const { PermissionsAndroid } = require('react-native');
+                        const permissions = [
+                          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+                          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+                          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                        ];
+                        
+                        const granted = await PermissionsAndroid.requestMultiple(permissions);
+                        const allGranted = Object.values(granted).every(
+                          status => status === PermissionsAndroid.RESULTS.GRANTED
+                        );
+                        
+                        if (!allGranted) {
+                          Alert.alert('Permission Denied', 'Bluetooth permissions are required to connect.');
+                          return;
+                        }
+                      }
+
+                      // Import TTMBLEManager and connect with proper parameters
+                      const TTMBLEManager = require('../../src/utils/TTMBLEManager').default;
+                      
+                      // Use machine number as imei and set needPair to true
+                      await TTMBLEManager.connect(
+                        selectedDevice.address || selectedDevice.id, 
+                        machineNumber.trim(), 
+                        true
+                      );
+
+                      if (vehicleInfo) {
+                        const updatedVehicleInfo = {
+                          ...vehicleInfo,
+                          eldConnected: true,
+                          eldId: selectedDevice.id,
+                          machineNumber: machineNumber.trim(),
+                        };
+                        await setVehicleInfo(updatedVehicleInfo);
+                      }
+
+                      router.replace('/(app)/(tabs)');
+                    } catch (error) {
+                      console.error('Failed to pair device:', error);
+                      Alert.alert('Pairing Error', 'Failed to pair with the device. Please try again.');
+                    }
+                  },
+                },
+              ],
+              'secure-text'
+            );
+          },
+        },
+      ],
+      'plain-text'
+    );
   };
 
   const handleSkip = () => {

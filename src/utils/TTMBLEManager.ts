@@ -1,4 +1,6 @@
 import { NativeModules, NativeEventEmitter } from 'react-native';
+import { SentryLogger } from '../services/SentryService';
+import { FirebaseLogger } from '../services/FirebaseService';
 
 interface TTMBLEManagerInterface {
   // Constants
@@ -112,55 +114,163 @@ class TTMBLEManagerWrapper {
 
   // SDK Initialization
   async initSDK(): Promise<void> {
-    return this.nativeModule.initSDK();
+    try {
+      const result = await this.nativeModule.initSDK();
+      SentryLogger.logELDEvent('sdk_initialized');
+      FirebaseLogger.logELDEvent('sdk_initialized');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'initSDK' });
+      FirebaseLogger.recordError(error as Error, { method: 'initSDK' });
+      throw error;
+    }
   }
 
   // Scanning methods
   async startScan(duration: number = 10000): Promise<void> {
-    return this.nativeModule.startScan(duration);
+    try {
+      const result = await this.nativeModule.startScan(duration);
+      SentryLogger.logBluetoothEvent('scan_started', { duration });
+      FirebaseLogger.logBluetoothEvent('scan_started', { duration });
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'startScan', duration });
+      FirebaseLogger.recordError(error as Error, { method: 'startScan', duration });
+      throw error;
+    }
   }
 
   async stopScan(): Promise<void> {
-    return this.nativeModule.stopScan();
+    try {
+      const result = await this.nativeModule.stopScan();
+      SentryLogger.logBluetoothEvent('scan_stopped');
+      FirebaseLogger.logBluetoothEvent('scan_stopped');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'stopScan' });
+      FirebaseLogger.recordError(error as Error, { method: 'stopScan' });
+      throw error;
+    }
   }
 
   // Connection methods
   async connect(macAddress: string, imei: string, needPair: boolean = false): Promise<void> {
-    return this.nativeModule.connect(macAddress, imei, needPair);
+    try {
+      const result = await this.nativeModule.connect(macAddress, imei, needPair);
+      SentryLogger.logELDEvent('connection_initiated', { macAddress, imei, needPair });
+      FirebaseLogger.logELDEvent('connection_initiated', { macAddress, imei, needPair });
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'connect', macAddress, imei, needPair });
+      FirebaseLogger.recordError(error as Error, { method: 'connect', macAddress, imei, needPair });
+      throw error;
+    }
   }
 
   async disconnect(): Promise<void> {
-    return this.nativeModule.disconnect();
+    try {
+      const result = await this.nativeModule.disconnect();
+      SentryLogger.logELDEvent('disconnection_initiated');
+      FirebaseLogger.logELDEvent('disconnection_initiated');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'disconnect' });
+      FirebaseLogger.recordError(error as Error, { method: 'disconnect' });
+      throw error;
+    }
   }
 
-  // Password methods (not yet implemented in SDK)
+  // Password methods
   async checkPasswordEnable(): Promise<void> {
-    return this.nativeModule.checkPasswordEnable();
+    try {
+      const result = await this.nativeModule.checkPasswordEnable();
+      SentryLogger.logELDEvent('password_check_initiated');
+      FirebaseLogger.logELDEvent('password_check_initiated');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'checkPasswordEnable' });
+      FirebaseLogger.recordError(error as Error, { method: 'checkPasswordEnable' });
+      throw error;
+    }
   }
 
   async validatePassword(password: string): Promise<void> {
-    return this.nativeModule.validatePassword(password);
+    try {
+      const result = await this.nativeModule.validatePassword(password);
+      SentryLogger.logELDEvent('password_validation_attempted');
+      FirebaseLogger.logELDEvent('password_validation_attempted');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'validatePassword' });
+      FirebaseLogger.recordError(error as Error, { method: 'validatePassword' });
+      throw error;
+    }
   }
 
   async enablePassword(password: string): Promise<void> {
-    return this.nativeModule.enablePassword(password);
+    try {
+      const result = await this.nativeModule.enablePassword(password);
+      SentryLogger.logELDEvent('password_enabled');
+      FirebaseLogger.logELDEvent('password_enabled');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'enablePassword' });
+      FirebaseLogger.recordError(error as Error, { method: 'enablePassword' });
+      throw error;
+    }
   }
 
   async disablePassword(password: string): Promise<void> {
-    return this.nativeModule.disablePassword(password);
+    try {
+      const result = await this.nativeModule.disablePassword(password);
+      SentryLogger.logELDEvent('password_disabled');
+      FirebaseLogger.logELDEvent('password_disabled');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'disablePassword' });
+      FirebaseLogger.recordError(error as Error, { method: 'disablePassword' });
+      throw error;
+    }
   }
 
-  // ELD Data methods (not yet implemented in SDK)
+  // ELD Data methods
   async startReportEldData(): Promise<void> {
-    return this.nativeModule.startReportEldData();
+    try {
+      const result = await this.nativeModule.startReportEldData();
+      SentryLogger.logELDEvent('eld_data_reporting_started');
+      FirebaseLogger.logELDEvent('eld_data_reporting_started');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'startReportEldData' });
+      FirebaseLogger.recordError(error as Error, { method: 'startReportEldData' });
+      throw error;
+    }
   }
 
   async replyReceivedEldData(): Promise<void> {
-    return this.nativeModule.replyReceivedEldData();
+    try {
+      const result = await this.nativeModule.replyReceivedEldData();
+      SentryLogger.logELDEvent('eld_data_reply_sent');
+      FirebaseLogger.logELDEvent('eld_data_reply_sent');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'replyReceivedEldData' });
+      FirebaseLogger.recordError(error as Error, { method: 'replyReceivedEldData' });
+      throw error;
+    }
   }
 
   async sendUTCTime(): Promise<void> {
-    return this.nativeModule.sendUTCTime();
+    try {
+      const result = await this.nativeModule.sendUTCTime();
+      SentryLogger.logELDEvent('utc_time_sent');
+      FirebaseLogger.logELDEvent('utc_time_sent');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'sendUTCTime' });
+      FirebaseLogger.recordError(error as Error, { method: 'sendUTCTime' });
+      throw error;
+    }
   }
 
   // Event listener methods
