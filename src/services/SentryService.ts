@@ -33,7 +33,7 @@ export const initSentry = () => {
       event.contexts = {
         ...event.contexts,
         app: {
-          name: 'TruckLogELD',
+          name: 'TTMKonnect',
           version: '1.0.0',
         },
       };

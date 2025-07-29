@@ -91,9 +91,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.shobhitgoel27.TruckLogELD'
+    namespace 'com.ttm.TTMKonnect'
     defaultConfig {
-        applicationId 'com.shobhitgoel27.TruckLogELD'
+        applicationId 'com.ttm.TTMKonnect'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -3,7 +3,7 @@
 ## 🚀 **Quick Start**
 
 ### **Option 1: From Dashboard (Recommended)**
-1. Open your TruckLogELD app on Android
+1. Open your TTMKonnect app on Android
 2. In development mode (`__DEV__ = true`), you'll see a **"🧪 Developer Tools"** card on the dashboard
 3. Tap **"🔧 ELD Simulator Demo"** to launch the simulator
 

@@ -19,6 +19,10 @@ import {
 import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "@/src/utils/TTMBLEManager"; // Direct TTM integration
 import { router } from "expo-router";
 import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions'; // Recommended package for permissions
+import { useAnalytics } from '@/src/hooks/useAnalytics';
+import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
+import { FirebaseAnalyticsDebug } from '@/src/components/FirebaseAnalyticsDebug';
+import { ReleaseAnalyticsTest } from '@/src/components/ReleaseAnalyticsTest';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,6 +30,7 @@ const { width, height } = Dimensions.get('window');
 type TTMDevice = BLEDevice;
 
 export default function SelectVehicleScreen() {
+  // State variables
   const [scannedDevices, setScannedDevices] = useState<TTMDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -40,8 +45,27 @@ export default function SelectVehicleScreen() {
   const [isConnected, setIsConnected] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
+  // Analytics hooks
+  const { trackEvent, trackScreenView, trackUserAction } = useAnalytics();
+  const { currentPath } = useNavigationAnalytics();
+
+  // Track screen view on component mount
+  useEffect(() => {
+    trackScreenView('select_vehicle', 'SelectVehicleScreen', {
+      screen_purpose: 'eld_device_selection',
+      entry_point: 'vehicle_setup_flow',
+    });
+  }, [trackScreenView]);
+
   // Request Bluetooth permissions using react-native-permissions
   const requestAppPermissions = useCallback(async () => {
+    // Track permission request start
+    trackEvent('permission_request_started', {
+      platform: Platform.OS,
+      screen: 'select_vehicle',
+      permission_type: 'bluetooth_location',
+    });
+
     let permissionsToRequest = [] as any;
     if (Platform.OS === 'android') {
       const apiLevel = parseInt(Platform.Version.toString(), 10);
@@ -68,14 +92,26 @@ export default function SelectVehicleScreen() {
 
     const statuses = await requestMultiple(permissionsToRequest);
     let allGranted = true;
+    const deniedPermissions: string[] = [];
+    
     for (const permission of permissionsToRequest) {
       if (statuses[permission] !== RESULTS.GRANTED) {
         allGranted = false;
-        break;
+        deniedPermissions.push(permission);
       }
     }
+
+    // Track permission result
+    trackEvent('permission_request_completed', {
+      platform: Platform.OS,
+      screen: 'select_vehicle',
+      granted: allGranted,
+      denied_permissions: deniedPermissions.join(','),
+      requested_permissions: permissionsToRequest.join(','),
+    });
+
     return allGranted;
-  }, []);
+  }, [trackEvent]);
 
   useEffect(() => {
     // Initialize TTM SDK when component mounts
@@ -186,12 +222,30 @@ export default function SelectVehicleScreen() {
   };
 
   const startScan = async () => {
+    // Track scan initiation
+    trackUserAction('scan_initiated', 'scan_button', {
+      screen: 'select_vehicle',
+      existing_devices_count: scannedDevices.length,
+    });
+
     // Request app-level permissions first
     const granted = await requestAppPermissions();
     if (!granted) {
+      // Track permission denial
+      trackEvent('scan_cancelled', {
+        reason: 'permission_denied',
+        screen: 'select_vehicle',
+      });
       Alert.alert("Permission Required", "Bluetooth and Location permissions are required to scan for ELD devices.");
       return;
     }
+
+    // Track scan start
+    trackEvent('ble_scan_started', {
+      screen: 'select_vehicle',
+      scan_duration_seconds: 10,
+      platform: Platform.OS,
+    });
 
     setScannedDevices([]);
     setDeviceAnimations({});
@@ -203,12 +257,35 @@ export default function SelectVehicleScreen() {
       .finally(() => {
         setIsScanning(false);
         stopScanAnimation();
+        
+        // Track scan completion
+        trackEvent('ble_scan_completed', {
+          screen: 'select_vehicle',
+          devices_found: scannedDevices.length,
+          scan_duration_seconds: 10,
+          platform: Platform.OS,
+        });
       });
   };
 
   const handleConnectInitiation = (device: TTMDevice) => {
+    // Track device selection
+    trackUserAction('device_selected', 'device_button', {
+      screen: 'select_vehicle',
+      device_id: device.id.substring(device.id.length - 4), // Last 4 chars for privacy
+      device_name: device.name || 'unnamed',
+      total_devices_available: scannedDevices.length,
+    });
+
     setSelectedDeviceForPasscode(device);
     setShowPasscodeModal(true); // Always prompt for passcode first, as per ELD standard security practices
+
+    // Track modal opened
+    trackEvent('connection_modal_opened', {
+      screen: 'select_vehicle',
+      device_id: device.id.substring(device.id.length - 4),
+      device_name: device.name || 'unnamed',
+    });
   };
 
   const handlePasscodeSubmit = async () => {
@@ -449,6 +526,12 @@ export default function SelectVehicleScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      
+      {/* Firebase Analytics Debug Panel - Only shows in development */}
+      <FirebaseAnalyticsDebug visible={__DEV__} />
+      
+      {/* Release Analytics Test - Shows in both debug and release */}
+      <ReleaseAnalyticsTest visible={true} />
     </View>
   );
 }

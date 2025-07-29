@@ -1,4 +1,4 @@
-package com.shobhitgoel27.TruckLogELD
+package com.ttm.TTMKonnect
 
 import android.app.Application
 import android.content.res.Configuration
@@ -23,7 +23,7 @@ import com.jimi.ble.BluetoothConfig
 import com.jimi.ble.protocol.ObdProtocol
 
 // Import your custom package
-import com.shobhitgoel27.TruckLogELD.TTMBLEManagerPackage
+import com.ttm.TTMKonnect.TTMBLEManagerPackage
 
 class MainApplication : Application(), ReactApplication {
 

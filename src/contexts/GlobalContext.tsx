@@ -203,11 +203,11 @@ const GlobalContext = createContext<{
 
 // Storage keys
 const STORAGE_KEYS = {
-  USER: '@TruckLogELD:user',
-  LANGUAGE: '@TruckLogELD:language',
-  ELD_DEVICE: '@TruckLogELD:eldDevice',
-  APP_SETTINGS: '@TruckLogELD:appSettings',
-  ELD_HISTORY: '@TruckLogELD:eldHistory',
+  USER: '@TTMKonnect:user',
+  LANGUAGE: '@TTMKonnect:language',
+  ELD_DEVICE: '@TTMKonnect:eldDevice',
+  APP_SETTINGS: '@TTMKonnect:appSettings',
+  ELD_HISTORY: '@TTMKonnect:eldHistory',
 };
 
 // Provider Component

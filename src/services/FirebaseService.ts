@@ -7,10 +7,23 @@ export const initFirebase = async () => {
     // Enable crashlytics collection
     await crashlytics().setCrashlyticsCollectionEnabled(true);
     
-    // Enable analytics collection
+    // Enable analytics collection - CRITICAL for release builds
     await analytics().setAnalyticsCollectionEnabled(true);
     
-    console.log('Firebase initialized successfully');
+    // Set user properties for better tracking
+    await analytics().setUserProperty('app_type', 'TTMKonnect');
+    await analytics().setUserProperty('platform', 'android');
+    
+    // Log app open event immediately
+    await analytics().logEvent('app_open', {
+      timestamp: Date.now(),
+      build_type: __DEV__ ? 'debug' : 'release',
+      app_version: '1.0.0'
+    });
+    
+    console.log('🔥 Firebase initialized successfully');
+    console.log('📊 Analytics collection enabled:', await analytics().isAnalyticsCollectionEnabled());
+    
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }

@@ -1,7 +1,11 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 
 export default function AppLayout() {
+  // Initialize navigation analytics
+  useNavigationAnalytics();
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />

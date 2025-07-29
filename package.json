@@ -1,5 +1,5 @@
 {
-  "name": "trucklogeld",
+  "name": "TTMKonnect",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -25,7 +25,14 @@
     "build:android:sim": "eas build --profile development --platform android --local",
     "build:android:dev": "eas build --profile development:device --platform android --local",
     "build:android:preview": "eas build --profile preview --platform android --local",
-    "build:android:prod": "eas build --profile production --platform android --local"
+    "build:android:prod": "eas build --profile production --platform android --local",
+    "android:debug": "cd android && ./gradlew assembleDebug",
+    "android:release": "cd android && ./gradlew assembleRelease",
+    "android:release:arm64": "cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a",
+    "android:clean": "cd android && ./gradlew clean",
+    "android:bundle": "cd android && ./gradlew bundleRelease",
+    "android:install:debug": "cd android && ./gradlew installDebug",
+    "android:install:release": "cd android && ./gradlew installRelease"
   },
   "jest": {
     "preset": "jest-expo"

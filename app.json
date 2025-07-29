@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TruckLogELD",
-    "slug": "TruckLogELD",
+    "name": "TTMKonnect",
+    "slug": "TTMKonnect",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.shobhitgoel27.TruckLogELD"
+      "bundleIdentifier": "com.ttm.TTMKonnect"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +28,7 @@
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.shobhitgoel27.TruckLogELD"
+      "package": "com.ttm.TTMKonnect"
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +47,7 @@
           "peripherals": [
             "*"
           ],
-          "restoreStateIdentifier": "com.trucklogeld.blemanager",
+          "restoreStateIdentifier": "com.TTMKonnect.blemanager",
           "restoreStateFunction": "restoreBleManagerState"
         }
       ]

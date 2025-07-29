@@ -1,36 +1,51 @@
 import { Tabs } from 'expo-router';
 import { ClipboardList, FileText, Fuel, Home, Settings, Truck, User, Users } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import analytics from '@react-native-firebase/analytics';
-import crashlytics from '@react-native-firebase/crashlytics';
 import { useTheme } from '@/context/theme-context';
 import { useAuth } from '@/context/auth-context';
+import { useAnalytics } from '@/src/hooks/useAnalytics';
+import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 
 export default function TabLayout() {
   const { colors } = useTheme();
   const router = useRouter();
   const segments = useSegments();
   const { user } = useAuth();
+  const { trackTabPress } = useAnalytics();
+  const currentTab = useRef<string>('');
+  
+  // Use navigation analytics for automatic tracking
+  const { currentPath } = useNavigationAnalytics();
 
+  // Track tab-specific analytics
   useEffect(() => {
-    const trackTabChange = async () => {
-      try {
-        const currentPath = `/${segments.join('/')}`;
-        await analytics().logEvent('tab_changed', {
-          route: currentPath,
-          user_id: user?.id || 'unknown'
+    const tabSegment = segments[segments.length - 1];
+    if (tabSegment && tabSegment !== currentTab.current) {
+      if (currentTab.current) {
+        // Track tab press (not initial load)
+        trackTabPress(tabSegment, currentTab.current, {
+          tab_title: getTabTitle(tabSegment),
+          from_tab_title: getTabTitle(currentTab.current),
         });
-      } catch (error) {
-        crashlytics().recordError(error as Error);
       }
-    };
+      currentTab.current = tabSegment;
+    }
+  }, [segments, trackTabPress]);
 
-    trackTabChange();
-  }, [segments]);
+  const getTabTitle = (tabName: string): string => {
+    const tabTitles: Record<string, string> = {
+      'index': 'Dashboard',
+      'status': 'Status',
+      'logs': 'Logs',
+      'fuel': 'Fuel',
+      'more': 'More',
+    };
+    return tabTitles[tabName] || tabName;
+  };
 
   return (
-    Tabs
+    <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.inactive,

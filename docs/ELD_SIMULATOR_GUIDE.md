@@ -1,6 +1,6 @@
 # ELD Simulator Guide
 
-This comprehensive ELD (Electronic Logging Device) simulator allows you to test your TruckLogELD app without physical ELD hardware. It simulates different device types, connection scenarios, and realistic data streams.
+This comprehensive ELD (Electronic Logging Device) simulator allows you to test your TTMKonnect app without physical ELD hardware. It simulates different device types, connection scenarios, and realistic data streams.
 
 ## Features
 

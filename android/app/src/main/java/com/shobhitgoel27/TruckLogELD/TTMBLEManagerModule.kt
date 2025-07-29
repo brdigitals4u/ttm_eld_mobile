@@ -1,4 +1,4 @@
-package com.shobhitgoel27.TruckLogELD
+package com.ttm.TTMKonnect
 
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent

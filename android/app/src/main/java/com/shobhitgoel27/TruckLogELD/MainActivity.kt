@@ -1,4 +1,4 @@
-package com.shobhitgoel27.TruckLogELD
+package com.ttm.TTMKonnect
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
