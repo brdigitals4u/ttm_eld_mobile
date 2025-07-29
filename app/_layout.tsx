@@ -6,9 +6,9 @@ import { useEffect } from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { GlobalProvider } from "@/contexts/GlobalContext";
-import { initSentry } from "@/services/SentryService";
-import { initFirebase } from "@/services/FirebaseService";
+import { GlobalProvider } from "@/src/contexts/GlobalContext";
+import { initSentry } from "@/src/services/SentryService";
+import { initFirebase } from "@/src/services/FirebaseService";
 import { AuthProvider } from "@/context/auth-context";
 import { EldProvider } from "@/context/eld-context";
 import { StatusProvider } from "@/context/status-context";

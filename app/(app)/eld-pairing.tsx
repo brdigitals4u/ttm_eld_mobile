@@ -1,7 +1,10 @@
 import { router } from 'expo-router';
-import { Bluetooth, RefreshCw, Truck } from 'lucide-react-native';
+import { ArrowLeft, Bluetooth, RefreshCw, Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import analytics from '@react-native-firebase/analytics';
+import crashlytics from '@react-native-firebase/crashlytics';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { useAuth } from '@/context/auth-context';
@@ -38,7 +41,16 @@ export default function EldPairingScreen() {
     }
   }, [error]);
 
-  const handleRefreshScan = () => {
+  const handleRefreshScan = async () => {
+    try {
+      await analytics().logEvent('eld_refresh_scan_clicked', {
+        screen: 'eld_pairing',
+        action: 'refresh_scan_button'
+      });
+    } catch (error) {
+      crashlytics().recordError(error as Error);
+    }
+    
     if (!isWeb) {
       startScan();
     } else {
@@ -46,8 +58,30 @@ export default function EldPairingScreen() {
     }
   };
 
-  const handleDeviceSelect = (device: EldDevice) => {
+  const handleDeviceSelect = async (device: EldDevice) => {
+    try {
+      await analytics().logEvent('eld_device_selected', {
+        screen: 'eld_pairing',
+        action: 'device_select',
+        device_id: device.id,
+        device_name: device.name || 'unknown'
+      });
+    } catch (error) {
+      crashlytics().recordError(error as Error);
+    }
     setSelectedDevice(device);
+  };
+
+  const handleBackPress = async () => {
+    try {
+      await analytics().logEvent('eld_pairing_back_pressed', {
+        screen: 'eld_pairing',
+        action: 'back_button'
+      });
+    } catch (error) {
+      crashlytics().recordError(error as Error);
+    }
+    router.back();
   };
 
 const handlePairDevice = async () => {
@@ -194,7 +228,15 @@ const handlePairDevice = async () => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+          <Text style={[styles.backButtonText, { color: colors.text }]}>Back</Text>
+        </TouchableOpacity>
+      </View>
+      
       <View style={styles.header}>
         <Truck size={48} color={colors.primary} />
         <Text style={[styles.title, { color: colors.text }]}>ELD Pairing</Text>
@@ -279,7 +321,7 @@ const handlePairDevice = async () => {
           />
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -287,9 +329,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backButtonContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    marginLeft: 8,
+  },
   header: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   title: {

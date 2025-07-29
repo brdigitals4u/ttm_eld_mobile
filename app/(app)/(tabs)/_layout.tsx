@@ -1,13 +1,36 @@
 import { Tabs } from 'expo-router';
 import { ClipboardList, FileText, Fuel, Home, Settings, Truck, User, Users } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter, useSegments } from 'expo-router';
+import analytics from '@react-native-firebase/analytics';
+import crashlytics from '@react-native-firebase/crashlytics';
 import { useTheme } from '@/context/theme-context';
+import { useAuth } from '@/context/auth-context';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const segments = useSegments();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const trackTabChange = async () => {
+      try {
+        const currentPath = `/${segments.join('/')}`;
+        await analytics().logEvent('tab_changed', {
+          route: currentPath,
+          user_id: user?.id || 'unknown'
+        });
+      } catch (error) {
+        crashlytics().recordError(error as Error);
+      }
+    };
+
+    trackTabChange();
+  }, [segments]);
 
   return (
-    <Tabs
+    Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.inactive,

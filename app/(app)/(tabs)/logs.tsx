@@ -1,10 +1,14 @@
 import { router } from 'expo-router';
 import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, FlatList, Modal, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import analytics from '@react-native-firebase/analytics';
+import crashlytics from '@react-native-firebase/crashlytics';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import LogEntry from '@/components/LogEntry';
+import HOSChart from '@/components/HOSChart';
 import { useAuth } from '@/context/auth-context';
 import { useStatus } from '@/context/status-context';
 import { useTheme } from '@/context/theme-context';
@@ -21,11 +25,29 @@ export default function LogsScreen() {
   const [signature, setSignature] = useState('');
   const [transferEmail, setTransferEmail] = useState('');
 
-  const handleTransferLogs = () => {
+  const handleTransferLogs = async () => {
+    try {
+      await analytics().logEvent('logs_transfer_clicked', {
+        screen: 'logs',
+        action: 'transfer_logs_button',
+        user_id: user?.id || 'unknown'
+      });
+    } catch (error) {
+      crashlytics().recordError(error as Error);
+    }
     setShowTransferModal(true);
   };
 
-  const handleEldMaterials = () => {
+  const handleEldMaterials = async () => {
+    try {
+      await analytics().logEvent('logs_eld_materials_clicked', {
+        screen: 'logs',
+        action: 'eld_materials_button',
+        user_id: user?.id || 'unknown'
+      });
+    } catch (error) {
+      crashlytics().recordError(error as Error);
+    }
     setShowEldMaterialsModal(true);
   };
 
@@ -166,101 +188,106 @@ export default function LogsScreen() {
   const isToday = selectedDate.toDateString() === new Date().toDateString();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Hours of Service Logs
-        </Text>
-        
-        {certification.isCertified && (
-          <View style={[styles.certificationBadge, { backgroundColor: colors.success }]}>
-            <Lock size={16} color="#fff" />
-            <Text style={styles.certificationBadgeText}>CERTIFIED</Text>
-          </View>
-        )}
-        
-        <View style={styles.dateSelector}>
-          <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
-            <Text style={[styles.dateButtonText, { color: colors.primary }]}>
-              ◀
-            </Text>
-          </TouchableOpacity>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Hours of Service Logs
+          </Text>
           
-          <TouchableOpacity 
-            onPress={handleSelectToday}
-            style={[
-              styles.dateDisplay,
-              { backgroundColor: isDark ? colors.card : '#F3F4F6' }
-            ]}
-          >
-            <Calendar size={16} color={colors.primary} style={styles.calendarIcon} />
-            <Text style={[styles.dateText, { color: colors.text }]}>
-              {selectedDate.toLocaleDateString(undefined, { 
-                month: 'short', 
-                day: 'numeric',
-                year: 'numeric'
-              })}
-              {isToday ? ' (Today)' : ''}
-            </Text>
-          </TouchableOpacity>
+          {certification.isCertified && (
+            <View style={[styles.certificationBadge, { backgroundColor: colors.success }]}>
+              <Lock size={16} color="#fff" />
+              <Text style={styles.certificationBadgeText}>CERTIFIED</Text>
+            </View>
+          )}
           
-          <TouchableOpacity 
-            onPress={handleNextDay} 
-            style={styles.dateButton}
-            disabled={isToday}
-          >
-            <Text 
+          <View style={styles.dateSelector}>
+            <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
+              <Text style={[styles.dateButtonText, { color: colors.primary }]}>
+                ◀
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              onPress={handleSelectToday}
               style={[
-                styles.dateButtonText, 
-                { 
-                  color: isToday ? colors.inactive : colors.primary 
-                }
+                styles.dateDisplay,
+                { backgroundColor: isDark ? colors.card : '#F3F4F6' }
               ]}
             >
-              ▶
-            </Text>
-          </TouchableOpacity>
+              <Calendar size={16} color={colors.primary} style={styles.calendarIcon} />
+              <Text style={[styles.dateText, { color: colors.text }]}>
+                {selectedDate.toLocaleDateString(undefined, { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+                {isToday ? ' (Today)' : ''}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              onPress={handleNextDay} 
+              style={styles.dateButton}
+              disabled={isToday}
+            >
+              <Text 
+                style={[
+                  styles.dateButtonText, 
+                  { 
+                    color: isToday ? colors.inactive : colors.primary 
+                  }
+                ]}
+              >
+                ▶
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.actionsContainer}>
-        <View style={styles.actionButton}>
-          <Button
-            title="Transfer Logs"
-            onPress={handleTransferLogs}
-            variant="outline"
-            icon={<Share2 size={18} color={colors.primary} />}
-            fullWidth
-          />
+        <View style={styles.actionsContainer}>
+          <View style={styles.actionButton}>
+            <Button
+              title="Transfer Logs"
+              onPress={handleTransferLogs}
+              variant="outline"
+              icon={<Share2 size={18} color={colors.primary} />}
+              fullWidth
+            />
+          </View>
+          <View style={styles.actionButton}>
+            <Button
+              title="ELD Materials"
+              onPress={handleEldMaterials}
+              variant="outline"
+              icon={<FileText size={18} color={colors.primary} />}
+              fullWidth
+            />
+          </View>
+          <View style={styles.actionButton}>
+            <Button
+              title="Inspector Mode"
+              onPress={handleInspectorMode}
+              icon={<Download size={18} color={isDark ? colors.text : '#fff'} />}
+              fullWidth
+            />
+          </View>
         </View>
-        <View style={styles.actionButton}>
-          <Button
-            title="ELD Materials"
-            onPress={handleEldMaterials}
-            variant="outline"
-            icon={<FileText size={18} color={colors.primary} />}
-            fullWidth
-          />
-        </View>
-        <View style={styles.actionButton}>
-          <Button
-            title="Inspector Mode"
-            onPress={handleInspectorMode}
-            icon={<Download size={18} color={isDark ? colors.text : '#fff'} />}
-            fullWidth
-          />
-        </View>
-      </View>
 
-      <View style={styles.certificationContainer}>
-        <Button
-          title={certification.isCertified ? "View Certification" : "Certify Logs"}
-          onPress={handleCertifyLogs}
-          variant={certification.isCertified ? "secondary" : "primary"}
-          icon={<Lock size={18} color="#fff" />}
-          style={{ marginBottom: 16 }}
-        />
-      </View>
+        <View style={styles.certificationContainer}>
+          <Button
+            title={certification.isCertified ? "View Certification" : "Certify Logs"}
+            onPress={handleCertifyLogs}
+            variant={certification.isCertified ? "secondary" : "primary"}
+            icon={<Lock size={18} color="#fff" />}
+            style={{ marginBottom: 16 }}
+          />
+        </View>
 
       {showCertificationModal && (
         <Card style={styles.certificationModal}>
@@ -449,21 +476,37 @@ export default function LogsScreen() {
           </Text>
         </Card>
       ) : (
-        <FlatList
-          data={filteredLogs}
-          renderItem={({ item }) => <LogEntry log={item} />}
-          keyExtractor={(item) => item.timestamp.toString()}
-          style={styles.logsList}
-          contentContainerStyle={styles.logsListContent}
-        />
+        <>
+          {/* HOS Chart */}
+          <HOSChart
+            logs={filteredLogs}
+            date={selectedDate}
+            driverName={user?.name || 'Driver'}
+            vehicleNumber={vehicleInfo?.vehicleNumber || 'Unknown'}
+          />
+          
+          {/* Log Entries */}
+          <View style={styles.logsContainer}>
+            {filteredLogs.map((item) => (
+              <LogEntry key={item.timestamp.toString()} log={item} />
+            ))}
+          </View>
+        </>
       )}
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   header: {
     padding: 20,
@@ -564,6 +607,9 @@ const styles = StyleSheet.create({
   },
   logsListContent: {
     paddingBottom: 20,
+  },
+  logsContainer: {
+    paddingHorizontal: 20,
   },
   emptyContainer: {
     margin: 20,

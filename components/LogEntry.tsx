@@ -5,6 +5,7 @@ import { StatusUpdate } from '@/types/status';
 
 interface LogEntryProps {
   log: StatusUpdate;
+  logs?: StatusUpdate[]; // Optional logs prop for future chart integration
 }
 
 export default function LogEntry({ log }: LogEntryProps) {

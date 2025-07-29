@@ -2,6 +2,8 @@ import { router } from 'expo-router';
 import { AlertTriangle, Bed, Briefcase, Coffee, Lock, MoreHorizontal, Settings, Truck, User } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View, Modal, TouchableOpacity, Alert } from 'react-native';
+import analytics from '@react-native-firebase/analytics';
+import crashlytics from '@react-native-firebase/crashlytics';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import StatusButton from '@/components/StatusButton';
@@ -22,9 +24,20 @@ export default function StatusScreen() {
   } = useStatus();
   const [showDoneForDayModal, setShowDoneForDayModal] = useState(false);
 
-  const handleStatusChange = (status: DriverStatus) => {
+  const handleStatusChange = async (status: DriverStatus) => {
     if (!canUpdateStatus()) {
       return;
+    }
+    
+    try {
+      await analytics().logEvent('status_button_clicked', {
+        screen: 'status',
+        action: 'status_change',
+        status: status,
+        previous_status: currentStatus
+      });
+    } catch (error) {
+      crashlytics().recordError(error as Error);
     }
     
     // Show "Done for the day?" modal when selecting Off Duty
