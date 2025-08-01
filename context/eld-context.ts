@@ -5,6 +5,7 @@ import { Alert, Platform } from 'react-native';
 import { EldDevice, EldEvent, EldState } from '@/types/eld';
 import { useAuth } from './auth-context';
 import TTMBLEManager, { BLEDevice } from '@/src/utils/TTMBLEManager';
+import { ELDDeviceService } from '@/src/services/ELDDeviceService';
 
 interface EldContextType extends EldState {
   startScan: () => Promise<void>;
@@ -85,8 +86,9 @@ export const [EldProvider, useEld] = createContextHook(() => {
       console.log('Setting up TTMBLEManager event listeners...');
       
       // Listen for scanned devices
-      const deviceScannedListener = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
+      const deviceScannedListener = TTMBLEManager.onDeviceScanned(async (device: BLEDevice) => {
         console.log('Device found:', device);
+        console.log('🔍 Device found:', device);
         
         // Convert BLEDevice to EldDevice format
         const eldDevice: EldDevice = {

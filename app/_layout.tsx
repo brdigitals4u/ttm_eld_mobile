@@ -3,6 +3,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -60,32 +61,34 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GlobalProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
-            <CarrierProvider>
-              <EldProvider>
-                <StatusProvider>
-                  <CoDriverProvider>
-                    <FuelProvider>
-                      <InspectionProvider>
-                        <AssetsProvider>
-<GestureHandlerRootView style={{ flex: 1 }}>
-                            <AnalyticsProvider>
-                              <RootLayoutNav />
-                            </AnalyticsProvider>
-                          </GestureHandlerRootView>
-                        </AssetsProvider>
-                      </InspectionProvider>
-                    </FuelProvider>
-                  </CoDriverProvider>
-                </StatusProvider>
-              </EldProvider>
-            </CarrierProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </GlobalProvider>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <GlobalProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider>
+              <AuthProvider>
+                <CarrierProvider>
+                  <EldProvider>
+                    <StatusProvider>
+                      <CoDriverProvider>
+                        <FuelProvider>
+                          <InspectionProvider>
+                            <AssetsProvider>
+                              <AnalyticsProvider>
+                                <RootLayoutNav />
+                              </AnalyticsProvider>
+                            </AssetsProvider>
+                          </InspectionProvider>
+                        </FuelProvider>
+                      </CoDriverProvider>
+                    </StatusProvider>
+                  </EldProvider>
+                </CarrierProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </GlobalProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

@@ -202,19 +202,12 @@ export default function SelectVehicleScreen() {
     const disconnectSubscription = TTMBLEManager.onDisconnected(() => {
       console.log('Device disconnected');
       
-      // Log disconnection to Supabase
-      if (connectingDeviceId) {
-        ELDDeviceService.logDisconnection(connectingDeviceId);
-      }
-      
       Alert.alert("Disconnected", "The ELD device has disconnected.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
       setIsConnected(false);
     });
-
     const connectedSubscription = TTMBLEManager.onConnected(() => {
-      console.log('Device connected successfully');
       setIsConnected(true);
       
       // Log successful connection to Supabase
@@ -336,6 +329,101 @@ export default function SelectVehicleScreen() {
       device_id: device.id.substring(device.id.length - 4),
       device_name: device.name || 'unnamed',
     });
+  };
+
+  const handleConnectWithoutPasscode = async (device: TTMDevice) => {
+    trackUserAction('device_selected_no_passcode', 'device_button', {
+      screen: 'select_vehicle',
+      device_id: device.id.substring(device.id.length - 4),
+      device_name: device.name || 'unnamed',
+      total_devices_available: scannedDevices.length,
+    });
+
+    setIsConnecting(true);
+    setConnectingDeviceId(device.id);
+    setSelectedDeviceForPasscode(device);
+
+    const connectionDeviceId = device.address || device.id;
+
+    trackEvent('connection_attempt_started_no_passcode', {
+      screen: 'select_vehicle',
+      device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+    });
+
+    try {
+      // Log connection attempt to Supabase (without passcode)
+      await ELDDeviceService.logConnectionAttempt(device, 0); // 0 indicates no passcode
+      
+      // Stop scanning before attempting connection
+      await TTMBLEManager.stopScan();
+      
+      // Connect using device ID without passcode (empty string)
+      console.log(`Connecting to device: ${connectionDeviceId} without passcode`);
+      await TTMBLEManager.connect(connectionDeviceId, "");
+      
+      console.log('Connection successful without passcode');
+      
+      // Log successful connection to Supabase
+      await ELDDeviceService.logConnectionSuccess(device);
+      
+      Alert.alert("Connection Successful", `Connected to ${device.name || connectionDeviceId} without passcode`);
+      
+      // Start ELD data reporting after successful connection
+      try {
+        console.log('Starting ELD data reporting...');
+        await TTMBLEManager.startReportEldData();
+        console.log('ELD data reporting started successfully');
+        
+        trackEvent('eld_data_reporting_started', {
+          screen: 'select_vehicle',
+          device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+        });
+      } catch (dataError) {
+        trackEvent('eld_data_reporting_not_started', {
+          screen: 'select_vehicle',
+          device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+          error_message: JSON.stringify(dataError)
+        });
+
+        console.error('Could not start ELD data reporting:', dataError);
+        Alert.alert("Warning", "Connected successfully, but could not start data reporting. You may need to enable it manually.");
+      }
+      
+      // Navigate to main app after successful connection
+      router.replace('/(app)/(tabs)');
+      
+    } catch (error: any) {
+      console.error("Connection failed:", error);
+      
+      // Log connection failure to Supabase
+      if (device) {
+        ELDDeviceService.logConnectionFailure(device, {
+          status: -1,
+          message: error.message || 'Connection failed without passcode'
+        });
+      }
+      
+      trackEvent('connection_failed_no_passcode', {
+        screen: 'select_vehicle',
+        device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+        error_message: error.message || 'unknown_error',
+      });
+      
+      let errorMessage = "Could not connect to the device without passcode.";
+      if (error.message) {
+        if (error.message.includes('timeout')) {
+          errorMessage = "Connection timeout. Ensure the device is powered on and supports connection without passcode.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert("Connection Failed", errorMessage);
+    } finally {
+      setIsConnecting(false);
+      setConnectingDeviceId(null);
+      setSelectedDeviceForPasscode(null);
+    }
   };
 
   const handlePasscodeSubmit = async () => {
@@ -501,11 +589,7 @@ export default function SelectVehicleScreen() {
   );
 
   const DeviceCard = ({ device, onPress, isConnecting }: { device: TTMDevice, onPress: () => void, isConnecting: boolean }) => (
-    <Pressable
-      style={[styles.deviceCard, isConnecting && styles.deviceCardConnecting]}
-      onPress={onPress}
-      disabled={isConnecting}
-    >
+    <View style={[styles.deviceCard, isConnecting && styles.deviceCardConnecting]}>
       <View style={styles.deviceCardContent}>
         <View style={styles.deviceIcon}>
           <Bluetooth size={24} color={isConnecting ? colors.warning : colors.primary} />
@@ -518,17 +602,34 @@ export default function SelectVehicleScreen() {
             ID: {device.id.substring(device.id.length - 8)}
           </Text>
         </View>
-        <View style={styles.deviceStatus}>
+        <View style={styles.deviceActions}>
           {isConnecting ? (
             <ActivityIndicator size="small" color={colors.warning} />
           ) : (
-            <Text style={[styles.connectText, { color: colors.primary }]}>
-              Connect
-            </Text>
+            <>
+              <Pressable
+                style={[styles.connectButton, styles.connectButtonSecondary]}
+                onPress={() => handleConnectWithoutPasscode(device)}
+                disabled={isConnecting}
+              >
+                <Text style={[styles.connectButtonText, styles.connectButtonTextSecondary]}>
+                  No Passcode
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.connectButton}
+                onPress={onPress}
+                disabled={isConnecting}
+              >
+                <Text style={styles.connectButtonText}>
+                  With Passcode
+                </Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 
   return (
@@ -992,12 +1093,31 @@ const styles = StyleSheet.create({
   deviceId: {
     fontSize: 14,
   },
-  deviceStatus: {
+  deviceActions: {
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
   },
-  connectText: {
-    fontSize: 14,
+  connectButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  connectButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6B7280',
+  },
+  connectButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '600',
+  },
+  connectButtonTextSecondary: {
+    color: '#6B7280',
   },
   emptyState: {
     alignItems: 'center',
