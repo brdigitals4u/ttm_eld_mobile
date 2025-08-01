@@ -50,7 +50,7 @@ export default function SelectVehicleScreen() {
   const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcode, setPasscode] = useState('');
-  const [imei, setImei] = useState('');
+  const [deviceId, setDeviceId] = useState('');
   const [selectedDeviceForPasscode, setSelectedDeviceForPasscode] = useState<TTMDevice | null>(null);
   const [receivedData, setReceivedData] = useState<NotifyData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -144,9 +144,53 @@ export default function SelectVehicleScreen() {
 
     const connectFailureSubscription = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
       console.error("Connection failed:", error);
-      Alert.alert("Connection Failed", error.message || "Could not connect to the device. Please try again.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
+      
+      // Format detailed error message
+      let errorTitle = "Connection Failed";
+      let errorMessage = "Could not connect to the device.";
+      
+      if (error.status) {
+        errorTitle = `Connection Failed (Code: ${error.status})`;
+      }
+      
+      if (error.message) {
+        if (error.message.toLowerCase().includes('authentication')) {
+          errorTitle = "Authentication Failed";
+          errorMessage = "Invalid passcode or authentication rejected by device. Please check your 8-digit passcode and try again.";
+        } else if (error.message.toLowerCase().includes('timeout')) {
+          errorTitle = "Connection Timeout";
+          errorMessage = "Device did not respond within expected time. Ensure the device is powered on and in pairing mode.";
+        } else if (error.message.toLowerCase().includes('bluetooth')) {
+          errorTitle = "Bluetooth Error";
+          errorMessage = "Bluetooth connection error. Please check if Bluetooth is enabled and device is in range.";
+        } else if (error.message.toLowerCase().includes('password') || error.message.toLowerCase().includes('passcode')) {
+          errorTitle = "Invalid Passcode";
+          errorMessage = "The passcode you entered is incorrect. Please verify the 8-digit passcode and try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert(errorTitle, errorMessage, [
+        {
+          text: "OK",
+          onPress: () => {
+            // Reset modal state on error
+            setShowPasscodeModal(false);
+            setPasscode('');
+            setDeviceId('');
+            setSelectedDeviceForPasscode(null);
+          }
+        }
+      ]);
+      
+      trackEvent('connection_failure_handled', {
+        screen: 'select_vehicle',
+        error_status: error.status || 'unknown',
+        error_message: error.message || 'unknown',
+      });
     });
 
     const disconnectSubscription = TTMBLEManager.onDisconnected(() => {
@@ -268,40 +312,126 @@ export default function SelectVehicleScreen() {
   };
 
   const handlePasscodeSubmit = async () => {
-    if (!selectedDeviceForPasscode || passcode.length !== 8) {
-      Alert.alert("Error", "Please enter an 8-digit passcode.");
+    if (!selectedDeviceForPasscode) {
+      Alert.alert("Error", "Please select a device first.");
       return;
     }
 
-    if (!imei || imei.length < 10) {
-      Alert.alert("Error", "Please enter a valid IMEI (at least 10 digits).");
+    // Validate passcode length (SDK requires exactly 8 characters)
+    if (passcode.length !== 8) {
+      Alert.alert("Invalid Passcode", "Passcode must be exactly 8 characters long.");
       return;
     }
+
+    // Use the selected device's address or ID for connection
+    const connectionDeviceId = selectedDeviceForPasscode.address || selectedDeviceForPasscode.id;
 
     setShowPasscodeModal(false);
     setIsConnecting(true);
     setConnectingDeviceId(selectedDeviceForPasscode.id);
 
-    try {
-      await TTMBLEManager.stopScan();
-      await TTMBLEManager.connect(selectedDeviceForPasscode.id, imei, false);
+    trackEvent('connection_attempt_started', {
+      screen: 'select_vehicle',
+      device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+      passcode_length: passcode.length,
+    });
 
-      Alert.alert("Success", `Connected to ${selectedDeviceForPasscode.name || selectedDeviceForPasscode.id}`);
+    try {
+      // Stop scanning before attempting connection
+      await TTMBLEManager.stopScan();
+      
+      // Connect using device ID and passcode
+      console.log(`Connecting to device: ${connectionDeviceId} with passcode length: ${passcode.length}`);
+      await TTMBLEManager.connect(connectionDeviceId, passcode);
+      
+      console.log('Connection successful, starting authentication flow...');
+      
+      // Check if password authentication is enabled on the device
+      let passwordEnabled = false;
       try {
-        await TTMBLEManager.startReportEldData();
-        console.log('Started ELD data reporting');
-      } catch (dataError) {
-        console.warn('Could not start ELD data reporting:', dataError);
+        await TTMBLEManager.checkPasswordEnable();
+        console.log('Password check initiated - device supports password authentication');
+        passwordEnabled = true;
+      } catch (passwordCheckError: any) {
+        console.warn('Password check failed or not supported:', passwordCheckError);
+        // If password check fails, we might still try to validate
       }
+      
+      // Validate the password with the device
+      if (passwordEnabled) {
+        try {
+          await TTMBLEManager.validatePassword(passcode);
+          console.log('Password validation successful');
+        } catch (passwordValidationError: any) {
+          console.error('Password validation failed:', passwordValidationError);
+          
+          // Throw specific error for password validation failure
+          const errorMessage = passwordValidationError.message || 'Password validation failed';
+          if (errorMessage.toLowerCase().includes('length')) {
+            throw new Error('Invalid passcode length. Please enter exactly 8 digits.');
+          } else if (errorMessage.toLowerCase().includes('invalid') || errorMessage.toLowerCase().includes('wrong')) {
+            throw new Error('Invalid passcode. Please check your 8-digit passcode and try again.');
+          } else {
+            throw new Error(`Authentication failed: ${errorMessage}`);
+          }
+        }
+      } else {
+        console.log('Device does not require password authentication or check failed');
+      }
+      
+      Alert.alert("Connection Successful", `Connected to ${selectedDeviceForPasscode.name || connectionDeviceId}`);
+      
+      // Start ELD data reporting after successful connection
+      try {
+        console.log('Starting ELD data reporting...');
+        await TTMBLEManager.startReportEldData();
+        console.log('ELD data reporting started successfully');
+        
+        trackEvent('eld_data_reporting_started', {
+          screen: 'select_vehicle',
+          device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+        });
+      } catch (dataError) {
+
+         trackEvent('eld_data_reporting_not_started', {
+          screen: 'select_vehicle',
+          device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+          error_message: JSON.stringify(dataError)
+        });
+
+        console.error('Could not start ELD data reporting:', dataError);
+        Alert.alert("Warning", "Connected successfully, but could not start data reporting. You may need to enable it manually.");
+      }
+      
+      // Navigate to main app after successful connection
       router.replace('/(app)/(tabs)');
+      
     } catch (error: any) {
-      console.error("Connection attempt failed:", error);
-      Alert.alert("Connection Failed", error.message || "Could not connect to the device. Ensure it's in pairing mode and the passcode is correct.");
+      console.error("Connection failed:", error);
+      
+      trackEvent('connection_failed', {
+        screen: 'select_vehicle',
+        device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+        error_message: error.message || 'unknown_error',
+      });
+      
+      let errorMessage = "Could not connect to the device.";
+      if (error.message) {
+        if (error.message.includes('password') || error.message.includes('passcode')) {
+          errorMessage = "Invalid passcode. Please check the 8-digit passcode and try again.";
+        } else if (error.message.includes('timeout')) {
+          errorMessage = "Connection timeout. Ensure the device is powered on and in pairing mode.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert("Connection Failed", errorMessage);
     } finally {
       setIsConnecting(false);
       setConnectingDeviceId(null);
       setPasscode('');
-      setImei('');
+      setDeviceId('');
       setSelectedDeviceForPasscode(null);
     }
   };
@@ -477,6 +607,82 @@ export default function SelectVehicleScreen() {
             </View>
           )}
 
+          {/* ELD Data Display */}
+          {isConnected && receivedData.length > 0 && (
+            <View style={styles.eldDataSection}>
+              <Text style={[styles.eldDataTitle, { color: colors.text }]}>Captured ELD Data</Text>
+              <Text style={[styles.eldDataSubtitle, { color: colors.inactive }]}>
+                Real-time data from your connected ELD device ({receivedData.length} records)
+              </Text>
+              
+              <ScrollView style={styles.eldDataContainer} nestedScrollEnabled={true}>
+                {receivedData.slice(-10).reverse().map((data, index) => (
+                  <View key={index} style={[styles.eldDataItem, { borderColor: colors.border }]}>
+                    <View style={styles.eldDataHeader}>
+                      <Text style={[styles.eldDataType, { color: colors.primary }]}>
+                        {data.dataType || 'Unknown'}
+                      </Text>
+                      <Text style={[styles.eldDataTime, { color: colors.inactive }]}>
+                        {new Date().toLocaleTimeString()}
+                      </Text>
+                    </View>
+                    
+                    {data.rawData && (
+                      <Text style={[styles.eldDataRaw, { color: colors.text }]} numberOfLines={3}>
+                        {data.rawData}
+                      </Text>
+                    )}
+                    
+                    {data.ack && (
+                      <Text style={[styles.eldDataAck, { color: colors.success }]}>
+                        ✓ ACK: {data.ack}
+                      </Text>
+                    )}
+                    
+                    {data.error && (
+                      <Text style={[styles.eldDataError, { color: colors.error }]}>
+                        ⚠ Error: {data.error}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+                
+                {receivedData.length > 10 && (
+                  <Text style={[styles.eldDataMore, { color: colors.inactive }]}>
+                    ... and {receivedData.length - 10} more records
+                  </Text>
+                )}
+              </ScrollView>
+              
+              <View style={styles.eldDataActions}>
+                <Button
+                  title="Clear Data"
+                  onPress={() => {
+                    setReceivedData([]);
+                    trackEvent('eld_data_cleared', { screen: 'select_vehicle' });
+                  }}
+                  variant="outline"
+                  style={styles.eldDataButton}
+                />
+                
+                <Button
+                  title="Export Data"
+                  onPress={() => {
+                    const dataString = JSON.stringify(receivedData, null, 2);
+                    console.log('ELD Data Export:', dataString);
+                    Alert.alert('Data Exported', `${receivedData.length} records logged to console`);
+                    trackEvent('eld_data_exported', { 
+                      screen: 'select_vehicle', 
+                      record_count: receivedData.length 
+                    });
+                  }}
+                  variant="outline"
+                  style={styles.eldDataButton}
+                />
+              </View>
+            </View>
+          )}
+
           {__DEV__ && (
             <View style={styles.devButtons}>
               <Button
@@ -520,7 +726,7 @@ export default function SelectVehicleScreen() {
         onRequestClose={() => {
           setShowPasscodeModal(false);
           setPasscode('');
-          setImei('');
+          setDeviceId('');
           setSelectedDeviceForPasscode(null);
         }}
       >
@@ -531,28 +737,26 @@ export default function SelectVehicleScreen() {
           <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Connect to ELD Device</Text>
             <Text style={[styles.modalSubtitle, { color: colors.inactive }]}>
-              Please enter the device IMEI and passcode to establish connection
+              Enter the 8-digit passcode to connect to your ELD device
             </Text>
             
-            <View style={styles.modalForm}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Device IMEI</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: colors.card, 
-                    color: colors.text,
-                    borderColor: colors.border,
-                  }]}
-                  placeholder="Enter device IMEI (min 10 digits)"
-                  placeholderTextColor={colors.inactive}
-                  keyboardType="numeric"
-                  maxLength={15}
-                  value={imei}
-                  onChangeText={setImei}
-                  autoFocus
-                />
+            {/* Selected Device Info */}
+            {selectedDeviceForPasscode && (
+              <View style={[styles.selectedDeviceInfo, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <View style={styles.selectedDeviceHeader}>
+                  <Bluetooth size={20} color={colors.primary} />
+                  <Text style={[styles.selectedDeviceTitle, { color: colors.text }]}>Selected Device</Text>
+                </View>
+                <Text style={[styles.selectedDeviceName, { color: colors.text }]}>
+                  {selectedDeviceForPasscode.name || "Unnamed Device"}
+                </Text>
+                <Text style={[styles.selectedDeviceId, { color: colors.inactive }]}>
+                  ID: {selectedDeviceForPasscode.address || selectedDeviceForPasscode.id}
+                </Text>
               </View>
-              
+            )}
+            
+            <View style={styles.modalForm}>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Passcode</Text>
                 <TextInput
@@ -568,6 +772,7 @@ export default function SelectVehicleScreen() {
                   value={passcode}
                   onChangeText={setPasscode}
                   secureTextEntry={true}
+                  autoFocus
                 />
               </View>
             </View>
@@ -578,7 +783,7 @@ export default function SelectVehicleScreen() {
                 onPress={() => {
                   setShowPasscodeModal(false);
                   setPasscode('');
-                  setImei('');
+                  setDeviceId('');
                   setSelectedDeviceForPasscode(null);
                 }}
                 variant="outline"
@@ -587,7 +792,7 @@ export default function SelectVehicleScreen() {
               <Button
                 title="Connect"
                 onPress={handlePasscodeSubmit}
-                disabled={!imei.trim() || passcode.length !== 8}
+                disabled={passcode.length !== 8}
                 style={styles.modalButton}
               />
             </View>
@@ -866,5 +1071,109 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  // ELD Data Display Styles
+  eldDataSection: {
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  eldDataTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  eldDataSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  eldDataContainer: {
+    maxHeight: 300,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  eldDataItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  eldDataHeader: {
+    flexDirection: 'row',
+    justifiContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  eldDataType: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  eldDataTime: {
+    fontSize: 12,
+  },
+  eldDataRaw: {
+    fontSize: 12,
+    fontFamily: 'monospace',
+    backgroundColor: '#F3F4F6',
+    padding: 8,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  eldDataAck: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  eldDataError: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  eldDataMore: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  eldDataActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  eldDataButton: {
+    flex: 1,
+  },
+  // Selected Device Info Styles
+  selectedDeviceInfo: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  selectedDeviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  selectedDeviceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  selectedDeviceName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  selectedDeviceId: {
+    fontSize: 14,
+    fontFamily: 'monospace',
   },
 });

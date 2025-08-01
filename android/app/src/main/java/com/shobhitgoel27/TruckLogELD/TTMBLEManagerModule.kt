@@ -403,9 +403,9 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
     }
 
     @ReactMethod
-    fun connect(macAddress: String, imei: String, needPair: Boolean, promise: Promise) {
+    fun connect(deviceId: String, passcode: String, needPair: Boolean, promise: Promise) {
         try {
-            BluetoothLESDK.connect(macAddress, imei, needPair)
+            BluetoothLESDK.connect(deviceId, passcode, needPair)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Connect failed", e)

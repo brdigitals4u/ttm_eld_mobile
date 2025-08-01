@@ -128,8 +128,8 @@ export class ELDService {
                         await TTMBLEManager.initSDK();
                         
                         // Use TTMBLEManager.connect with correct parameters:
-                        // macAddress, imei (machine number), needPair (true for pairing)
-                        await TTMBLEManager.connect(device, machineNumber, true);
+                        // deviceId (machine number), passcode
+                        await TTMBLEManager.connect(machineNumber, passcode);
                         
                         // After connection, validate the passcode
                         await TTMBLEManager.validatePassword(passcode);

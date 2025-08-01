@@ -68,9 +68,12 @@ export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({ children }
     // Main method
     triggerUserEvent: Analytics.triggerUserEvent.bind(Analytics),
     
-    // Convenience methods
-    trackEvent: (eventName: string, parameters?: UserEventParams) => 
-      Analytics.triggerUserEvent(eventName, parameters),
+    // Convenience methods - GUARANTEED dual logging to Firebase and Sentry
+    trackEvent: async (eventName: string, parameters?: UserEventParams) => {
+      // Use the guaranteed dual logging method that bypasses all options
+      // and ensures events ALWAYS reach both Firebase and Sentry
+      await Analytics.guaranteedDualLog(eventName, parameters);
+    },
     
     trackScreenView: (screenName: string, additionalParams?: UserEventParams, context?: UserEventContext) => 
       Analytics.trackScreenView(screenName, additionalParams, context),

@@ -83,41 +83,71 @@ class AnalyticsUtil {
     const promises: Promise<void>[] = [];
 
     try {
-      // 1. Firebase Analytics
+      // 1. Firebase Analytics - always attempt unless explicitly skipped
       if (!options?.skipFirebase) {
-        promises.push(this.sendToFirebase(eventName, eventPayload));
+        promises.push(
+          this.sendToFirebase(eventName, eventPayload).catch(error => {
+            console.error('Firebase analytics failed:', error);
+            // Don't let Firebase failure prevent other logging
+            return Promise.resolve();
+          })
+        );
       }
 
-      // 2. Sentry Logging
+      // 2. Sentry Logging - always attempt unless explicitly skipped
       if (!options?.skipSentry) {
-        promises.push(this.sendToSentry(eventName, eventPayload, options));
+        promises.push(
+          this.sendToSentry(eventName, eventPayload, options).catch(error => {
+            console.error('Sentry analytics failed:', error);
+            // Don't let Sentry failure prevent other logging
+            return Promise.resolve();
+          })
+        );
       }
 
-      // 3. API Call
+      // 3. API Call - optional and can fail without affecting core logging
       if (!options?.skipAPI) {
-        promises.push(this.sendToAPI({
-          eventName,
-          parameters,
-          context: finalContext,
-          timestamp: finalContext.timestamp!,
-        }));
+        promises.push(
+          this.sendToAPI({
+            eventName,
+            parameters,
+            context: finalContext,
+            timestamp: finalContext.timestamp!,
+          }).catch(error => {
+            console.error('API analytics failed:', error);
+            // API failures shouldn't block Firebase/Sentry
+            return Promise.resolve();
+          })
+        );
       }
 
-      // Execute all analytics calls in parallel
-      await Promise.allSettled(promises);
+      // Execute all analytics calls in parallel with individual error handling
+      const results = await Promise.allSettled(promises);
+      
+      // Log any failures for debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const services = ['Firebase', 'Sentry', 'API'];
+          console.warn(`${services[index] || 'Unknown'} analytics failed:`, result.reason);
+        }
+      });
 
       // Console logging for debugging
       this.logToConsole(eventName, eventPayload, finalContext);
 
     } catch (error) {
-      console.error('Analytics tracking failed:', error);
+      console.error('Analytics tracking failed completely:', error);
       
-      // Log the analytics failure to Sentry (but don't recurse)
-      SentryLogger.captureException(error, {
-        context: 'analytics_failure',
-        originalEvent: eventName,
-        originalParams: parameters,
-      });
+      // Try to log the analytics failure to Sentry as a last resort
+      try {
+        SentryLogger.captureException(error, {
+          context: 'analytics_failure',
+          originalEvent: eventName,
+          originalParams: parameters,
+        });
+      } catch (sentryError) {
+        console.error('Even Sentry logging failed:', sentryError);
+      }
     }
   }
 
@@ -374,6 +404,80 @@ class AnalyticsUtil {
    */
   public setAPIEndpoint(endpoint: string): void {
     this.apiEndpoint = endpoint;
+  }
+
+  /**
+   * Guaranteed dual logging - ensures events ALWAYS go to Firebase and Sentry
+   * This is a failsafe method that bypasses all options and forces logging
+   */
+  public async guaranteedDualLog(
+    eventName: string,
+    parameters: UserEventParams = {},
+    context: UserEventContext = {}
+  ): Promise<void> {
+    const finalContext: UserEventContext = {
+      ...this.defaultContext,
+      ...context,
+      timestamp: Date.now(),
+      sessionId: context.sessionId || this.generateSessionId(),
+    };
+
+    const eventPayload = {
+      ...parameters,
+      ...finalContext,
+    };
+
+    // Firebase logging with fallback
+    try {
+      await FirebaseLogger.logEvent(eventName, eventPayload);
+      console.log(`✅ Firebase logged: ${eventName}`);
+    } catch (firebaseError) {
+      console.error('🔥 Firebase logging failed:', firebaseError);
+      // Try direct Firebase call as backup
+      try {
+        await FirebaseLogger.logAppEvent(eventName, eventPayload);
+        console.log(`✅ Firebase backup logged: ${eventName}`);
+      } catch (backupError) {
+        console.error('🔥 Firebase backup also failed:', backupError);
+      }
+    }
+
+    // Sentry logging with fallback
+    try {
+      SentryLogger.addBreadcrumb(
+        `Guaranteed Event: ${eventName}`,
+        'guaranteed_analytics',
+        eventPayload
+      );
+      
+      if (this.isImportantEvent(eventName)) {
+        SentryLogger.captureMessage(
+          `Guaranteed Analytics: ${eventName}`,
+          'info',
+          {
+            event_type: 'guaranteed_analytics',
+            event_name: eventName,
+            ...eventPayload,
+          }
+        );
+      }
+      console.log(`✅ Sentry logged: ${eventName}`);
+    } catch (sentryError) {
+      console.error('📊 Sentry logging failed:', sentryError);
+      // Try alternative Sentry methods
+      try {
+        SentryLogger.captureException(new Error(`Analytics event: ${eventName}`), {
+          event_data: eventPayload,
+          forced_analytics: true,
+        });
+        console.log(`✅ Sentry backup logged: ${eventName}`);
+      } catch (backupError) {
+        console.error('📊 Sentry backup also failed:', backupError);
+      }
+    }
+
+    // Console logging for debugging
+    this.logToConsole(eventName, eventPayload, finalContext);
   }
 }
 

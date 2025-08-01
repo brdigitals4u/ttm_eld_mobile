@@ -53,15 +53,14 @@ class BluetoothService {
 
   /**
    * Connects to an ELD device and handles the authentication/passcode flow.
-   * @param deviceId The MAC address of the device to connect to.
-   * @param imei The IMEI of the ELD device.
+   * @param deviceId The device ID to connect to.
    * @param passcode The 8-digit passcode for ELD verification.
    */
-  async connect(deviceId: string, imei: string, passcode?: string): Promise<void> {
-    console.log(`Attempting to connect to ${deviceId} with IMEI ${imei}`);
+  async connect(deviceId: string, passcode: string): Promise<void> {
+    console.log(`Attempting to connect to ${deviceId} with passcode`);
     try {
-      // For now, just do basic connection - the password methods are not implemented yet
-      await TTMBLEManager.connect(deviceId, imei, false);
+      // Connect using device ID and passcode
+      await TTMBLEManager.connect(deviceId, passcode);
       console.log(`Successfully initiated connection to ${deviceId}`);
       
       // Return a promise that resolves when connected or rejects on failure

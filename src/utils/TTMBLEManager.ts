@@ -28,7 +28,7 @@ interface TTMBLEManagerInterface {
   stopScan(): Promise<void>;
   startDirectScan(duration: number): Promise<void>;
   stopDirectScan(): Promise<void>;
-  connect(macAddress: string, imei: string, needPair: boolean): Promise<void>;
+  connect(deviceId: string, passcode: string, needPair: boolean): Promise<void>;
   disconnect(): Promise<void>;
   checkPasswordEnable(): Promise<void>;
   validatePassword(password: string): Promise<void>;
@@ -185,15 +185,15 @@ class TTMBLEManagerWrapper {
   }
 
   // Connection methods
-  async connect(macAddress: string, imei: string, needPair: boolean = true ): Promise<void> {
+  async connect(deviceId: string, passcode: string): Promise<void> {
     try {
-      const result = await this.nativeModule.connect(macAddress, imei, needPair);
-      SentryLogger.logELDEvent('connection_initiated', { macAddress, imei, needPair });
-      FirebaseLogger.logELDEvent('connection_initiated', { macAddress, imei, needPair });
+      const result = await this.nativeModule.connect(deviceId, passcode, true);
+      SentryLogger.logELDEvent('connection_initiated', { deviceId, passcode });
+      FirebaseLogger.logELDEvent('connection_initiated', { deviceId, passcode });
       return result;
     } catch (error) {
-      SentryLogger.captureException(error, { method: 'connect', macAddress, imei, needPair });
-      FirebaseLogger.recordError(error as Error, { method: 'connect', macAddress, imei, needPair });
+      SentryLogger.captureException(error, { method: 'connect', deviceId, passcode });
+      FirebaseLogger.recordError(error as Error, { method: 'connect', deviceId, passcode });
       throw error;
     }
   }
