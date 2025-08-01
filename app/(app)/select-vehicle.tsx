@@ -23,6 +23,7 @@ import { useAnalytics } from '@/src/hooks/useAnalytics';
 import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 // import { useTheme } from '@/context/theme-context'; // Uncomment if you have theme context
 import { Search, Bluetooth, Truck } from 'lucide-react-native'; // Add these icons
+import { ELDDeviceService } from '@/src/services/ELDDeviceService';
 
 // Theme colors (replace with your theme context if available)
 const colors = {
@@ -147,6 +148,11 @@ export default function SelectVehicleScreen() {
       setIsConnecting(false);
       setConnectingDeviceId(null);
       
+      // Log connection failure to Supabase
+      if (selectedDeviceForPasscode) {
+        ELDDeviceService.logConnectionFailure(selectedDeviceForPasscode, error);
+      }
+      
       // Format detailed error message
       let errorTitle = "Connection Failed";
       let errorMessage = "Could not connect to the device.";
@@ -195,6 +201,12 @@ export default function SelectVehicleScreen() {
 
     const disconnectSubscription = TTMBLEManager.onDisconnected(() => {
       console.log('Device disconnected');
+      
+      // Log disconnection to Supabase
+      if (connectingDeviceId) {
+        ELDDeviceService.logDisconnection(connectingDeviceId);
+      }
+      
       Alert.alert("Disconnected", "The ELD device has disconnected.");
       setIsConnecting(false);
       setConnectingDeviceId(null);
@@ -204,15 +216,30 @@ export default function SelectVehicleScreen() {
     const connectedSubscription = TTMBLEManager.onConnected(() => {
       console.log('Device connected successfully');
       setIsConnected(true);
+      
+      // Log successful connection to Supabase
+      if (selectedDeviceForPasscode) {
+        ELDDeviceService.logConnectionSuccess(selectedDeviceForPasscode);
+      }
     });
 
     const authSubscription = TTMBLEManager.onAuthenticationPassed(() => {
       console.log('Device authentication passed');
+      
+      // Log successful authentication to Supabase
+      if (connectingDeviceId) {
+        ELDDeviceService.logAuthentication(connectingDeviceId, true);
+      }
     });
 
     const notifySubscription = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
       console.log('Received ELD data:', data);
       setReceivedData(prev => [...prev, data]);
+      
+      // Log ELD data to Supabase
+      if (connectingDeviceId) {
+        ELDDeviceService.logELDData(connectingDeviceId, data);
+      }
     });
 
     return () => {
@@ -337,6 +364,9 @@ export default function SelectVehicleScreen() {
     });
 
     try {
+      // Log connection attempt to Supabase
+      await ELDDeviceService.logConnectionAttempt(selectedDeviceForPasscode, passcode.length);
+      
       // Stop scanning before attempting connection
       await TTMBLEManager.stopScan();
       
@@ -362,8 +392,13 @@ export default function SelectVehicleScreen() {
         try {
           await TTMBLEManager.validatePassword(passcode);
           console.log('Password validation successful');
+          // Log successful password validation
+          ELDDeviceService.logAuthentication(selectedDeviceForPasscode.id, true, passcode.length);
         } catch (passwordValidationError: any) {
           console.error('Password validation failed:', passwordValidationError);
+          
+          // Log failed password validation
+          ELDDeviceService.logAuthentication(selectedDeviceForPasscode.id, false, passcode.length);
           
           // Throw specific error for password validation failure
           const errorMessage = passwordValidationError.message || 'Password validation failed';
@@ -378,6 +413,9 @@ export default function SelectVehicleScreen() {
       } else {
         console.log('Device does not require password authentication or check failed');
       }
+      
+      // Log successful connection to Supabase
+      await ELDDeviceService.logConnectionSuccess(selectedDeviceForPasscode);
       
       Alert.alert("Connection Successful", `Connected to ${selectedDeviceForPasscode.name || connectionDeviceId}`);
       
