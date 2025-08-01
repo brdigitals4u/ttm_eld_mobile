@@ -26,6 +26,8 @@ interface TTMBLEManagerInterface {
   initSDK(): Promise<void>;
   startScan(duration: number): Promise<void>;
   stopScan(): Promise<void>;
+  startDirectScan(duration: number): Promise<void>;
+  stopDirectScan(): Promise<void>;
   connect(macAddress: string, imei: string, needPair: boolean): Promise<void>;
   disconnect(): Promise<void>;
   checkPasswordEnable(): Promise<void>;
@@ -35,6 +37,8 @@ interface TTMBLEManagerInterface {
   startReportEldData(): Promise<void>;
   replyReceivedEldData(): Promise<void>;
   sendUTCTime(): Promise<void>;
+  injectTestDevices(): Promise<void>;
+  getBondedDevices(): Promise<void>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 }
@@ -149,6 +153,33 @@ class TTMBLEManagerWrapper {
     } catch (error) {
       SentryLogger.captureException(error, { method: 'stopScan' });
       FirebaseLogger.recordError(error as Error, { method: 'stopScan' });
+      throw error;
+    }
+  }
+
+  // Direct Android BLE scanning (fallback method)
+  async startDirectScan(duration: number = 10): Promise<void> {
+    try {
+      const result = await this.nativeModule.startDirectScan(duration);
+      SentryLogger.logBluetoothEvent('direct_scan_started', { duration });
+      FirebaseLogger.logBluetoothEvent('direct_scan_started', { duration });
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'startDirectScan', duration });
+      FirebaseLogger.recordError(error as Error, { method: 'startDirectScan', duration });
+      throw error;
+    }
+  }
+
+  async stopDirectScan(): Promise<void> {
+    try {
+      const result = await this.nativeModule.stopDirectScan();
+      SentryLogger.logBluetoothEvent('direct_scan_stopped');
+      FirebaseLogger.logBluetoothEvent('direct_scan_stopped');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'stopDirectScan' });
+      FirebaseLogger.recordError(error as Error, { method: 'stopDirectScan' });
       throw error;
     }
   }
@@ -269,6 +300,32 @@ class TTMBLEManagerWrapper {
     } catch (error) {
       SentryLogger.captureException(error, { method: 'sendUTCTime' });
       FirebaseLogger.recordError(error as Error, { method: 'sendUTCTime' });
+      throw error;
+    }
+  }
+
+  async injectTestDevices(): Promise<void> {
+    try {
+      const result = await this.nativeModule.injectTestDevices();
+      SentryLogger.logELDEvent('test_devices_injected');
+      FirebaseLogger.logELDEvent('test_devices_injected');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'injectTestDevices' });
+      FirebaseLogger.recordError(error as Error, { method: 'injectTestDevices' });
+      throw error;
+    }
+  }
+
+  async getBondedDevices(): Promise<void> {
+    try {
+      const result = await this.nativeModule.getBondedDevices();
+      SentryLogger.logBluetoothEvent('bonded_devices_retrieved');
+      FirebaseLogger.logBluetoothEvent('bonded_devices_retrieved');
+      return result;
+    } catch (error) {
+      SentryLogger.captureException(error, { method: 'getBondedDevices' });
+      FirebaseLogger.recordError(error as Error, { method: 'getBondedDevices' });
       throw error;
     }
   }

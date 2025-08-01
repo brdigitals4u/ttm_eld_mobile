@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { EldDevice, EldEvent, EldState } from '@/types/eld';
 import { useAuth } from './auth-context';
+import TTMBLEManager, { BLEDevice } from '@/src/utils/TTMBLEManager';
 
 interface EldContextType extends EldState {
   startScan: () => Promise<void>;
@@ -52,11 +53,12 @@ export const [EldProvider, useEld] = createContextHook(() => {
       return;
     }
 
-    // Initialize BLE Manager
+    // Initialize TTMBLEManager
     const initBleManager = async () => {
       try {
-        // In a real implementation, you would initialize react-native-ble-manager here
-        console.log('BleManager would be initialized here');
+        console.log('Initializing TTMBLEManager...');
+        await TTMBLEManager.initSDK();
+        console.log('TTMBLEManager initialized successfully');
         
         // Load previously connected device
         const savedDeviceJson = await AsyncStorage.getItem('connectedEldDevice');
@@ -67,25 +69,80 @@ export const [EldProvider, useEld] = createContextHook(() => {
             connectedDevice: savedDevice,
           }));
           
-          console.log('Would try to reconnect to device:', savedDevice.name);
+          console.log('Loaded saved device:', savedDevice.name);
         }
       } catch (error) {
-        console.error('Error initializing BleManager:', error);
+        console.error('Error initializing TTMBLEManager:', error);
         setState(prev => ({
           ...prev,
-          error: 'Failed to initialize Bluetooth',
+          error: 'Failed to initialize Bluetooth SDK',
         }));
       }
     };
 
     // Setup listeners for BLE events
     const setupListeners = () => {
-      // In a real implementation, you would set up BLE event listeners here
-      console.log('BLE event listeners would be set up here');
+      console.log('Setting up TTMBLEManager event listeners...');
+      
+      // Listen for scanned devices
+      const deviceScannedListener = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
+        console.log('Device found:', device);
+        
+        // Convert BLEDevice to EldDevice format
+        const eldDevice: EldDevice = {
+          id: device.address,
+          name: device.name || 'Unknown Device',
+          address: device.address,
+          isConnected: false,
+          signal: device.signal,
+        };
+        
+        setState(prev => {
+          // Check if device already exists in the list
+          const existingDeviceIndex = prev.devices.findIndex(d => d.id === eldDevice.id);
+          
+          if (existingDeviceIndex !== -1) {
+            // Update existing device
+            const updatedDevices = [...prev.devices];
+            updatedDevices[existingDeviceIndex] = eldDevice;
+            return {
+              ...prev,
+              devices: updatedDevices,
+            };
+          } else {
+            // Add new device
+            return {
+              ...prev,
+              devices: [...prev.devices, eldDevice],
+            };
+          }
+        });
+      });
+      
+      // Listen for scan completion
+      const scanFinishListener = TTMBLEManager.onScanFinish(() => {
+        console.log('Scan finished');
+        setState(prev => ({
+          ...prev,
+          isScanning: false,
+        }));
+      });
+      
+      // Listen for scan stop
+      const scanStopListener = TTMBLEManager.onScanStop(() => {
+        console.log('Scan stopped');
+        setState(prev => ({
+          ...prev,
+          isScanning: false,
+        }));
+      });
       
       return () => {
         // Cleanup listeners
-        console.log('BLE event listeners would be cleaned up here');
+        console.log('Cleaning up TTMBLEManager event listeners...');
+        deviceScannedListener.remove();
+        scanFinishListener.remove();
+        scanStopListener.remove();
       };
     };
 
@@ -116,22 +173,16 @@ export const [EldProvider, useEld] = createContextHook(() => {
         error: null,
       }));
       
-      // In a real implementation, you would start BLE scanning here
-      console.log('Would start BLE scanning here');
-      
-      // Simulate finding devices after a delay
-      setTimeout(() => {
-        setState(prev => ({
-          ...prev,
-          isScanning: false,
-        }));
-      }, 3000);
+      console.log('Starting BLE scan with TTMBLEManager...');
+      // Start scanning for 2 minutes (120 seconds)
+      await TTMBLEManager.startScan(120);
+      console.log('BLE scan started successfully');
     } catch (error) {
       console.error('Error scanning for devices:', error);
       setState(prev => ({
         ...prev,
         isScanning: false,
-        error: 'Failed to scan for devices',
+        error: `Failed to scan for devices: ${error instanceof Error ? error.message : 'Unknown error'}`,
       }));
     }
   };
@@ -140,14 +191,20 @@ export const [EldProvider, useEld] = createContextHook(() => {
     if (isWeb) return;
     
     try {
-      // In a real implementation, you would stop BLE scanning here
-      console.log('Would stop BLE scanning here');
+      console.log('Stopping BLE scan with TTMBLEManager...');
+      await TTMBLEManager.stopScan();
+      console.log('BLE scan stopped successfully');
       setState(prev => ({
         ...prev,
         isScanning: false,
       }));
     } catch (error) {
       console.error('Error stopping scan:', error);
+      setState(prev => ({
+        ...prev,
+        isScanning: false,
+        error: `Failed to stop scan: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }));
     }
   };
 

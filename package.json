@@ -1,5 +1,5 @@
 {
-  "name": "TTMKonnect",
+  "name": "ttmkonnect",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -92,5 +92,21 @@
     "react-test-renderer": "18.2.0",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brdigitals4u/ttm_eld_mobile.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/brdigitals4u/ttm_eld_mobile/issues"
+  },
+  "homepage": "https://github.com/brdigitals4u/ttm_eld_mobile#readme",
+  "description": ""
 }

@@ -8,42 +8,52 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  PermissionsAndroid, // For Android runtime permissions
+  PermissionsAndroid,
   Platform,
   Animated,
-  Dimensions,
   TextInput,
   Modal,
   KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
-import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "@/src/utils/TTMBLEManager"; // Direct TTM integration
+import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "@/src/utils/TTMBLEManager";
 import { router } from "expo-router";
-import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions'; // Recommended package for permissions
+import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { useAnalytics } from '@/src/hooks/useAnalytics';
 import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
-import { FirebaseAnalyticsDebug } from '@/src/components/FirebaseAnalyticsDebug';
-import { ReleaseAnalyticsTest } from '@/src/components/ReleaseAnalyticsTest';
+// import { useTheme } from '@/context/theme-context'; // Uncomment if you have theme context
+import { Search, Bluetooth, Truck } from 'lucide-react-native'; // Add these icons
 
-const { width, height } = Dimensions.get('window');
+// Theme colors (replace with your theme context if available)
+const colors = {
+  background: '#FFFFFF',
+  card: '#F9FAFB',
+  text: '#111827',
+  inactive: '#6B7280',
+  primary: '#3B82F6',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  border: '#E5E7EB',
+};
 
-// Use the BLEDevice type from TTMBLEManager
 type TTMDevice = BLEDevice;
 
 export default function SelectVehicleScreen() {
   // State variables
   const [scannedDevices, setScannedDevices] = useState<TTMDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanTimeRemaining, setScanTimeRemaining] = useState(0);
+  const [scanAttempt, setScanAttempt] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null);
-  const [scanAnimation] = useState(new Animated.Value(0));
-  const [deviceAnimations, setDeviceAnimations] = useState<{[key: string]: Animated.Value}>({});
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [imei, setImei] = useState('');
   const [selectedDeviceForPasscode, setSelectedDeviceForPasscode] = useState<TTMDevice | null>(null);
   const [receivedData, setReceivedData] = useState<NotifyData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Analytics hooks
   const { trackEvent, trackScreenView, trackUserAction } = useAnalytics();
@@ -57,9 +67,9 @@ export default function SelectVehicleScreen() {
     });
   }, [trackScreenView]);
 
-  // Request Bluetooth permissions using react-native-permissions
+  // Request Bluetooth permissions
   const requestAppPermissions = useCallback(async () => {
-    // Track permission request start
+    console.log("🔐 Requesting Bluetooth and Location permissions...");
     trackEvent('permission_request_started', {
       platform: Platform.OS,
       screen: 'select_vehicle',
@@ -69,24 +79,20 @@ export default function SelectVehicleScreen() {
     let permissionsToRequest = [] as any;
     if (Platform.OS === 'android') {
       const apiLevel = parseInt(Platform.Version.toString(), 10);
-      if (apiLevel >= 31) { // Android 12+
+      if (apiLevel >= 31) {
         permissionsToRequest = [
           PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
           PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
-          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION, // Still needed for some devices/scenarios
-          // PERMISSIONS.ANDROID.FOREGROUND_SERVICE, // Consider adding if app needs to run continuously in background
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
         ];
-      } else { // Android < 12 (but >= 8.0 for location)
+      } else {
         permissionsToRequest = [
           PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
         ];
       }
     } else if (Platform.OS === 'ios') {
-      // iOS permissions are primarily handled by Info.plist, but `react-native-permissions`
-      // can help check and request status.
       permissionsToRequest = [
-        PERMISSIONS.IOS.LOCATION_WHEN_IN_USE, // Often needed for BLE scanning on iOS
-        PERMISSIONS.IOS.LOCATION_ALWAYS, // Use if background scanning is required
+        PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
       ] as any;
     }
 
@@ -101,20 +107,18 @@ export default function SelectVehicleScreen() {
       }
     }
 
-    // Track permission result
     trackEvent('permission_request_completed', {
       platform: Platform.OS,
       screen: 'select_vehicle',
       granted: allGranted,
       denied_permissions: deniedPermissions.join(','),
-      requested_permissions: permissionsToRequest.join(','),
     });
 
     return allGranted;
   }, [trackEvent]);
 
   useEffect(() => {
-    // Initialize TTM SDK when component mounts
+    // Initialize TTM SDK
     const initializeSDK = async () => {
       try {
         await TTMBLEManager.initSDK();
@@ -127,32 +131,13 @@ export default function SelectVehicleScreen() {
 
     initializeSDK();
 
-    // Set up listeners for TTM SDK events
+    // Set up listeners
     const scanSubscription = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
-      console.log('Device found:', device);
+      console.log('🔍 Device found:', device);
       setScannedDevices((prevDevices) => {
-        // Avoid duplicates in the list
         if (prevDevices.find((p) => p.id === device.id)) {
           return prevDevices;
         }
-
-        // Add animation for new device
-        setDeviceAnimations(prev => ({
-          ...prev,
-          [device.id]: new Animated.Value(0)
-        }));
-
-        // Animate the new device in
-        setTimeout(() => {
-          const anim = deviceAnimations[device.id] || new Animated.Value(0);
-          Animated.spring(anim, {
-            toValue: 1,
-            useNativeDriver: true,
-            tension: 100,
-            friction: 8,
-          }).start();
-        }, 100);
-
         return [...prevDevices, device];
       });
     });
@@ -186,7 +171,6 @@ export default function SelectVehicleScreen() {
       setReceivedData(prev => [...prev, data]);
     });
 
-    // Cleanup listeners when component unmounts
     return () => {
       scanSubscription.remove();
       connectFailureSubscription.remove();
@@ -197,41 +181,18 @@ export default function SelectVehicleScreen() {
     };
   }, []);
 
-  // Start scanning animation
-  const startScanAnimation = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scanAnimation, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanAnimation, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  };
-
-  // Stop scanning animation
-  const stopScanAnimation = () => {
-    scanAnimation.stopAnimation();
-    scanAnimation.setValue(0);
-  };
-
   const startScan = async () => {
-    // Track scan initiation
+    const SCAN_DURATION_SECONDS = 120; // 2 minutes
+    const currentAttempt = scanAttempt + 1;
+    
     trackUserAction('scan_initiated', 'scan_button', {
       screen: 'select_vehicle',
       existing_devices_count: scannedDevices.length,
+      scan_attempt: currentAttempt,
     });
 
-    // Request app-level permissions first
     const granted = await requestAppPermissions();
     if (!granted) {
-      // Track permission denial
       trackEvent('scan_cancelled', {
         reason: 'permission_denied',
         screen: 'select_vehicle',
@@ -240,47 +201,65 @@ export default function SelectVehicleScreen() {
       return;
     }
 
-    // Track scan start
     trackEvent('ble_scan_started', {
       screen: 'select_vehicle',
-      scan_duration_seconds: 10,
+      scan_duration_seconds: SCAN_DURATION_SECONDS,
       platform: Platform.OS,
+      scan_attempt: currentAttempt,
     });
 
+    // Reset state
     setScannedDevices([]);
-    setDeviceAnimations({});
     setIsScanning(true);
-    startScanAnimation();
+    setScanProgress(0);
+    setScanTimeRemaining(SCAN_DURATION_SECONDS);
+    setScanAttempt(currentAttempt);
 
-    // The scan duration is now handled by the TTM SDK's startScan method directly
-    TTMBLEManager.startScan(10) // Scan for 10 seconds
-      .finally(() => {
-        setIsScanning(false);
-        stopScanAnimation();
+    // Update progress every second
+    const progressInterval = setInterval(() => {
+      setScanTimeRemaining(prev => {
+        const newTime = Math.max(0, prev - 1);
+        setScanProgress(((SCAN_DURATION_SECONDS - newTime) / SCAN_DURATION_SECONDS) * 100);
         
-        // Track scan completion
-        trackEvent('ble_scan_completed', {
-          screen: 'select_vehicle',
-          devices_found: scannedDevices.length,
-          scan_duration_seconds: 10,
-          platform: Platform.OS,
-        });
+        if (newTime === 0) {
+          clearInterval(progressInterval);
+        }
+        return newTime;
       });
+    }, 1000);
+
+    try {
+      await TTMBLEManager.startScan(SCAN_DURATION_SECONDS);
+    } catch (error) {
+      console.error('Scan failed:', error);
+      Alert.alert('Scan Error', 'Failed to start BLE scan. Please try again.');
+    } finally {
+      clearInterval(progressInterval);
+      setIsScanning(false);
+      setScanProgress(100);
+      setScanTimeRemaining(0);
+      
+      trackEvent('ble_scan_completed', {
+        screen: 'select_vehicle',
+        devices_found: scannedDevices.length,
+        scan_duration_seconds: SCAN_DURATION_SECONDS,
+        platform: Platform.OS,
+        scan_attempt: currentAttempt,
+      });
+    }
   };
 
   const handleConnectInitiation = (device: TTMDevice) => {
-    // Track device selection
     trackUserAction('device_selected', 'device_button', {
       screen: 'select_vehicle',
-      device_id: device.id.substring(device.id.length - 4), // Last 4 chars for privacy
+      device_id: device.id.substring(device.id.length - 4),
       device_name: device.name || 'unnamed',
       total_devices_available: scannedDevices.length,
     });
 
     setSelectedDeviceForPasscode(device);
-    setShowPasscodeModal(true); // Always prompt for passcode first, as per ELD standard security practices
+    setShowPasscodeModal(true);
 
-    // Track modal opened
     trackEvent('connection_modal_opened', {
       screen: 'select_vehicle',
       device_id: device.id.substring(device.id.length - 4),
@@ -289,182 +268,251 @@ export default function SelectVehicleScreen() {
   };
 
   const handlePasscodeSubmit = async () => {
-    if (!selectedDeviceForPasscode || passcode.length !== 8) { // Assuming 8-digit passcode
+    if (!selectedDeviceForPasscode || passcode.length !== 8) {
       Alert.alert("Error", "Please enter an 8-digit passcode.");
       return;
     }
 
-    if (!imei || imei.length < 10) { // IMEI should be at least 10 digits
+    if (!imei || imei.length < 10) {
       Alert.alert("Error", "Please enter a valid IMEI (at least 10 digits).");
       return;
     }
 
-    setShowPasscodeModal(false); // Hide modal while connection attempt is in progress
+    setShowPasscodeModal(false);
     setIsConnecting(true);
     setConnectingDeviceId(selectedDeviceForPasscode.id);
 
     try {
-      await TTMBLEManager.stopScan(); // Stop scanning before connecting
-      // Connect using the TTM SDK bridge, including user-provided IMEI and passcode
+      await TTMBLEManager.stopScan();
       await TTMBLEManager.connect(selectedDeviceForPasscode.id, imei, false);
 
-      // If connection and authentication (including passcode) are successful:
       Alert.alert("Success", `Connected to ${selectedDeviceForPasscode.name || selectedDeviceForPasscode.id}`);
-      // Start ELD data collection after successful connection/authentication
       try {
         await TTMBLEManager.startReportEldData();
         console.log('Started ELD data reporting');
       } catch (dataError) {
         console.warn('Could not start ELD data reporting:', dataError);
-        // Continue anyway as this method might not be fully implemented yet
       }
-      router.replace('/(app)/(tabs)'); // Navigate to main app screen after successful connection and data start
+      router.replace('/(app)/(tabs)');
     } catch (error: any) {
       console.error("Connection attempt failed:", error);
       Alert.alert("Connection Failed", error.message || "Could not connect to the device. Ensure it's in pairing mode and the passcode is correct.");
     } finally {
       setIsConnecting(false);
       setConnectingDeviceId(null);
-      setPasscode(''); // Clear passcode field
+      setPasscode('');
+      setImei('');
       setSelectedDeviceForPasscode(null);
     }
   };
 
-  // Generate random positions for devices on the UI
-  const getDevicePosition = (index: number) => {
-    const angle = (index * 137.5) % 360; // Golden angle for better distribution
-    const radius = Math.min(width, height) * 0.25 + (index % 3) * 40;
-    const centerX = width / 2;
-    const centerY = height / 2 - 50;
+  const Button = ({ title, onPress, loading = false, disabled = false, variant = 'primary', fullWidth = false, style = {} }: any) => (
+    <Pressable
+      style={[
+        styles.button,
+        variant === 'outline' && styles.buttonOutline,
+        fullWidth && styles.buttonFullWidth,
+        disabled && styles.buttonDisabled,
+        style,
+      ]}
+      onPress={onPress}
+      disabled={disabled || loading}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={variant === 'outline' ? colors.primary : '#FFFFFF'} />
+      ) : (
+        <Text style={[
+          styles.buttonText,
+          variant === 'outline' && styles.buttonTextOutline,
+          disabled && styles.buttonTextDisabled,
+        ]}>
+          {title}
+        </Text>
+      )}
+    </Pressable>
+  );
 
-    return {
-      x: centerX + Math.cos(angle * Math.PI / 180) * radius - 40,
-      y: centerY + Math.sin(angle * Math.PI / 180) * radius - 40,
-    };
-  };
-
-  const renderDeviceCircle = (device: TTMDevice, index: number) => {
-    const position = getDevicePosition(index);
-    const deviceAnim = deviceAnimations[device.id] || new Animated.Value(0);
-    const isConnectingThis = connectingDeviceId === device.id;
-
-    return (
-      <Animated.View
-        key={device.id}
-        style={[
-          styles.deviceCircle,
-          {
-            left: position.x,
-            top: position.y,
-            transform: [
-              {
-                scale: deviceAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 1],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <Pressable
-          style={[
-            styles.deviceButton,
-            isConnectingThis && styles.connectingDevice,
-          ]}
-          onPress={() => handleConnectInitiation(device)} // Trigger passcode modal
-          disabled={isConnecting}
-        >
-          {isConnectingThis ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <>
-              <Text style={styles.deviceInitial}>
-                {(device.name || "U").charAt(0).toUpperCase()}
-              </Text>
-              <Text style={styles.deviceSignal}>📡</Text>
-            </>
-          )}
-        </Pressable>
-        <View style={styles.deviceTooltip}>
-          <Text style={styles.deviceTooltipText}>
+  const DeviceCard = ({ device, onPress, isConnecting }: { device: TTMDevice, onPress: () => void, isConnecting: boolean }) => (
+    <Pressable
+      style={[styles.deviceCard, isConnecting && styles.deviceCardConnecting]}
+      onPress={onPress}
+      disabled={isConnecting}
+    >
+      <View style={styles.deviceCardContent}>
+        <View style={styles.deviceIcon}>
+          <Bluetooth size={24} color={isConnecting ? colors.warning : colors.primary} />
+        </View>
+        <View style={styles.deviceInfo}>
+          <Text style={[styles.deviceName, { color: colors.text }]}>
             {device.name || "Unnamed Device"}
           </Text>
+          <Text style={[styles.deviceId, { color: colors.inactive }]}>
+            ID: {device.id.substring(device.id.length - 8)}
+          </Text>
         </View>
-      </Animated.View>
-    );
-  };
+        <View style={styles.deviceStatus}>
+          {isConnecting ? (
+            <ActivityIndicator size="small" color={colors.warning} />
+          ) : (
+            <Text style={[styles.connectText, { color: colors.primary }]}>
+              Connect
+            </Text>
+          )}
+        </View>
+      </View>
+    </Pressable>
+  );
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Select Your Vehicle ELD</Text>
-        <Text style={styles.subtitle}>Scan and connect to nearby devices</Text>
-      </View>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Truck size={48} color={colors.primary} />
+            <Text style={[styles.title, { color: colors.text }]}>ELD Device Setup</Text>
+            <Text style={[styles.subtitle, { color: colors.inactive }]}>
+              Scan and connect to your Electronic Logging Device
+            </Text>
+          </View>
 
-      {/* Central Scan Area */}
-      <View style={styles.scanArea}>
-        {/* Scanning radar effect */}
-        {isScanning && (
-          <Animated.View
-            style={[
-              styles.scanRadar,
-              {
-                transform: [
-                  {
-                    rotate: scanAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg'],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        )}
+          <View style={styles.scanSection}>
+            <Button
+              title={isScanning ? `Scanning... (${Math.floor(scanTimeRemaining / 60)}:${(scanTimeRemaining % 60).toString().padStart(2, '0')})` : "Scan for Devices (2 min)"}
+              onPress={startScan}
+              loading={isScanning}
+              disabled={isConnecting}
+              fullWidth
+            />
+            
+            {isScanning && (
+              <View style={styles.scanningContainer}>
+                <View style={styles.scanningIndicator}>
+                  <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={[styles.scanningText, { color: colors.inactive }]}>
+                    Searching for ELD devices... (Attempt #{scanAttempt})
+                  </Text>
+                </View>
+                
+                {/* Progress Bar */}
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${scanProgress}%`, backgroundColor: colors.primary }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={[styles.progressText, { color: colors.inactive }]}>
+                    {Math.floor(scanTimeRemaining / 60)}:{(scanTimeRemaining % 60).toString().padStart(2, '0')} remaining
+                  </Text>
+                </View>
+                
+                {/* Scanning Tips */}
+                <View style={styles.scanningTips}>
+                  <Text style={[styles.tipsTitle, { color: colors.text }]}>Scanning Tips:</Text>
+                  <Text style={[styles.tipsText, { color: colors.inactive }]}>• Ensure your ELD device is powered on</Text>
+                  <Text style={[styles.tipsText, { color: colors.inactive }]}>• Keep devices within 30 feet</Text>
+                  <Text style={[styles.tipsText, { color: colors.inactive }]}>• Wait for the full 2-minute scan</Text>
+                </View>
+              </View>
+            )}
+          </View>
 
-        {/* Central scan button */}
-        <Pressable
-          style={[styles.centralScanButton, isScanning && styles.scanningButton]}
-          onPress={startScan}
-          disabled={isScanning || isConnecting}
-        >
-          <Text style={styles.scanIcon}>🔍</Text>
-          <Text style={styles.scanText}>
-            {isScanning ? "Scanning..." : "Scan Devices"}
-          </Text>
-        </Pressable>
+          {scannedDevices.length > 0 && (
+            <View style={styles.devicesSection}>
+              <Text style={[styles.devicesSectionTitle, { color: colors.text }]}>
+                Available Devices ({scannedDevices.length})
+              </Text>
+              {scannedDevices.map((device) => (
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                  onPress={() => handleConnectInitiation(device)}
+                  isConnecting={connectingDeviceId === device.id}
+                />
+              ))}
+            </View>
+          )}
 
-        {/* Device circles */}
-        {scannedDevices.map((device, index) => renderDeviceCircle(device, index))}
-      </View>
+          {scannedDevices.length === 0 && !isScanning && (
+            <View style={styles.emptyState}>
+              <Search size={48} color={colors.inactive} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+                No Devices Found
+              </Text>
+              <Text style={[styles.emptyStateText, { color: colors.inactive }]}>
+                Tap "Scan for Devices" to discover nearby ELD devices
+              </Text>
+            </View>
+          )}
 
-      {/* Status */}
-      <View style={styles.statusArea}>
-        {scannedDevices.length === 0 && !isScanning && (
-          <Text style={styles.emptyText}>
-            Tap the scan button to discover ELD devices
-          </Text>
-        )}
-        {isScanning && (
-          <Text style={styles.scanningText}>
-            Searching for devices... {scannedDevices.length} found
-          </Text>
-        )}
-        {scannedDevices.length > 0 && !isScanning && (
-          <Text style={styles.foundText}>
-            Found {scannedDevices.length} device{scannedDevices.length > 1 ? 's' : ''}. Tap to connect.
-          </Text>
-        )}
-        {isConnecting && (
-          <Text style={styles.connectingText}>
-            Connecting to {connectingDeviceId ? `device ${connectingDeviceId.substring(connectingDeviceId.length - 4)}` : 'ELD'}...
-          </Text>
-        )}
-      </View>
+          {/* Alternative Scan Methods */}
+          {(scannedDevices.length === 0 && !isScanning) && (
+            <View style={styles.alternativeMethods}>
+              <Text style={[styles.alternativeTitle, { color: colors.text }]}>Alternative Scan Methods</Text>
+              <Text style={[styles.alternativeSubtitle, { color: colors.inactive }]}>
+                If no devices appear, try these alternative scanning methods:
+              </Text>
+              
+              <Button
+                title="🔍 Direct BLE Scan (2 min)"
+                onPress={async () => {
+                  try {
+                    console.log('Starting direct BLE scan...');
+                    await TTMBLEManager.startDirectScan(120);
+                  } catch (error) {
+                    console.error('Failed to start direct scan:', error);
+                    Alert.alert('Direct Scan Error', 'Failed to start direct BLE scan. Please try again.');
+                  }
+                }}
+                variant="outline"
+                fullWidth
+                style={styles.alternativeButton}
+              />
+              
+            </View>
+          )}
 
-      {/* Passcode Input Modal */}
+          {__DEV__ && (
+            <View style={styles.devButtons}>
+              <Button
+                title="🧪 Test Devices"
+                onPress={async () => {
+                  try {
+                    await TTMBLEManager.injectTestDevices();
+                  } catch (error) {
+                    console.error('Failed to inject test devices:', error);
+                  }
+                }}
+                variant="outline"
+                style={styles.devButton}
+              />
+
+              <Button
+                title="📱 Show Paired Devices"
+                onPress={async () => {
+                  try {
+                    console.log('Getting bonded devices...');
+                    await TTMBLEManager.getBondedDevices();
+                  } catch (error) {
+                    console.error('Failed to get bonded devices:', error);
+                    Alert.alert('Paired Devices Error', 'Failed to get paired devices. Please try again.');
+                  }
+                }}
+                variant="outline"
+                fullWidth
+                style={styles.alternativeButton}
+              />
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Passcode Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -472,6 +520,7 @@ export default function SelectVehicleScreen() {
         onRequestClose={() => {
           setShowPasscodeModal(false);
           setPasscode('');
+          setImei('');
           setSelectedDeviceForPasscode(null);
         }}
       >
@@ -479,292 +528,343 @@ export default function SelectVehicleScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalBackground}
         >
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Connect to ELD Device</Text>
-            <Text style={styles.modalSubtitle}>
-              Please enter the device IMEI and 8-digit passcode:
+          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Connect to ELD Device</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.inactive }]}>
+              Please enter the device IMEI and passcode to establish connection
             </Text>
             
-            <Text style={styles.inputLabel}>IMEI (at least 10 digits)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Device IMEI"
-              placeholderTextColor="#8B949E"
-              keyboardType="numeric"
-              maxLength={15}
-              value={imei}
-              onChangeText={setImei}
-              autoFocus
-            />
+            <View style={styles.modalForm}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Device IMEI</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: colors.card, 
+                    color: colors.text,
+                    borderColor: colors.border,
+                  }]}
+                  placeholder="Enter device IMEI (min 10 digits)"
+                  placeholderTextColor={colors.inactive}
+                  keyboardType="numeric"
+                  maxLength={15}
+                  value={imei}
+                  onChangeText={setImei}
+                  autoFocus
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Passcode</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: colors.card, 
+                    color: colors.text,
+                    borderColor: colors.border,
+                  }]}
+                  placeholder="Enter 8-digit passcode"
+                  placeholderTextColor={colors.inactive}
+                  keyboardType="numeric"
+                  maxLength={8}
+                  value={passcode}
+                  onChangeText={setPasscode}
+                  secureTextEntry={true}
+                />
+              </View>
+            </View>
             
-            <Text style={styles.inputLabel}>Passcode (8 digits)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="••••••••"
-              placeholderTextColor="#8B949E"
-              keyboardType="numeric"
-              maxLength={8}
-              value={passcode}
-              onChangeText={setPasscode}
-              secureTextEntry={true}
-            />
-            <View style={styles.modalButtonContainer}>
-              <Pressable
-                style={styles.modalButtonCancel}
+            <View style={styles.modalButtonGroup}>
+              <Button
+                title="Cancel"
                 onPress={() => {
                   setShowPasscodeModal(false);
                   setPasscode('');
+                  setImei('');
                   setSelectedDeviceForPasscode(null);
                 }}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.modalButtonSubmit} onPress={handlePasscodeSubmit}>
-                <Text style={styles.modalButtonText}>Connect</Text>
-              </Pressable>
+                variant="outline"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Connect"
+                onPress={handlePasscodeSubmit}
+                disabled={!imei.trim() || passcode.length !== 8}
+                style={styles.modalButton}
+              />
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      
-      {/* Firebase Analytics Debug Panel - Only shows in development */}
-      <FirebaseAnalyticsDebug visible={__DEV__} />
-      
-      {/* Release Analytics Test - Shows in both debug and release */}
-      <ReleaseAnalyticsTest visible={true} />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
     alignItems: 'center',
+    marginBottom: 40,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: '700',
+    marginTop: 16,
     textAlign: 'center',
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#8B949E',
     textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 24,
   },
-  scanArea: {
-    flex: 1,
+  scanSection: {
+    marginBottom: 32,
+  },
+  scanningContainer: {
+    marginTop: 16,
+  },
+  scanningIndicator: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
-  },
-  scanRadar: {
-    position: 'absolute',
-    width: Math.min(width, height) * 0.8,
-    height: Math.min(width, height) * 0.8,
-    borderRadius: Math.min(width, height) * 0.4,
-    borderWidth: 2,
-    borderColor: '#2F81F7',
-    opacity: 0.3,
-  },
-  centralScanButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#2F81F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#2F81F7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    borderWidth: 3,
-    borderColor: '#1F5582',
-  },
-  scanningButton: {
-    backgroundColor: '#0969DA',
-    shadowColor: '#0969DA',
-  },
-  scanIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  scanText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  deviceCircle: {
-    position: 'absolute',
-  },
-  deviceButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#21262D',
-    borderWidth: 2,
-    borderColor: '#30363D',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  connectingDevice: {
-    backgroundColor: '#FD7E14',
-    borderColor: '#E85D04',
-  },
-  deviceInitial: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#F0F6FC',
-    marginBottom: 2,
-  },
-  deviceSignal: {
-    fontSize: 12,
-  },
-  deviceTooltip: {
-    position: 'absolute',
-    top: -35,
-    left: -20,
-    right: -20,
-    backgroundColor: '#161B22',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#30363D',
-  },
-  deviceTooltipText: {
-    color: '#F0F6FC',
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  statusArea: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#8B949E',
-    fontSize: 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    marginBottom: 16,
   },
   scanningText: {
-    color: '#2F81F7',
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
+    fontSize: 14,
   },
-  foundText: {
-    color: '#56D364',
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
+  progressContainer: {
+    marginBottom: 16,
   },
-  connectingText: {
-    color: '#FD7E14',
-    fontSize: 16,
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+    transition: 'width 0.3s ease',
+  },
+  progressText: {
+    fontSize: 12,
     textAlign: 'center',
-    fontWeight: '500',
-    marginTop: 10,
+  },
+  scanningTips: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tipsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  tipsText: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  alternativeMethods: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  alternativeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  alternativeSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  alternativeButton: {
+    marginBottom: 8,
+  },
+  devicesSection: {
+    marginBottom: 24,
+  },
+  devicesSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  deviceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  deviceCardConnecting: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  deviceCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deviceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  deviceInfo: {
+    flex: 1,
+  },
+  deviceName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  deviceId: {
+    fontSize: 14,
+  },
+  deviceStatus: {
+    alignItems: 'center',
+  },
+  connectText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  devButtons: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  devButton: {
+    marginBottom: 8,
+  },
+  button: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  buttonOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  buttonFullWidth: {
+    width: '100%',
+  },
+  buttonDisabled: {
+    backgroundColor: '#9CA3AF',
+    borderColor: '#9CA3AF',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonTextOutline: {
+    color: '#3B82F6',
+  },
+  buttonTextDisabled: {
+    color: '#FFFFFF',
   },
   modalBackground: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
-    width: '80%',
-    backgroundColor: '#161B22',
-    borderRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#30363D',
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#F0F6FC',
-    marginBottom: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#8B949E',
     textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalForm: {
+    marginBottom: 24,
+  },
+  inputGroup: {
     marginBottom: 20,
   },
-  passcodeTextInput: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#0D1117',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#30363D',
-    color: '#F0F6FC',
-    fontSize: 24,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  modalButtonCancel: {
-    backgroundColor: '#6A737D',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 8,
-    width: '45%',
-    alignItems: 'center',
-  },
-  modalButtonSubmit: {
-    backgroundColor: '#2F81F7',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 8,
-    width: '45%',
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: '#FFFFFF',
+  label: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  inputLabel: {
-    alignSelf: 'flex-start',
-    color: '#F0F6FC',
-    fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    marginTop: 10,
   },
-  textInput: {
-    width: '100%',
+  input: {
     height: 50,
-    backgroundColor: '#0D1117',
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#30363D',
-    color: '#F0F6FC',
+    borderRadius: 8,
+    paddingHorizontal: 16,
     fontSize: 16,
-    paddingHorizontal: 15,
-    marginBottom: 10,
+  },
+  modalButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

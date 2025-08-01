@@ -3,6 +3,7 @@ export interface EldDevice {
   name: string;
   address: string;
   isConnected: boolean;
+  signal?: number;
 }
 
 export interface EldState {
