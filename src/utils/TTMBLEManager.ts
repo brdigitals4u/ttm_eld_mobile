@@ -187,13 +187,33 @@ class TTMBLEManagerWrapper {
   // Connection methods
   async connect(deviceId: string, passcode: string): Promise<void> {
     try {
-      const result = await this.nativeModule.connect(deviceId, passcode, true);
-      SentryLogger.logELDEvent('connection_initiated', { deviceId, passcode });
-      FirebaseLogger.logELDEvent('connection_initiated', { deviceId, passcode });
+      // For TTM BLE SDK: 
+      // - If passcode is empty, use needPair = false (no authentication required)
+      // - If passcode is provided, use needPair = true (authentication required)
+      const needPair = passcode.length > 0;
+      console.log(`[TTMBLEManager] Connecting to ${deviceId} with passcode: ${passcode ? '[REDACTED]' : 'NONE'}, needPair: ${needPair}`);
+      
+      // For devices without passcode, use the overloaded connect method that doesn't require pairing
+      let result;
+      if (passcode.length === 0) {
+        // Use the single-parameter connect method for devices that don't require authentication
+        console.log(`[TTMBLEManager] Using simple connect method for device without passcode`);
+        result = await this.nativeModule.connect(deviceId, "", false);
+      } else {
+        // Use the full connect method for devices that require authentication
+        console.log(`[TTMBLEManager] Using authenticated connect method for device with passcode`);
+        result = await this.nativeModule.connect(deviceId, passcode, true);
+      }
+      
+      SentryLogger.logELDEvent('connection_initiated', { deviceId, hasPasscode: passcode.length > 0, needPair });
+      FirebaseLogger.logELDEvent('connection_initiated', { deviceId, hasPasscode: passcode.length > 0, needPair });
+
       return result;
     } catch (error) {
-      SentryLogger.captureException(error, { method: 'connect', deviceId, passcode });
-      FirebaseLogger.recordError(error as Error, { method: 'connect', deviceId, passcode });
+      
+      SentryLogger.captureException(error, { method: 'connect', deviceId, hasPasscode: passcode.length > 0 });
+      FirebaseLogger.recordError(error as Error, { method: 'connect', deviceId, hasPasscode: passcode.length > 0 });
+
       throw error;
     }
   }

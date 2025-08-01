@@ -27,6 +27,7 @@ export interface GlobalState {
   language: string;
   eldDevice: ELDDevice | null;
   isEldConnecting: boolean;
+  isEldScanning: boolean;
   eldConnectionHistory: Array<{
     timestamp: Date;
     event: string;
@@ -47,6 +48,7 @@ type GlobalAction =
   | { type: 'SET_LANGUAGE'; payload: string }
   | { type: 'SET_ELD_DEVICE'; payload: ELDDevice | null }
   | { type: 'SET_ELD_CONNECTING'; payload: boolean }
+  | { type: 'SET_ELD_SCANNING'; payload: boolean }
   | { type: 'ADD_ELD_EVENT'; payload: { event: string; data?: any } }
   | { type: 'UPDATE_ELD_CONNECTION_STATUS'; payload: boolean }
   | { type: 'UPDATE_ELD_BATTERY'; payload: number }
@@ -55,13 +57,13 @@ type GlobalAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'LOGOUT' }
   | { type: 'RESTORE_STATE'; payload: Partial<GlobalState> };
-
 // Initial State
 const initialState: GlobalState = {
   user: null,
   language: 'en',
   eldDevice: null,
   isEldConnecting: false,
+  isEldScanning: false,
   eldConnectionHistory: [],
   appSettings: {
     notifications: true,
@@ -128,6 +130,9 @@ const globalReducer = (state: GlobalState, action: GlobalAction): GlobalState =>
         },
       };
 
+    case 'SET_ELD_SCANNING':
+      return { ...state, isEldScanning: action.payload };
+
     case 'UPDATE_ELD_BATTERY':
       if (!state.eldDevice) return state;
       return {
@@ -189,6 +194,7 @@ const GlobalContext = createContext<{
     setLanguage: (language: string) => void;
     setEldDevice: (device: ELDDevice | null) => void;
     setEldConnecting: (connecting: boolean) => void;
+    setEldScanning: (scanning: boolean) => void;
     addEldEvent: (event: string, data?: any) => void;
     updateEldConnectionStatus: (connected: boolean) => void;
     updateEldBattery: (batteryLevel: number) => void;
@@ -230,6 +236,10 @@ export const GlobalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     setEldConnecting: (connecting: boolean) => {
       dispatch({ type: 'SET_ELD_CONNECTING', payload: connecting });
+    },
+
+    setEldScanning: (scanning: boolean) => {
+      dispatch({ type: 'SET_ELD_SCANNING', payload: scanning });
     },
 
     addEldEvent: (event: string, data?: any) => {
@@ -382,10 +392,12 @@ export const useELD = () => {
   return {
     device: state.eldDevice,
     isConnecting: state.isEldConnecting,
+    isScanning: state.isEldScanning,
     isConnected: state.eldDevice?.isConnected || false,
     connectionHistory: state.eldConnectionHistory,
     setDevice: actions.setEldDevice,
     setConnecting: actions.setEldConnecting,
+    setScanning: actions.setEldScanning,
     updateConnectionStatus: actions.updateEldConnectionStatus,
     updateBattery: actions.updateEldBattery,
     addEvent: actions.addEldEvent,

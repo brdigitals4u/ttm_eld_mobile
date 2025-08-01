@@ -330,99 +330,66 @@ export default function SelectVehicleScreen() {
       device_name: device.name || 'unnamed',
     });
   };
-
-  const handleConnectWithoutPasscode = async (device: TTMDevice) => {
-    trackUserAction('device_selected_no_passcode', 'device_button', {
-      screen: 'select_vehicle',
-      device_id: device.id.substring(device.id.length - 4),
-      device_name: device.name || 'unnamed',
-      total_devices_available: scannedDevices.length,
-    });
-
+  const handleSmartConnect = async (device: TTMDevice) => {
     setIsConnecting(true);
     setConnectingDeviceId(device.id);
     setSelectedDeviceForPasscode(device);
 
     const connectionDeviceId = device.address || device.id;
-
-    trackEvent('connection_attempt_started_no_passcode', {
-      screen: 'select_vehicle',
-      device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
-    });
+    // const usePasscode = device.name.toLowerCase().includes('eld') || device.name.toLowerCase().includes('pt30');
+    const usePasscode = false;
 
     try {
-      // Log connection attempt to Supabase (without passcode)
-      await ELDDeviceService.logConnectionAttempt(device, 0); // 0 indicates no passcode
-      
-      // Stop scanning before attempting connection
-      await TTMBLEManager.stopScan();
-      
-      // Connect using device ID without passcode (empty string)
-      console.log(`Connecting to device: ${connectionDeviceId} without passcode`);
-      await TTMBLEManager.connect(connectionDeviceId, "");
-      
-      console.log('Connection successful without passcode');
-      
-      // Log successful connection to Supabase
-      await ELDDeviceService.logConnectionSuccess(device);
-      
-      Alert.alert("Connection Successful", `Connected to ${device.name || connectionDeviceId} without passcode`);
-      
-      // Start ELD data reporting after successful connection
-      try {
-        console.log('Starting ELD data reporting...');
-        await TTMBLEManager.startReportEldData();
-        console.log('ELD data reporting started successfully');
-        
-        trackEvent('eld_data_reporting_started', {
-          screen: 'select_vehicle',
-          device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
-        });
-      } catch (dataError) {
-        trackEvent('eld_data_reporting_not_started', {
-          screen: 'select_vehicle',
-          device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
-          error_message: JSON.stringify(dataError)
-        });
+      if (usePasscode) {
+        // Connect with passcode logic - show modal
+        setIsConnecting(false);
+        setConnectingDeviceId(null);
+        handleConnectInitiation(device);
+      } else {
+        // Log connection attempt to Supabase (without passcode)
+        await ELDDeviceService.logConnectionAttempt(device, 0);
 
-        console.error('Could not start ELD data reporting:', dataError);
-        Alert.alert("Warning", "Connected successfully, but could not start data reporting. You may need to enable it manually.");
+        // Stop scanning before attempting connection
+        await TTMBLEManager.stopScan();
+
+        // Connect using device ID without passcode (empty string)
+        console.log(`Connecting to device: ${connectionDeviceId} without passcode`);
+        await TTMBLEManager.connect(connectionDeviceId, "");
+
+        console.log('Connection successful without passcode');
+
+        // Log successful connection to Supabase
+        await ELDDeviceService.logConnectionSuccess(device);
+
+        Alert.alert("Connection Successful", `Connected to ${device.name || connectionDeviceId} without passcode`);
+
+        // Start ELD data reporting after successful connection
+        try {
+          console.log('Starting ELD data reporting...');
+          await TTMBLEManager.startReportEldData();
+          console.log('ELD data reporting started successfully');
+
+          trackEvent('eld_data_reporting_started', {
+            screen: 'select_vehicle',
+            device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
+          });
+        } catch (dataError: any) {
+          console.error('Could not start ELD data reporting:', dataError);
+          Alert.alert("Warning", "Connected successfully, but could not start data reporting. You may need to enable it manually.");
+        }
+
+        // Navigate to main app after successful connection
+        router.replace('/(app)/(tabs)');
       }
-      
-      // Navigate to main app after successful connection
-      router.replace('/(app)/(tabs)');
-      
     } catch (error: any) {
       console.error("Connection failed:", error);
-      
-      // Log connection failure to Supabase
-      if (device) {
-        ELDDeviceService.logConnectionFailure(device, {
-          status: -1,
-          message: error.message || 'Connection failed without passcode'
-        });
-      }
-      
-      trackEvent('connection_failed_no_passcode', {
-        screen: 'select_vehicle',
-        device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
-        error_message: error.message || 'unknown_error',
-      });
-      
-      let errorMessage = "Could not connect to the device without passcode.";
-      if (error.message) {
-        if (error.message.includes('timeout')) {
-          errorMessage = "Connection timeout. Ensure the device is powered on and supports connection without passcode.";
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      Alert.alert("Connection Failed", errorMessage);
+      Alert.alert("Connection Failed", "Could not connect to the device.");
     } finally {
-      setIsConnecting(false);
-      setConnectingDeviceId(null);
-      setSelectedDeviceForPasscode(null);
+      if (!usePasscode) {
+        setIsConnecting(false);
+        setConnectingDeviceId(null);
+        setSelectedDeviceForPasscode(null);
+      }
     }
   };
 
@@ -606,26 +573,12 @@ export default function SelectVehicleScreen() {
           {isConnecting ? (
             <ActivityIndicator size="small" color={colors.warning} />
           ) : (
-            <>
-              <Pressable
-                style={[styles.connectButton, styles.connectButtonSecondary]}
-                onPress={() => handleConnectWithoutPasscode(device)}
-                disabled={isConnecting}
-              >
-                <Text style={[styles.connectButtonText, styles.connectButtonTextSecondary]}>
-                  No Passcode
-                </Text>
-              </Pressable>
-              <Pressable
-                style={styles.connectButton}
-                onPress={onPress}
-                disabled={isConnecting}
-              >
-                <Text style={styles.connectButtonText}>
-                  With Passcode
-                </Text>
-              </Pressable>
-            </>
+            <Button
+              title={device.name.toLowerCase().includes('eld') || device.name.toLowerCase().includes('pt30') ? 'Connect' : 'Try Connect'}
+              onPress={() => handleSmartConnect(device)}
+              disabled={isConnecting}
+              variant={device.name.toLowerCase().includes('eld') || device.name.toLowerCase().includes('pt30') ? 'primary' : 'outline'}
+            />
           )}
         </View>
       </View>
@@ -822,38 +775,7 @@ export default function SelectVehicleScreen() {
             </View>
           )}
 
-          {__DEV__ && (
-            <View style={styles.devButtons}>
-              <Button
-                title="🧪 Test Devices"
-                onPress={async () => {
-                  try {
-                    await TTMBLEManager.injectTestDevices();
-                  } catch (error) {
-                    console.error('Failed to inject test devices:', error);
-                  }
-                }}
-                variant="outline"
-                style={styles.devButton}
-              />
 
-              <Button
-                title="📱 Show Paired Devices"
-                onPress={async () => {
-                  try {
-                    console.log('Getting bonded devices...');
-                    await TTMBLEManager.getBondedDevices();
-                  } catch (error) {
-                    console.error('Failed to get bonded devices:', error);
-                    Alert.alert('Paired Devices Error', 'Failed to get paired devices. Please try again.');
-                  }
-                }}
-                variant="outline"
-                fullWidth
-                style={styles.alternativeButton}
-              />
-            </View>
-          )}
         </View>
       </ScrollView>
 
