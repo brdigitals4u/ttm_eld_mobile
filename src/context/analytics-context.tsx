@@ -1,18 +1,27 @@
 import React, { createContext, useContext, useEffect } from 'react';
-import { useAnalytics } from '@/src/hooks/useAnalytics';
+import { Analytics } from '../utils/AnalyticsUtil';
 import { useAuth } from '@/context/auth-context';
+import type { UserEventParams, UserEventContext } from '../utils/AnalyticsUtil';
 
 interface AnalyticsContextType {
-  trackEvent: (eventName: string, parameters?: Record<string, any>) => Promise<void>;
-  trackScreenView: (screenName: string, screenClass?: string, additionalParams?: Record<string, any>) => Promise<void>;
-  trackTabPress: (tabName: string, fromTab?: string, additionalParams?: Record<string, any>) => Promise<void>;
+  // Main method for triggering user events
+  triggerUserEvent: (eventName: string, parameters?: UserEventParams, context?: UserEventContext) => Promise<void>;
+  
+  // Convenience methods
+  trackEvent: (eventName: string, parameters?: UserEventParams) => Promise<void>;
+  trackScreenView: (screenName: string, additionalParams?: UserEventParams, context?: UserEventContext) => Promise<void>;
+  trackTabPress: (tabName: string, fromTab?: string, additionalParams?: UserEventParams) => Promise<void>;
   trackPageChange: (
     fromPage: string,
     toPage: string,
     navigationMethod?: 'tab' | 'navigation' | 'back' | 'deep_link',
-    additionalParams?: Record<string, any>
+    additionalParams?: UserEventParams
   ) => Promise<void>;
-  trackUserAction: (action: string, target?: string, additionalParams?: Record<string, any>) => Promise<void>;
+  trackUserAction: (action: string, target?: string, additionalParams?: UserEventParams) => Promise<void>;
+  trackELDEvent: (eventType: string, data?: UserEventParams) => Promise<void>;
+  trackBluetoothEvent: (eventType: string, data?: UserEventParams) => Promise<void>;
+  trackError: (error: Error | string, errorContext?: UserEventParams) => Promise<void>;
+  trackPerformance: (operation: string, duration: number, additionalParams?: UserEventParams) => Promise<void>;
 }
 
 const AnalyticsContext = createContext<AnalyticsContextType | undefined>(undefined);
@@ -22,35 +31,84 @@ interface AnalyticsProviderProps {
 }
 
 export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({ children }) => {
-  const analytics = useAnalytics();
   const { user } = useAuth() as any;
 
-  // Track app start and user session
+  // Initialize analytics with user context when user changes
   useEffect(() => {
-    analytics.trackEvent('app_start', {
-      app_version: '1.0.0', // You can get this from app config
-      platform: 'mobile',
-    });
-
     if (user) {
-      analytics.trackEvent('user_session_start', {
+      // Update default context with user information
+      Analytics.updateDefaultContext({
+        userId: user.id,
+        platform: 'mobile',
+        appVersion: '1.0.0', // You can get this from app config
+      });
+
+      // Track user session start
+      Analytics.triggerUserEvent('user_session_start', {
         user_type: user?.role || 'unknown',
         carrier_id: user?.carrierId || 'unknown',
       });
     }
+  }, [user]);
+
+  // Track app start on mount
+  useEffect(() => {
+    Analytics.triggerUserEvent('app_start', {
+      app_version: '1.0.0',
+      platform: 'mobile',
+    });
 
     return () => {
       // Track session end on cleanup
-      analytics.trackEvent('user_session_end');
+      Analytics.triggerUserEvent('user_session_end');
     };
-  }, [user, analytics]);
+  }, []);
 
   const contextValue: AnalyticsContextType = {
-    trackEvent: analytics.trackEvent,
-    trackScreenView: analytics.trackScreenView,
-    trackTabPress: analytics.trackTabPress,
-    trackPageChange: analytics.trackPageChange,
-    trackUserAction: analytics.trackUserAction,
+    // Main method
+    triggerUserEvent: Analytics.triggerUserEvent.bind(Analytics),
+    
+    // Convenience methods
+    trackEvent: (eventName: string, parameters?: UserEventParams) => 
+      Analytics.triggerUserEvent(eventName, parameters),
+    
+    trackScreenView: (screenName: string, additionalParams?: UserEventParams, context?: UserEventContext) => 
+      Analytics.trackScreenView(screenName, additionalParams, context),
+    
+    trackTabPress: (tabName: string, fromTab?: string, additionalParams?: UserEventParams) => 
+      Analytics.triggerUserEvent('tab_press', {
+        tab_name: tabName,
+        from_tab: fromTab,
+        ...additionalParams,
+      }),
+    
+    trackPageChange: (
+      fromPage: string,
+      toPage: string,
+      navigationMethod: 'tab' | 'navigation' | 'back' | 'deep_link' = 'navigation',
+      additionalParams?: UserEventParams
+    ) => 
+      Analytics.triggerUserEvent('page_change', {
+        from_page: fromPage,
+        to_page: toPage,
+        navigation_method: navigationMethod,
+        ...additionalParams,
+      }),
+    
+    trackUserAction: (action: string, target?: string, additionalParams?: UserEventParams) => 
+      Analytics.trackUserAction(action, target, additionalParams),
+    
+    trackELDEvent: (eventType: string, data?: UserEventParams) => 
+      Analytics.trackELDEvent(eventType, data),
+    
+    trackBluetoothEvent: (eventType: string, data?: UserEventParams) => 
+      Analytics.trackBluetoothEvent(eventType, data),
+    
+    trackError: (error: Error | string, errorContext?: UserEventParams) => 
+      Analytics.trackError(error, errorContext),
+    
+    trackPerformance: (operation: string, duration: number, additionalParams?: UserEventParams) => 
+      Analytics.trackPerformance(operation, duration, additionalParams),
   };
 
   return (
