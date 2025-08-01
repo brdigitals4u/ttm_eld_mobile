@@ -28,6 +28,8 @@ export default function TabLayout() {
           tab_title: getTabTitle(tabSegment),
           from_tab_title: getTabTitle(currentTab.current),
         });
+
+        
       }
       currentTab.current = tabSegment;
     }

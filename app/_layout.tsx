@@ -18,6 +18,7 @@ import { FuelProvider } from "@/context/fuel-context";
 import { InspectionProvider } from "@/context/inspection-context";
 import { AssetsProvider } from "@/context/assets-context";
 import { CarrierProvider } from "@/context/carrier-context";
+import { AnalyticsProvider } from "@/src/context/analytics-context";
 
 
 export {
@@ -70,8 +71,10 @@ export default function RootLayout() {
                     <FuelProvider>
                       <InspectionProvider>
                         <AssetsProvider>
-                          <GestureHandlerRootView style={{ flex: 1 }}>
-                            <RootLayoutNav />
+<GestureHandlerRootView style={{ flex: 1 }}>
+                            <AnalyticsProvider>
+                              <RootLayoutNav />
+                            </AnalyticsProvider>
                           </GestureHandlerRootView>
                         </AssetsProvider>
                       </InspectionProvider>
