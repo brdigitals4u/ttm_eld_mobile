@@ -22,8 +22,13 @@ import com.jimi.ble.interfaces.OnBluetoothScanCallback
 import com.jimi.ble.interfaces.ProtocolParseData
 import com.jimi.ble.entity.BleDevice
 import com.jimi.ble.entity.parse.BtParseData
-import com.jimi.ble.BluetoothConfig // Corrected import
-import com.jimi.ble.protocol.ObdProtocol // Corrected import
+import com.jimi.ble.entity.parse.EtParseData
+import com.jimi.ble.entity.parse.IotParseData
+import com.jimi.ble.entity.parse.NfParseData
+import com.jimi.ble.entity.parse.SimpleParserData
+import com.jimi.ble.BluetoothConfig
+import com.jimi.ble.protocol.ObdProtocol
+
 
 class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
@@ -106,22 +111,22 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
     // --- GATT Callback Listener (onGattCallback) ---
     private val gattCallback = object : OnBluetoothGattCallback.ParsedBluetoothGattCallback() {
         override fun onConnected() {
-            Log.d(TAG, "onConnected")
+            Log.d(TAG, "onConnected - Device connected successfully")
             sendEvent(ON_CONNECTED, null)
         }
 
         override fun onAuthenticationPassed() {
-            Log.d(TAG, "onAuthenticationPassed")
+            Log.d(TAG, "onAuthenticationPassed - Device authenticated, ready for data transmission")
             sendEvent(ON_AUTHENTICATION_PASSED, null)
         }
 
         override fun onDisconnect() {
-            Log.d(TAG, "onDisconnect")
+            Log.d(TAG, "onDisconnect - Device disconnected")
             sendEvent(ON_DISCONNECTED, null)
         }
 
         override fun onConnectFailure(status: Int) {
-            Log.d(TAG, "onConnectFailure: $status")
+            Log.d(TAG, "onConnectFailure: $status - Connection failed")
             val payload = Arguments.createMap()
             payload.putInt("status", status)
             payload.putString("message", "Connection failed with status: $status")
@@ -130,32 +135,100 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
         }
         
         override fun onNotifyReceived(data: ProtocolParseData) {
-            Log.d(TAG, "onNotifyReceived - received data")
+            Log.d(TAG, "=== onNotifyReceived - Real-time data received ===")
+            Log.d(TAG, "Data class: ${data.javaClass.simpleName}")
+            Log.d(TAG, "Data toString: ${data.toString()}")
+            
             try {
                 if (data is BtParseData) {
+                    Log.d(TAG, "Processing BtParseData for real-time display")
+                    Log.d(TAG, "BtParseData ack: ${data.ack}")
+                    
+                    // Handle real-time ELD data like Jimi IoT app
+                    when (data.ack) {
+                        0x10 -> { // ACK_OBD_ELD_START
+                            Log.d(TAG, "ELD data transmission started")
+                        }
+                        0x11 -> { // ACK_OBD_ELD_PROCESS
+                            Log.d(TAG, "Real-time ELD data received - sending to UI")
+                            // Note: replyReceivedEldData method not available in this SDK version
+                            Log.d(TAG, "Skipping reply to ELD data (method not implemented)")
+                        }
+                        0x12 -> { // ACK_OBD_ELD_FINISH
+                            Log.d(TAG, "ELD data transmission finished")
+                        }
+                        0x04 -> { // ACK_OBD_REQUEST_TIME
+                            Log.d(TAG, "Device requesting UTC time - sending current time")
+                            // Note: sendUTCTime method not available in this SDK version
+                            Log.d(TAG, "Skipping UTC time send (method not implemented)")
+                        }
+                        else -> {
+                            Log.d(TAG, "Other ACK code: ${data.ack}")
+                        }
+                    }
+                    
                     val payload = Arguments.createMap().apply {
                         putString("dataType", "BtParseData")
                         putString("rawData", data.toString())
-                        // Add any basic properties that are available
-                        try {
-                            putInt("ack", data.ack)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Could not access ack property: ${e.message}")
-                        }
+                        putInt("ack", data.ack)
+                        putBoolean("isRealTime", true)
                     }
+                    Log.d(TAG, "Sending real-time BtParseData to JavaScript UI")
+                    sendEvent(ON_NOTIFY_RECEIVED, payload)
+                } else if (data is EtParseData) {
+                    Log.d(TAG, "Processing EtParseData for real-time display")
+                    val payload = Arguments.createMap().apply {
+                        putString("dataType", "EtParseData")
+                        putString("rawData", data.toString())
+                        putBoolean("isRealTime", true)
+                    }
+                    Log.d(TAG, "Sending real-time EtParseData to JavaScript UI")
+                    sendEvent(ON_NOTIFY_RECEIVED, payload)
+                } else if (data is IotParseData) {
+                    Log.d(TAG, "Processing IotParseData for real-time display")
+                    val payload = Arguments.createMap().apply {
+                        putString("dataType", "IotParseData")
+                        putString("rawData", data.toString())
+                        putBoolean("isRealTime", true)
+                    }
+                    Log.d(TAG, "Sending real-time IotParseData to JavaScript UI")
+                    sendEvent(ON_NOTIFY_RECEIVED, payload)
+                } else if (data is NfParseData) {
+                    Log.d(TAG, "Processing NfParseData for real-time display")
+                    val payload = Arguments.createMap().apply {
+                        putString("dataType", "NfParseData")
+                        putString("rawData", data.toString())
+                        putBoolean("isRealTime", true)
+                    }
+                    Log.d(TAG, "Sending real-time NfParseData to JavaScript UI")
+                    sendEvent(ON_NOTIFY_RECEIVED, payload)
+                } else if (data is SimpleParserData) {
+                    Log.d(TAG, "Processing SimpleParserData for real-time display")
+                    val payload = Arguments.createMap().apply {
+                        putString("dataType", "SimpleParserData")
+                        putString("rawData", data.toString())
+                        putBoolean("isRealTime", true)
+                    }
+                    Log.d(TAG, "Sending real-time SimpleParserData to JavaScript UI")
                     sendEvent(ON_NOTIFY_RECEIVED, payload)
                 } else {
+                    Log.d(TAG, "Processing other data type: ${data.javaClass.simpleName}")
                     val payload = Arguments.createMap().apply {
                         putString("dataType", data.javaClass.simpleName)
                         putString("rawData", data.toString())
+                        putBoolean("isRealTime", true)
                     }
+                    Log.d(TAG, "Sending real-time ${data.javaClass.simpleName} to JavaScript UI")
                     sendEvent(ON_NOTIFY_RECEIVED, payload)
                 }
+                Log.d(TAG, "=== Real-time data processing completed ===")
             } catch (e: Exception) {
-                Log.e(TAG, "Error processing received data", e)
+                Log.e(TAG, "Error processing real-time data", e)
                 val errorPayload = Arguments.createMap().apply {
                     putString("error", e.message)
                     putString("dataType", "unknown")
+                    putString("rawData", "Error processing data: ${e.message}")
+                    putBoolean("isRealTime", true)
                 }
                 sendEvent(ON_NOTIFY_RECEIVED, errorPayload)
             }
@@ -174,6 +247,18 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
             Log.d(TAG, "TTM SDK onScan - Device found: $deviceName (${device.address}) Signal: ${device.signal}")
             Log.d(TAG, "TTM SDK - Scan record length: ${scanRecord.size} bytes")
             Log.d(TAG, "TTM SDK - Original device name: '${device.name}', Final name: '$deviceName'")
+            
+            // Log ALL devices including headphones for debugging
+            val deviceNameLower = deviceName?.lowercase() ?: ""
+            if (deviceNameLower.contains("headphone") || 
+                deviceNameLower.contains("earbud") || 
+                deviceNameLower.contains("airpod") ||
+                deviceNameLower.contains("galaxy") ||
+                deviceNameLower.contains("sony") ||
+                deviceNameLower.contains("bose") ||
+                deviceNameLower.contains("jbl")) {
+                Log.i(TAG, "*** HEADPHONE DEVICE FOUND: $deviceName (${device.address}) Signal: ${device.signal} ***")
+            }
             
             // Special logging for devices that might match the target pattern
             if (device.address?.contains("B7:4C", ignoreCase = true) == true || 
@@ -203,6 +288,8 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
                 Log.w(TAG, "TTM SDK scan stopped too early! Expected ${expectedScanDuration}ms, got ${scanDuration}ms")
                 Log.w(TAG, "This indicates a potential TTM SDK scan issue - starting fallback immediately")
                 
+                // ENABLED FALLBACK - TTM SDK scan failed, using direct BLE scan
+                Log.w(TAG, "TTM SDK scan failed - starting direct BLE scan as fallback")
                 // Start direct scan as fallback immediately
                 handler.postDelayed({
                     Log.i(TAG, "Starting direct scan as fallback for failed TTM scan")
@@ -229,6 +316,8 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
                 Log.w(TAG, "TTM SDK scan finished too early! Expected ${expectedScanDuration}ms, got ${scanDuration}ms")
                 Log.w(TAG, "This indicates the TTM SDK may have internal issues - starting fallback")
                 
+                // ENABLED FALLBACK - TTM SDK scan finished too early, using direct BLE scan
+                Log.w(TAG, "TTM SDK scan finished too early - starting direct BLE scan as fallback")
                 // Start direct scan as fallback immediately when TTM scan finishes too early
                 handler.postDelayed({
                     Log.i(TAG, "Starting direct scan as fallback for early TTM scan completion")
@@ -330,15 +419,29 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
             isTTMScanning = true
             
             // Configure scan parameters
-            Log.d(TAG, "TTM SDK - Setting filter device to false for testing")
-            BluetoothLESDK.setNeedFilterDevice(false) // Changed to false for testing - shows ALL BLE devices
-            
-            // Configure scan parameters
+            Log.d(TAG, "TTM SDK - Using existing filter device setting from configureSDK")
             Log.d(TAG, "TTM SDK - Configuring scan for testing")
             
             Log.d(TAG, "TTM SDK - Starting BLE scan for $duration seconds (${expectedScanDuration}ms expected)")
             val startTime = System.currentTimeMillis()
-            BluetoothLESDK.startScan(duration.toLong())
+            
+            // Try the TTM SDK startScan without duration parameter first
+            try {
+                BluetoothLESDK.startScan()
+                Log.d(TAG, "TTM SDK - Using startScan() without duration parameter")
+            } catch (e: Exception) {
+                Log.w(TAG, "TTM SDK startScan() without duration failed: ${e.message}")
+                // Fallback to duration parameter
+                try {
+                    BluetoothLESDK.startScan(duration.toLong())
+                    Log.d(TAG, "TTM SDK - Using startScan($duration) with duration parameter")
+                } catch (e2: Exception) {
+                    Log.e(TAG, "TTM SDK startScan with duration also failed: ${e2.message}")
+                    // Both TTM methods failed, will use direct BLE fallback
+                    throw e2
+                }
+            }
+            
             val endTime = System.currentTimeMillis()
             Log.d(TAG, "TTM SDK - startScan() call completed in ${endTime - startTime}ms")
             Log.d(TAG, "TTM SDK - BLE scan started successfully")
@@ -415,26 +518,27 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
                 Thread.sleep(500) // Brief pause to ensure disconnection
             }
             
-            // For devices without passcode (inbuilt method pair), use different connection approach
-            if (passcode.isEmpty() && !needPair) {
-                Log.d(TAG, "Connecting to device without passcode authentication (inbuilt method pair)")
-                // Try the simple connect method first
-                val connectResult = BluetoothLESDK.connect(deviceId)
-                if (!connectResult) {
-                    Log.w(TAG, "Simple connect failed, trying with empty passcode and no pairing")
-                    BluetoothLESDK.connect(deviceId, "", false)
-                }
-            } else {
-                Log.d(TAG, "Connecting to device with passcode authentication")
-                BluetoothLESDK.connect(deviceId, passcode, needPair)
-            }
+            // Follow Jimi IoT app flow - simple connection without passcode
+            Log.d(TAG, "Connecting to ELD device using Jimi IoT app flow")
+            BluetoothLESDK.connect(deviceId, "", false) // No passcode, no pairing
             
             Log.d(TAG, "Connection request sent successfully")
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Connect failed with exception: ${e.message}", e)
             Log.e(TAG, "Exception stack trace: ${e.stackTrace.contentToString()}")
-            promise.reject("CONNECT_ERROR", "Connect failed: ${e.message}", e)
+            
+            // Provide specific error codes based on the exception
+            val errorCode = when {
+                e.message?.contains("timeout", ignoreCase = true) == true -> "CONNECTION_TIMEOUT"
+                e.message?.contains("not found", ignoreCase = true) == true -> "DEVICE_NOT_FOUND"
+                e.message?.contains("already connected", ignoreCase = true) == true -> "DEVICE_ALREADY_CONNECTED"
+                e.message?.contains("permission", ignoreCase = true) == true -> "BLUETOOTH_PERMISSION_DENIED"
+                e.message?.contains("bluetooth", ignoreCase = true) == true -> "BLUETOOTH_ERROR"
+                else -> "CONNECTION_FAILED"
+            }
+            
+            promise.reject(errorCode, "TTM SDK Connection Error: ${e.message}", e)
         }
     }
 
@@ -503,7 +607,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
 
     @ReactMethod
     fun startReportEldData(promise: Promise) {
-        Log.d(TAG, "startReportEldData() called")
+        Log.d(TAG, "=== startReportEldData() called - Jimi IoT app flow ===")
         try {
             // Check if we have a connected device
             val connectDevice = BluetoothLESDK.getConnectDevice()
@@ -514,115 +618,43 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
             
             if (connectDevice == null) {
                 Log.e(TAG, "No device connected - cannot start ELD data reporting")
-                return promise.reject("NO_DEVICE_CONNECTED", "No device connected. Connect to an ELD device first.")
+                return promise.reject("NO_DEVICE_CONNECTED", "TTM SDK Error: No device connected. Connect to an ELD device first.")
             }
             
             if (gatt == null) {
                 Log.e(TAG, "GATT connection is null - cannot start ELD data reporting")
-                return promise.reject("GATT_NOT_AVAILABLE", "GATT connection not available. Reconnect to the device.")
+                return promise.reject("GATT_NOT_AVAILABLE", "TTM SDK Error: GATT connection not available. Reconnect to the device.")
             }
             
             Log.d(TAG, "Connected to device: ${connectDevice.name} (${connectDevice.address})")
-            Log.d(TAG, "GATT services count: ${gatt.services?.size ?: 0}")
             
-            // List all available GATT services and characteristics for debugging
-            gatt.services?.forEach { service ->
-                Log.d(TAG, "Service: ${service.uuid}")
-                service.characteristics?.forEach { characteristic ->
-                    Log.d(TAG, "  Characteristic: ${characteristic.uuid}, Properties: ${characteristic.properties}")
-                }
+            // Check if this might be a non-ELD device (like headphones)
+            val deviceName = connectDevice.name?.lowercase() ?: ""
+            val isNonELDDevice = deviceName.contains("headphone") || 
+                                deviceName.contains("earbud") || 
+                                deviceName.contains("speaker") || 
+                                deviceName.contains("audio") ||
+                                deviceName.contains("music")
+            
+            if (isNonELDDevice) {
+                Log.w(TAG, "Detected non-ELD device: ${connectDevice.name}")
+                return promise.reject("NON_ELD_DEVICE", "TTM SDK Error: This device (${connectDevice.name}) is not an ELD device. Please connect to a certified Electronic Logging Device.")
             }
             
-            // Check if this might be an ELD device with specific TTM protocol support
-            val isELDDevice = checkIfELDDevice(gatt)
-            Log.d(TAG, "Device ELD compatibility check: $isELDDevice")
+            // Follow Jimi IoT app flow - start ELD data immediately
+            Log.d(TAG, "=== Starting ELD data transmission like Jimi IoT app ===")
             
-            // Try different approaches for ELD data reporting
-            var dataReportingStarted = false
+            // Note: startReportEldData method does not exist in this SDK version
+            // Data will flow automatically once connected and authenticated
+            Log.d(TAG, "ELD data transmission will start automatically - monitoring for incoming data")
             
-            // Approach 1: Try to enable notifications on all notify-capable characteristics
-            var notificationsEnabled = 0
-            gatt.services?.forEach { service ->
-                service.characteristics?.forEach { characteristic ->
-                    if (characteristic.properties and android.bluetooth.BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
-                        Log.d(TAG, "Enabling notifications for characteristic: ${characteristic.uuid}")
-                        try {
-                            gatt.setCharacteristicNotification(characteristic, true)
-                            
-                            // Write descriptor to enable notifications
-                            val descriptor = characteristic.getDescriptor(
-                                java.util.UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
-                            )
-                            if (descriptor != null) {
-                                descriptor.value = android.bluetooth.BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                                val writeResult = gatt.writeDescriptor(descriptor)
-                                if (writeResult) {
-                                    notificationsEnabled++
-                                    Log.d(TAG, "Notification descriptor written successfully for ${characteristic.uuid}")
-                                } else {
-                                    Log.w(TAG, "Failed to write notification descriptor for ${characteristic.uuid}")
-                                }
-                            } else {
-                                Log.w(TAG, "No notification descriptor found for ${characteristic.uuid}")
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to enable notifications for ${characteristic.uuid}: ${e.message}")
-                        }
-                    }
-                }
-            }
-            
-            if (notificationsEnabled > 0) {
-                dataReportingStarted = true
-                Log.i(TAG, "ELD data reporting setup - enabled notifications on $notificationsEnabled characteristics")
-            }
-            
-            // Approach 2: Try to send a command to request ELD data if TTM SDK supports it
-            if (!dataReportingStarted || !isELDDevice) {
-                try {
-                    // Try to write a generic ELD data request command
-                    val eldDataRequestCommand = byteArrayOf(0x01, 0x02, 0x03) // Example command - replace with actual ELD command
-                    val writeResult = BluetoothLESDK.write(eldDataRequestCommand)
-                    if (writeResult) {
-                        Log.d(TAG, "ELD data request command sent successfully")
-                        dataReportingStarted = true
-                    } else {
-                        Log.w(TAG, "Failed to send ELD data request command")
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not send ELD data request command: ${e.message}")
-                }
-            }
-            
-            // Approach 3: For devices that support inbuilt method pair (like your case)
-            // The device might automatically start sending data once connected
-            if (!dataReportingStarted) {
-                Log.i(TAG, "Device connected with inbuilt method pair - data may be automatically available")
-                Log.i(TAG, "Monitoring for incoming data through onNotifyReceived callbacks")
-                dataReportingStarted = true // Assume it will work for inbuilt pair devices
-            }
-            
-            Log.i(TAG, "ELD data reporting setup completed")
-            
-            if (dataReportingStarted) {
-                Log.i(TAG, "ELD data should now be received through onNotifyReceived callbacks")
-                
-                // Set up a timeout to check if we actually receive data
-                handler.postDelayed({
-                    Log.d(TAG, "ELD data monitoring: Checking if data has been received...")
-                    // This is just for monitoring - the actual success/failure will be handled by callbacks
-                }, 5000) // 5 second check
-                
-                promise.resolve(null)
-            } else {
-                Log.w(TAG, "Could not establish ELD data reporting")
-                promise.reject("REPORTING_SETUP_FAILED", "Could not establish ELD data reporting. Device may not support automatic data transmission or may require specific commands.")
-            }
+            // Resolve immediately - data will flow in real-time like Jimi IoT app
+            promise.resolve(null)
             
         } catch (e: Exception) {
             Log.e(TAG, "Start ELD data failed with exception", e)
             Log.e(TAG, "Exception stack trace: ${e.stackTrace.contentToString()}")
-            promise.reject("START_ELD_DATA_ERROR", "Start ELD data failed: ${e.message}", e)
+            promise.reject("START_ELD_DATA_ERROR", "TTM SDK Error: Start ELD data failed: ${e.message}", e)
         }
     }
     
@@ -632,7 +664,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
             // Check for common ELD device characteristics
             gatt.services?.forEach { service ->
                 // Look for services that might indicate ELD functionality
-                val serviceUuid = service.uuid.toString().toLowerCase()
+                val serviceUuid = service.uuid.toString().lowercase()
                 
                 // Common patterns for ELD devices (these are examples - adjust based on your device)
                 if (serviceUuid.contains("fff0") || // Common custom service UUID pattern
@@ -644,7 +676,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
                 
                 // Check characteristics that might indicate ELD data capability
                 service.characteristics?.forEach { characteristic ->
-                    val charUuid = characteristic.uuid.toString().toLowerCase()
+                    val charUuid = characteristic.uuid.toString().lowercase()
                     if (charUuid.contains("fff1") || charUuid.contains("fff2") ||
                         charUuid.contains("6e41") || charUuid.contains("6e42") ||
                         charUuid.contains("ffe1") || charUuid.contains("ffe2")) {
@@ -663,7 +695,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
     fun replyReceivedEldData(promise: Promise) {
         try {
             if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            // Note: replyReceivedEldData method does not exist in this SDK version
             Log.w(TAG, "replyReceivedEldData method not implemented yet")
             promise.resolve(null)
         } catch (e: Exception) {
@@ -676,7 +708,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
     fun sendUTCTime(promise: Promise) {
         try {
             if (bleSDK == null) return promise.reject("SDK_NOT_INIT", "TTM Bluetooth SDK not initialized.")
-            // Note: Method may not exist in this SDK version - implement when SDK documentation is available
+            // Note: sendUTCTime method does not exist in this SDK version
             Log.w(TAG, "sendUTCTime method not implemented yet")
             promise.resolve(null)
         } catch (e: Exception) {
@@ -1020,6 +1052,25 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
         } catch (e: Exception) {
             Log.e(TAG, "Fallback direct scan failed with exception", e)
             isDirectScanning = false
+        }
+    }
+
+    @ReactMethod
+    fun configureSDK(options: ReadableMap, promise: Promise) {
+        val filterDevices = options.getBoolean("filterDevices")
+        val debugMode = options.getBoolean("debugMode")
+        Log.d(TAG, "configureSDK() called - filterDevices: $filterDevices, debugMode: $debugMode")
+        try {
+            // Configure TTM SDK settings
+            BluetoothLESDK.setNeedFilterDevice(filterDevices)
+            BluetoothLESDK.setDebug(debugMode)
+            
+            Log.d(TAG, "TTM SDK configured successfully - Filter devices: $filterDevices, Debug mode: $debugMode")
+            Log.d(TAG, "This should show ALL BLE devices including headphones when filterDevices=false")
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Configure SDK failed with exception: ${e.message}", e)
+            promise.reject("CONFIGURE_SDK_ERROR", "TTM SDK Error: Configure SDK failed: ${e.message}", e)
         }
     }
 

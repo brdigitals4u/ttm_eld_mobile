@@ -148,50 +148,58 @@ function SelectVehicleComponent() {
       try {
         await TTMBLEManager.initSDK();
         console.log('TTM SDK initialized successfully');
-      } catch (error) {
+        
+        // Configure SDK to show all devices (disable filtering) for testing
+        await TTMBLEManager.configureSDK({
+          filterDevices: false, // Show all BLE devices
+          debugMode: true       // Enable debug logging
+        });
+        console.log('TTM SDK configured for testing - all devices visible');
+        
+        // Log SDK initialization to Supabase
+        ELDDeviceService.logConnectionAttempt(
+          { id: 'sdk_init', name: 'TTM SDK', address: 'N/A', signal: 0 },
+          0,
+          'ttm_sdk'
+        );
+      } catch (error: any) {
         console.error('Failed to initialize TTM SDK:', error);
-        Alert.alert('SDK Error', 'Failed to initialize Bluetooth SDK. Some features may not work.');
+        // Log SDK initialization error
+        ELDDeviceService.logConnectionError(
+          { id: 'sdk_init', name: 'TTM SDK', address: 'N/A', signal: 0 },
+          {
+            errorType: 'SDK_INIT_ERROR',
+            errorCode: 'SDK_INIT_FAILED',
+            ttmSdkMessage: error.message,
+            message: 'TTM SDK initialization failed',
+            reason: error.message
+          }
+        );
       }
     };
 
     initializeSDK();
 
-    // Set up listeners
     const scanSubscription = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
-      console.log('🔍 Device found:', device);
+      console.log('Device scanned:', device);
       addScannedDevice(device);
-      addLog(`Device found: ${device.name || 'Unknown'} (${device.id})`);
     });
 
     const connectFailureSubscription = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
-      console.error("Connection failed:", error);
+      console.error('Connection failure:', error);
       setIsConnecting(false);
       setConnectingDeviceId(null);
       
-      setError({
-        type: 'connection_failed',
-        message: error.message || 'Connection failed',
-        details: `Status: ${error.status || 'unknown'}`,
-        code: error.status
-      });
-      setStep(SetupStep.ERROR);
-      
       // Log connection failure to Supabase
       if (selectedDeviceForPasscode) {
-        ELDDeviceService.logConnectionFailure(selectedDeviceForPasscode, error);
+        ELDDeviceService.logConnectionError(selectedDeviceForPasscode, {
+          errorType: 'CONNECTION_FAILURE',
+          errorCode: error.status.toString(),
+          ttmSdkMessage: error.message,
+          message: 'TTM SDK connection failed',
+          reason: error.message
+        });
       }
-      
-      // Reset modal state without blocking alert
-      setShowPasscodeModal(false);
-      setPasscode('');
-      setDeviceId('');
-      setSelectedDeviceForPasscode(null);
-      
-      trackEvent('connection_failure_handled', {
-        screen: 'select_vehicle',
-        error_status: error.status || 'unknown',
-        error_message: error.message || 'unknown',
-      });
     });
 
     const disconnectSubscription = TTMBLEManager.onDisconnected(() => {
@@ -202,6 +210,7 @@ function SelectVehicleComponent() {
       setConnectingDeviceId(null);
       setIsConnected(false);
     });
+    
     const connectedSubscription = TTMBLEManager.onConnected(() => {
       setIsConnected(true);
       
@@ -220,13 +229,25 @@ function SelectVehicleComponent() {
       }
     });
 
+    // Global data listener - only active when NOT in data collection phase
     const notifySubscription = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
-      console.log('Received ELD data:', data);
+      // Only process data if we're not in the data collection phase
+      if (currentStep !== SetupStep.DATA_COLLECTION) {
+        console.log('=== GLOBAL ELD DATA RECEIVED ===');
+        console.log('Full data object:', JSON.stringify(data, null, 2));
+        console.log('DataType:', data.dataType);
+        console.log('RawData length:', data.rawData?.length || 0);
+        console.log('RawData:', data.rawData);
+        console.log('ACK:', data.ack);
+        console.log('Error:', data.error);
+        console.log('================================');
+        
       setReceivedData(prev => [...prev, data]);
       
-      // Log ELD data to Supabase
+        // Log ALL ELD data to Supabase for analysis
       if (connectingDeviceId) {
         ELDDeviceService.logELDData(connectingDeviceId, data);
+        }
       }
     });
 
@@ -238,7 +259,7 @@ function SelectVehicleComponent() {
       authSubscription.remove();
       notifySubscription.remove();
     };
-  }, []);
+  }, [currentStep]); // Add currentStep as dependency
 
   const startScan = async () => {
     const SCAN_DURATION_SECONDS = 120; // 2 minutes
@@ -329,211 +350,153 @@ function SelectVehicleComponent() {
     });
   };
 
-  // **FIXED**: Centralized connection logic
-  const handleDeviceConnect = async (device: TTMDevice) => {
+    // Handle device connection with Jimi IoT app flow
+    const handleDeviceConnect = async (device: BLEDevice) => {
+      try {
     setSelectedDevice(device);
-    setStep(SetupStep.DEVICE_SELECTED);
-    setIsConnecting(true);
-    setConnectingDeviceId(device.id);
-    setSelectedDeviceForPasscode(device);
-
-    const connectionDeviceId = device.address || device.id;
-    // **FIXED**: Determine if passcode is needed based on device name
-    // const usePasscode = device.name.toLowerCase().includes('eld') || device.name.toLowerCase().includes('pt30');
-    const usePasscode = false
-
-    if (usePasscode) {
-      // If passcode is likely needed, open the modal
-      setIsConnecting(false); // We are not actively connecting yet, just showing modal
-      setConnectingDeviceId(null);
-      handleConnectInitiation(device);
-      return;
-    }
-
-    // --- No-Passcode Connection Flow ---
-    setTimeout(() => {
+        setStep(SetupStep.CONNECTING);
+        addLog(`Connecting to ${device.name || device.id}...`);
+        
+        // Log connection attempt to Supabase
+        ELDDeviceService.logConnectionAttempt(device, 0);
+        
+        // Connect using Jimi IoT app flow - no passcode, simple connection
+        await TTMBLEManager.connect(device.id, "", false);
+        addLog('Connection request sent successfully');
+        
+        // Wait for connection and authentication
       setStep(SetupStep.CONNECTING);
-      setConnectionStage(ConnectionStage.IDENTIFY_DEVICE);
-      setProgress(10);
-    }, 1000);
-
-    let eldDataListener: TTMEventSubscription | null = null;
-    let dataTimeout: any;
-
-    try {
-      await ELDDeviceService.logConnectionAttempt(device, 0);
-      setConnectionStage(ConnectionStage.GATHERING_INFO);
-      setProgress(30);
-
-      await TTMBLEManager.stopScan();
-      setConnectionStage(ConnectionStage.CAPTURING_ID);
-      setProgress(50);
-      
-      console.log(`Connecting to device: ${connectionDeviceId} without passcode`);
-      await TTMBLEManager.connect(connectionDeviceId, "");
-      
-      console.log('Connection successful without passcode');
-      setConnectionStage(ConnectionStage.PAIRING);
-      setProgress(80);
-      
-      await ELDDeviceService.logConnectionSuccess(device);
-      setProgress(100);
-      setStep(SetupStep.SUCCESS);
-      addLog(`Successfully connected to ${device.name || connectionDeviceId}`);
-
-      console.log('Starting ELD data reporting...');
-      await TTMBLEManager.startReportEldData();
-      console.log('ELD data reporting started successfully');
-      
-      trackEvent('eld_data_reporting_started', {
-        screen: 'select_vehicle',
-        device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
-      });
-
-      // Show data collection step with collecting animation
-      setTimeout(() => {
+        addLog('Waiting for device connection and authentication...');
+        
+        // Wait for authentication to complete
+        await new Promise<void>((resolve, reject) => {
+          const authTimeout = setTimeout(() => {
+            reject(new Error('Authentication timeout'));
+          }, 15000); // 15 seconds for authentication (faster like Jimi IoT app)
+          
+          const authSuccessListener = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
+            const ackValue = typeof data.ack === 'string' ? parseInt(data.ack) : data.ack;
+            if (data.dataType === 'BtParseData' && ackValue === 0x10) { // ACK_OBD_ELD_START
+              clearTimeout(authTimeout);
+              resolve();
+            }
+          });
+        });
+        
+        addLog('Device connected and authenticated successfully');
         setStep(SetupStep.DATA_COLLECTION);
-        addLog('Collecting ELD data from device...');
         
-        // Log data collection start to Supabase
-        ELDDeviceService.logDataCollectionStatus(
-          connectionDeviceId,
-          'started',
-          0,
-          undefined,
-          undefined,
-          'Started ELD data collection monitoring - waiting for device data'
-        );
-      }, 1500);
-
-      // **FIXED**: Memory leak by properly managing the listener
-      const ELD_DATA_TIMEOUT = 10000;
-      const dataReceivedPromise = new Promise<void>((resolve, reject) => {
-        dataTimeout = setTimeout(() => {
-          reject(new Error('No ELD data received from device - this may not be a compatible ELD device'));
-        }, ELD_DATA_TIMEOUT);
+        // Start ELD data collection immediately
+        addLog('Starting ELD data collection...');
+      await TTMBLEManager.startReportEldData();
+        addLog('ELD data collection started - data should appear in real-time');
         
-        eldDataListener = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
-          console.log('Real ELD data received:', data);
-          if (data.dataType === 'ELD_DATA' || data.dataType === 'MALFUNCTION' || 
-              data.dataType === 'AUTHENTICATION' || data.dataType === 'CONNECTION_STATUS') {
-            clearTimeout(dataTimeout);
-            addLog('ELD data collection successful - real device data received');
-            
-            // Log successful data collection to Supabase
+        // Log successful connection
+        ELDDeviceService.logConnectionSuccess(device);
+        
+        // Set up real-time data listener like Jimi IoT app
+        const eldDataListener = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
+          console.log('Real-time ELD data received:', data);
+          
+          // Log all data to Supabase for analysis
+          ELDDeviceService.logELDData(device.id, data);
+          
+          // Display data in real-time like Jimi IoT app
+          addLog(`Real-time data: ${data.dataType} received`);
+          
+          // Update UI with real-time data
+          setReceivedData(prev => [...prev, data]);
+          
+          // Show success when we get ELD data
+          const ackValue = typeof data.ack === 'string' ? parseInt(data.ack) : data.ack;
+          if (data.dataType === 'BtParseData' && ackValue === 0x11) { // ACK_OBD_ELD_PROCESS
+            addLog('ELD data flowing in real-time');
+            setStep(SetupStep.SUCCESS);
             ELDDeviceService.logDataCollectionStatus(
-              connectionDeviceId,
+              device.id,
               'active',
               1,
               new Date(),
               undefined,
-              `Successfully received ELD data of type: ${data.dataType}`
+              `Real-time ELD data flowing: ${data.dataType}`
             );
-            
-            resolve();
           }
-        });
       });
 
-      try {
-        await dataReceivedPromise;
-        
-        // Navigate to main app after showing data collection
+        // Navigate to main app after successful connection (like Jimi IoT app)
         setTimeout(() => {
           router.replace('/(app)/(tabs)');
         }, 2000);
-      } catch (timeoutError: any) {
-               // Clean up listener
-        safeRemoveListener(eldDataListener);
         
-        // No ELD data received - this is not a compatible ELD device
-        console.error('ELD data timeout:', timeoutError.message);
+      } catch (ttmSdkError: any) {
+        console.error('TTM SDK connection error:', ttmSdkError);
         
-        // Log timeout to data collection monitoring
-        ELDDeviceService.logDataCollectionStatus(
-          connectionDeviceId,
-          'timeout',
-          0,
-          undefined,
-          'ELD_DATA_TIMEOUT',
-          `No ELD data received within ${ELD_DATA_TIMEOUT}ms timeout - device may not be a compatible ELD`
-        );
+        // Log connection error to Supabase
+        ELDDeviceService.logConnectionError(device, {
+          errorType: 'connection_failed',
+          errorCode: ttmSdkError.code || 'UNKNOWN_ERROR',
+          ttmSdkMessage: ttmSdkError.message,
+          message: ttmSdkError.message || 'Connection failed',
+          reason: ttmSdkError.message
+        });
+        
+        // Enhanced error handling based on TTM SDK error codes
+        let finalErrorType = 'connection_failed';
+        let finalErrorMessage = ttmSdkError.code || ttmSdkError.message || 'Unknown connection error';
+        let finalErrorDetails = ttmSdkError.message || `Failed to connect to ${device.name || device.id}`;
+        let finalErrorCode = ttmSdkError.code || 'UNKNOWN_ERROR';
 
-         ELDDeviceService.logDataCollectionStatus(
-          connectionDeviceId,
-          'timeout',
-          0,
-          undefined,
-          'ELD_DATA_TIMEOUT_MESSAGE',
-          timeoutError.message
-        );
-        
-        
-        // Log the connection error to Supabase with TTM SDK details
-        const errorDetails = {
-          errorType: 'ELD_DATA_TIMEOUT',
-          errorCode: 'NON_ELD_DEVICE',
-          ttmSdkMessage: timeoutError.message,
-          message: 'Unable to collect ELD data from this device because it did not send any ELD data within timeout period',
-          reason: 'Device connected successfully but does not transmit ELD data - likely not an ELD device',
-          timeoutDuration: ELD_DATA_TIMEOUT
-        };
-        
-        try {
-          await ELDDeviceService.logConnectionError(device, errorDetails);
-        } catch (logError) {
-          console.warn('Failed to log connection error to Supabase:', logError);
+        // Handle specific TTM SDK error codes
+        switch (ttmSdkError.code) {
+          case 'NON_ELD_DEVICE':
+            finalErrorType = 'non_eld_device';
+            finalErrorMessage = 'This device is not an ELD';
+            finalErrorDetails = `Device "${device.name || device.id}" is not a certified Electronic Logging Device. Please connect to a real ELD device.`;
+            finalErrorCode = 'NON_ELD_DEVICE';
+            break;
+          case 'ELD_DATA_TIMEOUT':
+            finalErrorType = 'eld_data_timeout';
+            finalErrorMessage = 'No ELD data received';
+            finalErrorDetails = `Device "${device.name || device.id}" connected but did not transmit ELD data within the timeout period.`;
+            finalErrorCode = 'ELD_DATA_TIMEOUT';
+            break;
+          case 'CONNECTION_TIMEOUT':
+            finalErrorType = 'connection_timeout';
+            finalErrorMessage = 'Connection timed out';
+            finalErrorDetails = `Failed to connect to device "${device.name || device.id}" within the timeout period.`;
+            finalErrorCode = 'CONNECTION_TIMEOUT';
+            break;
+          case 'DEVICE_NOT_FOUND':
+            finalErrorType = 'device_not_found';
+            finalErrorMessage = 'Device not found';
+            finalErrorDetails = `Device "${device.name || device.id}" is no longer available.`;
+            finalErrorCode = 'DEVICE_NOT_FOUND';
+            break;
+          case 'BLUETOOTH_PERMISSION_DENIED':
+            finalErrorType = 'bluetooth_permission_denied';
+            finalErrorMessage = 'Bluetooth permission denied';
+            finalErrorDetails = 'Please grant Bluetooth permissions to use this app.';
+            finalErrorCode = 'BLUETOOTH_PERMISSION_DENIED';
+            break;
+          case 'BLUETOOTH_ERROR':
+            finalErrorType = 'bluetooth_error';
+            finalErrorMessage = 'Bluetooth error';
+            finalErrorDetails = 'A Bluetooth error occurred. Please check your Bluetooth settings.';
+            finalErrorCode = 'BLUETOOTH_ERROR';
+            break;
+          default:
+            // Use the original error information
+            break;
         }
-        
-        throw timeoutError; // Re-throw to trigger the catch block below
-      }
 
-    } catch (error: any) {
-      console.error("Connection or data reporting failed:", error);
-      
-      let errorType = 'connection_failed';
-      let errorMessage = 'Could not connect to the device.';
-      let errorDetails = error.message || `Failed to connect to ${device.name || connectionDeviceId}`;
-      let errorCode = error.code || 'UNKNOWN_ERROR';
-
-      // **FIXED**: More robust error handling for this flow
-      if (error.message && error.message.includes('No ELD data received')) {
-        errorType = 'eld_data_timeout';
-        errorMessage = 'Device is not a compatible ELD';
-        errorDetails = `Connected device "${device.name || connectionDeviceId}" does not transmit ELD data. Please connect to a certified Electronic Logging Device (ELD).`;
-        errorCode = 'NON_ELD_DEVICE';
-      } else if (error.message && (error.message.includes('not supported') || error.message.includes('incompatible'))) {
-        errorType = 'eld_reporting_failed';
-        errorMessage = 'Device does not support ELD data reporting';
-        errorDetails = `The connected device "${device.name || connectionDeviceId}" is not compatible with ELD data reporting.`;
-        errorCode = 'DEVICE_INCOMPATIBLE';
-      }
-
-      setError({ type: errorType, message: errorMessage, details: errorDetails, code: errorCode });
+        setError({ 
+          type: finalErrorType, 
+          message: finalErrorMessage, 
+          details: finalErrorDetails, 
+          code: finalErrorCode 
+        });
       setStep(SetupStep.ERROR);
-      addLog(`Error: ${errorMessage}`);
-
-        // Log the connection error to Supabase with TTM SDK details
-        const errorDetail1s = {
-          errorType: 'ELD_DATA_TIMEOUT',
-          errorCode: 'NON_ELD_DEVICE',
-          ttmSdkMessage: errorMessage,
-          message: 'Unable to collect ELD data from this device because it did not send any ELD data within timeout period',
-          reason: errorMessage
-        };
-        
-        try {
-          await ELDDeviceService.logConnectionError(device, errorDetail1s);
-        } catch (logError) {
-          console.warn('Failed to log connection error to Supabase:', logError);
-        }
-
-    } finally {
-      // **FIXED**: Ensure listener is always removed
-      safeRemoveListener(eldDataListener);
-      clearTimeout(dataTimeout as any); // Clear timeout just in case
-      setIsConnecting(false);
-      setConnectingDeviceId(null);
+        addLog(`Connection failed: ${finalErrorMessage}`);
     }
   };
 
@@ -567,7 +530,7 @@ function SelectVehicleComponent() {
       await TTMBLEManager.stopScan();
       
       console.log(`Connecting to device: ${connectionDeviceId} with passcode...`);
-      await TTMBLEManager.connect(connectionDeviceId, passcode);
+              await TTMBLEManager.connect(connectionDeviceId, passcode, false);
       
       console.log('Connection successful, starting authentication flow...');
       

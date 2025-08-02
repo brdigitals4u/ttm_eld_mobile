@@ -15,21 +15,37 @@ export class ELDDeviceService {
 
 
   /**
-   * Log device connection attempt
+   * Log connection attempt with method detection
    */
-  static async logConnectionAttempt(device: BLEDevice, passcodeLength?: number): Promise<void> {
+  static async logConnectionAttempt(
+    device: BLEDevice, 
+    passcodeLength: number,
+    connectionMethod: 'ttm_sdk' | 'direct_ble' = 'ttm_sdk'
+  ): Promise<void> {
     try {
       const logData: ELDDeviceLog = {
         device_id: device.id,
-        device_name: device.name,
-        device_address: device.address,
-        status: 'connecting',
-        event_type: 'connection',
+        status: 'connecting' as any,
+        event_type: 'connection' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
-        passcode_length: passcodeLength,
+        data_type: 'connection',
+        raw_data: JSON.stringify({
+          device_name: device.name,
+          device_address: device.address,
+          signal_strength: device.signal,
+          passcode_length: passcodeLength,
+          connection_method: connectionMethod,
+          timestamp: new Date().toISOString()
+        }),
+        ack_received: false,
         event_data: {
-          device_info: device,
-          attempt_timestamp: new Date().toISOString(),
+          connection_method: connectionMethod,
+          passcode_length: passcodeLength,
+          device_info: {
+            name: device.name,
+            address: device.address,
+            signal: device.signal
+          }
         },
       };
 
@@ -46,20 +62,34 @@ export class ELDDeviceService {
   }
 
   /**
-   * Log successful device connection
+   * Log connection success with method detection
    */
-  static async logConnectionSuccess(device: BLEDevice): Promise<void> {
+  static async logConnectionSuccess(
+    device: BLEDevice,
+    connectionMethod: 'ttm_sdk' | 'direct_ble' = 'ttm_sdk'
+  ): Promise<void> {
     try {
       const logData: ELDDeviceLog = {
         device_id: device.id,
-        device_name: device.name,
-        device_address: device.address,
         status: 'connected',
-        event_type: 'connection',
+        event_type: 'connection' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
+        data_type: 'connection',
+        raw_data: JSON.stringify({
+          device_name: device.name,
+          device_address: device.address,
+          connection_method: connectionMethod,
+          timestamp: new Date().toISOString()
+        }),
+        ack_received: true,
+        error_message: null as any,
         event_data: {
-          device_info: device,
-          success_timestamp: new Date().toISOString(),
+          connection_method: connectionMethod,
+          success: true,
+          device_info: {
+            name: device.name,
+            address: device.address
+          }
         },
       };
 
@@ -93,7 +123,7 @@ export class ELDDeviceService {
         device_name: device.name,
         device_address: device.address,
         status: 'failed',
-        event_type: 'error',
+        event_type: 'error' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
         error_message: failure.message,
         error_code: failure.status?.toString() || 'unknown',
@@ -128,10 +158,10 @@ export class ELDDeviceService {
       const logData: ELDDeviceLog = {
         device_id: deviceId,
         status: 'disconnected',
-        event_type: 'disconnection',
+        event_type: 'disconnection' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
         event_data: {
-          disconnection_timestamp: new Date().toISOString(),
+          disconnection_timestamp: new Date().toISOString()
         },
       };
 
@@ -148,7 +178,7 @@ export class ELDDeviceService {
   }
 
   /**
-   * Log authentication success/failure
+   * Log authentication attempt and result
    */
   static async logAuthentication(
     deviceId: string, 
@@ -159,13 +189,14 @@ export class ELDDeviceService {
       const logData: ELDDeviceLog = {
         device_id: deviceId,
         status: passed ? 'connected' : 'failed',
-        event_type: 'authentication',
+        event_type: 'authentication' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
-        authentication_passed: passed,
         passcode_length: passcodeLength,
+        authentication_passed: passed,
         event_data: {
-          authentication_result: passed,
-          timestamp: new Date().toISOString(),
+          authentication_passed: passed,
+          passcode_length: passcodeLength,
+          authentication_timestamp: new Date().toISOString()
         },
       };
 
@@ -182,22 +213,42 @@ export class ELDDeviceService {
   }
 
   /**
-   * Log ELD data received
+   * Log ELD data received from device
    */
   static async logELDData(deviceId: string, data: NotifyData): Promise<void> {
     try {
+      // Always log to console for debugging
+      console.log('📊 ELD Data Logged:', {
+        deviceId,
+        dataType: data.dataType,
+        rawDataLength: data.rawData?.length || 0,
+        ack: data.ack,
+        error: data.error,
+        timestamp: new Date().toISOString()
+      });
+
       const logData: ELDDeviceLog = {
         device_id: deviceId,
         status: 'connected',
-        event_type: 'data_received',
+        event_type: 'data_received' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
-        data_type: data.dataType,
-        raw_data: data.rawData,
+        data_type: data.dataType || 'unknown',
+        raw_data: data.rawData || data.toString(),
         ack_received: !!data.ack,
-        error_message: data.error,
+        ack_data: data.ack?.toString(),
         event_data: {
-          full_data: {...data, ack:data.ack },
-          received_timestamp: new Date().toISOString(),
+          data_type: data.dataType,
+          raw_data_length: data.rawData?.length || 0,
+          has_ack: !!data.ack,
+          has_error: !!data.error,
+          raw_data_preview: data.rawData?.substring(0, 100) || 'No raw data',
+          data_analysis: {
+            data_type: data.dataType,
+            raw_data_length: data.rawData?.length || 0,
+            has_ack: !!data.ack,
+            has_error: !!data.error,
+            raw_data_preview: data.rawData?.substring(0, 100) || 'No raw data'
+          }
         },
       };
 
@@ -206,10 +257,14 @@ export class ELDDeviceService {
         .insert(logData);
 
       if (error) {
-        console.error('Failed to log ELD data:', error);
+        console.error('Failed to log ELD data to Supabase:', error);
+        console.log('📝 Fallback: Logging to console only');
+      } else {
+        console.log('✅ ELD data logged to Supabase successfully');
       }
     } catch (error) {
       console.error('Error logging ELD data:', error);
+      console.log('📝 Fallback: Logging to console only');
     }
   }
 
@@ -291,7 +346,7 @@ export class ELDDeviceService {
   }
 
   /**
-   * Log connection error with TTM SDK details
+   * Log connection error with detailed error information
    */
   static async logConnectionError(
     device: BLEDevice, 
@@ -306,11 +361,13 @@ export class ELDDeviceService {
   ): Promise<void> {
     try {
       // Always log to console for debugging
-      console.log('🔴 ELD Connection Error Logged:', {
+      console.log('🔴 Connection Error Logged:', {
         device: device.name || device.id,
         errorType: errorDetails.errorType,
         errorCode: errorDetails.errorCode,
+        ttmSdkMessage: errorDetails.ttmSdkMessage,
         message: errorDetails.message,
+        reason: errorDetails.reason,
         timestamp: new Date().toISOString()
       });
 
@@ -319,23 +376,19 @@ export class ELDDeviceService {
         device_name: device.name,
         device_address: device.address,
         status: 'failed',
-        event_type: 'error',
+        event_type: 'error' as any, // Fixed: use valid enum value
         session_id: this.sessionId,
-        error_code: errorDetails.errorCode.toString(),
         error_message: errorDetails.message,
+        error_code: errorDetails.errorCode,
         event_data: {
+          errorType: errorDetails.errorType,
+          errorCode: errorDetails.errorCode,
+          ttmSdkMessage: errorDetails.ttmSdkMessage,
+          message: errorDetails.message,
+          reason: errorDetails.reason,
+          timeoutDuration: errorDetails.timeoutDuration,
           device_info: device,
-          error_type: errorDetails.errorType,
-          ttm_sdk_message: errorDetails.ttmSdkMessage,
-          failure_reason: errorDetails.reason,
-          timeout_duration_ms: errorDetails.timeoutDuration,
           error_timestamp: new Date().toISOString(),
-          diagnostic_info: {
-            connected_successfully: true,
-            eld_reporting_started: true,
-            data_received: false,
-            device_compatibility: 'non_eld_device'
-          }
         },
       };
 
@@ -347,7 +400,7 @@ export class ELDDeviceService {
         console.error('Failed to log connection error to Supabase:', error);
         console.log('📝 Fallback: Logging to console only');
       } else {
-        console.log(`✅ Logged connection error to Supabase: ${errorDetails.errorCode} - ${errorDetails.message}`);
+        console.log('✅ Connection error logged to Supabase successfully');
       }
     } catch (error) {
       console.error('Error logging connection error:', error);

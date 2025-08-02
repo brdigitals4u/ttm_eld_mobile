@@ -246,7 +246,7 @@ export function useVehicleSetupLogic() {
       });
 
       // Connect to device
-      await TTMBLEManager.connect(connectionDeviceId, passcode);
+      await TTMBLEManager.connect(connectionDeviceId, passcode, false);
 
       console.log("✅ Device connected successfully");
       addLog(`Device ${device.name || device.id} connected successfully`);

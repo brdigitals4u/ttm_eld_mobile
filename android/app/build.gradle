@@ -152,7 +152,7 @@ dependencies {
     implementation("com.facebook.react:react-android")
     
     // TTM BLE SDK
-    implementation files('libs/JMBluetoothLowEnergy_ktx.aar')
+    implementation files('libs/JMBluetoothLowEnergy_ktx-release.aar')
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

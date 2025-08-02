@@ -25,17 +25,19 @@ interface TTMBLEManagerInterface {
 
   // Methods
   initSDK(): Promise<void>;
+  configureSDK(options: { filterDevices?: boolean; debugMode?: boolean }): Promise<void>;
   startScan(duration: number): Promise<void>;
   stopScan(): Promise<void>;
   startDirectScan(duration: number): Promise<void>;
   stopDirectScan(): Promise<void>;
-  connect(deviceId: string, passcode: string, needPair: boolean): Promise<void>;
+  connect(deviceId: string, passcode: string, needPair?: boolean): Promise<void>;
   disconnect(): Promise<void>;
   checkPasswordEnable(): Promise<void>;
   validatePassword(password: string): Promise<void>;
   enablePassword(password: string): Promise<void>;
   disablePassword(password: string): Promise<void>;
   startReportEldData(): Promise<void>;
+  stopReportEldData(): Promise<void>;
   replyReceivedEldData(): Promise<void>;
   sendUTCTime(): Promise<void>;
   injectTestDevices(): Promise<void>;
@@ -91,6 +93,7 @@ const createMockTTMBLEManager = (): TTMBLEManagerInterface => {
     
     // Mock methods that return resolved promises
     initSDK: () => Promise.resolve(),
+    configureSDK: (options: any) => Promise.resolve(),
     startScan: () => Promise.resolve(),
     stopScan: () => Promise.resolve(),
     startDirectScan: () => Promise.resolve(),
@@ -102,15 +105,28 @@ const createMockTTMBLEManager = (): TTMBLEManagerInterface => {
     enablePassword: () => Promise.resolve(),
     disablePassword: () => Promise.resolve(),
     startReportEldData: () => Promise.resolve(),
+    stopReportEldData: () => Promise.resolve(),
     replyReceivedEldData: () => Promise.resolve(),
     sendUTCTime: () => Promise.resolve(),
+    startReportObdData: () => Promise.resolve(),
+    stopReportObdData: () => Promise.resolve(),
+    queryHistoryData: () => Promise.resolve(),
+    stopReportHistoryData: () => Promise.resolve(),
+    queryTerminalInfo: () => Promise.resolve(),
+    queryDataItemConfig: () => Promise.resolve(),
+    sendCustomCommand: () => Promise.resolve(),
+    saveDriverAuthInfo: () => Promise.resolve(),
+    readDriverAuthInfo: () => Promise.resolve(),
+    clearFaultCode: () => Promise.resolve(),
+    checkDpfRegenerationState: () => Promise.resolve(),
+    setDpfRegeneration: () => Promise.resolve(),
     injectTestDevices: () => Promise.resolve(),
     getBondedDevices: () => Promise.resolve(),
     addListener: () => {},
-    removeListeners: () => {},
+    removeListeners: () => {}
   };
   
-  return mockModule;
+  return mockModule as TTMBLEManagerInterface;
 };
 
 // Get the native module or create mock
@@ -194,6 +210,16 @@ class TTMBLEManagerWrapper {
     }
   }
 
+  async configureSDK(options: { filterDevices?: boolean; debugMode?: boolean } = {}): Promise<void> {
+    try {
+      const result = await this.nativeModule.configureSDK(options);
+      return result;
+    } catch (error) {
+      console.error('TTMBLEManager configureSDK error:', error);
+      throw error;
+    }
+  }
+
   // Scanning methods
   async startScan(duration: number = 10000): Promise<void> {
     try {
@@ -237,9 +263,9 @@ class TTMBLEManagerWrapper {
   }
 
   // Connection methods
-  async connect(deviceId: string, passcode: string): Promise<void> {
+  async connect(deviceId: string, passcode: string, needPair: boolean = false): Promise<void> {
     try {
-      const result = await this.nativeModule.connect(deviceId, passcode, false);
+      const result = await this.nativeModule.connect(deviceId, passcode, needPair);
       return result;
     } catch (error) {
       console.error('TTMBLEManager connect error:', error);
@@ -309,6 +335,16 @@ class TTMBLEManagerWrapper {
     }
   }
 
+  async stopReportEldData(): Promise<void> {
+    try {
+      const result = await this.nativeModule.stopReportEldData();
+      return result;
+    } catch (error) {
+      console.error('TTMBLEManager stopReportEldData error:', error);
+      throw error;
+    }
+  }
+
   async replyReceivedEldData(): Promise<void> {
     try {
       const result = await this.nativeModule.replyReceivedEldData();
@@ -328,6 +364,10 @@ class TTMBLEManagerWrapper {
       throw error;
     }
   }
+
+
+
+
 
   // Test and utility methods
   async injectTestDevices(): Promise<void> {
