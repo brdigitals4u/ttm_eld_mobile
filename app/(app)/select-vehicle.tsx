@@ -8,14 +8,14 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  PermissionsAndroid,
   Platform,
-  Animated,
   TextInput,
-  Modal,
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
+import Animated, { FadeIn, FadeOut, SlideInUp, SlideOutDown, ZoomIn, ZoomOut } from 'react-native-reanimated';
+import Modal from 'react-native-modal';
+import { useVehicleSetup, VehicleSetupProvider, SetupStep, ConnectionStage } from '@/context/vehicle-setup-context';
 import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "@/src/utils/TTMBLEManager";
 import { router } from "expo-router";
 import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -24,6 +24,14 @@ import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 // import { useTheme } from '@/context/theme-context'; // Uncomment if you have theme context
 import { Search, Bluetooth, Truck } from 'lucide-react-native'; // Add these icons
 import { ELDDeviceService } from '@/src/services/ELDDeviceService';
+import {
+  ScanDevicesStep,
+  DeviceSelectedStep,
+  ConnectingStep,
+  SuccessStep,
+  ErrorStep,
+  DataCollectionStep
+} from '@/src/components/vehicle-setup-steps';
 
 // Theme colors (replace with your theme context if available)
 const colors = {
@@ -40,14 +48,11 @@ const colors = {
 
 type TTMDevice = BLEDevice;
 
-export default function SelectVehicleScreen() {
-  // State variables
-  const [scannedDevices, setScannedDevices] = useState<TTMDevice[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
+function SelectVehicleComponent() {
+  // Local state for compatibility with existing code
   const [scanProgress, setScanProgress] = useState(0);
   const [scanTimeRemaining, setScanTimeRemaining] = useState(0);
   const [scanAttempt, setScanAttempt] = useState(0);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcode, setPasscode] = useState('');
@@ -55,6 +60,28 @@ export default function SelectVehicleScreen() {
   const [selectedDeviceForPasscode, setSelectedDeviceForPasscode] = useState<TTMDevice | null>(null);
   const [receivedData, setReceivedData] = useState<NotifyData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+
+  // Context state
+  const {
+    currentStep,
+    connectionStage,
+    selectedDevice,
+    scannedDevices,
+    isScanning,
+    isConnecting,
+    setStep,
+    setConnectionStage,
+    setSelectedDevice,
+    setScannedDevices,
+    addScannedDevice,
+    setIsScanning,
+    setIsConnecting,
+    setError,
+    progress,
+    setProgress,
+    error,
+    addLog
+  } = useVehicleSetup();
 
   // Analytics hooks
   const { trackEvent, trackScreenView, trackUserAction } = useAnalytics();
@@ -135,18 +162,22 @@ export default function SelectVehicleScreen() {
     // Set up listeners
     const scanSubscription = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
       console.log('🔍 Device found:', device);
-      setScannedDevices((prevDevices) => {
-        if (prevDevices.find((p) => p.id === device.id)) {
-          return prevDevices;
-        }
-        return [...prevDevices, device];
-      });
+      addScannedDevice(device);
+      addLog(`Device found: ${device.name || 'Unknown'} (${device.id})`);
     });
 
     const connectFailureSubscription = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
       console.error("Connection failed:", error);
       setIsConnecting(false);
       setConnectingDeviceId(null);
+      
+      setError({
+        type: 'connection_failed',
+        message: error.message || 'Connection failed',
+        details: `Status: ${error.status || 'unknown'}`,
+        code: error.status
+      });
+      setStep(SetupStep.ERROR);
       
       // Log connection failure to Supabase
       if (selectedDeviceForPasscode) {
@@ -321,6 +352,9 @@ export default function SelectVehicleScreen() {
       total_devices_available: scannedDevices.length,
     });
 
+    // Update step and context state
+    setSelectedDevice(device);
+    setStep(SetupStep.DEVICE_SELECTED);
     setSelectedDeviceForPasscode(device);
     setShowPasscodeModal(true);
 
@@ -331,6 +365,9 @@ export default function SelectVehicleScreen() {
     });
   };
   const handleSmartConnect = async (device: TTMDevice) => {
+    // Update context state for device selection and connection start
+    setSelectedDevice(device);
+    setStep(SetupStep.DEVICE_SELECTED);
     setIsConnecting(true);
     setConnectingDeviceId(device.id);
     setSelectedDeviceForPasscode(device);
@@ -338,6 +375,13 @@ export default function SelectVehicleScreen() {
     const connectionDeviceId = device.address || device.id;
     // const usePasscode = device.name.toLowerCase().includes('eld') || device.name.toLowerCase().includes('pt30');
     const usePasscode = false;
+
+    // Small delay to show device selected step
+    setTimeout(() => {
+      setStep(SetupStep.CONNECTING);
+      setConnectionStage(ConnectionStage.IDENTIFY_DEVICE);
+      setProgress(10);
+    }, 1000);
 
     try {
       if (usePasscode) {
@@ -349,8 +393,16 @@ export default function SelectVehicleScreen() {
         // Log connection attempt to Supabase (without passcode)
         await ELDDeviceService.logConnectionAttempt(device, 0);
 
+        // Update connection progress
+        setConnectionStage(ConnectionStage.GATHERING_INFO);
+        setProgress(30);
+
         // Stop scanning before attempting connection
         await TTMBLEManager.stopScan();
+
+        // Update connection progress
+        setConnectionStage(ConnectionStage.CAPTURING_ID);
+        setProgress(50);
 
         // Connect using device ID without passcode (empty string)
         console.log(`Connecting to device: ${connectionDeviceId} without passcode`);
@@ -358,10 +410,17 @@ export default function SelectVehicleScreen() {
 
         console.log('Connection successful without passcode');
 
+        // Update connection progress
+        setConnectionStage(ConnectionStage.PAIRING);
+        setProgress(80);
+
         // Log successful connection to Supabase
         await ELDDeviceService.logConnectionSuccess(device);
 
-        Alert.alert("Connection Successful", `Connected to ${device.name || connectionDeviceId} without passcode`);
+        // Show success step instead of alert
+        setProgress(100);
+        setStep(SetupStep.SUCCESS);
+        addLog(`Successfully connected to ${device.name || connectionDeviceId}`);
 
         // Start ELD data reporting after successful connection
         try {
@@ -373,35 +432,134 @@ export default function SelectVehicleScreen() {
             screen: 'select_vehicle',
             device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
           });
+
+          // Transition to data collection step
+          setTimeout(() => {
+            setStep(SetupStep.DATA_COLLECTION);
+            addLog('Data collection started');
+            
+            // Add some simulated ELD data for testing
+            const simulateELDData = () => {
+              const mockELDData = {
+                vehicleData: {
+                  speed: Math.floor(Math.random() * 70) + 10,
+                  rpm: Math.floor(Math.random() * 2000) + 800,
+                  engineHours: 52450,
+                  odometer: 567890,
+                  fuelLevel: Math.floor(Math.random() * 80) + 20,
+                  engineTemp: Math.floor(Math.random() * 40) + 180,
+                  diagnosticCodes: Math.random() > 0.7 ? ['P0420', 'P0171'] : [],
+                  location: {
+                    latitude: 39.7392 + (Math.random() - 0.5) * 0.01,
+                    longitude: -104.9903 + (Math.random() - 0.5) * 0.01,
+                    accuracy: Math.floor(Math.random() * 10) + 3
+                  },
+                  timestamp: Date.now()
+                },
+                driverStatus: ['driving', 'onDuty', 'offDuty'][Math.floor(Math.random() * 3)],
+                hoursOfService: {
+                  driveTimeRemaining: Math.floor(Math.random() * 600),
+                  shiftTimeRemaining: Math.floor(Math.random() * 800),
+                  cycleTimeRemaining: Math.floor(Math.random() * 4000),
+                  breakTimeRemaining: Math.floor(Math.random() * 400),
+                  lastCalculated: Date.now()
+                },
+                timestamp: Date.now(),
+                deviceId: device.id,
+                sequenceNumber: Math.floor(Math.random() * 1000)
+              };
+              
+              const eldDataPacket: NotifyData = {
+                dataType: 'ELD_DATA',
+                rawData: JSON.stringify(mockELDData),
+                ack: Math.floor(Math.random() * 255),
+              };
+              
+              setReceivedData(prev => [...prev, eldDataPacket]);
+              
+              // Occasionally add malfunction data
+              if (Math.random() > 0.8) {
+                setTimeout(() => {
+                  const malfunctionData: NotifyData = {
+                    dataType: 'MALFUNCTION',
+                    rawData: JSON.stringify({
+                      errorCode: 'ENGINE_WARNING',
+                      message: 'Engine temperature above normal range',
+                      timestamp: Date.now()
+                    })
+                  };
+                  setReceivedData(prev => [...prev, malfunctionData]);
+                }, Math.random() * 5000);
+              }
+            };
+            
+            // Simulate ELD data every 5 seconds
+            const dataInterval = setInterval(simulateELDData, 5000);
+            
+            // Stop simulation after navigation
+            setTimeout(() => {
+              clearInterval(dataInterval);
+            }, 15000);
+            
+            // Initial data packet
+            simulateELDData();
+          }, 2000);
+
+          // Navigate to main app after showing success
+          setTimeout(() => {
+            router.replace('/(app)/(tabs)');
+          }, 4000);
         } catch (dataError: any) {
           console.error('Could not start ELD data reporting:', dataError);
-          Alert.alert("Warning", "Connected successfully, but could not start data reporting. You may need to enable it manually.");
+          addLog(`Warning: Could not start data reporting - ${dataError.message}`);
+          
+          // Still navigate to main app after delay
+          setTimeout(() => {
+            router.replace('/(app)/(tabs)');
+          }, 3000);
         }
-
-        // Navigate to main app after successful connection
-        router.replace('/(app)/(tabs)');
       }
     } catch (error: any) {
       console.error("Connection failed:", error);
-      Alert.alert("Connection Failed", "Could not connect to the device.");
+      
+      // Show error step instead of alert
+      setError({
+        type: 'connection_failed',
+        message: error.message || 'Could not connect to the device',
+        details: `Failed to connect to ${device.name || connectionDeviceId}`,
+        code: error.code
+      });
+      setStep(SetupStep.ERROR);
+      addLog(`Connection failed: ${error.message}`);
     } finally {
       if (!usePasscode) {
         setIsConnecting(false);
         setConnectingDeviceId(null);
-        setSelectedDeviceForPasscode(null);
       }
     }
   };
 
   const handlePasscodeSubmit = async () => {
     if (!selectedDeviceForPasscode) {
-      Alert.alert("Error", "Please select a device first.");
+      setError({
+        type: 'validation_error',
+        message: 'Please select a device first',
+        details: 'No device selected for connection',
+        code: 'NO_DEVICE_SELECTED'
+      });
+      setStep(SetupStep.ERROR);
       return;
     }
 
     // Validate passcode length (SDK requires exactly 8 characters)
     if (passcode.length !== 8) {
-      Alert.alert("Invalid Passcode", "Passcode must be exactly 8 characters long.");
+      setError({
+        type: 'validation_error', 
+        message: 'Invalid passcode length',
+        details: 'Passcode must be exactly 8 characters long',
+        code: 'INVALID_PASSCODE_LENGTH'
+      });
+      setStep(SetupStep.ERROR);
       return;
     }
 
@@ -411,6 +569,11 @@ export default function SelectVehicleScreen() {
     setShowPasscodeModal(false);
     setIsConnecting(true);
     setConnectingDeviceId(selectedDeviceForPasscode.id);
+    
+    // Update step to connecting
+    setStep(SetupStep.CONNECTING);
+    setConnectionStage(ConnectionStage.IDENTIFY_DEVICE);
+    setProgress(10);
 
     trackEvent('connection_attempt_started', {
       screen: 'select_vehicle',
@@ -472,7 +635,10 @@ export default function SelectVehicleScreen() {
       // Log successful connection to Supabase
       await ELDDeviceService.logConnectionSuccess(selectedDeviceForPasscode);
       
-      Alert.alert("Connection Successful", `Connected to ${selectedDeviceForPasscode.name || connectionDeviceId}`);
+      // Show success step instead of alert
+      setProgress(100);
+      setStep(SetupStep.SUCCESS);
+      addLog(`Connected to ${selectedDeviceForPasscode.name || connectionDeviceId}`);
       
       // Start ELD data reporting after successful connection
       try {
@@ -484,6 +650,17 @@ export default function SelectVehicleScreen() {
           screen: 'select_vehicle',
           device_id: connectionDeviceId.substring(connectionDeviceId.length - 4),
         });
+        
+        // Transition to data collection step
+        setTimeout(() => {
+          setStep(SetupStep.DATA_COLLECTION);
+          addLog('Data collection started');
+        }, 2000);
+
+        // Navigate to main app after showing success
+        setTimeout(() => {
+          router.replace('/(app)/(tabs)');
+        }, 4000);
       } catch (dataError) {
 
          trackEvent('eld_data_reporting_not_started', {
@@ -493,11 +670,13 @@ export default function SelectVehicleScreen() {
         });
 
         console.error('Could not start ELD data reporting:', dataError);
-        Alert.alert("Warning", "Connected successfully, but could not start data reporting. You may need to enable it manually.");
+        addLog(`Warning: Could not start data reporting - ${dataError}`);
+        
+        // Still navigate to main app after delay
+        setTimeout(() => {
+          router.replace('/(app)/(tabs)');
+        }, 3000);
       }
-      
-      // Navigate to main app after successful connection
-      router.replace('/(app)/(tabs)');
       
     } catch (error: any) {
       console.error("Connection failed:", error);
@@ -509,17 +688,35 @@ export default function SelectVehicleScreen() {
       });
       
       let errorMessage = "Could not connect to the device.";
+      let errorDetails = error.message || 'Unknown error occurred';
+      
       if (error.message) {
         if (error.message.includes('password') || error.message.includes('passcode')) {
-          errorMessage = "Invalid passcode. Please check the 8-digit passcode and try again.";
+          errorMessage = "Invalid passcode";
+          errorDetails = "Please check the 8-digit passcode and try again.";
         } else if (error.message.includes('timeout')) {
-          errorMessage = "Connection timeout. Ensure the device is powered on and in pairing mode.";
+          errorMessage = "Connection timeout";
+          errorDetails = "Ensure the device is powered on and in pairing mode.";
         } else {
           errorMessage = error.message;
         }
       }
       
-      Alert.alert("Connection Failed", errorMessage);
+      // Show error step instead of alert
+      setError({
+        type: 'connection_failed',
+        message: errorMessage,
+        details: errorDetails,
+        code: error.code
+      });
+      setStep(SetupStep.ERROR);
+      addLog(`Connection failed: ${errorMessage}`);
+      
+      // Reset passcode modal state
+      setShowPasscodeModal(false);
+      setPasscode('');
+      setDeviceId('');
+      setSelectedDeviceForPasscode(null);
     } finally {
       setIsConnecting(false);
       setConnectingDeviceId(null);
@@ -585,6 +782,49 @@ export default function SelectVehicleScreen() {
     </View>
   );
 
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case SetupStep.SCAN_DEVICES:
+        return (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.stepContainer}>
+            <ScanDevicesStep />
+          </Animated.View>
+        );
+      case SetupStep.DEVICE_SELECTED:
+        return (
+          <Animated.View entering={SlideInUp} exiting={SlideOutDown} style={styles.stepContainer}>
+            <DeviceSelectedStep />
+          </Animated.View>
+        );
+      case SetupStep.CONNECTING:
+        return (
+          <Animated.View entering={ZoomIn} exiting={ZoomOut} style={styles.stepContainer}>
+            <ConnectingStep />
+          </Animated.View>
+        );
+      case SetupStep.SUCCESS:
+        return (
+          <Animated.View entering={ZoomIn} exiting={ZoomOut} style={styles.stepContainer}>
+            <SuccessStep />
+          </Animated.View>
+        );
+      case SetupStep.ERROR:
+        return (
+          <Animated.View entering={ZoomIn} exiting={ZoomOut} style={styles.stepContainer}>
+            <ErrorStep />
+          </Animated.View>
+        );
+      case SetupStep.DATA_COLLECTION:
+        return (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.stepContainer}>
+            <DataCollectionStep />
+          </Animated.View>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -600,150 +840,308 @@ export default function SelectVehicleScreen() {
             </Text>
           </View>
 
-          <View style={styles.scanSection}>
-            <Button
-              title={isScanning ? `Scanning... (${Math.floor(scanTimeRemaining / 60)}:${(scanTimeRemaining % 60).toString().padStart(2, '0')})` : "Scan for Devices (2 min)"}
-              onPress={startScan}
-              loading={isScanning}
-              disabled={isConnecting}
-              fullWidth
-            />
-            
-            {isScanning && (
-              <View style={styles.scanningContainer}>
-                <View style={styles.scanningIndicator}>
-                  <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={[styles.scanningText, { color: colors.inactive }]}>
-                    Searching for ELD devices... (Attempt #{scanAttempt})
-                  </Text>
-                </View>
-                
-                {/* Progress Bar */}
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBarBackground}>
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { width: `${scanProgress}%`, backgroundColor: colors.primary }
-                      ]} 
-                    />
-                  </View>
-                  <Text style={[styles.progressText, { color: colors.inactive }]}>
-                    {Math.floor(scanTimeRemaining / 60)}:{(scanTimeRemaining % 60).toString().padStart(2, '0')} remaining
-                  </Text>
-                </View>
-                
-                {/* Scanning Tips */}
-                <View style={styles.scanningTips}>
-                  <Text style={[styles.tipsTitle, { color: colors.text }]}>Scanning Tips:</Text>
-                  <Text style={[styles.tipsText, { color: colors.inactive }]}>• Ensure your ELD device is powered on</Text>
-                  <Text style={[styles.tipsText, { color: colors.inactive }]}>• Keep devices within 30 feet</Text>
-                  <Text style={[styles.tipsText, { color: colors.inactive }]}>• Wait for the full 2-minute scan</Text>
-                </View>
-              </View>
-            )}
-          </View>
+          {/* Render current step */}
+          {renderCurrentStep()}
 
-          {scannedDevices.length > 0 && (
-            <View style={styles.devicesSection}>
-              <Text style={[styles.devicesSectionTitle, { color: colors.text }]}>
-                Available Devices ({scannedDevices.length})
-              </Text>
-              {scannedDevices.map((device) => (
-                <DeviceCard
-                  key={device.id}
-                  device={device}
-                  onPress={() => handleConnectInitiation(device)}
-                  isConnecting={connectingDeviceId === device.id}
+          {/* Show scan controls and device list only on SCAN_DEVICES step */}
+          {currentStep === SetupStep.SCAN_DEVICES && (
+            <>
+              <View style={styles.scanSection}>
+                <Button
+                  title={isScanning ? `Scanning... (${Math.floor(scanTimeRemaining / 60)}:${(scanTimeRemaining % 60).toString().padStart(2, '0')})` : "Scan for Devices (2 min)"}
+                  onPress={startScan}
+                  loading={isScanning}
+                  disabled={isConnecting}
+                  fullWidth
                 />
-              ))}
-            </View>
-          )}
-
-          {scannedDevices.length === 0 && !isScanning && (
-            <View style={styles.emptyState}>
-              <Search size={48} color={colors.inactive} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
-                No Devices Found
-              </Text>
-              <Text style={[styles.emptyStateText, { color: colors.inactive }]}>
-                Tap "Scan for Devices" to discover nearby ELD devices
-              </Text>
-            </View>
-          )}
-
-          {/* Alternative Scan Methods */}
-          {(scannedDevices.length === 0 && !isScanning) && (
-            <View style={styles.alternativeMethods}>
-              <Text style={[styles.alternativeTitle, { color: colors.text }]}>Alternative Scan Methods</Text>
-              <Text style={[styles.alternativeSubtitle, { color: colors.inactive }]}>
-                If no devices appear, try these alternative scanning methods:
-              </Text>
-              
-              <Button
-                title="🔍 Direct BLE Scan (2 min)"
-                onPress={async () => {
-                  try {
-                    console.log('Starting direct BLE scan...');
-                    await TTMBLEManager.startDirectScan(120);
-                  } catch (error) {
-                    console.error('Failed to start direct scan:', error);
-                    Alert.alert('Direct Scan Error', 'Failed to start direct BLE scan. Please try again.');
-                  }
-                }}
-                variant="outline"
-                fullWidth
-                style={styles.alternativeButton}
-              />
-              
-            </View>
-          )}
-
-          {/* ELD Data Display */}
-          {isConnected && receivedData.length > 0 && (
-            <View style={styles.eldDataSection}>
-              <Text style={[styles.eldDataTitle, { color: colors.text }]}>Captured ELD Data</Text>
-              <Text style={[styles.eldDataSubtitle, { color: colors.inactive }]}>
-                Real-time data from your connected ELD device ({receivedData.length} records)
-              </Text>
-              
-              <ScrollView style={styles.eldDataContainer} nestedScrollEnabled={true}>
-                {receivedData.slice(-10).reverse().map((data, index) => (
-                  <View key={index} style={[styles.eldDataItem, { borderColor: colors.border }]}>
-                    <View style={styles.eldDataHeader}>
-                      <Text style={[styles.eldDataType, { color: colors.primary }]}>
-                        {data.dataType || 'Unknown'}
-                      </Text>
-                      <Text style={[styles.eldDataTime, { color: colors.inactive }]}>
-                        {new Date().toLocaleTimeString()}
+                
+                {isScanning && (
+                  <View style={styles.scanningContainer}>
+                    <View style={styles.scanningIndicator}>
+                      <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />
+                      <Text style={[styles.scanningText, { color: colors.inactive }]}>
+                        Searching for ELD devices... (Attempt #{scanAttempt})
                       </Text>
                     </View>
                     
-                    {data.rawData && (
-                      <Text style={[styles.eldDataRaw, { color: colors.text }]} numberOfLines={3}>
-                        {data.rawData}
+                    {/* Progress Bar */}
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressBarBackground}>
+                        <View 
+                          style={[
+                            styles.progressBarFill, 
+                            { width: `${scanProgress}%`, backgroundColor: colors.primary }
+                          ]} 
+                        />
+                      </View>
+                      <Text style={[styles.progressText, { color: colors.inactive }]}>
+                        {Math.floor(scanTimeRemaining / 60)}:{(scanTimeRemaining % 60).toString().padStart(2, '0')} remaining
                       </Text>
-                    )}
+                    </View>
                     
-                    {data.ack && (
-                      <Text style={[styles.eldDataAck, { color: colors.success }]}>
-                        ✓ ACK: {data.ack}
-                      </Text>
-                    )}
-                    
-                    {data.error && (
-                      <Text style={[styles.eldDataError, { color: colors.error }]}>
-                        ⚠ Error: {data.error}
-                      </Text>
-                    )}
+                    {/* Scanning Tips */}
+                    <View style={styles.scanningTips}>
+                      <Text style={[styles.tipsTitle, { color: colors.text }]}>Scanning Tips:</Text>
+                      <Text style={[styles.tipsText, { color: colors.inactive }]}>• Ensure your ELD device is powered on</Text>
+                      <Text style={[styles.tipsText, { color: colors.inactive }]}>• Keep devices within 30 feet</Text>
+                      <Text style={[styles.tipsText, { color: colors.inactive }]}>• Wait for the full 2-minute scan</Text>
+                    </View>
                   </View>
-                ))}
+                )}
+              </View>
+
+              {scannedDevices.length > 0 && (
+                <View style={styles.devicesSection}>
+                  <Text style={[styles.devicesSectionTitle, { color: colors.text }]}>
+                    Available Devices ({scannedDevices.length})
+                  </Text>
+                  {scannedDevices.map((device) => (
+                    <DeviceCard
+                      key={device.id}
+                      device={device}
+                      onPress={() => handleConnectInitiation(device)}
+                      isConnecting={connectingDeviceId === device.id}
+                    />
+                  ))}
+                </View>
+              )}
+
+              {scannedDevices.length === 0 && !isScanning && (
+                <View style={styles.emptyState}>
+                  <Search size={48} color={colors.inactive} />
+                  <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+                    No Devices Found
+                  </Text>
+                  <Text style={[styles.emptyStateText, { color: colors.inactive }]}>
+                    Tap "Scan for Devices" to discover nearby ELD devices
+                  </Text>
+                </View>
+              )}
+
+              {/* Alternative Scan Methods */}
+              {(scannedDevices.length === 0 && !isScanning) && (
+                <View style={styles.alternativeMethods}>
+                  <Text style={[styles.alternativeTitle, { color: colors.text }]}>Alternative Scan Methods</Text>
+                  <Text style={[styles.alternativeSubtitle, { color: colors.inactive }]}>
+                    If no devices appear, try these alternative scanning methods:
+                  </Text>
+                  
+                  <Button
+                    title="🔍 Direct BLE Scan (2 min)"
+                    onPress={async () => {
+                      try {
+                        console.log('Starting direct BLE scan...');
+                        await TTMBLEManager.startDirectScan(120);
+                      } catch (error) {
+                        console.error('Failed to start direct scan:', error);
+                        Alert.alert('Direct Scan Error', 'Failed to start direct BLE scan. Please try again.');
+                      }
+                    }}
+                    variant="outline"
+                    fullWidth
+                    style={styles.alternativeButton}
+                  />
+                  
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Show ELD Data Display only on DATA_COLLECTION step */}
+          {currentStep === SetupStep.DATA_COLLECTION && isConnected && receivedData.length > 0 && (
+            <View style={styles.eldDataSection}>
+              <Text style={[styles.eldDataTitle, { color: colors.text }]}>Live ELD Data Stream</Text>
+              <Text style={[styles.eldDataSubtitle, { color: colors.inactive }]}>
+                Real-time data from your ELD device ({receivedData.length} records received)
+              </Text>
+              
+              <ScrollView style={styles.eldDataContainer} nestedScrollEnabled={true}>
+                {receivedData.slice(-5).reverse().map((data, index) => {
+                  // Parse ELD data based on type
+                  let parsedData = null;
+                  try {
+                    parsedData = JSON.parse(data.rawData);
+                  } catch (error) {
+                    console.warn('Failed to parse ELD data:', error);
+                  }
+
+                  return (
+                    <View key={index} style={[styles.eldDataItem, { borderColor: colors.border }]}>
+                      <View style={styles.eldDataHeader}>
+                        <View style={styles.eldDataTypeContainer}>
+                          <Text style={[styles.eldDataType, { color: colors.primary }]}>
+                            {data.dataType || 'Unknown'}
+                          </Text>
+                          {data.dataType === 'ELD_DATA' && (
+                            <View style={[styles.eldDataBadge, { backgroundColor: colors.success + '20' }]}>
+                              <Text style={[styles.eldDataBadgeText, { color: colors.success }]}>LIVE</Text>
+                            </View>
+                          )}
+                          {data.dataType === 'MALFUNCTION' && (
+                            <View style={[styles.eldDataBadge, { backgroundColor: colors.error + '20' }]}>
+                              <Text style={[styles.eldDataBadgeText, { color: colors.error }]}>ALERT</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.eldDataTime, { color: colors.inactive }]}>
+                          {new Date().toLocaleTimeString()}
+                        </Text>
+                      </View>
+                      
+                      {/* ELD_DATA Display */}
+                      {data.dataType === 'ELD_DATA' && parsedData && (
+                        <View style={styles.eldDataContent}>
+                          {/* Vehicle Metrics */}
+                          {parsedData.vehicleData && (
+                            <View style={styles.eldDataSection}>
+                              <Text style={[styles.eldDataSectionTitle, { color: colors.text }]}>Vehicle Metrics</Text>
+                              <View style={styles.eldDataGrid}>
+                                <View style={styles.eldDataMetric}>
+                                  <Text style={[styles.eldDataMetricValue, { color: colors.primary }]}>
+                                    {parsedData.vehicleData.speed || '0'} mph
+                                  </Text>
+                                  <Text style={[styles.eldDataMetricLabel, { color: colors.inactive }]}>Speed</Text>
+                                </View>
+                                <View style={styles.eldDataMetric}>
+                                  <Text style={[styles.eldDataMetricValue, { color: colors.primary }]}>
+                                    {parsedData.vehicleData.rpm || '0'}
+                                  </Text>
+                                  <Text style={[styles.eldDataMetricLabel, { color: colors.inactive }]}>RPM</Text>
+                                </View>
+                                <View style={styles.eldDataMetric}>
+                                  <Text style={[styles.eldDataMetricValue, { color: colors.primary }]}>
+                                    {parsedData.vehicleData.fuelLevel || '0'}%
+                                  </Text>
+                                  <Text style={[styles.eldDataMetricLabel, { color: colors.inactive }]}>Fuel</Text>
+                                </View>
+                                <View style={styles.eldDataMetric}>
+                                  <Text style={[styles.eldDataMetricValue, { color: colors.primary }]}>
+                                    {parsedData.vehicleData.engineTemp || '0'}°F
+                                  </Text>
+                                  <Text style={[styles.eldDataMetricLabel, { color: colors.inactive }]}>Engine Temp</Text>
+                                </View>
+                              </View>
+                            </View>
+                          )}
+                          
+                          {/* Driver Status & HOS */}
+                          <View style={styles.eldDataSection}>
+                            <Text style={[styles.eldDataSectionTitle, { color: colors.text }]}>Driver Status</Text>
+                            <View style={styles.eldDriverStatus}>
+                              <View style={[styles.eldDriverStatusBadge, { 
+                                backgroundColor: parsedData.driverStatus === 'driving' ? colors.warning + '20' : colors.success + '20' 
+                              }]}>
+                                <Text style={[styles.eldDriverStatusText, { 
+                                  color: parsedData.driverStatus === 'driving' ? colors.warning : colors.success 
+                                }]}>
+                                  {parsedData.driverStatus || 'Unknown'}
+                                </Text>
+                              </View>
+                            </View>
+                            
+                            {/* Hours of Service */}
+                            {parsedData.hoursOfService && (
+                              <View style={styles.eldHosGrid}>
+                                <View style={styles.eldHosItem}>
+                                  <Text style={[styles.eldHosValue, { color: colors.text }]}>
+                                    {Math.floor((parsedData.hoursOfService.driveTimeRemaining || 0) / 60)}h {(parsedData.hoursOfService.driveTimeRemaining || 0) % 60}m
+                                  </Text>
+                                  <Text style={[styles.eldHosLabel, { color: colors.inactive }]}>Drive Time Left</Text>
+                                </View>
+                                <View style={styles.eldHosItem}>
+                                  <Text style={[styles.eldHosValue, { color: colors.text }]}>
+                                    {Math.floor((parsedData.hoursOfService.shiftTimeRemaining || 0) / 60)}h {(parsedData.hoursOfService.shiftTimeRemaining || 0) % 60}m
+                                  </Text>
+                                  <Text style={[styles.eldHosLabel, { color: colors.inactive }]}>Shift Time Left</Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                          
+                          {/* GPS Location */}
+                          {parsedData.vehicleData?.location && (
+                            <View style={styles.eldDataSection}>
+                              <Text style={[styles.eldDataSectionTitle, { color: colors.text }]}>GPS Location</Text>
+                              <Text style={[styles.eldLocationText, { color: colors.text }]}>
+                                📍 {parsedData.vehicleData.location.latitude?.toFixed(6)}, {parsedData.vehicleData.location.longitude?.toFixed(6)}
+                              </Text>
+                              <Text style={[styles.eldLocationAccuracy, { color: colors.inactive }]}>
+                                Accuracy: ±{parsedData.vehicleData.location.accuracy || 0}m
+                              </Text>
+                            </View>
+                          )}
+                          
+                          {/* Diagnostic Codes */}
+                          {parsedData.vehicleData?.diagnosticCodes && parsedData.vehicleData.diagnosticCodes.length > 0 && (
+                            <View style={styles.eldDataSection}>
+                              <Text style={[styles.eldDataSectionTitle, { color: colors.text }]}>Diagnostic Codes</Text>
+                              <View style={styles.eldDiagnosticCodes}>
+                                {parsedData.vehicleData.diagnosticCodes.map((code, codeIndex) => (
+                                  <View key={codeIndex} style={[styles.eldDiagnosticCode, { backgroundColor: colors.warning + '20' }]}>
+                                    <Text style={[styles.eldDiagnosticCodeText, { color: colors.warning }]}>{code}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                      
+                      {/* MALFUNCTION Display */}
+                      {data.dataType === 'MALFUNCTION' && parsedData && (
+                        <View style={styles.eldDataContent}>
+                          <View style={[styles.eldMalfunctionAlert, { backgroundColor: colors.error + '10', borderColor: colors.error }]}>
+                            <Text style={[styles.eldMalfunctionCode, { color: colors.error }]}>
+                              🚨 {parsedData.errorCode || 'UNKNOWN_ERROR'}
+                            </Text>
+                            <Text style={[styles.eldMalfunctionMessage, { color: colors.text }]}>
+                              {parsedData.message || 'Device malfunction detected'}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                      
+                      {/* Raw Data (fallback) */}
+                      {!parsedData && data.rawData && (
+                        <View style={styles.eldRawDataSection}>
+                          <Text style={[styles.eldDataSectionTitle, { color: colors.text }]}>Raw Data</Text>
+                          <Text style={[styles.eldDataRaw, { color: colors.text }]} numberOfLines={3}>
+                            {data.rawData}
+                          </Text>
+                        </View>
+                      )}
+                      
+                      {/* ACK & Error Status */}
+                      <View style={styles.eldDataFooter}>
+                        {data.ack && (
+                          <Text style={[styles.eldDataAck, { color: colors.success }]}>
+                            ✓ ACK: {data.ack}
+                          </Text>
+                        )}
+                        {data.error && (
+                          <Text style={[styles.eldDataError, { color: colors.error }]}>
+                            ⚠ Error: {data.error}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
                 
-                {receivedData.length > 10 && (
+                {receivedData.length > 5 && (
                   <Text style={[styles.eldDataMore, { color: colors.inactive }]}>
-                    ... and {receivedData.length - 10} more records
+                    Showing latest 5 of {receivedData.length} records
                   </Text>
                 )}
+                
+                {/* Data Types Legend */}
+                <View style={styles.eldDataLegend}>
+                  <Text style={[styles.eldDataLegendTitle, { color: colors.text }]}>Data Types Available:</Text>
+                  <Text style={[styles.eldDataLegendItem, { color: colors.inactive }]}>• ELD_DATA - Vehicle metrics, GPS, driver status, HOS</Text>
+                  <Text style={[styles.eldDataLegendItem, { color: colors.inactive }]}>• MALFUNCTION - Error notifications and alerts</Text>
+                  <Text style={[styles.eldDataLegendItem, { color: colors.inactive }]}>• AUTHENTICATION - Auth status updates</Text>
+                  <Text style={[styles.eldDataLegendItem, { color: colors.inactive }]}>• CONNECTION_STATUS - Connection state changes</Text>
+                </View>
               </ScrollView>
               
               <View style={styles.eldDataActions}>
@@ -774,7 +1172,6 @@ export default function SelectVehicleScreen() {
               </View>
             </View>
           )}
-
 
         </View>
       </ScrollView>
@@ -861,6 +1258,16 @@ export default function SelectVehicleScreen() {
         </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>
+  );
+}
+
+
+// Main export with VehicleSetupProvider wrapper
+export default function SelectVehicleScreen() {
+  return (
+    <VehicleSetupProvider>
+      <SelectVehicleComponent />
+    </VehicleSetupProvider>
   );
 }
 
@@ -1255,5 +1662,155 @@ const styles = StyleSheet.create({
   selectedDeviceId: {
     fontSize: 14,
     fontFamily: 'monospace',
+  },
+  stepContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  // Enhanced ELD Data Styles
+  eldDataTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  eldDataBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  eldDataBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  eldDataContent: {
+    marginTop: 8,
+  },
+  eldDataSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  eldDataGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  eldDataMetric: {
+    flex: 1,
+    minWidth: '45%',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 6,
+  },
+  eldDataMetricValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  eldDataMetricLabel: {
+    fontSize: 10,
+    textAlign: 'center',
+  },
+  eldDriverStatus: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  eldDriverStatusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  eldDriverStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  eldHosGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 6,
+  },
+  eldHosItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  eldHosValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  eldHosLabel: {
+    fontSize: 10,
+    textAlign: 'center',
+  },
+  eldLocationText: {
+    fontSize: 12,
+    fontFamily: 'monospace',
+    marginBottom: 2,
+  },
+  eldLocationAccuracy: {
+    fontSize: 10,
+  },
+  eldDiagnosticCodes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  eldDiagnosticCode: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  eldDiagnosticCodeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  eldMalfunctionAlert: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  eldMalfunctionCode: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  eldMalfunctionMessage: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  eldRawDataSection: {
+    marginTop: 8,
+  },
+  eldDataFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  eldDataLegend: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  eldDataLegendTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  eldDataLegendItem: {
+    fontSize: 11,
+    marginBottom: 2,
+    lineHeight: 14,
   },
 });

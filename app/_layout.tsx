@@ -20,6 +20,7 @@ import { InspectionProvider } from "@/context/inspection-context";
 import { AssetsProvider } from "@/context/assets-context";
 import { CarrierProvider } from "@/context/carrier-context";
 import { AnalyticsProvider } from "@/src/context/analytics-context";
+import { VehicleSetupProvider } from "@/context/vehicle-setup-context";
 
 
 export {
@@ -75,7 +76,9 @@ export default function RootLayout() {
                           <InspectionProvider>
                             <AssetsProvider>
                               <AnalyticsProvider>
-                                <RootLayoutNav />
+                                <VehicleSetupProvider>
+                                  <RootLayoutNav />
+                                </VehicleSetupProvider>
                               </AnalyticsProvider>
                             </AssetsProvider>
                           </InspectionProvider>
