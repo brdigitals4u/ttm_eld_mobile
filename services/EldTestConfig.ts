@@ -1,7 +1,7 @@
 // services/EldTestConfig.ts
 
 import { Platform } from 'react-native';
-import TTMBLEManager from '../src/utils/TTMBLEManager';
+import { TTMBLEManager } from '../src/utils/TTMBLEManager';
 import { eldSimulator, SimulationScenario, EldDeviceType } from './EldSimulator';
 
 export enum TestMode {

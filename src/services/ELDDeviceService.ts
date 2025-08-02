@@ -194,10 +194,9 @@ export class ELDDeviceService {
         data_type: data.dataType,
         raw_data: data.rawData,
         ack_received: !!data.ack,
-        ack_data: data.ack,
         error_message: data.error,
         event_data: {
-          full_data: data,
+          full_data: {...data, ack:data.ack },
           received_timestamp: new Date().toISOString(),
         },
       };
@@ -320,7 +319,7 @@ export class ELDDeviceService {
         device_name: device.name,
         device_address: device.address,
         status: 'failed',
-        event_type: 'eld_data_error',
+        event_type: 'error',
         session_id: this.sessionId,
         error_code: errorDetails.errorCode.toString(),
         error_message: errorDetails.message,

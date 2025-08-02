@@ -95,6 +95,23 @@
     "react-test-renderer": "18.2.0",
     "typescript": "~5.8.3"
   },
+  "pnpm": {
+    "overrides": {
+      "react": "19.0.0",
+      "react-dom": "19.0.0",
+      "@react-native-async-storage/async-storage": "^2.1.2"
+    },
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react",
+        "react-dom"
+      ],
+      "allowedVersions": {
+        "react": "19",
+        "react-dom": "19"
+      }
+    }
+  },
   "private": true,
   "directories": {
     "doc": "docs"

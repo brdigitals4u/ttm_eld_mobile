@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, FlatList, Alert, StyleSheet } from 'react-native';
-import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from '../utils/TTMBLEManager';
+import { TTMBLEManager, BLEDevice, ConnectionFailure, NotifyData } from '../utils/TTMBLEManager';
 
 const TTMBLEExample: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);

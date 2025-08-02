@@ -3,8 +3,7 @@ import { AlertTriangle, Bed, Briefcase, Coffee, Lock, MoreHorizontal, Settings, 
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View, Modal, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import analytics from '@react-native-firebase/analytics';
-import crashlytics from '@react-native-firebase/crashlytics';
+import { FirebaseLogger } from '@/src/services/FirebaseService';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import StatusButton from '@/components/StatusButton';
@@ -32,14 +31,14 @@ export default function StatusScreen() {
     }
     
     try {
-      await analytics().logEvent('status_button_clicked', {
+      await FirebaseLogger.logEvent('status_button_clicked', {
         screen: 'status',
         action: 'status_change',
         status: status,
         previous_status: currentStatus
       });
     } catch (error) {
-      crashlytics().recordError(error as Error);
+      FirebaseLogger.recordError(error as Error);
     }
     
     // Show "Done for the day?" modal when selecting Off Duty

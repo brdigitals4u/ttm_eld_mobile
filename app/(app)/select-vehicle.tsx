@@ -16,7 +16,7 @@ import {
 import Animated, { FadeIn, FadeOut, SlideInUp, SlideOutDown, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import Modal from 'react-native-modal';
 import { useVehicleSetup, VehicleSetupProvider, SetupStep, ConnectionStage } from '@/context/vehicle-setup-context';
-import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData, TTMEventSubscription } from "@/src/utils/TTMBLEManager";
+import { TTMBLEManager, BLEDevice, ConnectionFailure, NotifyData, TTMEventSubscription } from "@/src/utils/TTMBLEManager";
 import { router } from "expo-router";
 import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { useAnalytics } from '@/src/hooks/useAnalytics';
@@ -25,6 +25,7 @@ import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 import { Search, Bluetooth, Truck } from 'lucide-react-native'; // Add these icons
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ELDDeviceService } from '@/src/services/ELDDeviceService';
+import { safeRemoveListener } from '@/components/vehicle-setup/ListenerCleanup';
 import {
   ScanDevicesStep,
   DeviceSelectedStep,
@@ -89,13 +90,7 @@ function SelectVehicleComponent() {
   const { trackEvent, trackScreenView, trackUserAction } = useAnalytics();
   const { currentPath } = useNavigationAnalytics();
 
-  // Track screen view on component mount
-  useEffect(() => {
-    trackScreenView('select_vehicle', 'SelectVehicleScreen', {
-      screen_purpose: 'eld_device_selection',
-      entry_point: 'vehicle_setup_flow',
-    });
-  }, [trackScreenView]);
+
 
   // Request Bluetooth permissions
   const requestAppPermissions = useCallback(async () => {
@@ -363,7 +358,7 @@ function SelectVehicleComponent() {
     }, 1000);
 
     let eldDataListener: TTMEventSubscription | null = null;
-    let dataTimeout: NodeJS.Timeout;
+    let dataTimeout: any;
 
     try {
       await ELDDeviceService.logConnectionAttempt(device, 0);
@@ -448,10 +443,8 @@ function SelectVehicleComponent() {
           router.replace('/(app)/(tabs)');
         }, 2000);
       } catch (timeoutError: any) {
-        // Clean up listener
-        if (eldDataListener) {
-          eldDataListener.remove();
-        }
+               // Clean up listener
+        safeRemoveListener(eldDataListener);
         
         // No ELD data received - this is not a compatible ELD device
         console.error('ELD data timeout:', timeoutError.message);
@@ -537,10 +530,8 @@ function SelectVehicleComponent() {
 
     } finally {
       // **FIXED**: Ensure listener is always removed
-      if (eldDataListener) {
-        eldDataListener.remove();
-      }
-      clearTimeout(dataTimeout); // Clear timeout just in case
+      safeRemoveListener(eldDataListener);
+      clearTimeout(dataTimeout as any); // Clear timeout just in case
       setIsConnecting(false);
       setConnectingDeviceId(null);
     }
@@ -995,7 +986,7 @@ function SelectVehicleComponent() {
                             <View style={styles.eldDataSection}>
                               <Text style={[styles.eldDataSectionTitle, { color: colors.text }]}>Diagnostic Codes</Text>
                               <View style={styles.eldDiagnosticCodes}>
-                                {parsedData.vehicleData.diagnosticCodes.map((code, codeIndex) => (
+                                {parsedData.vehicleData.diagnosticCodes.map((code: any, codeIndex: any) => (
                                   <View key={codeIndex} style={[styles.eldDiagnosticCode, { backgroundColor: colors.warning + '20' }]}>
                                     <Text style={[styles.eldDiagnosticCodeText, { color: colors.warning }]}>{code}</Text>
                                   </View>

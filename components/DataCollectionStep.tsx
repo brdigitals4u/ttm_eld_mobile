@@ -25,8 +25,9 @@ import {
   BarChart3
 } from 'lucide-react-native';
 import { router } from 'expo-router';
-import TTMBLEManager from '@/src/utils/TTMBLEManager';
+import { TTMBLEManager, TTMEventSubscription } from '@/src/utils/TTMBLEManager';
 import { ELDDeviceService } from '@/src/services/ELDDeviceService';
+import { safeRemoveListener } from '@/components/vehicle-setup/ListenerCleanup';
 
 const colors = {
   background: '#FFFFFF',
@@ -70,6 +71,7 @@ export default function DataCollectionStep() {
   const [isCollecting, setIsCollecting] = useState(false);
   const [collectionDuration, setCollectionDuration] = useState(0);
   const [noDataTimeout, setNoDataTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [dataSubscription, setDataSubscription] = useState<TTMEventSubscription | null>(null);
   
   const pulseAnimation = useSharedValue(1);
   const dataCountAnimation = useSharedValue(0);
@@ -96,6 +98,7 @@ export default function DataCollectionStep() {
       if (noDataTimeout) {
         clearTimeout(noDataTimeout);
       }
+      safeRemoveListener(dataSubscription);
     };
   }, []);
   
@@ -108,14 +111,15 @@ export default function DataCollectionStep() {
       await TTMBLEManager.startReportEldData();
       
       // Set up data listener
-      const dataSubscription = TTMBLEManager.onNotifyReceived((data: any) => {
+      const subscription = TTMBLEManager.onNotifyReceived((data: any) => {
         handleNewELDData(data);
       });
+      setDataSubscription(subscription);
       
       // Set timeout for no data received
       const timeout = setTimeout(() => {
         handleNoDataReceived();
-      }, 30000); // 30 seconds timeout
+      }, 30000) as any; // 30 seconds timeout
       
       setNoDataTimeout(timeout);
       
@@ -182,7 +186,7 @@ export default function DataCollectionStep() {
     // Reset no-data timeout
     const timeout = setTimeout(() => {
       handleNoDataReceived();
-    }, 60000); // 1 minute timeout for subsequent data
+    }, 60000) as any; // 1 minute timeout for subsequent data
     
     setNoDataTimeout(timeout);
   };
@@ -195,7 +199,7 @@ export default function DataCollectionStep() {
     if (selectedDevice) {
       ELDDeviceService.logConnectionFailure(selectedDevice, {
         message: 'Device not sending data',
-        status: 'NO_DATA'
+        status: 0
       });
     }
     

@@ -3,8 +3,7 @@ import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from 'lucide-r
 import React, { useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import analytics from '@react-native-firebase/analytics';
-import crashlytics from '@react-native-firebase/crashlytics';
+import { FirebaseLogger } from '@/src/services/FirebaseService';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import LogEntry from '@/components/LogEntry';
@@ -27,26 +26,26 @@ export default function LogsScreen() {
 
   const handleTransferLogs = async () => {
     try {
-      await analytics().logEvent('logs_transfer_clicked', {
+      await FirebaseLogger.logEvent('logs_transfer_clicked', {
         screen: 'logs',
         action: 'transfer_logs_button',
         user_id: user?.id || 'unknown'
       });
     } catch (error) {
-      crashlytics().recordError(error as Error);
+      FirebaseLogger.recordError(error as Error);
     }
     setShowTransferModal(true);
   };
 
   const handleEldMaterials = async () => {
     try {
-      await analytics().logEvent('logs_eld_materials_clicked', {
+      await FirebaseLogger.logEvent('logs_eld_materials_clicked', {
         screen: 'logs',
         action: 'eld_materials_button',
         user_id: user?.id || 'unknown'
       });
     } catch (error) {
-      crashlytics().recordError(error as Error);
+      FirebaseLogger.recordError(error as Error);
     }
     setShowEldMaterialsModal(true);
   };

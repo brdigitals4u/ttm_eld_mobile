@@ -1,5 +1,5 @@
 import createContextHook from '@nkzw/create-context-hook';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAsyncStorage } from '../src/utils/AsyncStorageWrapper';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { AuthState, User, VehicleInfo } from '@/types/auth';
@@ -38,8 +38,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   useEffect(() => {
     const loadAuthState = async () => {
       try {
-        const userJson = await AsyncStorage.getItem('user');
-        const vehicleJson = await AsyncStorage.getItem('vehicleInfo');
+        const userJson = await SafeAsyncStorage.getItem('user');
+        const vehicleJson = await SafeAsyncStorage.getItem('vehicleInfo');
         
         if (userJson) {
           const user = JSON.parse(userJson);
@@ -99,7 +99,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       const { password: _, ...userWithoutPassword } = user;
       
-      await AsyncStorage.setItem('user', JSON.stringify(userWithoutPassword));
+      await SafeAsyncStorage.setItem('user', JSON.stringify(userWithoutPassword));
       
       setState({
         isAuthenticated: true,
@@ -109,7 +109,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       });
 
       // Check if vehicle info exists
-      const vehicleJson = await AsyncStorage.getItem('vehicleInfo');
+      const vehicleJson = await SafeAsyncStorage.getItem('vehicleInfo');
       if (vehicleJson) {
         setVehicleInfoState(JSON.parse(vehicleJson));
         router.replace('/(app)/(tabs)');
@@ -127,8 +127,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('vehicleInfo');
+      await SafeAsyncStorage.removeItem('user');
+      await SafeAsyncStorage.removeItem('vehicleInfo');
       setState({
         isAuthenticated: false,
         user: null,
@@ -147,7 +147,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const setVehicleInfo = async (info: VehicleInfo) => {
     try {
-      await AsyncStorage.setItem('vehicleInfo', JSON.stringify(info));
+      await SafeAsyncStorage.setItem('vehicleInfo', JSON.stringify(info));
       setVehicleInfoState(info);
       router.replace('/(app)/(tabs)');
     } catch (error) {

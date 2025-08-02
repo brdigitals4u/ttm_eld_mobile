@@ -1,6 +1,7 @@
+import '../src/utils/GlobalPolyfills';
 import 'react-native-url-polyfill/auto'
 import { createClient } from '@supabase/supabase-js'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { supabaseStorage } from '../src/utils/SupabaseStorageAdapter'
 
 // These will be replaced with your actual Supabase project credentials
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321'
@@ -8,7 +9,7 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: supabaseStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

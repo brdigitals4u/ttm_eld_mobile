@@ -1,3 +1,4 @@
+import '../src/utils/GlobalPolyfills';
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -31,7 +32,7 @@ export {
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: "(tabs)",
+  initialRouteName: "(app)",
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.

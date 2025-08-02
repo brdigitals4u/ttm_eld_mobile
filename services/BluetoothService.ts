@@ -1,6 +1,6 @@
 // services/BluetoothService.ts
 import { NativeModules, NativeEventEmitter } from "react-native";
-import TTMBLEManager, { BLEDevice, ConnectionFailure, NotifyData } from "../src/utils/TTMBLEManager";
+import { TTMBLEManager, BLEDevice, ConnectionFailure, NotifyData } from "../src/utils/TTMBLEManager";
 
 // Define a type for devices returned by TTM SDK (simplified based on doc)
 interface TTMDevice {

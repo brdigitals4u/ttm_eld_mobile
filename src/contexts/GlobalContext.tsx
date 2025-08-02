@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAsyncStorage } from '../utils/AsyncStorageWrapper';
 import * as Sentry from "@sentry/react-native";
 
 // Types
@@ -269,7 +269,7 @@ export const GlobalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     logout: async () => {
       try {
         // Clear all stored data
-        await AsyncStorage.multiRemove([
+        await SafeAsyncStorage.multiRemove([
           STORAGE_KEYS.USER,
           STORAGE_KEYS.ELD_DEVICE,
           STORAGE_KEYS.ELD_HISTORY,
@@ -291,11 +291,11 @@ export const GlobalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     saveStateToStorage: async () => {
       try {
         const savePromises = [
-          AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(state.user)),
-          AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, state.language),
-          AsyncStorage.setItem(STORAGE_KEYS.ELD_DEVICE, JSON.stringify(state.eldDevice)),
-          AsyncStorage.setItem(STORAGE_KEYS.APP_SETTINGS, JSON.stringify(state.appSettings)),
-          AsyncStorage.setItem(STORAGE_KEYS.ELD_HISTORY, JSON.stringify(state.eldConnectionHistory.slice(0, 50))), // Save last 50 events
+          SafeAsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(state.user)),
+          SafeAsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, state.language),
+          SafeAsyncStorage.setItem(STORAGE_KEYS.ELD_DEVICE, JSON.stringify(state.eldDevice)),
+          SafeAsyncStorage.setItem(STORAGE_KEYS.APP_SETTINGS, JSON.stringify(state.appSettings)),
+          SafeAsyncStorage.setItem(STORAGE_KEYS.ELD_HISTORY, JSON.stringify(state.eldConnectionHistory.slice(0, 50))), // Save last 50 events
         ];
 
         await Promise.all(savePromises);
@@ -313,7 +313,7 @@ export const GlobalProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           eldDeviceJson,
           appSettingsJson,
           eldHistoryJson,
-        ] = await AsyncStorage.multiGet([
+        ] = await SafeAsyncStorage.multiGet([
           STORAGE_KEYS.USER,
           STORAGE_KEYS.LANGUAGE,
           STORAGE_KEYS.ELD_DEVICE,

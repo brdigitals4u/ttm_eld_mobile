@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { EldDevice, EldEvent, EldState } from '@/types/eld';
 import { useAuth } from './auth-context';
-import TTMBLEManager, { BLEDevice } from '@/src/utils/TTMBLEManager';
+import { TTMBLEManager, BLEDevice } from '@/src/utils/TTMBLEManager';
 import { ELDDeviceService } from '@/src/services/ELDDeviceService';
 
 interface EldContextType extends EldState {

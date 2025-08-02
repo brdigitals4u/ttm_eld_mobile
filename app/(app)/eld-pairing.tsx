@@ -3,8 +3,7 @@ import { ArrowLeft, Bluetooth, RefreshCw, Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import analytics from '@react-native-firebase/analytics';
-import crashlytics from '@react-native-firebase/crashlytics';
+import { FirebaseLogger } from '@/src/services/FirebaseService';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { useAuth } from '@/context/auth-context';
@@ -43,12 +42,12 @@ export default function EldPairingScreen() {
 
   const handleRefreshScan = async () => {
     try {
-      await analytics().logEvent('eld_refresh_scan_clicked', {
+      await FirebaseLogger.logEvent('eld_refresh_scan_clicked', {
         screen: 'eld_pairing',
         action: 'refresh_scan_button'
       });
     } catch (error) {
-      crashlytics().recordError(error as Error);
+      FirebaseLogger.recordError(error as Error);
     }
     
     if (!isWeb) {
@@ -60,26 +59,26 @@ export default function EldPairingScreen() {
 
   const handleDeviceSelect = async (device: EldDevice) => {
     try {
-      await analytics().logEvent('eld_device_selected', {
+      await FirebaseLogger.logEvent('eld_device_selected', {
         screen: 'eld_pairing',
         action: 'device_select',
         device_id: device.id,
         device_name: device.name || 'unknown'
       });
     } catch (error) {
-      crashlytics().recordError(error as Error);
+      FirebaseLogger.recordError(error as Error);
     }
     setSelectedDevice(device);
   };
 
   const handleBackPress = async () => {
     try {
-      await analytics().logEvent('eld_pairing_back_pressed', {
+      await FirebaseLogger.logEvent('eld_pairing_back_pressed', {
         screen: 'eld_pairing',
         action: 'back_button'
       });
     } catch (error) {
-      crashlytics().recordError(error as Error);
+      FirebaseLogger.recordError(error as Error);
     }
     router.back();
   };

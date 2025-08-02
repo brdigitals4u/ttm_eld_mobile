@@ -27,7 +27,7 @@ import {
   Settings
 } from 'lucide-react-native';
 import { router } from 'expo-router';
-import TTMBLEManager from '@/src/utils/TTMBLEManager';
+import { TTMBLEManager } from '@/src/utils/TTMBLEManager';
 import { ELDDeviceService } from '@/src/services/ELDDeviceService';
 
 const colors = {

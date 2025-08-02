@@ -1,3 +1,4 @@
+import './PromisePolyfill';
 import { FirebaseLogger } from '../services/FirebaseService';
 import { SentryLogger } from '../services/SentryService';
 
@@ -34,7 +35,10 @@ class AnalyticsUtil {
   private defaultContext: Partial<UserEventContext>;
 
   private constructor() {
-    this.apiEndpoint = process.env.EXPO_PUBLIC_ANALYTICS_API_URL || 'https://api.yourapp.com/analytics';
+    // Only set API endpoint if a valid URL is provided
+    const apiUrl = process.env.EXPO_PUBLIC_ANALYTICS_API_URL;
+    this.apiEndpoint = apiUrl && apiUrl !== 'https://api.yourapp.com/analytics' ? apiUrl : '';
+    
     this.defaultContext = {
       buildType: __DEV__ ? 'debug' : 'release',
       platform: 'mobile',
@@ -105,32 +109,45 @@ class AnalyticsUtil {
         );
       }
 
-      // 3. API Call - optional and can fail without affecting core logging
-      if (!options?.skipAPI) {
+      // 3. API Analytics - only if endpoint is configured and not explicitly skipped
+      if (!options?.skipAPI && this.apiEndpoint) {
         promises.push(
           this.sendToAPI({
             eventName,
-            parameters,
+            parameters: eventPayload,
             context: finalContext,
             timestamp: finalContext.timestamp!,
           }).catch(error => {
-            console.error('API analytics failed:', error);
-            // API failures shouldn't block Firebase/Sentry
+            // Don't let API failure prevent other logging
             return Promise.resolve();
           })
         );
       }
 
-      // Execute all analytics calls in parallel with individual error handling
-      const results = await Promise.allSettled(promises);
-      
-      // Log any failures for debugging
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          const services = ['Firebase', 'Sentry', 'API'];
-          console.warn(`${services[index] || 'Unknown'} analytics failed:`, result.reason);
+      // Execute all analytics calls in parallel
+      if (promises.length > 0) {
+        try {
+          // Use Promise.allSettled if available, otherwise fall back to Promise.all
+          if (typeof Promise.allSettled === 'function') {
+            const results = await Promise.allSettled(promises);
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                console.error(`Analytics call ${index} failed:`, result.reason);
+              }
+            });
+          } else {
+            // Fallback to Promise.all with individual error handling
+            await Promise.all(promises.map(promise => 
+              promise.catch(error => {
+                console.error('Analytics call failed:', error);
+                return Promise.resolve();
+              })
+            ));
+          }
+        } catch (error) {
+          console.error('Analytics tracking failed completely:', error);
         }
-      });
+      }
 
       // Console logging for debugging
       this.logToConsole(eventName, eventPayload, finalContext);
@@ -212,6 +229,14 @@ class AnalyticsUtil {
    * Send event to API endpoint
    */
   private async sendToAPI(payload: APIEventPayload): Promise<void> {
+    // Skip API calls if no valid endpoint is configured
+    if (!this.apiEndpoint) {
+      if (__DEV__) {
+        console.log('📊 Analytics: Skipping API call - no valid endpoint configured');
+      }
+      return;
+    }
+
     try {
       const response = await fetch(this.apiEndpoint, {
         method: 'POST',
@@ -229,15 +254,18 @@ class AnalyticsUtil {
 
       // Optionally process response
       const result = await response.json();
-      console.log('API analytics response:', result);
+      if (__DEV__) {
+        console.log('📊 Analytics: API response:', result);
+      }
       
     } catch (error) {
-      console.error('API analytics error:', error);
-      
-      // Don't throw for API failures in production to avoid blocking user experience
-      if (__DEV__) {
-        throw error;
+      // Only log errors in development or if it's a network error
+      if (__DEV__ || error instanceof TypeError) {
+        console.error('📊 Analytics: API error:', error);
       }
+      
+      // Don't throw for API failures to avoid blocking user experience
+      // Just log and continue
     }
   }
 

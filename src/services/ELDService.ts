@@ -4,7 +4,7 @@ import BleManager from 'react-native-ble-manager';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { FirebaseLogger } from './FirebaseService';
 import { SentryLogger } from './SentryService';
-import TTMBLEManager from '../utils/TTMBLEManager';
+import { TTMBLEManager } from '../utils/TTMBLEManager';
 
 export class ELDService {
   private isInitialized = false;

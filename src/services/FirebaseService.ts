@@ -1,32 +1,78 @@
-import crashlytics from '@react-native-firebase/crashlytics';
-import analytics from '@react-native-firebase/analytics';
+// Firebase is disabled due to native module issues
+const FIREBASE_ENABLED = false;
+
+// Mock Firebase functions when disabled
+const createMockFirebase = () => ({
+  getApp: () => ({ name: '[DEFAULT]' }),
+  getAnalytics: () => ({
+    setAnalyticsCollectionEnabled: async () => {},
+    isAnalyticsCollectionEnabled: async () => false,
+  }),
+  getCrashlytics: () => ({
+    setCrashlyticsCollectionEnabled: async () => {},
+    recordError: () => {},
+    log: () => {},
+    setUserId: () => {},
+    setAttributes: () => {},
+  }),
+  logEvent: async () => {},
+  setUserProperty: async () => {},
+  setAnalyticsCollectionEnabled: async () => {},
+  isAnalyticsCollectionEnabled: async () => false,
+});
+
+// Import Firebase only if enabled
+let firebase: any;
+if (FIREBASE_ENABLED) {
+  try {
+    firebase = {
+      getApp: require('@react-native-firebase/app').getApp,
+      getAnalytics: require('@react-native-firebase/analytics').getAnalytics,
+      getCrashlytics: require('@react-native-firebase/crashlytics').getCrashlytics,
+      logEvent: require('@react-native-firebase/analytics').logEvent,
+      setUserProperty: require('@react-native-firebase/analytics').setUserProperty,
+      setAnalyticsCollectionEnabled: require('@react-native-firebase/analytics').setAnalyticsCollectionEnabled,
+      isAnalyticsCollectionEnabled: require('@react-native-firebase/analytics').isAnalyticsCollectionEnabled,
+    };
+  } catch (error) {
+    console.log('Firebase modules not available, using mock');
+    firebase = createMockFirebase();
+  }
+} else {
+  firebase = createMockFirebase();
+}
 
 // Initialize Firebase services
 export const initFirebase = async () => {
-  try {
-    // TODO: Firebase is disabled temporarily due to native module issues
-    console.log('🔥 Firebase initialization skipped (native module not available)');
+  if (!FIREBASE_ENABLED) {
+    console.log('🔥 Firebase initialization skipped (disabled)');
     return;
+  }
+
+  try {
+    const app = firebase.getApp();
+    const analytics = firebase.getAnalytics(app);
+    const crashlytics = firebase.getCrashlytics(app);
     
     // Enable crashlytics collection
-    await crashlytics().setCrashlyticsCollectionEnabled(true);
+    await crashlytics.setCrashlyticsCollectionEnabled(true);
     
     // Enable analytics collection - CRITICAL for release builds
-    await analytics().setAnalyticsCollectionEnabled(true);
+    await firebase.setAnalyticsCollectionEnabled(analytics, true);
     
     // Set user properties for better tracking
-    await analytics().setUserProperty('app_type', 'TTMKonnect');
-    await analytics().setUserProperty('platform', 'android');
+    await firebase.setUserProperty(analytics, 'app_type', 'TTMKonnect');
+    await firebase.setUserProperty(analytics, 'platform', 'android');
     
     // Log app open event immediately
-    await analytics().logEvent('app_open', {
+    await firebase.logEvent(analytics, 'app_open', {
       timestamp: Date.now(),
       build_type: __DEV__ ? 'debug' : 'release',
       app_version: '1.0.0'
     });
     
     console.log('🔥 Firebase initialized successfully');
-    console.log('📊 Analytics collection enabled:', await analytics().isAnalyticsCollectionEnabled());
+    console.log('📊 Analytics collection enabled:', await firebase.isAnalyticsCollectionEnabled(analytics));
     
   } catch (error) {
     console.error('Firebase initialization error:', error);
@@ -37,64 +83,71 @@ export const FirebaseLogger = {
   // Crashlytics methods
   recordError: (error: Error, customAttributes?: { [key: string]: any }) => {
     try {
+      const crashlytics = firebase.getCrashlytics();
       if (customAttributes) {
-        crashlytics().setAttributes(customAttributes);
+        crashlytics.setAttributes(customAttributes);
       }
-      crashlytics().recordError(error);
+      crashlytics.recordError(error);
     } catch (err) {
-      console.log('Firebase recordError (native module unavailable):', error.message);
+      console.log('Firebase recordError (disabled):', error.message);
     }
   },
 
   log: (message: string) => {
     try {
-      crashlytics().log(message);
+      const crashlytics = firebase.getCrashlytics();
+      crashlytics.log(message);
     } catch (err) {
-      console.log('Firebase log:', message);
+      console.log('Firebase log (disabled):', message);
     }
   },
 
   setUserId: (userId: string) => {
     try {
-      crashlytics().setUserId(userId);
+      const crashlytics = firebase.getCrashlytics();
+      crashlytics.setUserId(userId);
     } catch (err) {
-      console.log('Firebase setUserId (native module unavailable):', userId);
+      console.log('Firebase setUserId (disabled):', userId);
     }
   },
 
   setAttributes: (attributes: { [key: string]: any }) => {
     try {
-      crashlytics().setAttributes(attributes);
+      const crashlytics = firebase.getCrashlytics();
+      crashlytics.setAttributes(attributes);
     } catch (err) {
-      console.log('Firebase setAttributes (native module unavailable):', attributes);
+      console.log('Firebase setAttributes (disabled):', attributes);
     }
   },
 
   // Analytics methods
   logEvent: async (eventName: string, parameters?: { [key: string]: any }) => {
     try {
-      await analytics().logEvent(eventName, parameters);
+      const analytics = firebase.getAnalytics();
+      await firebase.logEvent(analytics, eventName, parameters);
     } catch (error) {
-      console.log('Firebase logEvent (native module unavailable):', eventName, parameters);
+      console.log('Firebase logEvent (disabled):', eventName, parameters);
     }
   },
 
   setUserProperty: async (name: string, value: string) => {
     try {
-      await analytics().setUserProperty(name, value);
+      const analytics = firebase.getAnalytics();
+      await firebase.setUserProperty(analytics, name, value);
     } catch (error) {
-      console.log('Firebase setUserProperty (native module unavailable):', name, value);
+      console.log('Firebase setUserProperty (disabled):', name, value);
     }
   },
 
   setCurrentScreen: async (screenName: string, screenClassOverride?: string) => {
     try {
-      await analytics().logScreenView({
+      const analytics = firebase.getAnalytics();
+      await firebase.logEvent(analytics, 'screen_view', {
         screen_name: screenName,
         screen_class: screenClassOverride || screenName,
       });
     } catch (error) {
-      console.log('Firebase setCurrentScreen (native module unavailable):', screenName);
+      console.log('Firebase setCurrentScreen (disabled):', screenName);
     }
   },
 

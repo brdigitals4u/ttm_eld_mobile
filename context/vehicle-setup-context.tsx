@@ -15,10 +15,12 @@ export enum ConnectionStage {
   GATHERING_INFO = 'gathering_info',
   CAPTURING_ID = 'capturing_id',
   PAIRING = 'pairing',
+  CONNECTED = 'connected',
+  CONNECTING = 'connecting'
 }
 
 export interface ErrorInfo {
-  type: 'connection_failed' | 'no_data' | 'permission_denied' | 'sdk_error';
+  type: string;
   message: string;
   details?: string;
   code?: string | number;
@@ -26,7 +28,7 @@ export interface ErrorInfo {
 
 export interface VehicleSetupState {
   currentStep: SetupStep;
-  connectionStage: ConnectionStage | null;
+  connectionStage: any | null;
   selectedDevice: BLEDevice | null;
   scannedDevices: BLEDevice[];
   isScanning: boolean;
@@ -39,7 +41,7 @@ export interface VehicleSetupState {
 interface VehicleSetupContextType extends VehicleSetupState {
   // Actions
   setStep: (step: SetupStep) => void;
-  setConnectionStage: (stage: ConnectionStage | null) => void;
+  setConnectionStage: (stage: string | null) => void;
   setSelectedDevice: (device: BLEDevice | null) => void;
   setScannedDevices: (devices: BLEDevice[]) => void;
   addScannedDevice: (device: BLEDevice) => void;
@@ -85,7 +87,7 @@ export const VehicleSetupProvider: React.FC<VehicleSetupProviderProps> = ({ chil
     setState(prev => ({ ...prev, currentStep: step }));
   }, []);
 
-  const setConnectionStage = useCallback((stage: ConnectionStage | null) => {
+  const setConnectionStage = useCallback((stage: any | null) => {
     setState(prev => ({ ...prev, connectionStage: stage }));
   }, []);
 
