@@ -237,7 +237,7 @@ export function useVehicleSetupLogic() {
       setConnectionStage(ConnectionStage.CONNECTING);
 
       // Log connection attempt
-      await ELDDeviceService.logConnectionAttempt(device, 8);
+      await ELDDeviceService.logConnectionAttempt(device, 8, {});
 
       trackEvent('connection_started', {
         screen: 'select_vehicle',

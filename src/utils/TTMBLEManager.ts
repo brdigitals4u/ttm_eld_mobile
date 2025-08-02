@@ -1,6 +1,7 @@
 import { NativeModules, NativeEventEmitter } from 'react-native';
 import { SentryLogger } from '../services/SentryService';
 import { FirebaseLogger } from '../services/FirebaseService';
+import { ELDDeviceService } from '../services/ELDDeviceService';
 
 // Interface for the native module
 interface TTMBLEManagerInterface {
@@ -140,7 +141,7 @@ try {
   } else {
     throw new Error('Native module not available');
   }
-} catch (error) {
+} catch (error: any) {
   console.log('TTMBLEManager native module loaded: false');
   console.error('TTMBLEManager native module is not available');
   console.error('Available modules:', Object.keys(NativeModules));
@@ -158,7 +159,7 @@ try {
 let eventEmitter: NativeEventEmitter;
 try {
   eventEmitter = new NativeEventEmitter(nativeTTMBLEManager);
-} catch (error) {
+} catch (error: any) {
   // Create a mock event emitter for development
   eventEmitter = {
     addListener: () => ({ remove: () => {} }),
@@ -170,6 +171,7 @@ try {
 class TTMBLEManagerWrapper {
   private nativeModule: TTMBLEManagerInterface;
   private eventEmitter: NativeEventEmitter;
+  private isSimulatorConnected: boolean = false;
 
   constructor() {
     this.nativeModule = nativeTTMBLEManager;
@@ -202,20 +204,77 @@ class TTMBLEManagerWrapper {
   // SDK Initialization
   async initSDK(): Promise<void> {
     try {
+      console.log('🔧 TTMBLEManager: Initializing SDK');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'initializing', {
+        method: 'initSDK',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.initSDK();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'initialized', {
+        method: 'initSDK',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
+      console.log('✅ TTMBLEManager: SDK initialized successfully');
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager initSDK error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager initSDK error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'failed', {
+        method: 'initSDK',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async configureSDK(options: { filterDevices?: boolean; debugMode?: boolean } = {}): Promise<void> {
     try {
+      console.log('🔧 TTMBLEManager: Configuring SDK with options:', options);
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'configuring', {
+        method: 'configureSDK',
+        options: options,
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.configureSDK(options);
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'configured', {
+        method: 'configureSDK',
+        options: options,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
+      console.log('✅ TTMBLEManager: SDK configured successfully');
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager configureSDK error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager configureSDK error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'failed', {
+        method: 'configureSDK',
+        options: options,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
@@ -223,20 +282,101 @@ class TTMBLEManagerWrapper {
   // Scanning methods
   async startScan(duration: number = 10000): Promise<void> {
     try {
+      console.log('🔍 TTMBLEManager: Starting scan for', duration, 'ms');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'scanning', {
+        method: 'startScan',
+        duration: duration,
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.startScan(duration);
+      
+      // Check if KD032 simulator is running and inject it into scan results
+      try {
+        const { getKD032SimulatorStatus } = await import('../../services/EldSimulator');
+        const status = getKD032SimulatorStatus();
+        
+        if (status.isAdvertising) {
+          console.log('🎯 KD032 Simulator detected - injecting into scan results');
+          
+          // Simulate device discovery after a short delay
+          setTimeout(() => {
+            const simulatedDevice: BLEDevice = {
+              id: 'C4:A8:28:43:14:9A',
+              address: 'C4:A8:28:43:14:9A',
+              name: 'KD032-43149A',
+              signal: -45,
+            };
+            
+            // Emit the simulated device through the same channel as real devices
+            this.eventEmitter.emit(this.nativeModule.ON_DEVICE_SCANNED, simulatedDevice);
+            console.log('✅ KD032 Simulator device injected into scan results:', simulatedDevice);
+          }, 2000); // Delay to simulate real device discovery
+        }
+      } catch (simulatorError) {
+        console.log('ℹ️ KD032 Simulator not available or not running');
+      }
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'scan_started', {
+        method: 'startScan',
+        duration: duration,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager startScan error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager startScan error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'scan_failed', {
+        method: 'startScan',
+        duration: duration,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async stopScan(): Promise<void> {
     try {
+      console.log('🛑 TTMBLEManager: Stopping scan');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'scan_stopping', {
+        method: 'stopScan',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.stopScan();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'scan_stopped', {
+        method: 'stopScan',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager stopScan error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager stopScan error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'scan_stop_failed', {
+        method: 'stopScan',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
@@ -244,41 +384,260 @@ class TTMBLEManagerWrapper {
   // Direct Android BLE scanning (fallback method)
   async startDirectScan(duration: number = 10): Promise<void> {
     try {
+      console.log('🔍 TTMBLEManager: Starting direct scan for', duration, 's');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'direct_scanning', {
+        method: 'startDirectScan',
+        duration: duration,
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.startDirectScan(duration);
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'direct_scan_started', {
+        method: 'startDirectScan',
+        duration: duration,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager startDirectScan error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager startDirectScan error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'direct_scan_failed', {
+        method: 'startDirectScan',
+        duration: duration,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async stopDirectScan(): Promise<void> {
     try {
+      console.log('🛑 TTMBLEManager: Stopping direct scan');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'direct_scan_stopping', {
+        method: 'stopDirectScan',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.stopDirectScan();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'direct_scan_stopped', {
+        method: 'stopDirectScan',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager stopDirectScan error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager stopDirectScan error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('sdk_init', 'direct_scan_stop_failed', {
+        method: 'stopDirectScan',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   // Connection methods
-  async connect(deviceId: string, passcode: string, needPair: boolean = false): Promise<void> {
+  async connect(deviceId: string, passcode: string = '', needPair: boolean = false): Promise<void> {
     try {
+      console.log('🔗 TTMBLEManager: Connecting to device:', deviceId, 'passcode:', passcode ? '***' : 'none');
+      
+      // Log to Supabase
+
+      
+      // Check if this is a KD032 simulator device
+      if (deviceId === 'C4:A8:28:43:14:9A' || deviceId.toLowerCase().includes('kd032')) {
+        console.log('🎯 KD032 Simulator connection detected');
+        this.isSimulatorConnected = true;
+        
+        try {
+          const { kd032Simulator } = await import('../../services/EldSimulator');
+          
+          // Simulate successful connection after a delay
+          setTimeout(() => {
+            this.eventEmitter.emit(this.nativeModule.ON_CONNECTED, {
+              deviceId: deviceId,
+              deviceName: 'KD032-43149A',
+            });
+            console.log('✅ KD032 Simulator connected successfully');
+            
+            // Send authentication passed event immediately (KD032 doesn't need passcode)
+            setTimeout(() => {
+              this.eventEmitter.emit(this.nativeModule.ON_AUTHENTICATION_PASSED, {
+                deviceId: deviceId,
+                timestamp: new Date().toISOString(),
+              });
+              console.log('✅ KD032 Simulator authentication passed');
+              
+              // Start ELD data transmission after authentication
+              setTimeout(() => {
+                // Send initial ELD data with SDK-compatible format
+                this.eventEmitter.emit(this.nativeModule.ON_NOTIFY_RECEIVED, {
+                  dataType: 'ELD_DATA',
+                  rawData: JSON.stringify({
+                    deviceId: deviceId,
+                    timestamp: new Date().toISOString(),
+                    speed: Math.floor(Math.random() * 75),
+                    engineRPM: Math.floor(Math.random() * 2000) + 800,
+                    status: 'DRIVING',
+                    location: {
+                      latitude: 40.7128 + (Math.random() - 0.5) * 0.1,
+                      longitude: -74.0060 + (Math.random() - 0.5) * 0.1,
+                    },
+                    odometer: Math.floor(Math.random() * 500000) + 100000,
+                    engineHours: Math.floor(Math.random() * 10000),
+                    driverId: Math.floor(Math.random() * 1000000).toString(),
+                    vehicleId: Math.floor(Math.random() * 100000).toString(),
+                    vin: this.generateVIN(),
+                    ecuInfo: this.generateEcuInfo(),
+                    terminalInfo: this.generateTerminalInfo(deviceId),
+                    versionInfo: this.generateVersionInfo(),
+                    alarmInfo: this.generateAlarmInfo(),
+                    sysInfo: this.generateSysInfo(),
+                    events: this.generateSdkCompatibleEvents(),
+                  }),
+                  ack: 0x11, // ACK_OBD_ELD_PROCESS
+                });
+                
+                // Start continuous ELD data transmission every 3 seconds
+                const dataInterval = setInterval(() => {
+                  this.eventEmitter.emit(this.nativeModule.ON_NOTIFY_RECEIVED, {
+                    dataType: 'ELD_DATA',
+                    rawData: JSON.stringify({
+                      deviceId: deviceId,
+                      timestamp: new Date().toISOString(),
+                      speed: Math.floor(Math.random() * 75),
+                      engineRPM: Math.floor(Math.random() * 2000) + 800,
+                      status: ['DRIVING', 'ON_DUTY_NOT_DRIVING', 'OFF_DUTY', 'SLEEPER_BERTH'][Math.floor(Math.random() * 4)],
+                      location: {
+                        latitude: 40.7128 + (Math.random() - 0.5) * 0.1,
+                        longitude: -74.0060 + (Math.random() - 0.5) * 0.1,
+                      },
+                      odometer: Math.floor(Math.random() * 500000) + 100000,
+                      engineHours: Math.floor(Math.random() * 10000),
+                      driverId: Math.floor(Math.random() * 1000000).toString(),
+                      vehicleId: Math.floor(Math.random() * 100000).toString(),
+                      vin: this.generateVIN(),
+                      ecuInfo: this.generateEcuInfo(),
+                      terminalInfo: this.generateTerminalInfo(deviceId),
+                      versionInfo: this.generateVersionInfo(),
+                      alarmInfo: this.generateAlarmInfo(),
+                      sysInfo: this.generateSysInfo(),
+                      events: this.generateSdkCompatibleEvents(),
+                    }),
+                    ack: 0x11, // ACK_OBD_ELD_PROCESS
+                  });
+                  console.log('📊 KD032 Simulator: Continuous ELD data transmitted');
+                }, 3000);
+                
+                // Store interval for cleanup
+                (this as any).kd032DataInterval = dataInterval;
+              }, 1000);
+            }, 1000);
+          }, 1500);
+          
+          // Log simulator connection success
+          await ELDDeviceService.logConnectionAttempt(deviceId, 'connected', {
+            method: 'connect',
+            deviceId: deviceId,
+            isSimulator: true,
+            timestamp: new Date().toISOString(),
+            status: 'success'
+          });
+          
+          return;
+        } catch (simulatorError) {
+          console.log('ℹ️ KD032 Simulator not available, proceeding with normal connection');
+        }
+      }
+      
       const result = await this.nativeModule.connect(deviceId, passcode, needPair);
+      
+      // Log success for real device
+      await ELDDeviceService.logConnectionAttempt(deviceId, 'connected', {
+        method: 'connect',
+        deviceId: deviceId,
+        passcodeLength: passcode.length,
+        needPair: needPair,
+        isSimulator: false,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager connect error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager connect error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt(deviceId, 'failed', {
+        method: 'connect',
+        deviceId: deviceId,
+        passcodeLength: passcode.length,
+        needPair: needPair,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
     try {
+      console.log('🔌 TTMBLEManager: Disconnecting');
+      
+      // Reset simulator flag
+      this.isSimulatorConnected = false;
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'disconnecting', {
+        method: 'disconnect',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.disconnect();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'disconnected', {
+        method: 'disconnect',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager disconnect error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager disconnect error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'disconnect_failed', {
+        method: 'disconnect',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
@@ -286,40 +645,153 @@ class TTMBLEManagerWrapper {
   // Password methods
   async checkPasswordEnable(): Promise<void> {
     try {
+      console.log('🔐 TTMBLEManager: Checking password enable');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'checking_password', {
+        method: 'checkPasswordEnable',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.checkPasswordEnable();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_checked', {
+        method: 'checkPasswordEnable',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager checkPasswordEnable error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager checkPasswordEnable error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_check_failed', {
+        method: 'checkPasswordEnable',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async validatePassword(password: string): Promise<void> {
     try {
+      console.log('🔐 TTMBLEManager: Validating password');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'validating_password', {
+        method: 'validatePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.validatePassword(password);
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_validated', {
+        method: 'validatePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager validatePassword error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager validatePassword error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_validation_failed', {
+        method: 'validatePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async enablePassword(password: string): Promise<void> {
     try {
+      console.log('🔐 TTMBLEManager: Enabling password');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'enabling_password', {
+        method: 'enablePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.enablePassword(password);
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_enabled', {
+        method: 'enablePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager enablePassword error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager enablePassword error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_enable_failed', {
+        method: 'enablePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async disablePassword(password: string): Promise<void> {
     try {
+      console.log('🔐 TTMBLEManager: Disabling password');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'disabling_password', {
+        method: 'disablePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.disablePassword(password);
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_disabled', {
+        method: 'disablePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager disablePassword error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager disablePassword error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'password_disable_failed', {
+        method: 'disablePassword',
+        passcodeLength: password.length,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
@@ -327,65 +799,232 @@ class TTMBLEManagerWrapper {
   // ELD data methods
   async startReportEldData(): Promise<void> {
     try {
+      console.log('📊 TTMBLEManager: Starting ELD data report');
+      
+      // For KD032 simulator, skip the native SDK call since data is already flowing
+      if (this.isSimulatorConnected) {
+        console.log('🎯 KD032 Simulator detected - skipping startReportEldData (data already flowing)');
+        
+        // Log simulator skip
+        await ELDDeviceService.logConnectionAttempt('C4:A8:28:43:14:9A', 'eld_data_started', {
+          method: 'startReportEldData',
+          isSimulator: true,
+          timestamp: new Date().toISOString(),
+          status: 'skipped_simulator'
+        });
+        
+        return;
+      }
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'starting_eld_data', {
+        method: 'startReportEldData',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.startReportEldData();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'eld_data_started', {
+        method: 'startReportEldData',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager startReportEldData error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager startReportEldData error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'eld_data_start_failed', {
+        method: 'startReportEldData',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async stopReportEldData(): Promise<void> {
     try {
+      console.log('🛑 TTMBLEManager: Stopping ELD data report');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'stopping_eld_data', {
+        method: 'stopReportEldData',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.stopReportEldData();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'eld_data_stopped', {
+        method: 'stopReportEldData',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager stopReportEldData error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager stopReportEldData error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'eld_data_stop_failed', {
+        method: 'stopReportEldData',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async replyReceivedEldData(): Promise<void> {
     try {
+      console.log('📤 TTMBLEManager: Replying to received ELD data');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'replying_eld_data', {
+        method: 'replyReceivedEldData',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.replyReceivedEldData();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'eld_data_replied', {
+        method: 'replyReceivedEldData',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager replyReceivedEldData error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager replyReceivedEldData error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'eld_data_reply_failed', {
+        method: 'replyReceivedEldData',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async sendUTCTime(): Promise<void> {
     try {
+      console.log('⏰ TTMBLEManager: Sending UTC time');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'sending_utc_time', {
+        method: 'sendUTCTime',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.sendUTCTime();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'utc_time_sent', {
+        method: 'sendUTCTime',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager sendUTCTime error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager sendUTCTime error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'utc_time_send_failed', {
+        method: 'sendUTCTime',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
-
-
-
-
   // Test and utility methods
   async injectTestDevices(): Promise<void> {
     try {
+      console.log('🧪 TTMBLEManager: Injecting test devices');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'injecting_test_devices', {
+        method: 'injectTestDevices',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.injectTestDevices();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'test_devices_injected', {
+        method: 'injectTestDevices',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager injectTestDevices error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager injectTestDevices error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'test_devices_inject_failed', {
+        method: 'injectTestDevices',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
 
   async getBondedDevices(): Promise<void> {
     try {
+      console.log('📱 TTMBLEManager: Getting bonded devices');
+      
+      // Log to Supabase
+      await ELDDeviceService.logConnectionAttempt('unknown', 'getting_bonded_devices', {
+        method: 'getBondedDevices',
+        timestamp: new Date().toISOString(),
+        status: 'started'
+      });
+      
       const result = await this.nativeModule.getBondedDevices();
+      
+      // Log success
+      await ELDDeviceService.logConnectionAttempt('unknown', 'bonded_devices_retrieved', {
+        method: 'getBondedDevices',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      });
+      
       return result;
-    } catch (error) {
-      console.error('TTMBLEManager getBondedDevices error:', error);
+    } catch (error: any) {
+      console.error('❌ TTMBLEManager getBondedDevices error:', error);
+      
+      // Log error
+      await ELDDeviceService.logConnectionAttempt('unknown', 'bonded_devices_retrieve_failed', {
+        method: 'getBondedDevices',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      });
+      
       throw error;
     }
   }
@@ -397,7 +1036,7 @@ class TTMBLEManagerWrapper {
       return {
         remove: () => subscription.remove()
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('TTMBLEManager addListener error:', error);
       return { remove: () => {} };
     }
@@ -406,7 +1045,7 @@ class TTMBLEManagerWrapper {
   removeAllListeners(eventName: string) {
     try {
       this.eventEmitter.removeAllListeners(eventName);
-    } catch (error) {
+    } catch (error: any) {
       console.error('TTMBLEManager removeAllListeners error:', error);
     }
   }
@@ -470,6 +1109,92 @@ class TTMBLEManagerWrapper {
   removeDisconnectListener(callback: () => void) {
     // This is a no-op in the new implementation
     // Event listeners are managed by the subscription object
+  }
+
+  // SDK-compatible data generation methods for simulator
+  private generateVIN(): string {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let vin = '';
+    for (let i = 0; i < 17; i++) {
+      vin += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return vin;
+  }
+
+  private generateEcuInfo(): any {
+    return {
+      ecuId: Math.floor(Math.random() * 1000000).toString(),
+      ecuType: 'ENGINE_ECU',
+      ecuVersion: '1.2.3',
+      ecuStatus: 'ACTIVE',
+      lastUpdate: new Date().toISOString(),
+    };
+  }
+
+  private generateTerminalInfo(deviceId: string): any {
+    return {
+      terminalId: deviceId,
+      terminalType: 'KD032',
+      terminalVersion: '2.1.0',
+      terminalStatus: 'ONLINE',
+      lastHeartbeat: new Date().toISOString(),
+    };
+  }
+
+  private generateVersionInfo(): any {
+    return {
+      firmwareVersion: '2.1.0',
+      hardwareVersion: '1.0.0',
+      protocolVersion: '1.2',
+      buildDate: '2025-01-15',
+    };
+  }
+
+  private generateAlarmInfo(): any {
+    return {
+      alarmType: 'ENGINE_FAULT',
+      alarmLevel: 'WARNING',
+      alarmCode: 'E001',
+      alarmMessage: 'Engine temperature high',
+      alarmTimestamp: new Date().toISOString(),
+    };
+  }
+
+  private generateSysInfo(): any {
+    return {
+      batteryLevel: Math.floor(Math.random() * 100),
+      signalStrength: -45 + Math.floor(Math.random() * 20),
+      memoryUsage: Math.floor(Math.random() * 100),
+      cpuUsage: Math.floor(Math.random() * 100),
+      uptime: Math.floor(Math.random() * 86400), // seconds
+    };
+  }
+
+  private generateSdkCompatibleEvents(): any[] {
+    const events = [];
+    const eventTypes = ['LOGIN', 'LOGOUT', 'DRIVING', 'ON_DUTY', 'OFF_DUTY', 'SLEEPER'];
+    
+    // Generate 1-3 events
+    const numEvents = Math.floor(Math.random() * 3) + 1;
+    
+    for (let i = 0; i < numEvents; i++) {
+      const eventTime = new Date(Date.now() - Math.random() * 3600000); // Within last hour
+      events.push({
+        type: eventTypes[Math.floor(Math.random() * eventTypes.length)],
+        timestamp: eventTime.toISOString(),
+        location: {
+          latitude: 40.7128 + (Math.random() - 0.5) * 0.1,
+          longitude: -74.0060 + (Math.random() - 0.5) * 0.1,
+        },
+        // SDK-specific event fields
+        eventId: Math.floor(Math.random() * 1000000).toString(),
+        eventCode: 'EVT_' + Math.floor(Math.random() * 1000).toString().padStart(3, '0'),
+        eventDescription: 'Event description',
+        eventSeverity: ['LOW', 'MEDIUM', 'HIGH'][Math.floor(Math.random() * 3)],
+      });
+    }
+    
+    return events;
   }
 }
 

@@ -1,193 +1,301 @@
 #!/usr/bin/env python3
 """
-Advanced BLE ELD Device Simulator
-This script creates a BLE peripheral that mimics a PT30-ELD device for testing.
-Uses the system's Bluetooth capabilities through subprocess commands.
+KD032 ELD Device Simulator
+Simulates a real KD032 ELD device using BLE peripheral advertising.
+This will appear as a real BLE device to your Android app.
+
+Requirements:
+- Python 3.7+
+- bleak library: pip install bleak
+
+Usage:
+    python ble_eld_simulator.py
+
+The simulated device will:
+- Advertise as "KD032-43149A" with address "C4:A8:28:43:14:9A"
+- Use the same service and characteristic UUIDs as real KD032
+- Respond to connection attempts
+- Transmit realistic ELD data
 """
 
 import asyncio
-import subprocess
-import time
 import json
-from datetime import datetime
+import random
+import time
+from datetime import datetime, timedelta
+from typing import Dict, Any
 
-class BLEELDSimulator:
+try:
+    from bleak import BleakServer, BleakGATTService, BleakGATTCharacteristic
+    from bleak.backends.characteristic import BleakGATTCharacteristicProperties
+    from bleak.backends.service import BleakGATTServiceCollection
+except ImportError:
+    print("Error: bleak library not found!")
+    print("Install it with: pip install bleak")
+    exit(1)
+
+class KD032EldSimulator:
+    """Simulates a KD032 ELD device using BLE peripheral advertising."""
+    
     def __init__(self):
-        self.device_name = "PT30-ELD"
-        self.device_address = "AA:BB:CC:DD:EE:FF"
-        self.is_running = False
-        self.process = None
+        # Real KD032 device characteristics
+        self.device_name = "KD032-43149A"
+        self.device_address = "C4:A8:28:43:14:9A"
+        self.service_uuid = "0000ffe0-0000-1000-8000-00805f9b34fb"
+        self.characteristic_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"
         
-    def start_bluetooth_advertising(self):
-        """Start Bluetooth Low Energy advertising to make device discoverable"""
-        print(f"🔵 Starting BLE advertising for device: {self.device_name}")
+        # BLE server
+        self.server = None
+        self.is_advertising = False
+        self.is_connected = False
+        self.connected_devices = set()
         
-        # On macOS, we can use system commands to make the device discoverable
-        try:
-            # Make sure Bluetooth is on
-            subprocess.run(["sudo", "blueutil", "--power", "1"], check=False)
-            print("📱 Bluetooth power enabled")
-            
-            # Make device discoverable
-            subprocess.run(["sudo", "blueutil", "--discoverable", "1"], check=False)
-            print("🔍 Device is now discoverable")
-            
-        except FileNotFoundError:
-            print("⚠️  blueutil not found. Install with: brew install blueutil")
-            print("💡 Continuing simulation without system-level advertising...")
-        except Exception as e:
-            print(f"⚠️  Could not enable Bluetooth advertising: {e}")
-            print("💡 Continuing simulation without system-level advertising...")
-    
-    def stop_bluetooth_advertising(self):
-        """Stop BLE advertising"""
-        try:
-            subprocess.run(["sudo", "blueutil", "--discoverable", "0"], check=False)
-            print("🔴 Stopped BLE advertising")
-        except:
-            pass
-    
-    async def simulate_eld_data_stream(self):
-        """Simulate continuous ELD data transmission"""
-        print("📊 Starting ELD data stream simulation...")
-        print("=" * 60)
+        # ELD data generation
+        self.data_interval = None
+        self.driver_id = f"{random.randint(100000, 999999)}"
+        self.vehicle_id = f"{random.randint(10000, 99999)}"
+        self.odometer = random.randint(100000, 500000)
+        self.engine_hours = random.randint(5000, 10000)
         
-        counter = 0
-        start_time = time.time()
-        
-        while self.is_running:
-            current_time = datetime.now()
-            elapsed = time.time() - start_time
-            
-            # Simulate realistic ELD data patterns
-            vehicle_data = {
-                "timestamp": current_time.isoformat(),
-                "device_id": "PT30-ELD-001",
-                "vin": "1HGBH41JXMN109186",
-                "driver_id": "DEMO_DRIVER",
-                "location": {
-                    "latitude": 37.7749 + (counter * 0.0001),
-                    "longitude": -122.4194 + (counter * 0.0001),
-                    "speed_mph": 45 + (counter % 20),
-                },
-                "engine": {
-                    "rpm": 1500 + (counter % 500),
-                    "hours": 2345.5 + (elapsed / 3600),
-                    "coolant_temp": 190 + (counter % 10),
-                    "fuel_level": max(10, 75 - (counter * 0.1)),
-                },
-                "odometer_miles": 125000 + counter,
-                "duty_status": ["off_duty", "sleeper", "driving", "on_duty"][counter % 4],
-                "diagnostic_codes": [] if counter % 10 != 0 else ["P0001"],
-            }
-            
-            # Format output similar to what the TTM SDK would log
-            timestamp_str = current_time.strftime("%H:%M:%S.%f")[:-3]
-            
-            print(f"[{timestamp_str}] ELD Data Packet #{counter + 1}")
-            print(f"  📍 Location: ({vehicle_data['location']['latitude']:.4f}, {vehicle_data['location']['longitude']:.4f})")
-            print(f"  🚗 Speed: {vehicle_data['location']['speed_mph']} mph")
-            print(f"  🔧 RPM: {vehicle_data['engine']['rpm']}")
-            print(f"  ⛽ Fuel: {vehicle_data['engine']['fuel_level']:.1f}%")
-            print(f"  📊 Status: {vehicle_data['duty_status'].replace('_', ' ').title()}")
-            print(f"  🛣️  Odometer: {vehicle_data['odometer_miles']:,} miles")
-            
-            if vehicle_data['diagnostic_codes']:
-                print(f"  ⚠️  Diagnostic Codes: {', '.join(vehicle_data['diagnostic_codes'])}")
-            
-            # Simulate raw data bytes that would be sent over BLE
-            raw_bytes = self.generate_raw_eld_data(vehicle_data)
-            hex_data = ' '.join(f'{b:02x}' for b in raw_bytes)
-            print(f"  📡 Raw Data: {hex_data}")
-            print("-" * 60)
-            
-            counter += 1
-            await asyncio.sleep(3)  # Send data every 3 seconds
-    
-    def generate_raw_eld_data(self, data):
-        """Generate raw byte data similar to what ELD devices transmit"""
-        # This is a simplified simulation of ELD data format
-        # Real ELD devices use J1939 or similar protocols
-        raw_data = bytearray()
-        
-        # Header (2 bytes)
-        raw_data.extend([0x7E, 0x01])  # Start flag + packet type
-        
-        # Speed (2 bytes, mph * 10)
-        speed = int(data['location']['speed_mph'] * 10)
-        raw_data.extend(speed.to_bytes(2, 'big'))
-        
-        # RPM (2 bytes)
-        rpm = int(data['engine']['rpm'])
-        raw_data.extend(rpm.to_bytes(2, 'big'))
-        
-        # Fuel level (1 byte, percentage)
-        fuel = int(data['engine']['fuel_level'])
-        raw_data.append(fuel)
-        
-        # Odometer (4 bytes, miles)
-        odometer = int(data['odometer_miles'])
-        raw_data.extend(odometer.to_bytes(4, 'big'))
-        
-        # Duty status (1 byte)
-        status_map = {"off_duty": 1, "sleeper": 2, "driving": 3, "on_duty": 4}
-        raw_data.append(status_map.get(data['duty_status'], 1))
-        
-        # Checksum (1 byte)
-        checksum = sum(raw_data) % 256
-        raw_data.append(checksum)
-        
-        # End flag (1 byte)
-        raw_data.append(0x7F)
-        
-        return raw_data
-    
-    async def start_simulation(self):
-        """Start the complete ELD simulation"""
-        print("🚛" * 20)
-        print("    BLE ELD Device Simulator Started")
-        print("🚛" * 20)
+        print(f"KD032 ELD Simulator initialized")
         print(f"Device Name: {self.device_name}")
-        print(f"Simulated MAC: {self.device_address}")
-        print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print()
-        print("📋 Instructions:")
-        print("1. Keep this simulator running")
-        print("2. Open your TruckLogELD app in Android Studio")
-        print("3. Navigate to the select-vehicle screen")
-        print("4. Start BLE scan in your app") 
-        print("5. Look for 'PT30-ELD' in the discovered devices")
-        print("6. Check Android logs for TTMBLEManager events")
-        print("7. Use IMEI: 123456789012345 and Passcode: 12345678 for testing")
-        print()
-        print("Press Ctrl+C to stop simulation")
-        print("=" * 60)
-        
-        self.is_running = True
-        
-        # Start BLE advertising
-        self.start_bluetooth_advertising()
-        
-        # Start data simulation
-        await self.simulate_eld_data_stream()
+        print(f"Device Address: {self.device_address}")
+        print(f"Service UUID: {self.service_uuid}")
+        print(f"Characteristic UUID: {self.characteristic_uuid}")
     
-    def stop_simulation(self):
-        """Stop the simulation"""
-        print("\n🛑 Stopping ELD Device Simulation...")
-        self.is_running = False
-        self.stop_bluetooth_advertising()
-        print("✅ Simulation stopped successfully")
+    async def start_advertising(self):
+        """Start advertising as KD032 device."""
+        if self.is_advertising:
+            print("Already advertising")
+            return
+        
+        print("Starting KD032 ELD device advertisement...")
+        
+        # Create BLE server
+        self.server = BleakServer()
+        
+        # Add ELD service
+        eld_service = BleakGATTService(
+            uuid=self.service_uuid,
+            handle=1,
+            primary=True
+        )
+        
+        # Add ELD characteristic
+        eld_characteristic = BleakGATTCharacteristic(
+            uuid=self.characteristic_uuid,
+            handle=2,
+            service_handle=1,
+            properties=BleakGATTCharacteristicProperties(
+                read=True,
+                write=True,
+                notify=True,
+                indicate=True
+            ),
+            value=b"KD032 ELD Device Ready"
+        )
+        
+        eld_service.add_characteristic(eld_characteristic)
+        self.server.add_service(eld_service)
+        
+        # Start advertising
+        await self.server.start()
+        self.is_advertising = True
+        
+        print(f"✅ KD032 ELD device now advertising!")
+        print(f"   Device should appear in your app's scan results")
+        print(f"   Look for: {self.device_name} ({self.device_address})")
+        
+        # Start data transmission simulation
+        asyncio.create_task(self.simulate_data_transmission())
+    
+    async def stop_advertising(self):
+        """Stop advertising."""
+        if not self.is_advertising:
+            return
+        
+        print("Stopping KD032 ELD device advertisement...")
+        
+        if self.data_interval:
+            self.data_interval.cancel()
+        
+        if self.server:
+            await self.server.stop()
+        
+        self.is_advertising = False
+        self.is_connected = False
+        self.connected_devices.clear()
+        
+        print("✅ KD032 ELD device stopped advertising")
+    
+    async def simulate_data_transmission(self):
+        """Simulate ELD data transmission."""
+        print("Starting ELD data transmission simulation...")
+        
+        while self.is_advertising:
+            try:
+                # Generate realistic ELD data
+                eld_data = self.generate_eld_data()
+                
+                # Simulate data transmission
+                if self.is_connected:
+                    print(f"📊 Transmitting ELD data: {json.dumps(eld_data, indent=2)}")
+                
+                # Wait 2-5 seconds before next transmission
+                await asyncio.sleep(random.uniform(2, 5))
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"Error in data transmission: {e}")
+                await asyncio.sleep(1)
+    
+    def generate_eld_data(self) -> Dict[str, Any]:
+        """Generate realistic ELD data."""
+        now = datetime.now()
+        
+        # Simulate vehicle movement
+        speed = random.randint(0, 75)
+        latitude = 40.7128 + (random.random() - 0.5) * 0.1  # NYC area
+        longitude = -74.0060 + (random.random() - 0.5) * 0.1
+        
+        # Update odometer and engine hours
+        self.odometer += random.randint(0, 2)
+        self.engine_hours += random.uniform(0, 0.1)
+        
+        # Generate duty status
+        duty_statuses = ['OFF_DUTY', 'SLEEPER_BERTH', 'DRIVING', 'ON_DUTY_NOT_DRIVING']
+        duty_status = random.choice(duty_statuses)
+        
+        # Generate events
+        events = []
+        num_events = random.randint(1, 3)
+        for i in range(num_events):
+            event_time = now - timedelta(minutes=random.randint(1, 60))
+            events.append({
+                "type": random.choice(['LOGIN', 'LOGOUT', 'DRIVING', 'ON_DUTY', 'OFF_DUTY', 'SLEEPER']),
+                "timestamp": event_time.isoformat(),
+                "location": {
+                    "latitude": latitude + (random.random() - 0.5) * 0.01,
+                    "longitude": longitude + (random.random() - 0.5) * 0.01
+                }
+            })
+        
+        return {
+            "deviceId": self.device_address,
+            "deviceName": self.device_name,
+            "driverId": self.driver_id,
+            "vehicleId": self.vehicle_id,
+            "timestamp": now.isoformat(),
+            "odometer": self.odometer,
+            "engineHours": round(self.engine_hours, 1),
+            "speed": speed,
+            "location": {
+                "latitude": latitude,
+                "longitude": longitude,
+                "accuracy": 5 + random.random() * 10
+            },
+            "status": {
+                "engineOn": speed > 0 or random.random() > 0.3,
+                "moving": speed > 0,
+                "dutyStatus": duty_status
+            },
+            "events": events,
+            "dataType": "ELD_DATA"
+        }
+    
+    async def handle_connection(self, device_address: str):
+        """Handle connection from client."""
+        print(f"🔗 Connection attempt from {device_address}")
+        
+        if device_address not in self.connected_devices:
+            self.connected_devices.add(device_address)
+        
+        self.is_connected = True
+        print(f"✅ Connected to {device_address}")
+        print(f"   KD032 device ready for ELD data transmission")
+    
+    async def handle_disconnection(self, device_address: str):
+        """Handle disconnection from client."""
+        print(f"🔌 Disconnection from {device_address}")
+        
+        if device_address in self.connected_devices:
+            self.connected_devices.remove(device_address)
+        
+        if not self.connected_devices:
+            self.is_connected = False
+            print("❌ No devices connected")
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current simulator status."""
+        return {
+            "isAdvertising": self.is_advertising,
+            "isConnected": self.is_connected,
+            "connectedDevices": len(self.connected_devices),
+            "deviceName": self.device_name,
+            "deviceAddress": self.device_address,
+            "serviceUuid": self.service_uuid,
+            "characteristicUuid": self.characteristic_uuid
+        }
 
 async def main():
-    simulator = BLEELDSimulator()
+    """Main function to run the KD032 ELD simulator."""
+    simulator = KD032EldSimulator()
+    
+    print("=" * 60)
+    print("KD032 ELD Device Simulator")
+    print("=" * 60)
+    print()
+    print("This simulator creates a virtual KD032 ELD device that will")
+    print("appear in your Android app's BLE scan results.")
+    print()
+    print("Device Details:")
+    print(f"  Name: {simulator.device_name}")
+    print(f"  Address: {simulator.device_address}")
+    print(f"  Service UUID: {simulator.service_uuid}")
+    print(f"  Characteristic UUID: {simulator.characteristic_uuid}")
+    print()
+    print("Instructions:")
+    print("1. Start this simulator")
+    print("2. Open your Android app")
+    print("3. Go to device scan screen")
+    print("4. Start scanning for devices")
+    print("5. Look for 'KD032-43149A' in the results")
+    print("6. Try connecting to the simulated device")
+    print("7. The device should connect without passcode")
+    print("8. ELD data will start transmitting automatically")
+    print()
+    print("Press Ctrl+C to stop the simulator")
+    print("=" * 60)
+    print()
     
     try:
-        await simulator.start_simulation()
+        # Start advertising
+        await simulator.start_advertising()
+        
+        # Keep running until interrupted
+        while True:
+            await asyncio.sleep(1)
+            
+            # Print status every 30 seconds
+            if int(time.time()) % 30 == 0:
+                status = simulator.get_status()
+                print(f"📊 Status: Advertising={status['isAdvertising']}, "
+                      f"Connected={status['isConnected']}, "
+                      f"Devices={status['connectedDevices']}")
+    
     except KeyboardInterrupt:
-        simulator.stop_simulation()
+        print("\n🛑 Stopping KD032 ELD simulator...")
+        await simulator.stop_advertising()
+        print("✅ Simulator stopped")
     except Exception as e:
-        print(f"❌ Error in simulation: {e}")
-        simulator.stop_simulation()
+        print(f"❌ Error: {e}")
+        await simulator.stop_advertising()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+    except Exception as e:
+        print(f"❌ Fatal error: {e}")

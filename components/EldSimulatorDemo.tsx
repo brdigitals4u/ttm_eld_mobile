@@ -1,308 +1,176 @@
 // components/EldSimulatorDemo.tsx
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
-import { eldTestConfig, TestMode } from '../services/EldTestConfig';
-import { eldSimulator, SimulationScenario, EldDeviceType, SimulatedEldDevice } from '../services/EldSimulator';
-import { BLEDevice, NotifyData } from '../src/utils/TTMBLEManager';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { startKD032Simulator, stopKD032Simulator, getKD032SimulatorStatus } from '../services/EldSimulator';
 
 interface SimulatorStatus {
-  isScanning: boolean;
-  connectedDevice: SimulatedEldDevice | null;
-  availableDevices: SimulatedEldDevice[];
-  currentScenario: SimulationScenario;
-  testMode: TestMode;
+  isAdvertising: boolean;
+  isConnected: boolean;
+  deviceName: string;
+  deviceAddress: string;
+  serviceUuid: string;
+  characteristicUuid: string;
 }
 
 export default function EldSimulatorDemo() {
+  const [isSimulatorRunning, setIsSimulatorRunning] = useState(false);
   const [status, setStatus] = useState<SimulatorStatus | null>(null);
-  const [discoveredDevices, setDiscoveredDevices] = useState<BLEDevice[]>([]);
-  const [eldData, setEldData] = useState<string[]>([]);
-  const [logs, setLogs] = useState<string[]>([]);
-
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [`${timestamp}: ${message}`, ...prev.slice(0, 9)]);
-  };
+  const [logMessages, setLogMessages] = useState<string[]>([]);
 
   useEffect(() => {
-    const initializeSimulator = async () => {
-      try {
-        eldTestConfig.setTestMode(TestMode.SIMULATOR);
-        eldTestConfig.enableDebugMode(true);
-        await eldTestConfig.initialize();
-        addLog('ELD Simulator initialized');
-        updateStatus();
-      } catch (error) {
-        addLog(`Initialization failed: ${error}`);
+    // Add console log interceptor to capture simulator messages
+    const originalLog = console.log;
+    console.log = (...args) => {
+      const message = args.join(' ');
+      if (message.includes('KD032 Simulator')) {
+        setLogMessages(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${message}`]);
       }
+      originalLog(...args);
     };
 
-    initializeSimulator();
-
-    // Set up event listeners
-    const deviceScannedListener = eldSimulator.onDeviceScanned((device: BLEDevice) => {
-      setDiscoveredDevices(prev => {
-        const exists = prev.find(d => d.id === device.id);
-        if (!exists) {
-          addLog(`Device discovered: ${device.name}`);
-          return [...prev, device];
-        }
-        return prev;
-      });
-    });
-
-    const connectedListener = eldSimulator.onConnected(() => {
-      addLog('Device connected successfully');
-      updateStatus();
-    });
-
-    const disconnectedListener = eldSimulator.onDisconnected(() => {
-      addLog('Device disconnected');
-      updateStatus();
-    });
-
-    const connectFailureListener = eldSimulator.onConnectFailure((error) => {
-      addLog(`Connection failed: ${error.message}`);
-      updateStatus();
-    });
-
-    const authenticationListener = eldSimulator.onAuthenticationPassed(() => {
-      addLog('Device authentication passed');
-    });
-
-    const dataListener = eldSimulator.onNotifyReceived((data: NotifyData) => {
-      addLog(`Data received: ${data.dataType}`);
-      setEldData(prev => [data.rawData, ...prev.slice(0, 4)]);
-    });
-
     return () => {
-      deviceScannedListener.remove();
-      connectedListener.remove();
-      disconnectedListener.remove();
-      connectFailureListener.remove();
-      authenticationListener.remove();
-      dataListener.remove();
+      console.log = originalLog;
     };
   }, []);
 
-  const updateStatus = () => {
-    const simulatorStatus = eldTestConfig.getSimulatorStatus();
-    setStatus(simulatorStatus);
-  };
-
-  const handleScan = async () => {
+  const handleStartSimulator = () => {
     try {
-      setDiscoveredDevices([]);
-      addLog('Starting device scan...');
-      await eldSimulator.startScan(10000);
-      updateStatus();
+      startKD032Simulator();
+      setIsSimulatorRunning(true);
+      Alert.alert('Success', 'KD032 Simulator started! The device should now appear in your scan results.');
     } catch (error) {
-      addLog(`Scan failed: ${error}`);
+      Alert.alert('Error', `Failed to start simulator: ${error}`);
     }
   };
 
-  const handleStopScan = async () => {
+  const handleStopSimulator = () => {
     try {
-      await eldSimulator.stopScan();
-      addLog('Scan stopped');
-      updateStatus();
+      stopKD032Simulator();
+      setIsSimulatorRunning(false);
+      Alert.alert('Success', 'KD032 Simulator stopped!');
     } catch (error) {
-      addLog(`Stop scan failed: ${error}`);
+      Alert.alert('Error', `Failed to stop simulator: ${error}`);
     }
   };
 
-  const handleConnect = async (device: BLEDevice) => {
+  const handleCheckStatus = () => {
     try {
-      const availableDevices = eldSimulator.getAvailableDevices();
-      const fullDevice = availableDevices.find(d => d.address === device.address);
-      
-      if (!fullDevice) {
-        Alert.alert('Error', 'Device details not found');
-        return;
-      }
-
-      addLog(`Connecting to ${device.name}...`);
-      await eldSimulator.connect(device.address, fullDevice.imei);
-      updateStatus();
+      const currentStatus = getKD032SimulatorStatus();
+      setStatus(currentStatus);
     } catch (error) {
-      addLog(`Connection failed: ${error}`);
+      Alert.alert('Error', `Failed to get status: ${error}`);
     }
   };
 
-  const handleDisconnect = async () => {
-    try {
-      await eldSimulator.disconnect();
-      updateStatus();
-    } catch (error) {
-      addLog(`Disconnect failed: ${error}`);
-    }
-  };
-
-  const handleStartDataStream = async () => {
-    try {
-      await eldSimulator.startReportEldData();
-      addLog('ELD data streaming started');
-    } catch (error) {
-      addLog(`Data stream failed: ${error}`);
-    }
-  };
-
-  const handleScenarioChange = (scenario: SimulationScenario) => {
-    eldTestConfig.setSimulationScenario(scenario);
-    addLog(`Scenario changed to: ${scenario}`);
-    updateStatus();
-  };
-
-  const handleRunTest = async (testName: string, testFn: () => Promise<void>) => {
-    try {
-      addLog(`Running test: ${testName}`);
-      await testFn();
-      addLog(`Test completed: ${testName}`);
-    } catch (error) {
-      addLog(`Test failed: ${testName} - ${error}`);
-    }
-  };
-
-  const handleConnectivityTest = async () => {
-    const result = await eldTestConfig.runConnectivityTest();
-    Alert.alert(
-      'Connectivity Test',
-      `Success: ${result.success}\n\nDetails: ${result.details}`,
-      [{ text: 'OK' }]
-    );
+  const clearLogs = () => {
+    setLogMessages([]);
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>ELD Simulator Demo</Text>
-      
-      {/* Status Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Status</Text>
-        {status && (
-          <View>
-            <Text>Test Mode: {status.testMode}</Text>
-            <Text>Scenario: {status.currentScenario}</Text>
-            <Text>Scanning: {status.isScanning ? 'Yes' : 'No'}</Text>
-            <Text>Connected: {status.connectedDevice ? status.connectedDevice.name : 'None'}</Text>
-            <Text>Available Devices: {status.availableDevices.length}</Text>
-          </View>
-        )}
+      <View style={styles.header}>
+        <Text style={styles.title}>KD032 ELD Device Simulator</Text>
+        <Text style={styles.subtitle}>Test your app with a simulated KD032 device</Text>
       </View>
 
-      {/* Control Buttons */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Controls</Text>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.button} onPress={handleScan}>
-            <Text style={styles.buttonText}>Scan Devices</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handleStopScan}>
-            <Text style={styles.buttonText}>Stop Scan</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.button} onPress={handleDisconnect}>
-            <Text style={styles.buttonText}>Disconnect</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={handleStartDataStream}>
-            <Text style={styles.buttonText}>Start Data</Text>
-          </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Device Information</Text>
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Device Name:</Text> KD032-43149A
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Device Address:</Text> C4:A8:28:43:14:9A
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Service UUID:</Text> 0000ffe0-0000-1000-8000-00805f9b34fb
+          </Text>
+          <Text style={styles.infoText}>
+            <Text style={styles.label}>Characteristic UUID:</Text> 0000ffe1-0000-1000-8000-00805f9b34fb
+          </Text>
         </View>
       </View>
 
-      {/* Discovered Devices */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Discovered Devices ({discoveredDevices.length})</Text>
-        {discoveredDevices.map((device) => (
-          <TouchableOpacity 
-            key={device.id} 
-            style={styles.deviceItem}
-            onPress={() => handleConnect(device)}
+        <Text style={styles.sectionTitle}>Simulator Controls</Text>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, styles.startButton, isSimulatorRunning && styles.disabledButton]}
+            onPress={handleStartSimulator}
+            disabled={isSimulatorRunning}
           >
-            <Text style={styles.deviceName}>{device.name}</Text>
-            <Text style={styles.deviceDetails}>
-              {device.address} | Signal: {device.signal}dBm
+            <Text style={styles.buttonText}>Start Simulator</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, styles.stopButton, !isSimulatorRunning && styles.disabledButton]}
+            onPress={handleStopSimulator}
+            disabled={!isSimulatorRunning}
+          >
+            <Text style={styles.buttonText}>Stop Simulator</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, styles.statusButton]}
+          onPress={handleCheckStatus}
+        >
+          <Text style={styles.buttonText}>Check Status</Text>
+        </TouchableOpacity>
+      </View>
+
+      {status && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Current Status</Text>
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusText}>
+              <Text style={styles.label}>Advertising:</Text> {status.isAdvertising ? '✅ Yes' : '❌ No'}
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Simulation Scenarios */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Simulation Scenarios</Text>
-        <View style={styles.scenarioGrid}>
-          {
-            Object.values(SimulationScenario).map((scenario) => (
-              <TouchableOpacity 
-                key={scenario}
-                style={[
-                  styles.scenarioButton,
-                  status?.currentScenario === scenario && styles.activeScenario
-                ]}
-                onPress={() => handleScenarioChange(scenario)}
-              >
-                <Text style={styles.scenarioText}>
-                  {scenario.replace('_', ' ')}
-                </Text>
-              </TouchableOpacity>
-            ))
-          }
-        </View>
-      </View>
-
-      {/* Test Scenarios */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Test Scenarios</Text>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={() => handleRunTest('Connection Issues', () => eldTestConfig.simulateConnectionIssues())}
-          >
-            <Text style={styles.buttonText}>Connection Test</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={() => handleRunTest('Auth Failure', () => eldTestConfig.simulateAuthenticationFailure())}
-          >
-            <Text style={styles.buttonText}>Auth Test</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.buttonRow}>
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={() => handleRunTest('Device Malfunction', () => eldTestConfig.simulateDeviceMalfunction())}
-          >
-            <Text style={styles.buttonText}>Malfunction Test</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={handleConnectivityTest}
-          >
-            <Text style={styles.buttonText}>Full Test</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ELD Data Stream */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ELD Data Stream</Text>
-        {eldData.map((data, index) => (
-          <View key={index} style={styles.dataItem}>
-            <Text style={styles.dataText}>{data.substring(0, 200)}...</Text>
+            <Text style={styles.statusText}>
+              <Text style={styles.label}>Connected:</Text> {status.isConnected ? '✅ Yes' : '❌ No'}
+            </Text>
+            <Text style={styles.statusText}>
+              <Text style={styles.label}>Device Name:</Text> {status.deviceName}
+            </Text>
+            <Text style={styles.statusText}>
+              <Text style={styles.label}>Device Address:</Text> {status.deviceAddress}
+            </Text>
           </View>
-        ))}
+        </View>
+      )}
+
+      <View style={styles.section}>
+        <View style={styles.logHeader}>
+          <Text style={styles.sectionTitle}>Simulator Logs</Text>
+          <TouchableOpacity onPress={clearLogs} style={styles.clearButton}>
+            <Text style={styles.clearButtonText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.logContainer}>
+          {logMessages.length === 0 ? (
+            <Text style={styles.noLogsText}>No logs yet. Start the simulator to see activity.</Text>
+          ) : (
+            logMessages.map((message, index) => (
+              <Text key={index} style={styles.logMessage}>
+                {message}
+              </Text>
+            ))
+          )}
+        </View>
       </View>
 
-      {/* Activity Log */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Activity Log</Text>
-        {logs.map((log, index) => (
-          <Text key={index} style={styles.logText}>{log}</Text>
-        ))}
+        <Text style={styles.sectionTitle}>Testing Instructions</Text>
+        <View style={styles.instructionsContainer}>
+          <Text style={styles.instructionText}>1. Start the simulator above</Text>
+          <Text style={styles.instructionText}>2. Go to your app's device scan screen</Text>
+          <Text style={styles.instructionText}>3. Start scanning for devices</Text>
+          <Text style={styles.instructionText}>4. Look for "KD032-43149A" in the scan results</Text>
+          <Text style={styles.instructionText}>5. Try connecting to the simulated device</Text>
+          <Text style={styles.instructionText}>6. The device should connect without passcode (like real KD032)</Text>
+          <Text style={styles.instructionText}>7. ELD data should start transmitting automatically</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -311,107 +179,130 @@ export default function EldSimulatorDemo() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#f5f5f5',
+    padding: 16,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
     color: '#333',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderRadius: 8,
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#333',
     marginBottom: 12,
+  },
+  infoContainer: {
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  label: {
+    fontWeight: 'bold',
     color: '#333',
   },
-  buttonRow: {
+  buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 12,
+    marginBottom: 12,
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 6,
-    flex: 0.48,
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
+  },
+  startButton: {
+    backgroundColor: '#4CAF50',
+  },
+  stopButton: {
+    backgroundColor: '#f44336',
+  },
+  statusButton: {
+    backgroundColor: '#2196F3',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  deviceItem: {
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 6,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  deviceName: {
+    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
   },
-  deviceDetails: {
+  statusContainer: {
+    gap: 8,
+  },
+  statusText: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    color: '#555',
+    lineHeight: 20,
   },
-  scenarioGrid: {
+  logHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-  },
-  scenarioButton: {
-    backgroundColor: '#f0f0f0',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
-    width: '48%',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    marginBottom: 12,
   },
-  activeScenario: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#ff9800',
+    borderRadius: 6,
   },
-  scenarioText: {
+  clearButtonText: {
+    color: 'white',
     fontSize: 12,
-    color: '#333',
+    fontWeight: 'bold',
+  },
+  logContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 120,
+  },
+  noLogsText: {
+    color: '#999',
+    fontStyle: 'italic',
     textAlign: 'center',
   },
-  dataItem: {
-    backgroundColor: '#f9f9f9',
-    padding: 8,
-    borderRadius: 4,
+  logMessage: {
+    fontSize: 12,
+    color: '#333',
+    fontFamily: 'monospace',
     marginBottom: 4,
   },
-  dataText: {
-    fontSize: 12,
-    fontFamily: 'monospace',
-    color: '#333',
+  instructionsContainer: {
+    gap: 8,
   },
-  logText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-    fontFamily: 'monospace',
+  instructionText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
   },
 });

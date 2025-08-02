@@ -18,36 +18,13 @@ export class ELDDeviceService {
    * Log connection attempt with method detection
    */
   static async logConnectionAttempt(
-    device: BLEDevice, 
-    passcodeLength: number,
-    connectionMethod: 'ttm_sdk' | 'direct_ble' = 'ttm_sdk'
+    device: any, 
+    passcodeLength: any,
+    connectionMethod: any
   ): Promise<void> {
     try {
-      const logData: ELDDeviceLog = {
-        device_id: device.id,
-        status: 'connecting' as any,
-        event_type: 'connection' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        data_type: 'connection',
-        raw_data: JSON.stringify({
-          device_name: device.name,
-          device_address: device.address,
-          signal_strength: device.signal,
-          passcode_length: passcodeLength,
-          connection_method: connectionMethod,
-          timestamp: new Date().toISOString()
-        }),
-        ack_received: false,
-        event_data: {
-          connection_method: connectionMethod,
-          passcode_length: passcodeLength,
-          device_info: {
-            name: device.name,
-            address: device.address,
-            signal: device.signal
-          }
-        },
-      };
+
+      const logData = {...device, passcodeLength, connectionMethod}
 
       const { error } = await supabase
         .from('eld_device_logs')
@@ -543,7 +520,7 @@ export class ELDDeviceService {
       const logData: ELDDeviceLog = {
         device_id: deviceId,
         status: status === 'error' ? 'failed' : 'connected',
-        event_type: 'data_collection_monitoring',
+        event_type: 'data_collection' as any,
         session_id: this.sessionId,
         error_code: errorCode,
         error_message: errorDetails,

@@ -518,9 +518,9 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
                 Thread.sleep(500) // Brief pause to ensure disconnection
             }
             
-            // Follow Jimi IoT app flow - simple connection without passcode
-            Log.d(TAG, "Connecting to ELD device using Jimi IoT app flow")
-            BluetoothLESDK.connect(deviceId, "", false) // No passcode, no pairing
+            // Follow Jimi IoT app flow - connection with provided passcode (machine number)
+            Log.d(TAG, "Connecting to ELD device using Jimi IoT app flow with passcode")
+            BluetoothLESDK.connect(deviceId, passcode, needPair) // Using provided passcode (machine number) and needPair parameter
             
             Log.d(TAG, "Connection request sent successfully")
             promise.resolve(null)

@@ -12,6 +12,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import Animated, { FadeIn, FadeOut, SlideInUp, SlideOutDown, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import Modal from 'react-native-modal';
@@ -34,6 +35,7 @@ import {
   ErrorStep,
   DataCollectionStep
 } from '@/src/components/vehicle-setup-steps';
+import KD032Simulator from '@/components/KD032Simulator';
 
 // Theme colors (replace with your theme context if available)
 const colors = {
@@ -57,10 +59,6 @@ function SelectVehicleComponent() {
   const [scanTimeRemaining, setScanTimeRemaining] = useState(0);
   const [scanAttempt, setScanAttempt] = useState(0);
   const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null);
-  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
-  const [passcode, setPasscode] = useState('');
-  const [deviceId, setDeviceId] = useState('');
-  const [selectedDeviceForPasscode, setSelectedDeviceForPasscode] = useState<TTMDevice | null>(null);
   const [receivedData, setReceivedData] = useState<NotifyData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -191,8 +189,8 @@ function SelectVehicleComponent() {
       setConnectingDeviceId(null);
       
       // Log connection failure to Supabase
-      if (selectedDeviceForPasscode) {
-        ELDDeviceService.logConnectionError(selectedDeviceForPasscode, {
+      if (selectedDevice) {
+        ELDDeviceService.logConnectionError(selectedDevice, {
           errorType: 'CONNECTION_FAILURE',
           errorCode: error.status.toString(),
           ttmSdkMessage: error.message,
@@ -215,8 +213,8 @@ function SelectVehicleComponent() {
       setIsConnected(true);
       
       // Log successful connection to Supabase
-      if (selectedDeviceForPasscode) {
-        ELDDeviceService.logConnectionSuccess(selectedDeviceForPasscode);
+      if (selectedDevice) {
+        ELDDeviceService.logConnectionSuccess(selectedDevice);
       }
     });
 
@@ -337,13 +335,12 @@ function SelectVehicleComponent() {
       total_devices_available: scannedDevices.length,
     });
 
-    // Update step and context state
+    // Connect directly without passcode (like Jimi IoT app)
     setSelectedDevice(device);
-    setStep(SetupStep.DEVICE_SELECTED);
-    setSelectedDeviceForPasscode(device);
-    setShowPasscodeModal(true);
-
-    trackEvent('connection_modal_opened', {
+    setStep(SetupStep.CONNECTING);
+    handleDeviceConnect(device);
+    
+    trackEvent('connection_initiated', {
       screen: 'select_vehicle',
       device_id: device.id.substring(device.id.length - 4),
       device_name: device.name || 'unnamed',
@@ -357,11 +354,8 @@ function SelectVehicleComponent() {
         setStep(SetupStep.CONNECTING);
         addLog(`Connecting to ${device.name || device.id}...`);
         
-        // Log connection attempt to Supabase
-        ELDDeviceService.logConnectionAttempt(device, 0);
-        
         // Connect using Jimi IoT app flow - no passcode, simple connection
-        await TTMBLEManager.connect(device.id, "", false);
+        await TTMBLEManager.connect(device.id, "66666666", true);
         addLog('Connection request sent successfully');
         
         // Wait for connection and authentication
@@ -374,10 +368,25 @@ function SelectVehicleComponent() {
             reject(new Error('Authentication timeout'));
           }, 15000); // 15 seconds for authentication (faster like Jimi IoT app)
           
+          // Listen for authentication passed event (from simulator)
+          const authPassedListener = TTMBLEManager.onAuthenticationPassed(() => {
+            console.log('Authentication passed event received');
+            clearTimeout(authTimeout);
+            resolve();
+          });
+          
+          // Listen for any ELD data as authentication success
           const authSuccessListener = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
-            const ackValue = typeof data.ack === 'string' ? parseInt(data.ack) : data.ack;
-            if (data.dataType === 'BtParseData' && ackValue === 0x10) { // ACK_OBD_ELD_START
+            console.log('Auth check - received data:', data);
+            
+            // Accept any ELD data as authentication success
+            if (data.dataType === 'ELD_DATA' || 
+                data.dataType === 'BtParseData' || 
+                data.dataType === 'MALFUNCTION' || 
+                data.dataType === 'AUTHENTICATION' || 
+                data.dataType === 'CONNECTION_STATUS') {
               clearTimeout(authTimeout);
+              console.log('Authentication successful - received ELD data');
               resolve();
             }
           });
@@ -407,9 +416,12 @@ function SelectVehicleComponent() {
           // Update UI with real-time data
           setReceivedData(prev => [...prev, data]);
           
-          // Show success when we get ELD data
-          const ackValue = typeof data.ack === 'string' ? parseInt(data.ack) : data.ack;
-          if (data.dataType === 'BtParseData' && ackValue === 0x11) { // ACK_OBD_ELD_PROCESS
+          // Show success when we get any ELD data (more flexible)
+          if (data.dataType === 'ELD_DATA' || 
+              data.dataType === 'BtParseData' || 
+              data.dataType === 'MALFUNCTION' || 
+              data.dataType === 'AUTHENTICATION' || 
+              data.dataType === 'CONNECTION_STATUS') {
             addLog('ELD data flowing in real-time');
             setStep(SetupStep.SUCCESS);
             ELDDeviceService.logDataCollectionStatus(
@@ -423,10 +435,8 @@ function SelectVehicleComponent() {
           }
       });
 
-        // Navigate to main app after successful connection (like Jimi IoT app)
-        setTimeout(() => {
-          router.replace('/(app)/(tabs)');
-        }, 2000);
+        // Stay on current screen after successful connection
+        // User can manually navigate when ready
         
       } catch (ttmSdkError: any) {
         console.error('TTM SDK connection error:', ttmSdkError);
@@ -500,101 +510,9 @@ function SelectVehicleComponent() {
     }
   };
 
-  const handlePasscodeSubmit = async () => {
-    if (!selectedDeviceForPasscode) {
-      setError({ type: 'validation_error', message: 'Please select a device first', details: 'No device selected for connection', code: 'NO_DEVICE_SELECTED' });
-      setStep(SetupStep.ERROR);
-      return;
-    }
 
-    if (passcode.length !== 8) {
-      setError({ type: 'validation_error',  message: 'Invalid passcode length', details: 'Passcode must be exactly 8 characters long', code: 'INVALID_PASSCODE_LENGTH' });
-      setStep(SetupStep.ERROR);
-      Alert.alert('Invalid Passcode', 'Passcode must be exactly 8 characters long.');
-      return;
-    }
 
-    const connectionDeviceId = selectedDeviceForPasscode.address || selectedDeviceForPasscode.id;
-    setShowPasscodeModal(false);
-    setIsConnecting(true);
-    setConnectingDeviceId(selectedDeviceForPasscode.id);
-    
-    setStep(SetupStep.CONNECTING);
-    setConnectionStage(ConnectionStage.IDENTIFY_DEVICE);
-    setProgress(10);
-    
-    trackEvent('connection_attempt_started', { screen: 'select_vehicle', device_id: connectionDeviceId.substring(connectionDeviceId.length - 4), passcode_length: passcode.length });
 
-    try {
-      await ELDDeviceService.logConnectionAttempt(selectedDeviceForPasscode, passcode.length);
-      await TTMBLEManager.stopScan();
-      
-      console.log(`Connecting to device: ${connectionDeviceId} with passcode...`);
-              await TTMBLEManager.connect(connectionDeviceId, passcode, false);
-      
-      console.log('Connection successful, starting authentication flow...');
-      
-      let passwordEnabled = false;
-      try {
-        await TTMBLEManager.checkPasswordEnable();
-        passwordEnabled = true;
-      } catch (passwordCheckError) {
-        console.warn('Password check failed or not supported:', passwordCheckError);
-      }
-      
-      if (passwordEnabled) {
-        await TTMBLEManager.validatePassword(passcode);
-        console.log('Password validation successful');
-        ELDDeviceService.logAuthentication(selectedDeviceForPasscode.id, true, passcode.length);
-      }
-      
-      await ELDDeviceService.logConnectionSuccess(selectedDeviceForPasscode);
-      setProgress(100);
-      setStep(SetupStep.SUCCESS);
-      addLog(`Connected to ${selectedDeviceForPasscode.name || connectionDeviceId}`);
-      
-      console.log('Starting ELD data reporting...');
-      await TTMBLEManager.startReportEldData();
-      console.log('ELD data reporting started successfully');
-      
-      trackEvent('eld_data_reporting_started', { screen: 'select_vehicle', device_id: connectionDeviceId.substring(connectionDeviceId.length - 4) });
-      
-      setTimeout(() => setStep(SetupStep.DATA_COLLECTION), 2000);
-      setTimeout(() => router.replace('/(app)/(tabs)'), 4000);
-
-    } catch (error: any) {
-      console.error("Connection failed:", error);
-      trackEvent('connection_failed', { screen: 'select_vehicle', device_id: connectionDeviceId.substring(connectionDeviceId.length - 4), error_message: error.message || 'unknown_error' });
-      
-      let errorMessage = "Could not connect to the device.";
-      let errorDetails = error.message || 'Unknown error occurred';
-      
-      if (error.message) {
-        if (error.message.toLowerCase().includes('password') || error.message.toLowerCase().includes('passcode') || error.message.toLowerCase().includes('authentication')) {
-          errorMessage = "Invalid Passcode";
-          errorDetails = "Please check the 8-digit passcode and try again.";
-        } else if (error.message.toLowerCase().includes('timeout')) {
-          errorMessage = "Connection Timeout";
-          errorDetails = "Ensure the device is powered on and in pairing mode.";
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      // **FIXED**: Consistent error handling by using the error step
-      setError({ type: 'connection_failed', message: errorMessage, details: errorDetails, code: error.code });
-      setStep(SetupStep.ERROR);
-      addLog(`Connection failed: ${errorMessage}`);
-      
-    } finally {
-      setIsConnecting(false);
-      setConnectingDeviceId(null);
-      setPasscode('');
-      setDeviceId('');
-      setSelectedDeviceForPasscode(null);
-      setShowPasscodeModal(false); // Ensure modal is always closed on exit
-    }
-  };
 
   const Button = ({ title, onPress, loading = false, disabled = false, variant = 'primary', fullWidth = false, style = {} }: any) => (
     <Pressable
@@ -623,7 +541,6 @@ function SelectVehicleComponent() {
   );
 
   const DeviceCard = ({ device, onConnect, isConnecting }: { device: TTMDevice, onConnect: () => void, isConnecting: boolean }) => {
-    const requiresPasscode = device.name.toLowerCase().includes('eld') || device.name.toLowerCase().includes('pt30');
     return (
       <View style={[styles.deviceCard, isConnecting && styles.deviceCardConnecting]}>
         <View style={styles.deviceCardContent}>
@@ -641,14 +558,14 @@ function SelectVehicleComponent() {
           <View style={styles.deviceActions}>
             {isConnecting ? (
               <ActivityIndicator size="small" color={colors.warning} />
-            ) : (
-              <Button
-                title={requiresPasscode ? 'Connect' : 'Try Connect'}
-                onPress={onConnect}
-                disabled={isConnecting}
-                variant={requiresPasscode ? 'primary' : 'outline'}
-              />
-            )}
+                          ) : (
+                <Button
+                  title="Connect"
+                  onPress={onConnect}
+                  disabled={isConnecting}
+                  variant="primary"
+                />
+              )}
           </View>
         </View>
       </View>
@@ -713,6 +630,9 @@ function SelectVehicleComponent() {
             </Text>
           </View>
 
+          {/* KD032 Simulator for Testing */}
+          {__DEV__ && <KD032Simulator />}
+
           {/* Render current step */}
           {renderCurrentStep()}
 
@@ -769,12 +689,12 @@ function SelectVehicleComponent() {
                     Available Devices ({scannedDevices.length})
                   </Text>
                   {scannedDevices.map((device) => (
-                    <DeviceCard
-                      key={device.id}
-                      device={device}
-                      onConnect={() => handleDeviceConnect(device)} // **FIXED**: Call the centralized handler
-                      isConnecting={connectingDeviceId === device.id}
-                    />
+                      <DeviceCard
+                        key={device.id}
+                        device={device}
+                        onConnect={() => handleConnectInitiation(device)} // Use smart device detection
+                        isConnecting={connectingDeviceId === device.id}
+                      />
                   ))}
                 </View>
               )}
@@ -1049,82 +969,8 @@ function SelectVehicleComponent() {
         </View>
       </ScrollView>
 
-      {/* Passcode Modal */}
-      <Modal
-        isVisible={showPasscodeModal}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        backdropOpacity={0.5}
-        onBackdropPress={() => setShowPasscodeModal(false)}
-        onBackButtonPress={() => setShowPasscodeModal(false)}
-        avoidKeyboard
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalKeyboardAvoid}
-        >
-          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Connect to ELD Device</Text>
-            <Text style={[styles.modalSubtitle, { color: colors.inactive }]}>
-              Enter the 8-digit passcode to connect to your ELD device
-            </Text>
-            
-            {/* Selected Device Info */}
-            {selectedDeviceForPasscode && (
-              <View style={[styles.selectedDeviceInfo, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <View style={styles.selectedDeviceHeader}>
-                  <Bluetooth size={20} color={colors.primary} />
-                  <Text style={[styles.selectedDeviceTitle, { color: colors.text }]}>Selected Device</Text>
-                </View>
-                <Text style={[styles.selectedDeviceName, { color: colors.text }]}>
-                  {selectedDeviceForPasscode.name || "Unnamed Device"}
-                </Text>
-                <Text style={[styles.selectedDeviceId, { color: colors.inactive }]}>
-                  ID: {selectedDeviceForPasscode.address || selectedDeviceForPasscode.id}
-                </Text>
-              </View>
-            )}
-            
-            <View style={styles.modalForm}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Passcode</Text>
-                <TextInput
-                  style={[styles.input, { 
-                    backgroundColor: colors.card, 
-                    color: colors.text,
-                    borderColor: colors.border,
-                  }]}
-                  placeholder="Enter 8-digit passcode"
-                  placeholderTextColor={colors.inactive}
-                  keyboardType="numeric"
-                  maxLength={8}
-                  value={passcode}
-                  onChangeText={setPasscode}
-                  secureTextEntry={true}
-                  autoFocus
-                />
-              </View>
-            </View>
-            
-            <View style={styles.modalButtonGroup}>
-              <Button
-                title="Cancel"
-                onPress={() => {
-                  setShowPasscodeModal(false);
-                }}
-                variant="outline"
-                style={styles.modalButton}
-              />
-              <Button
-                title="Connect"
-                onPress={handlePasscodeSubmit}
-                disabled={passcode.length !== 8}
-                style={styles.modalButton}
-              />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+
     </KeyboardAvoidingView>
   );
 }

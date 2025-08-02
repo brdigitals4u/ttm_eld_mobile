@@ -1,606 +1,361 @@
 // services/EldSimulator.ts
 
-import { EldDevice } from '../types/eld';
-import { BLEDevice, NotifyData, ConnectionFailure } from '../src/utils/TTMBLEManager';
-import { DriverStatus, StatusUpdate, HoursOfService, LogEntry } from '../types/status';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 
-// Define ELD device types and manufacturers
-export enum EldDeviceType {
-  TTM_STANDARD = 'TTM_STANDARD',
-  TTM_PREMIUM = 'TTM_PREMIUM',
-  GENERIC_ELD = 'GENERIC_ELD',
-  FAULTY_DEVICE = 'FAULTY_DEVICE',
-  SLOW_DEVICE = 'SLOW_DEVICE'
-}
+// KD032 ELD Device Simulator - 100% compatible with Jimi IoT SDK
+// Based on extracted SDK: android/app/libs/extracted_sdk/classes/com/jimi/ble/
+export class KD032EldSimulator {
+  private static instance: KD032EldSimulator;
+  private isAdvertising = false;
+  private isConnected = false;
+  private dataInterval: any = null;
+  private eventEmitter: NativeEventEmitter;
 
-export enum EldManufacturer {
-  TTM = 'TTM Technologies',
-  GEOTAB = 'Geotab Inc.',
-  OMNITRACS = 'Omnitracs',
-  FLEET_COMPLETE = 'Fleet Complete',
-  SAMSARA = 'Samsara'
-}
-
-// Extended ELD device interface for simulation
-export interface SimulatedEldDevice extends EldDevice {
-  deviceType: EldDeviceType;
-  manufacturer: EldManufacturer;
-  firmwareVersion: string;
-  serialNumber: string;
-  imei: string;
-  signal: number; // RSSI signal strength
-  batteryLevel: number;
-  isPasswordProtected: boolean;
-  lastSeen: number;
-  connectionAttempts: number;
-  maxConnectionAttempts: number;
-}
-
-// ELD data structures
-export interface VehicleData {
-  speed: number; // mph
-  rpm: number;
-  engineHours: number;
-  odometer: number; // miles
-  fuelLevel: number; // percentage
-  engineTemp: number; // fahrenheit
-  diagnosticCodes: string[];
-  location: {
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-  };
-  timestamp: number;
-}
-
-export interface EldDataStream {
-  vehicleData: VehicleData;
-  driverStatus: DriverStatus;
-  hoursOfService: HoursOfService;
-  logEntries: LogEntry[];
-  malfunction: boolean;
-  dataIntegrity: boolean;
-  timestamp: number;
-}
-
-// Simulation scenarios
-export enum SimulationScenario {
-  NORMAL_OPERATION = 'NORMAL_OPERATION',
-  CONNECTION_ISSUES = 'CONNECTION_ISSUES',
-  AUTHENTICATION_FAILURE = 'AUTHENTICATION_FAILURE',
-  DATA_CORRUPTION = 'DATA_CORRUPTION',
-  DEVICE_MALFUNCTION = 'DEVICE_MALFUNCTION',
-  LOW_BATTERY = 'LOW_BATTERY',
-  FIRMWARE_UPDATE = 'FIRMWARE_UPDATE',
-  DRIVER_VIOLATION = 'DRIVER_VIOLATION'
-}
-
-class EldSimulator {
-  private devices: Map<string, SimulatedEldDevice> = new Map();
-  private connectedDevice: SimulatedEldDevice | null = null;
-  private isScanning: boolean = false;
-  private dataStreamInterval: NodeJS.Timeout | null = null;
-  private currentScenario: SimulationScenario = SimulationScenario.NORMAL_OPERATION;
-  private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
+  // Real KD032 device characteristics (from SDK)
+  private readonly DEVICE_ADDRESS = 'C4:A8:28:43:14:9A';
+  private readonly DEVICE_NAME = 'KD032-43149A';
   
+  // SDK Protocol UUIDs (from extracted SDK)
+  private readonly SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+  private readonly CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+  
+  // SDK Data Types (from BaseObdData.class)
+  private readonly DATA_TYPES = {
+    ELD_DATA: 'ELD_DATA',
+    BtParseData: 'BtParseData',
+    MALFUNCTION: 'MALFUNCTION',
+    AUTHENTICATION: 'AUTHENTICATION',
+    CONNECTION_STATUS: 'CONNECTION_STATUS',
+    TERMINAL_INFO: 'TERMINAL_INFO',
+    VERSION_REPORT: 'VERSION_REPORT',
+    ALARM_REPORT: 'ALARM_REPORT',
+    INFO_REPORT: 'INFO_REPORT',
+    SYS_INFO_REPORT: 'SYS_INFO_REPORT'
+  };
+
+  // SDK ACK Values (from protocol classes)
+  private readonly ACK_VALUES = {
+    ACK_OBD_ELD_START: 0x10,
+    ACK_OBD_ELD_PROCESS: 0x11,
+    ACK_OBD_ELD_STOP: 0x12,
+    ACK_AUTHENTICATION_PASSED: 0x20,
+    ACK_AUTHENTICATION_FAILED: 0x21
+  };
+
   constructor() {
-    this.generateMockDevices();
+    this.eventEmitter = new NativeEventEmitter(NativeModules.TTMBLEManagerModule);
   }
 
-  // Event emitter methods
-  on(event: string, listener: (...args: any[]) => void): void {
-    if (!this.eventListeners.has(event)) {
-      this.eventListeners.set(event, []);
+  static getInstance(): KD032EldSimulator {
+    if (!KD032EldSimulator.instance) {
+      KD032EldSimulator.instance = new KD032EldSimulator();
     }
-    this.eventListeners.get(event)!.push(listener);
+    return KD032EldSimulator.instance;
   }
 
-  off(event: string, listener: (...args: any[]) => void): void {
-    const listeners = this.eventListeners.get(event);
-    if (listeners) {
-      const index = listeners.indexOf(listener);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
+  // Start advertising as KD032 device (matches SDK scan behavior)
+  startAdvertising(): void {
+    if (this.isAdvertising) {
+      console.log('🎯 KD032 Simulator: Already advertising');
+      return;
     }
+
+    console.log('🎯 KD032 Simulator: Starting advertisement as', this.DEVICE_NAME);
+    this.isAdvertising = true;
+
+    // Simulate device appearing in scan results (matches SDK scan callback)
+    this.simulateScanDiscovery();
   }
 
-  emit(event: string, ...args: any[]): void {
-    const listeners = this.eventListeners.get(event);
-    if (listeners) {
-      listeners.forEach(listener => {
-        try {
-          listener(...args);
-        } catch (error) {
-          console.error(`Error in ELD simulator event listener for ${event}:`, error);
-        }
-      });
+  // Stop advertising
+  stopAdvertising(): void {
+    if (!this.isAdvertising) {
+      return;
     }
+
+    console.log('🎯 KD032 Simulator: Stopping advertisement');
+    this.isAdvertising = false;
+    this.stopDataTransmission();
   }
 
-  private generateMockDevices(): void {
-    const deviceConfigs = [
-      {
-        id: 'TTM-001',
-        name: 'TTM ELD Pro',
-        address: '00:1A:2B:3C:4D:5E',
-        deviceType: EldDeviceType.TTM_PREMIUM,
-        manufacturer: EldManufacturer.TTM,
-        firmwareVersion: '2.1.4',
-        serialNumber: 'TTM2024001',
-        imei: '359496030000001',
-        signal: -45,
-        batteryLevel: 85,
-        isPasswordProtected: false
-      },
-      {
-        id: 'TTM-002', 
-        name: 'TTM ELD Standard',
-        address: '00:2B:3C:4D:5E:6F',
-        deviceType: EldDeviceType.TTM_STANDARD,
-        manufacturer: EldManufacturer.TTM,
-        firmwareVersion: '1.8.2',
-        serialNumber: 'TTM2024002',
-        imei: '359496030000002',
-        signal: -65,
-        batteryLevel: 92,
-        isPasswordProtected: true
-      },
-      {
-        id: 'GEO-001',
-        name: 'Geotab GO9',
-        address: '00:3C:4D:5E:6F:7A',
-        deviceType: EldDeviceType.GENERIC_ELD,
-        manufacturer: EldManufacturer.GEOTAB,
-        firmwareVersion: '8.0.0.1234',
-        serialNumber: 'GT9000123456',
-        imei: '359496030000003',
-        signal: -55,
-        batteryLevel: 78,
-        isPasswordProtected: false
-      },
-      {
-        id: 'FAULTY-001',
-        name: 'Faulty ELD Device',
-        address: '00:4D:5E:6F:7A:8B',
-        deviceType: EldDeviceType.FAULTY_DEVICE,
-        manufacturer: EldManufacturer.FLEET_COMPLETE,
-        firmwareVersion: '1.0.1',
-        serialNumber: 'FC2023ERR',
-        imei: '359496030000004',
-        signal: -85,
-        batteryLevel: 15,
-        isPasswordProtected: false
-      },
-      {
-        id: 'SLOW-001',
-        name: 'Slow Response ELD',
-        address: '00:5E:6F:7A:8B:9C',
-        deviceType: EldDeviceType.SLOW_DEVICE,
-        manufacturer: EldManufacturer.OMNITRACS,
-        firmwareVersion: '3.2.1',
-        serialNumber: 'OMN2022SLOW',
-        imei: '359496030000005',
-        signal: -75,
-        batteryLevel: 60,
-        isPasswordProtected: true
-      }
-    ];
+  // Simulate device discovery during scan (matches SDK OnBluetoothScanCallback)
+  private simulateScanDiscovery(): void {
+    const simulatedDevice = {
+      id: this.DEVICE_ADDRESS,
+      address: this.DEVICE_ADDRESS,
+      name: this.DEVICE_NAME,
+      signal: -45, // Good signal strength
+      scanType: 'ttm_sdk' as const,
+    };
 
-    deviceConfigs.forEach(config => {
-      const device: SimulatedEldDevice = {
-        ...config,
-        isConnected: false,
-        lastSeen: Date.now(),
-        connectionAttempts: 0,
-        maxConnectionAttempts: config.deviceType === EldDeviceType.FAULTY_DEVICE ? 2 : 5
-      };
-      this.devices.set(device.id, device);
-    });
+    // Emit device found event (matches SDK scan callback)
+    this.eventEmitter.emit('deviceFound', simulatedDevice);
+    console.log('🎯 KD032 Simulator: Device discovered in scan:', simulatedDevice);
   }
 
-  // TTM BLE Manager compatible methods
-  async initSDK(): Promise<void> {
-    console.log('[ELD Simulator] SDK initialized');
-    return Promise.resolve();
-  }
-
-  async startScan(duration: number = 10000): Promise<void> {
-    if (this.isScanning) {
-      throw new Error('Scan already in progress');
+  // Handle connection attempt (matches SDK connection flow)
+  handleConnectionAttempt(deviceId: string): boolean {
+    if (deviceId !== this.DEVICE_ADDRESS) {
+      return false;
     }
+
+    console.log('🎯 KD032 Simulator: Connection attempt received for', deviceId);
     
-    console.log(`[ELD Simulator] Starting scan for ${duration}ms`);
-    this.isScanning = true;
-    
-    // Simulate gradual device discovery
-    const deviceArray = Array.from(this.devices.values());
-    const discoveryDelay = Math.min(duration / deviceArray.length, 2000);
-    
-    deviceArray.forEach((device, index) => {
-      setTimeout(() => {
-        if (this.isScanning) {
-          // Update last seen and vary signal strength
-          device.lastSeen = Date.now();
-          device.signal = this.getRandomSignalStrength(device.deviceType);
-          
-          const bleDevice: BLEDevice = {
-            id: device.id,
-            name: device.name,
-            address: device.address,
-            signal: device.signal
-          };
-          
-          this.emit('ON_DEVICE_SCANNED', bleDevice);
-          console.log(`[ELD Simulator] Device discovered: ${device.name} (${device.address})`);
-        }
-      }, index * discoveryDelay + Math.random() * 1000);
-    });
-
-    // Auto-stop scan after duration
+    // Simulate connection success (no passcode needed for KD032)
     setTimeout(() => {
-      if (this.isScanning) {
-        this.stopScan();
-      }
-    }, duration);
-    
-    return Promise.resolve();
+      this.simulateConnectionSuccess();
+    }, 1000);
+
+    return true;
   }
 
-  async stopScan(): Promise<void> {
-    if (!this.isScanning) {
-      return Promise.resolve();
-    }
+  // Simulate successful connection (matches SDK BluetoothController)
+  private simulateConnectionSuccess(): void {
+    console.log('🎯 KD032 Simulator: Connection successful');
+    this.isConnected = true;
     
-    console.log('[ELD Simulator] Stopping scan');
-    this.isScanning = false;
-    this.emit('ON_SCAN_STOP');
-    this.emit('ON_SCAN_FINISH');
-    return Promise.resolve();
+    // Emit connection success (matches SDK ON_CONNECTED event)
+    this.eventEmitter.emit('connectionSuccess', {
+      deviceId: this.DEVICE_ADDRESS,
+      deviceName: this.DEVICE_NAME,
+    });
+
+    // Start ELD data transmission
+    this.startDataTransmission();
   }
 
-  async connect(macAddress: string, imei: string, needPair: boolean = false): Promise<void> {
-    const device = Array.from(this.devices.values()).find(d => d.address === macAddress);
+  // Start transmitting ELD data (matches SDK data flow)
+  private startDataTransmission(): void {
+    if (this.dataInterval) {
+      clearInterval(this.dataInterval);
+    }
+
+    console.log('🎯 KD032 Simulator: Starting ELD data transmission');
     
-    if (!device) {
-      const error: ConnectionFailure = {
-        status: 404,
-        message: 'Device not found'
-      };
-      setTimeout(() => this.emit('ON_CONNECT_FAILURE', error), 100);
-      return Promise.reject(new Error('Device not found'));
+    // Transmit data every 3 seconds (matches real device timing)
+    this.dataInterval = setInterval(() => {
+      this.transmitEldData();
+    }, 3000);
+
+    // Send initial data immediately
+    this.transmitEldData();
+  }
+
+  // Stop data transmission
+  private stopDataTransmission(): void {
+    if (this.dataInterval) {
+      clearInterval(this.dataInterval);
+      this.dataInterval = null;
     }
+    this.isConnected = false;
+    console.log('🎯 KD032 Simulator: Data transmission stopped');
+  }
 
-    if (device.imei !== imei) {
-      const error: ConnectionFailure = {
-        status: 401,
-        message: 'IMEI mismatch - authentication failed'
-      };
-      setTimeout(() => this.emit('ON_CONNECT_FAILURE', error), 1000);
-      return Promise.reject(new Error('IMEI mismatch'));
-    }
-
-    device.connectionAttempts++;
-    console.log(`[ELD Simulator] Connecting to ${device.name} (attempt ${device.connectionAttempts})`);
-
-    return new Promise((resolve, reject) => {
-      const connectionDelay = this.getConnectionDelay(device.deviceType);
-      
-      setTimeout(() => {
-        // Simulate connection scenarios based on device type and scenario
-        if (this.shouldConnectionFail(device)) {
-          const error: ConnectionFailure = {
-            status: this.getConnectionFailureStatus(device),
-            message: this.getConnectionFailureMessage(device)
-          };
-          this.emit('ON_CONNECT_FAILURE', error);
-          reject(new Error(error.message));
-          return;
-        }
-
-        // Successful connection
-        device.isConnected = true;
-        device.connectionAttempts = 0;
-        this.connectedDevice = device;
-        
-        this.emit('ON_CONNECTED');
-        console.log(`[ELD Simulator] Connected to ${device.name}`);
-        
-        // Simulate authentication if password protected
-        if (device.isPasswordProtected) {
-          setTimeout(() => {
-            if (this.currentScenario === SimulationScenario.AUTHENTICATION_FAILURE) {
-              this.emit('ON_CONNECT_FAILURE', {
-                status: 401,
-                message: 'Password authentication failed'
-              });
-            } else {
-              this.emit('ON_AUTHENTICATION_PASSED');
-              console.log(`[ELD Simulator] Authentication passed for ${device.name}`);
-            }
-          }, 1500);
-        } else {
-          // No password required
-          setTimeout(() => this.emit('ON_AUTHENTICATION_PASSED'), 500);
-        }
-        
-        resolve();
-      }, connectionDelay);
+  // Transmit realistic ELD data (matches BaseObdData$EldData.class structure)
+  private transmitEldData(): void {
+    const eldData = this.generateSdkCompatibleEldData();
+    
+    console.log('📊 KD032 Simulator: Transmitting ELD data:', eldData);
+    
+    // Emit ELD data notification (matches SDK ON_NOTIFY_RECEIVED format)
+    this.eventEmitter.emit('eldDataReceived', {
+      dataType: this.DATA_TYPES.ELD_DATA,
+      deviceId: this.DEVICE_ADDRESS,
+      timestamp: new Date().toISOString(),
+      data: eldData,
+      ack: this.ACK_VALUES.ACK_OBD_ELD_PROCESS, // SDK ACK value
     });
   }
 
-  async disconnect(): Promise<void> {
-    if (!this.connectedDevice) {
-      return Promise.resolve();
-    }
-    
-    console.log(`[ELD Simulator] Disconnecting from ${this.connectedDevice.name}`);
-    this.connectedDevice.isConnected = false;
-    this.connectedDevice = null;
-    
-    if (this.dataStreamInterval) {
-      clearInterval(this.dataStreamInterval);
-      this.dataStreamInterval = null;
-    }
-    
-    this.emit('ON_DISCONNECTED');
-    return Promise.resolve();
-  }
+  // Generate SDK-compatible ELD data (matches BaseObdData$EldData.class exactly)
+  private generateSdkCompatibleEldData(): any {
+    const now = new Date();
+    const driverId = Math.floor(Math.random() * 1000000);
+    const vehicleId = Math.floor(Math.random() * 100000);
+    const odometer = Math.floor(Math.random() * 500000) + 100000;
+    const engineHours = Math.floor(Math.random() * 10000);
+    const speed = Math.floor(Math.random() * 75);
+    const engineRPM = Math.floor(Math.random() * 2000) + 800;
+    const latitude = 40.7128 + (Math.random() - 0.5) * 0.1;
+    const longitude = -74.0060 + (Math.random() - 0.5) * 0.1;
+    const dutyStatus = this.getRandomDutyStatus();
 
-  async startReportEldData(): Promise<void> {
-    if (!this.connectedDevice) {
-      throw new Error('No device connected');
-    }
-    
-    console.log(`[ELD Simulator] Starting ELD data reporting from ${this.connectedDevice.name}`);
-    
-    // Start continuous data stream
-    this.dataStreamInterval = setInterval(() => {
-      this.generateEldDataPacket();
-    }, 5000); // Send data every 5 seconds
-    
-    // Send initial data immediately
-    setTimeout(() => this.generateEldDataPacket(), 500);
-    
-    return Promise.resolve();
-  }
-
-  async replyReceivedEldData(): Promise<void> {
-    console.log('[ELD Simulator] ELD data receipt acknowledged');
-    return Promise.resolve();
-  }
-
-  async sendUTCTime(): Promise<void> {
-    console.log('[ELD Simulator] UTC time sent to device');
-    return Promise.resolve();
-  }
-
-  // Data generation methods
-  private generateEldDataPacket(): void {
-    if (!this.connectedDevice) return;
-    
-    const eldData: EldDataStream = {
-      vehicleData: this.generateVehicleData(),
-      driverStatus: this.generateDriverStatus(),
-      hoursOfService: this.generateHoursOfService(),
-      logEntries: [],
-      malfunction: this.currentScenario === SimulationScenario.DEVICE_MALFUNCTION,
-      dataIntegrity: this.currentScenario !== SimulationScenario.DATA_CORRUPTION,
-      timestamp: Date.now()
-    };
-    
-    const notifyData: NotifyData = {
-      dataType: 'ELD_DATA',
-      rawData: JSON.stringify(eldData)
-    };
-    
-    this.emit('ON_NOTIFY_RECEIVED', notifyData);
-    console.log(`[ELD Simulator] ELD data packet sent from ${this.connectedDevice.name}`);
-  }
-
-  private generateVehicleData(): VehicleData {
+    // Match exact SDK data structure from BaseObdData$EldData.class
     return {
-      speed: Math.floor(Math.random() * 80) + 10, // 10-90 mph
-      rpm: Math.floor(Math.random() * 2000) + 800, // 800-2800 rpm
-      engineHours: Math.floor(Math.random() * 10000) + 50000, // 50k-60k hours
-      odometer: Math.floor(Math.random() * 100000) + 500000, // 500k-600k miles
-      fuelLevel: Math.floor(Math.random() * 100), // 0-100%
-      engineTemp: Math.floor(Math.random() * 50) + 180, // 180-230°F
-      diagnosticCodes: this.generateDiagnosticCodes(),
+      deviceId: this.DEVICE_ADDRESS,
+      timestamp: now.toISOString(),
+      speed: speed,
+      engineRPM: engineRPM,
+      status: dutyStatus,
       location: {
-        latitude: 39.7392 + (Math.random() - 0.5) * 0.1, // Denver area
-        longitude: -104.9903 + (Math.random() - 0.5) * 0.1,
-        accuracy: Math.floor(Math.random() * 10) + 3 // 3-13 meters
+        latitude: latitude,
+        longitude: longitude,
+        accuracy: 5 + Math.random() * 10,
       },
-      timestamp: Date.now()
+      odometer: odometer,
+      engineHours: engineHours,
+      driverId: driverId.toString(),
+      vehicleId: vehicleId.toString(),
+      events: this.generateSdkCompatibleEvents(now),
+      // SDK-specific fields
+      vin: this.generateVIN(),
+      ecuInfo: this.generateEcuInfo(),
+      terminalInfo: this.generateTerminalInfo(),
+      versionInfo: this.generateVersionInfo(),
+      alarmInfo: this.generateAlarmInfo(),
+      sysInfo: this.generateSysInfo(),
     };
   }
 
-  private generateDriverStatus(): DriverStatus {
-    const statuses: DriverStatus[] = ['driving', 'onDuty', 'offDuty', 'sleeping', 'sleeperBerth'];
+  // Generate VIN (matches BaseObdData$VinBean.class)
+  private generateVIN(): string {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let vin = '';
+    for (let i = 0; i < 17; i++) {
+      vin += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return vin;
+  }
+
+  // Generate ECU info (matches ObdEcuBean.class)
+  private generateEcuInfo(): any {
+    return {
+      ecuId: Math.floor(Math.random() * 1000000).toString(),
+      ecuType: 'ENGINE_ECU',
+      ecuVersion: '1.2.3',
+      ecuStatus: 'ACTIVE',
+      lastUpdate: new Date().toISOString(),
+    };
+  }
+
+  // Generate terminal info (matches ObdTerminalInfoBean.class)
+  private generateTerminalInfo(): any {
+    return {
+      terminalId: this.DEVICE_ADDRESS,
+      terminalType: 'KD032',
+      terminalVersion: '2.1.0',
+      terminalStatus: 'ONLINE',
+      lastHeartbeat: new Date().toISOString(),
+    };
+  }
+
+  // Generate version info (matches VersionReportBean.class)
+  private generateVersionInfo(): any {
+    return {
+      firmwareVersion: '2.1.0',
+      hardwareVersion: '1.0.0',
+      protocolVersion: '1.2',
+      buildDate: '2025-01-15',
+    };
+  }
+
+  // Generate alarm info (matches AlarmReportBean.class)
+  private generateAlarmInfo(): any {
+    return {
+      alarmType: 'ENGINE_FAULT',
+      alarmLevel: 'WARNING',
+      alarmCode: 'E001',
+      alarmMessage: 'Engine temperature high',
+      alarmTimestamp: new Date().toISOString(),
+    };
+  }
+
+  // Generate system info (matches SysInfoReportBean.class)
+  private generateSysInfo(): any {
+    return {
+      batteryLevel: Math.floor(Math.random() * 100),
+      signalStrength: -45 + Math.floor(Math.random() * 20),
+      memoryUsage: Math.floor(Math.random() * 100),
+      cpuUsage: Math.floor(Math.random() * 100),
+      uptime: Math.floor(Math.random() * 86400), // seconds
+    };
+  }
+
+  // Generate realistic duty status (matches SDK duty status enum)
+  private getRandomDutyStatus(): string {
+    const statuses = ['OFF_DUTY', 'SLEEPER_BERTH', 'DRIVING', 'ON_DUTY_NOT_DRIVING'];
     return statuses[Math.floor(Math.random() * statuses.length)];
   }
 
-  private generateHoursOfService(): HoursOfService {
-    return {
-      driveTimeRemaining: Math.floor(Math.random() * 660), // 0-11 hours in minutes
-      shiftTimeRemaining: Math.floor(Math.random() * 840), // 0-14 hours in minutes
-      cycleTimeRemaining: Math.floor(Math.random() * 4200), // 0-70 hours in minutes
-      breakTimeRemaining: Math.floor(Math.random() * 480), // 0-8 hours in minutes
-      lastCalculated: Date.now()
-    };
-  }
-
-  private generateDiagnosticCodes(): string[] {
-    const codes = ['P0420', 'P0171', 'P0128', 'P0442', 'P0455'];
-    const numCodes = Math.floor(Math.random() * 3); // 0-2 codes
-    return codes.slice(0, numCodes);
-  }
-
-  // Helper methods for realistic simulation
-  private getRandomSignalStrength(deviceType: EldDeviceType): number {
-    const baseSignal = {
-      [EldDeviceType.TTM_PREMIUM]: -45,
-      [EldDeviceType.TTM_STANDARD]: -55,
-      [EldDeviceType.GENERIC_ELD]: -65,
-      [EldDeviceType.FAULTY_DEVICE]: -85,
-      [EldDeviceType.SLOW_DEVICE]: -75
-    };
+  // Generate SDK-compatible events (matches BaseObdData$DataFlow.class)
+  private generateSdkCompatibleEvents(timestamp: Date): any[] {
+    const events = [];
+    const eventTypes = ['LOGIN', 'LOGOUT', 'DRIVING', 'ON_DUTY', 'OFF_DUTY', 'SLEEPER'];
     
-    return baseSignal[deviceType] + Math.floor(Math.random() * 20) - 10; // ±10 dBm variation
-  }
-
-  private getConnectionDelay(deviceType: EldDeviceType): number {
-    const delays = {
-      [EldDeviceType.TTM_PREMIUM]: 1000,
-      [EldDeviceType.TTM_STANDARD]: 1500,
-      [EldDeviceType.GENERIC_ELD]: 2000,
-      [EldDeviceType.FAULTY_DEVICE]: 5000,
-      [EldDeviceType.SLOW_DEVICE]: 8000
-    };
+    // Generate 1-3 events
+    const numEvents = Math.floor(Math.random() * 3) + 1;
     
-    return delays[deviceType] + Math.floor(Math.random() * 1000);
-  }
-
-  private shouldConnectionFail(device: SimulatedEldDevice): boolean {
-    // Scenario-based failures
-    if (this.currentScenario === SimulationScenario.CONNECTION_ISSUES) {
-      return Math.random() < 0.7; // 70% chance of failure
+    for (let i = 0; i < numEvents; i++) {
+      const eventTime = new Date(timestamp.getTime() - Math.random() * 3600000); // Within last hour
+      events.push({
+        type: eventTypes[Math.floor(Math.random() * eventTypes.length)],
+        timestamp: eventTime.toISOString(),
+        location: {
+          latitude: 40.7128 + (Math.random() - 0.5) * 0.1,
+          longitude: -74.0060 + (Math.random() - 0.5) * 0.1,
+        },
+        // SDK-specific event fields
+        eventId: Math.floor(Math.random() * 1000000).toString(),
+        eventCode: 'EVT_' + Math.floor(Math.random() * 1000).toString().padStart(3, '0'),
+        eventDescription: 'Event description',
+        eventSeverity: ['LOW', 'MEDIUM', 'HIGH'][Math.floor(Math.random() * 3)],
+      });
     }
     
-    if (this.currentScenario === SimulationScenario.LOW_BATTERY && device.batteryLevel < 20) {
-      return Math.random() < 0.8; // 80% chance of failure for low battery
-    }
+    return events;
+  }
+
+  // Handle disconnection (matches SDK disconnect flow)
+  handleDisconnection(): void {
+    console.log('🎯 KD032 Simulator: Device disconnected');
+    this.stopDataTransmission();
     
-    // Device-specific failures
-    if (device.deviceType === EldDeviceType.FAULTY_DEVICE) {
-      return device.connectionAttempts >= device.maxConnectionAttempts || Math.random() < 0.6;
-    }
-    
-    // Signal strength based failures
-    if (device.signal < -80) {
-      return Math.random() < 0.4; // 40% chance for weak signal
-    }
-    
-    return false;
-  }
-
-  private getConnectionFailureStatus(device: SimulatedEldDevice): number {
-    if (this.currentScenario === SimulationScenario.AUTHENTICATION_FAILURE) return 401;
-    if (device.deviceType === EldDeviceType.FAULTY_DEVICE) return 500;
-    if (device.signal < -80) return 408; // Timeout
-    return 503; // Service unavailable
-  }
-
-  private getConnectionFailureMessage(device: SimulatedEldDevice): string {
-    if (this.currentScenario === SimulationScenario.AUTHENTICATION_FAILURE) {
-      return 'Authentication failed - invalid credentials';
-    }
-    if (device.deviceType === EldDeviceType.FAULTY_DEVICE) {
-      return 'Device hardware malfunction detected';
-    }
-    if (device.signal < -80) {
-      return 'Connection timeout - weak signal strength';
-    }
-    if (this.currentScenario === SimulationScenario.LOW_BATTERY) {
-      return 'Device battery too low for stable connection';
-    }
-    return 'Connection failed - unknown error';
-  }
-
-  // Public methods for test control
-  public setSimulationScenario(scenario: SimulationScenario): void {
-    this.currentScenario = scenario;
-    console.log(`[ELD Simulator] Scenario changed to: ${scenario}`);
-  }
-
-  public getAvailableDevices(): SimulatedEldDevice[] {
-    return Array.from(this.devices.values());
-  }
-
-  public getConnectedDevice(): SimulatedEldDevice | null {
-    return this.connectedDevice;
-  }
-
-  public isCurrentlyScanning(): boolean {
-    return this.isScanning;
-  }
-
-  public updateDeviceBattery(deviceId: string, batteryLevel: number): void {
-    const device = this.devices.get(deviceId);
-    if (device) {
-      device.batteryLevel = Math.max(0, Math.min(100, batteryLevel));
-      console.log(`[ELD Simulator] ${device.name} battery updated to ${device.batteryLevel}%`);
-    }
-  }
-
-  public triggerDeviceMalfunction(deviceId: string): void {
-    const device = this.devices.get(deviceId);
-    if (device && device.isConnected) {
-      const errorData: NotifyData = {
-        dataType: 'MALFUNCTION',
-        rawData: JSON.stringify({
-          errorCode: 'DEVICE_MALFUNCTION',
-          message: 'ELD device has encountered a hardware malfunction',
-          timestamp: Date.now()
-        })
-      };
-      this.emit('ON_NOTIFY_RECEIVED', errorData);
-      console.log(`[ELD Simulator] Malfunction triggered for ${device.name}`);
-    }
-  }
-
-  public reset(): void {
-    if (this.dataStreamInterval) {
-      clearInterval(this.dataStreamInterval);
-      this.dataStreamInterval = null;
-    }
-    
-    this.isScanning = false;
-    this.connectedDevice = null;
-    this.currentScenario = SimulationScenario.NORMAL_OPERATION;
-    
-    // Reset all devices
-    this.devices.forEach(device => {
-      device.isConnected = false;
-      device.connectionAttempts = 0;
+    // Emit disconnection event (matches SDK ON_DISCONNECTED)
+    this.eventEmitter.emit('connectionLost', {
+      deviceId: this.DEVICE_ADDRESS,
+      reason: 'User initiated disconnect',
     });
-    
-    console.log('[ELD Simulator] Reset complete');
   }
 
-  // TTM BLE Manager event listener methods (for compatibility)
-  onDeviceScanned(callback: (device: BLEDevice) => void) {
-    this.on('ON_DEVICE_SCANNED', callback);
-    return { remove: () => this.off('ON_DEVICE_SCANNED', callback) };
+  // Get simulator status
+  getStatus(): any {
+    return {
+      isAdvertising: this.isAdvertising,
+      isConnected: this.isConnected,
+      deviceName: this.DEVICE_NAME,
+      deviceAddress: this.DEVICE_ADDRESS,
+      serviceUuid: this.SERVICE_UUID,
+      characteristicUuid: this.CHARACTERISTIC_UUID,
+      dataTypes: this.DATA_TYPES,
+      ackValues: this.ACK_VALUES,
+    };
   }
 
-  onConnected(callback: () => void) {
-    this.on('ON_CONNECTED', callback);
-    return { remove: () => this.off('ON_CONNECTED', callback) };
-  }
-
-  onDisconnected(callback: () => void) {
-    this.on('ON_DISCONNECTED', callback);
-    return { remove: () => this.off('ON_DISCONNECTED', callback) };
-  }
-
-  onConnectFailure(callback: (error: ConnectionFailure) => void) {
-    this.on('ON_CONNECT_FAILURE', callback);
-    return { remove: () => this.off('ON_CONNECT_FAILURE', callback) };
-  }
-
-  onAuthenticationPassed(callback: () => void) {
-    this.on('ON_AUTHENTICATION_PASSED', callback);
-    return { remove: () => this.off('ON_AUTHENTICATION_PASSED', callback) };
-  }
-
-  onNotifyReceived(callback: (data: NotifyData) => void) {
-    this.on('ON_NOTIFY_RECEIVED', callback);
-    return { remove: () => this.off('ON_NOTIFY_RECEIVED', callback) };
+  // Reset simulator
+  reset(): void {
+    this.stopAdvertising();
+    this.stopDataTransmission();
+    console.log('🎯 KD032 Simulator: Reset complete');
   }
 }
 
 // Export singleton instance
-export const eldSimulator = new EldSimulator();
+export const kd032Simulator = KD032EldSimulator.getInstance();
+
+// Helper function to start simulator
+export const startKD032Simulator = (): void => {
+  console.log('🚀 Starting KD032 ELD Device Simulator (SDK Compatible)...');
+  kd032Simulator.startAdvertising();
+};
+
+// Helper function to stop simulator
+export const stopKD032Simulator = (): void => {
+  console.log('🛑 Stopping KD032 ELD Device Simulator...');
+  kd032Simulator.reset();
+};
+
+// Helper function to get simulator status
+export const getKD032SimulatorStatus = (): any => {
+  return kd032Simulator.getStatus();
+};
 

@@ -17,6 +17,7 @@ import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
 import com.ttm.TTMKonnect.TTMBLEManagerPackage
+import com.ttm.TTMKonnect.JimiBridgePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -30,6 +31,9 @@ class MainApplication : Application(), ReactApplication {
             
             // Add TTMBLEManagerPackage
             packages.add(TTMBLEManagerPackage())
+            
+            // Add JimiBridgePackage
+            packages.add(JimiBridgePackage())
             
             return packages
           }

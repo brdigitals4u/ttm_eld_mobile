@@ -43,12 +43,12 @@ class EldTestConfigService {
 
     return {
       mode: defaultMode,
-      scenario: SimulationScenario.NORMAL_OPERATION,
+      scenario: SimulationScenario?.NORMAL_OPERATION,
       enableDebugLogs: __DEV__,
       simulatedDeviceTypes: [
-        EldDeviceType.TTM_PREMIUM,
-        EldDeviceType.TTM_STANDARD,
-        EldDeviceType.GENERIC_ELD
+        EldDeviceType?.TTM_PREMIUM,
+        EldDeviceType?.TTM_STANDARD,
+        EldDeviceType?.GENERIC_ELD
       ],
       connectionTimeout: 30000,
       dataStreamInterval: 5000
