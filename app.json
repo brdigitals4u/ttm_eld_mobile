@@ -10,16 +10,21 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1E293B"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ttm.TTMKonnect"
+      "bundleIdentifier": "com.ttm.TTMKonnect",
+      "statusBar": {
+        "style": "auto",
+        "backgroundColor": "transparent"
+      }
     },
     "android": {
+      "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1E293B"
       },
       "permissions": [
         "android.permission.BLUETOOTH",
@@ -28,7 +33,11 @@
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.ttm.TTMKonnect"
+      "package": "com.ttm.TTMKonnect",
+      "statusBar": {
+        "style": "auto",
+        "backgroundColor": "transparent"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -38,6 +47,21 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "ios": {
+            "backgroundColor": "#1E293B",
+            "image": "./assets/images/splash-icon.png",
+            "resizeMode": "contain"
+          },
+          "android": {
+            "backgroundColor": "#1E293B",
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 200
+          }
+        }
+      ],
       [
         "react-native-ble-manager",
         {

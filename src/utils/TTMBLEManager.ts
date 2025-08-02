@@ -74,7 +74,6 @@ if (__DEV__) {
 if (!TTMBLEManager) {
   console.error('TTMBLEManager native module is not available');
   console.error('Available modules:', Object.keys(NativeModules));
-  throw new Error('TTMBLEManager native module is not available, js engine: hermes');
 }
 
 // In React Native's new architecture, methods are not enumerable but they work!

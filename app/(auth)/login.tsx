@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from '@/components/Button';
+import TTMKonnectLogo from '@/components/TTMKonnectLogo';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/context/theme-context';
 
@@ -11,6 +12,7 @@ export default function LoginScreen() {
   const { login, isAuthenticated, isLoading, error } = useAuth();
   const [email, setEmail] = useState('driver@example.com');
   const [password, setPassword] = useState('password');
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -35,12 +37,12 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.logoContainer}>
-        <Truck size={64} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.text }]}>TTM Connect</Text>
+        <TTMKonnectLogo size={80} showText={true} />
+        <Text style={[styles.title, { color: colors.text }]}>TTM Konnect</Text>
         <Text style={[styles.subtitle, { color: colors.inactive }]}>
           Electronic Logging Device for Professional Drivers
         </Text>
@@ -106,6 +108,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   logoContainer: {
     alignItems: 'center',

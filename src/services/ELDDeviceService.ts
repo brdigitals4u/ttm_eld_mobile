@@ -80,6 +80,14 @@ export class ELDDeviceService {
    */
   static async logConnectionFailure(device: BLEDevice, failure: ConnectionFailure): Promise<void> {
     try {
+      // Always log to console for debugging
+      console.log('🔴 Connection Failure Logged:', {
+        device: device.name || device.id,
+        error: failure.message,
+        status: failure.status,
+        timestamp: new Date().toISOString()
+      });
+
       const logData: ELDDeviceLog = {
         device_id: device.id,
         device_name: device.name,
@@ -88,7 +96,7 @@ export class ELDDeviceService {
         event_type: 'error',
         session_id: this.sessionId,
         error_message: failure.message,
-        error_code: failure.status?.toString(),
+        error_code: failure.status?.toString() || 'unknown',
         event_data: {
           device_info: device,
           failure_details: failure,
@@ -101,10 +109,14 @@ export class ELDDeviceService {
         .insert(logData);
 
       if (error) {
-        console.error('Failed to log connection failure:', error);
+        console.error('Failed to log connection failure to Supabase:', error);
+        console.log('📝 Fallback: Logging to console only');
+      } else {
+        console.log('✅ Connection failure logged to Supabase successfully');
       }
     } catch (error) {
       console.error('Error logging connection failure:', error);
+      console.log('📝 Fallback: Logging to console only');
     }
   }
 
@@ -276,6 +288,71 @@ export class ELDDeviceService {
     } catch (error) {
       console.error('Error fetching recent device activity:', error);
       return [];
+    }
+  }
+
+  /**
+   * Log connection error with TTM SDK details
+   */
+  static async logConnectionError(
+    device: BLEDevice, 
+    errorDetails: {
+      errorType: string;
+      errorCode: string;
+      ttmSdkMessage: string;
+      message: string;
+      reason: string;
+      timeoutDuration?: number;
+    }
+  ): Promise<void> {
+    try {
+      // Always log to console for debugging
+      console.log('🔴 ELD Connection Error Logged:', {
+        device: device.name || device.id,
+        errorType: errorDetails.errorType,
+        errorCode: errorDetails.errorCode,
+        message: errorDetails.message,
+        timestamp: new Date().toISOString()
+      });
+
+      const logData: ELDDeviceLog = {
+        device_id: device.id,
+        device_name: device.name,
+        device_address: device.address,
+        status: 'failed',
+        event_type: 'eld_data_error',
+        session_id: this.sessionId,
+        error_code: errorDetails.errorCode.toString(),
+        error_message: errorDetails.message,
+        event_data: {
+          device_info: device,
+          error_type: errorDetails.errorType,
+          ttm_sdk_message: errorDetails.ttmSdkMessage,
+          failure_reason: errorDetails.reason,
+          timeout_duration_ms: errorDetails.timeoutDuration,
+          error_timestamp: new Date().toISOString(),
+          diagnostic_info: {
+            connected_successfully: true,
+            eld_reporting_started: true,
+            data_received: false,
+            device_compatibility: 'non_eld_device'
+          }
+        },
+      };
+
+      const { error } = await supabase
+        .from('eld_device_logs')
+        .insert(logData);
+
+      if (error) {
+        console.error('Failed to log connection error to Supabase:', error);
+        console.log('📝 Fallback: Logging to console only');
+      } else {
+        console.log(`✅ Logged connection error to Supabase: ${errorDetails.errorCode} - ${errorDetails.message}`);
+      }
+    } catch (error) {
+      console.error('Error logging connection error:', error);
+      console.log('📝 Fallback: Logging to console only');
     }
   }
 

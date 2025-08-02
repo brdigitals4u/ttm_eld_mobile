@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { AlertTriangle, Bed, Briefcase, Coffee, Lock, MoreHorizontal, Settings, Truck, User } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View, Modal, TouchableOpacity, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import analytics from '@react-native-firebase/analytics';
 import crashlytics from '@react-native-firebase/crashlytics';
 import Button from '@/components/Button';
@@ -23,6 +24,7 @@ export default function StatusScreen() {
     toggleSplitSleep 
   } = useStatus();
   const [showDoneForDayModal, setShowDoneForDayModal] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleStatusChange = async (status: DriverStatus) => {
     if (!canUpdateStatus()) {
@@ -75,7 +77,7 @@ export default function StatusScreen() {
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
     >
       <Text style={[styles.title, { color: colors.text }]}>
         Update Your Status

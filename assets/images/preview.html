@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTMKonnect Assets Preview</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1E293B;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .asset-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .asset-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 15px;
+        }
+        .asset-description {
+            color: #6b7280;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        .preview {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .preview img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .conversion-steps {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .conversion-steps h4 {
+            margin-top: 0;
+            color: #374151;
+        }
+        .conversion-steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .conversion-steps li {
+            margin-bottom: 8px;
+            color: #4b5563;
+        }
+        .download-link {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        .download-link:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TTMKonnect Assets Preview</h1>
+        
+        <div class="asset-section">
+            <div class="asset-title">Logo (logo.svg)</div>
+            <div class="asset-description">
+                Modern truck logo with connectivity elements. Use this to generate:
+                <ul>
+                    <li><strong>icon.png</strong> (1024x1024) - Main app icon</li>
+                    <li><strong>adaptive-icon.png</strong> (1024x1024) - Android adaptive icon</li>
+                    <li><strong>favicon.png</strong> (32x32) - Web favicon</li>
+                </ul>
+            </div>
+            <div class="preview">
+                <img src="logo.svg" alt="TTMKonnect Logo" style="width: 200px; height: 200px;">
+            </div>
+            <div class="conversion-steps">
+                <h4>Quick Conversion Steps:</h4>
+                <ol>
+                    <li>Right-click on the logo above and "Save image as..."</li>
+                    <li>Go to <a href="https://convertio.co/svg-png/" target="_blank">Convertio</a></li>
+                    <li>Upload the saved SVG file</li>
+                    <li>Set dimensions: 1024x1024 for icons, 32x32 for favicon</li>
+                    <li>Download and replace the PNG files in assets/images/</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="asset-section">
+            <div class="asset-title">Splash Screen (splash.svg)</div>
+            <div class="asset-description">
+                Professional splash screen with dark gradient background. Use this to generate:
+                <ul>
+                    <li><strong>splash.png</strong> (1242x2688) - App launch screen</li>
+                </ul>
+            </div>
+            <div class="preview">
+                <img src="splash.svg" alt="TTMKonnect Splash Screen" style="width: 300px; height: auto;">
+            </div>
+            <div class="conversion-steps">
+                <h4>Quick Conversion Steps:</h4>
+                <ol>
+                    <li>Right-click on the splash screen above and "Save image as..."</li>
+                    <li>Go to <a href="https://convertio.co/svg-png/" target="_blank">Convertio</a></li>
+                    <li>Upload the saved SVG file</li>
+                    <li>Set dimensions: 1242x2688</li>
+                    <li>Download and replace splash.png in assets/images/</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="asset-section">
+            <div class="asset-title">Next Steps</div>
+            <div class="asset-description">
+                After generating the PNG files:
+                <ol>
+                    <li>Replace the existing PNG files in assets/images/</li>
+                    <li>Restart your development server</li>
+                    <li>Test the app to see the new logo and splash screen</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

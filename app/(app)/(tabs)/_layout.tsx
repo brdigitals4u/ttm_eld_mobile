@@ -6,6 +6,7 @@ import { useTheme } from '@/context/theme-context';
 import { useAuth } from '@/context/auth-context';
 import { useAnalytics } from '@/src/hooks/useAnalytics';
 import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
+import { StatusBar } from 'expo-status-bar';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -47,20 +48,22 @@ export default function TabLayout() {
   };
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.inactive,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-        },
-        headerStyle: {
-          backgroundColor: colors.background,
-        },
-        headerTintColor: colors.text,
-      }}
-    >
+    <>
+      <StatusBar style="auto" translucent backgroundColor="transparent" />
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.inactive,
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+          },
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerTintColor: colors.text,
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -96,6 +99,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }: any) => <FileText color={color} size={size} />,
         }}
       />
-    </Tabs>
+      </Tabs>
+    </>
   );
 }

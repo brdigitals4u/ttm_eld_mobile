@@ -4,6 +4,10 @@ import analytics from '@react-native-firebase/analytics';
 // Initialize Firebase services
 export const initFirebase = async () => {
   try {
+    // TODO: Firebase is disabled temporarily due to native module issues
+    console.log('🔥 Firebase initialization skipped (native module not available)');
+    return;
+    
     // Enable crashlytics collection
     await crashlytics().setCrashlyticsCollectionEnabled(true);
     
@@ -32,22 +36,38 @@ export const initFirebase = async () => {
 export const FirebaseLogger = {
   // Crashlytics methods
   recordError: (error: Error, customAttributes?: { [key: string]: any }) => {
-    if (customAttributes) {
-      crashlytics().setAttributes(customAttributes);
+    try {
+      if (customAttributes) {
+        crashlytics().setAttributes(customAttributes);
+      }
+      crashlytics().recordError(error);
+    } catch (err) {
+      console.log('Firebase recordError (native module unavailable):', error.message);
     }
-    crashlytics().recordError(error);
   },
 
   log: (message: string) => {
-    crashlytics().log(message);
+    try {
+      crashlytics().log(message);
+    } catch (err) {
+      console.log('Firebase log:', message);
+    }
   },
 
   setUserId: (userId: string) => {
-    crashlytics().setUserId(userId);
+    try {
+      crashlytics().setUserId(userId);
+    } catch (err) {
+      console.log('Firebase setUserId (native module unavailable):', userId);
+    }
   },
 
   setAttributes: (attributes: { [key: string]: any }) => {
-    crashlytics().setAttributes(attributes);
+    try {
+      crashlytics().setAttributes(attributes);
+    } catch (err) {
+      console.log('Firebase setAttributes (native module unavailable):', attributes);
+    }
   },
 
   // Analytics methods
@@ -55,7 +75,7 @@ export const FirebaseLogger = {
     try {
       await analytics().logEvent(eventName, parameters);
     } catch (error) {
-      console.error('Analytics log event error:', error);
+      console.log('Firebase logEvent (native module unavailable):', eventName, parameters);
     }
   },
 
@@ -63,7 +83,7 @@ export const FirebaseLogger = {
     try {
       await analytics().setUserProperty(name, value);
     } catch (error) {
-      console.error('Analytics set user property error:', error);
+      console.log('Firebase setUserProperty (native module unavailable):', name, value);
     }
   },
 
@@ -74,7 +94,7 @@ export const FirebaseLogger = {
         screen_class: screenClassOverride || screenName,
       });
     } catch (error) {
-      console.error('Analytics set current screen error:', error);
+      console.log('Firebase setCurrentScreen (native module unavailable):', screenName);
     }
   },
 

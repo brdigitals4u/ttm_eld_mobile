@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { AlertTriangle, Bluetooth, Clock, FileText, Lock, Shield, RefreshCw, Link } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import StatusClock from '@/components/StatusClock';
@@ -19,6 +20,7 @@ export default function DashboardScreen() {
   const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
   const { certifyLogs, loading: certifyLoading } = useCertifyLogs();
   const [showUncertifiedModal, setShowUncertifiedModal] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Show uncertified logs modal when data loads
   React.useEffect(() => {
@@ -104,7 +106,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -271,6 +273,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     padding: 20,

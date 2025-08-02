@@ -21,9 +21,9 @@ export interface ELDDeviceLog {
   device_id: string;
   device_name?: string;
   device_address?: string;
-  status: 'connected' | 'disconnected' | 'connecting' | 'failed';
+  status: 'connected' | 'disconnected' | 'connecting' | 'failed' | 'in_progress';
   connection_attempt_id?: string;
-  event_type: 'connection' | 'disconnection' | 'data_received' | 'error' | 'authentication';
+  event_type: 'connection' | 'disconnection' | 'data_received' | 'error' | 'authentication' | 'eld_data_error' | 'connection_step' | 'sdk_initialization' | 'permission_request' | 'data_collection_monitoring' | 'diagnostic_report' | 'sdk_method_call' | 'connection_quality';
   event_data?: any;
   raw_data?: string;
   error_message?: string;

@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -49,20 +50,46 @@ function RootLayoutNav() {
 
 
 export default function RootLayout() {
+  const [loaded, error] = useFonts({
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    ...FontAwesome.font,
+  });
 
+  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
 
   useEffect(() => {
-    // Initialize Sentry
-    initSentry();
-    
-    // Initialize Firebase
-    initFirebase();
-    
-    SplashScreen.hideAsync();
-  }, []);
+    if (loaded) {
+      // Initialize services after fonts are loaded
+      const initializeApp = async () => {
+        try {
+          // Initialize Sentry
+          initSentry();
+          
+          // Initialize Firebase
+          await initFirebase();
+          
+          // Hide splash screen after everything is ready
+          await SplashScreen.hideAsync();
+        } catch (err) {
+          console.error('App initialization failed:', err);
+          await SplashScreen.hideAsync();
+        }
+      };
+      
+      initializeApp();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
 
   return (
     <SafeAreaProvider>
+      <StatusBar style="auto" translucent backgroundColor="transparent" />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <GlobalProvider>
           <QueryClientProvider client={queryClient}>

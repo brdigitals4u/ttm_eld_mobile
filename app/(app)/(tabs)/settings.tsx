@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Card from '@/components/Card';
 import { useTheme } from '@/context/theme-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const { colors, isDark, mode, setThemeMode } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const insets = useSafeAreaInsets();
 
   const handleThemeToggle = () => {
     setThemeMode(isDark ? 'light' : 'dark');
@@ -19,7 +21,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
     >
       <Text style={[styles.title, { color: colors.text }]}>
         Settings
