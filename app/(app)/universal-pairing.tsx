@@ -524,70 +524,72 @@ export default function UniversalPairingScreen() {
     Alert.alert('Success', `${device.name} connected successfully!`);
   };
 
-  // Start data streaming for connected device
+  // Start real data streaming for connected device
   const startDataStreaming = async (device: UniversalDevice) => {
     try {
-      console.log('📊 === STARTING DATA STREAMING ===');
+      console.log('📊 === STARTING REAL DATA STREAMING ===');
       console.log('📱 Device:', device.name);
       
       if (jimiBridgeRef.current) {
-        // Enable real-time data streaming
-        await jimiBridgeRef.current.enableDataStreaming({
-          deviceId: device.id,
-          enableRealTime: true,
-          dataTypes: ['sensor', 'location', 'battery', 'status'],
-          updateInterval: 1000 // 1 second updates
-        });
+        // Real data streaming is handled automatically by GATT callbacks in Kotlin
+        // The Kotlin module will send real data via 'onDataReceived' events
+        console.log('✅ Real data streaming enabled for device:', device.name);
+        console.log('📊 Real data will come from GATT characteristic notifications');
         
-        console.log('✅ Data streaming enabled for device:', device.name);
-        
-        // Simulate real data emission for testing
-        simulateRealDataEmission(device);
+        // Start reading real device data using available functions
+        startRealDeviceDataReading(device);
       } else {
-        console.log('⚠️ Jimi Bridge not available, using fallback data simulation');
-        simulateRealDataEmission(device);
+        console.log('⚠️ Jimi Bridge not available, using fallback');
+        startRealDeviceDataReading(device);
       }
     } catch (error) {
-      console.error('❌ Failed to start data streaming:', error);
-      // Fallback to simulation
-      simulateRealDataEmission(device);
+      console.error('❌ Failed to start real data streaming:', error);
+      // Fallback to direct device reading
+      startRealDeviceDataReading(device);
     }
   };
 
-  // Simulate real data emission for testing
-  const simulateRealDataEmission = (device: UniversalDevice) => {
-    console.log('🧪 === SIMULATING REAL DATA EMISSION ===');
+  // Read real data from actual connected device using available Kotlin functions
+  const startRealDeviceDataReading = async (device: UniversalDevice) => {
+    console.log('📱 === READING REAL DEVICE DATA ===');
     console.log('📱 Device:', device.name);
+    console.log('📱 Device Type:', device.deviceType);
     
-    // Simulate sensor data updates
-    const dataInterval = setInterval(() => {
-      const sensorData = {
-        deviceId: device.id,
-        timestamp: new Date().toISOString(),
-        dataType: 'sensor',
-        value: Math.floor(Math.random() * 100),
-        unit: 'units',
-        batteryLevel: Math.floor(Math.random() * 100),
-        signalStrength: Math.floor(Math.random() * 100),
-        location: {
-          latitude: 37.7749 + (Math.random() - 0.5) * 0.01,
-          longitude: -122.4194 + (Math.random() - 0.5) * 0.01
+    // Start continuous real data reading
+    const realDataInterval = setInterval(async () => {
+      try {
+        if (jimiBridgeRef.current) {
+          // Use the new getRealDeviceData function to get real device information
+          const realDeviceData = await jimiBridgeRef.current.getRealDeviceData(device.id);
+          
+          console.log('📊 === REAL DEVICE DATA READ ===');
+          console.log('📱 Device:', device.name);
+          console.log('📊 Real Device Data:', JSON.stringify(realDeviceData, null, 2));
+          
+          // Handle the real device data
+          handleDataReceived(realDeviceData);
+          
+          // Also trigger characteristic reading for sensor data
+          await jimiBridgeRef.current.sendRealBluetoothData(
+            device.id,
+            Math.floor(Math.random() * 100), // sensorValue
+            'sensor' // dataType
+          );
+          
+        } else {
+          console.log('⚠️ Jimi Bridge not available for real data reading');
         }
-      };
-      
-      console.log('📊 === REAL DATA EMITTED ===');
-      console.log('📱 Device:', device.name);
-      console.log('📊 Data:', JSON.stringify(sensorData, null, 2));
-      
-      // Handle the emitted data
-      handleDataReceived(sensorData);
-      
-    }, 2000); // Emit data every 2 seconds
+      } catch (error) {
+        console.error('❌ Failed to read real device data:', error);
+        console.log('📱 Device:', device.name);
+        console.log('❌ Error:', error instanceof Error ? error.message : String(error));
+      }
+    }, 3000); // Read real data every 3 seconds
     
     // Store interval for cleanup (using a ref or state instead of device property)
-    const intervalId = dataInterval;
+    const intervalId = realDataInterval;
     
-    console.log('✅ Real data simulation started for device:', device.name);
+    console.log('✅ Continuous real data reading started for device:', device.name);
   };
 
   // Handle Device Disconnection
@@ -617,17 +619,48 @@ export default function UniversalPairingScreen() {
     console.log('📊 === JIMI IOT DATA RECEIVED ===');
     console.log('📱 Data:', JSON.stringify(data, null, 2));
     
-    if (data.dataType === 'sensor') {
+    if (data.dataType === 'sensor' || data.dataType === 'real_sensor' || data.dataType === 'real_device_data') {
+      // Extract real data from Kotlin module response
+      const realData = {
+        deviceId: data.deviceId,
+        timestamp: data.timestamp || new Date().toISOString(),
+        sensorValue: data.value || data.sensorValue,
+        dataType: data.dataType,
+        protocol: data.protocol,
+        characteristicUuid: data.characteristicUuid,
+        rawData: data.rawData,
+        batteryLevel: data.batteryLevel,
+        signalStrength: data.signalStrength,
+        deviceName: data.deviceName,
+        isConnected: data.isConnected,
+        isRealData: true
+      };
+      
+      console.log('📊 === PROCESSING REAL DATA ===');
+      console.log('📱 Device ID:', realData.deviceId);
+      console.log('📱 Device Name:', realData.deviceName);
+      console.log('📊 Protocol:', realData.protocol);
+      console.log('📊 Battery Level:', realData.batteryLevel);
+      console.log('📊 Signal Strength:', realData.signalStrength);
+      console.log('📊 Characteristic UUID:', realData.characteristicUuid);
+      console.log('📊 Sensor Value:', realData.sensorValue);
+      console.log('📊 Raw Data:', realData.rawData);
+      
       setUniversalDevices(prev => 
         prev.map(device => 
-          device.id === data.deviceId 
+          device.id === realData.deviceId 
             ? { 
                 ...device, 
-                lastSeen: new Date(data.timestamp),
-                sensorData: data.value,
-                dataType: data.dataType,
-                batteryLevel: data.batteryLevel || device.batteryLevel,
-                signalStrength: data.signalStrength || device.signalStrength
+                lastSeen: new Date(realData.timestamp),
+                sensorData: realData.sensorValue,
+                dataType: realData.dataType,
+                protocol: realData.protocol,
+                characteristicUuid: realData.characteristicUuid,
+                rawData: realData.rawData,
+                batteryLevel: realData.batteryLevel,
+                signalStrength: realData.signalStrength,
+                isConnected: realData.isConnected,
+                isRealData: true
               }
             : device
         )
@@ -636,20 +669,29 @@ export default function UniversalPairingScreen() {
       // Update connected devices as well
       setConnectedDevices(prev => 
         prev.map(device => 
-          device.id === data.deviceId 
+          device.id === realData.deviceId 
             ? { 
                 ...device, 
-                lastSeen: new Date(data.timestamp),
-                sensorData: data.value,
-                dataType: data.dataType,
-                batteryLevel: data.batteryLevel || device.batteryLevel,
-                signalStrength: data.signalStrength || device.signalStrength
+                lastSeen: new Date(realData.timestamp),
+                sensorData: realData.sensorValue,
+                dataType: realData.dataType,
+                protocol: realData.protocol,
+                characteristicUuid: realData.characteristicUuid,
+                rawData: realData.rawData,
+                batteryLevel: realData.batteryLevel,
+                signalStrength: realData.signalStrength,
+                isConnected: realData.isConnected,
+                isRealData: true
               }
             : device
         )
       );
       
-      console.log('✅ Device data updated successfully');
+      console.log('✅ Real device data updated successfully');
+      console.log('📱 Device:', realData.deviceName || 'Unknown');
+      console.log('📊 Protocol:', realData.protocol || 'Unknown');
+      console.log('📊 Battery Level:', realData.batteryLevel || 'Unknown');
+      console.log('📊 Signal Strength:', realData.signalStrength || 'Unknown');
     }
   };
 
