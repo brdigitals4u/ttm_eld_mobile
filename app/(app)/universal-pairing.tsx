@@ -38,7 +38,7 @@ interface UniversalDevice extends EldDevice {
   deviceCategory?: string;
   signalStrength?: number;
   batteryLevel?: number;
-  isConnected?: boolean;
+  isConnected: any;
   lastSeen?: Date;
   firmwareVersion?: string;
   uid?: string;
@@ -197,10 +197,10 @@ export default function UniversalPairingScreen() {
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.INTERNET,
-          PermissionsAndroid.PERMISSIONS.ACCESS_NETWORK_STATE,
-          PermissionsAndroid.PERMISSIONS.WAKE_LOCK,
-          PermissionsAndroid.PERMISSIONS.FOREGROUND_SERVICE,
+          // PermissionsAndroid.PERMISSIONS.INTERNET,
+          // PermissionsAndroid.PERMISSIONS.ACCESS_NETWORK_STATE,
+          // PermissionsAndroid.PERMISSIONS.WAKE_LOCK,
+          // PermissionsAndroid.PERMISSIONS.FOREGROUND_SERVICE,
         ];
         
         const granted = await PermissionsAndroid.requestMultiple(permissions);
@@ -321,8 +321,6 @@ export default function UniversalPairingScreen() {
         ...vehicleInfo,
         eldConnected: true,
         eldId: device.id,
-        eldType: device.deviceType,
-        eldUID: device.uid
       });
     }
 
@@ -336,10 +334,7 @@ export default function UniversalPairingScreen() {
     if (device.deviceCategory === DEVICE_CATEGORIES.ELD && vehicleInfo) {
       setVehicleInfo({
         ...vehicleInfo,
-        eldConnected: false,
-        eldId: null,
-        eldType: null,
-        eldUID: null
+        eldConnected: false
       });
     }
   };
@@ -374,7 +369,7 @@ export default function UniversalPairingScreen() {
           enableDataStreaming: true
         });
       } else {
-        await connectToDevice(device);
+        await connectToDevice(device as any);
       }
     } catch (error) {
       console.error('Failed to connect to device:', error);
@@ -522,10 +517,10 @@ export default function UniversalPairingScreen() {
         <View style={styles.deviceActions}>
           {item.isConnected ? (
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.error }]}
+              style={[styles.actionButton, { backgroundColor: colors.secondary }]}
               onPress={() => handleDisconnectDevice(item)}
             >
-              <X size={16} color={colors.white} />
+              <X size={16} color={colors.primary} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -533,7 +528,7 @@ export default function UniversalPairingScreen() {
               onPress={() => handleConnectDevice(item)}
               disabled={isConnecting}
             >
-              <Bluetooth size={16} color={colors.white} />
+              <Bluetooth size={16} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -555,10 +550,10 @@ export default function UniversalPairingScreen() {
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.disconnectButton, { backgroundColor: colors?.error || '#EF4444' }]}
+          style={[styles.disconnectButton, { backgroundColor: colors.danger || '#EF4444' }]}
           onPress={() => handleDisconnectDevice(item)}
         >
-          <X size={16} color={colors?.white || '#FFF'} />
+          <X size={16} color={colors.primary || '#FFF'} />
         </TouchableOpacity>
       </View>
     </Card>

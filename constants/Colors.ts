@@ -15,6 +15,11 @@ export const colors = {
     onDuty: "#F59E0B", // Amber
     offDuty: "#3B82F6", // Blue
     sleeping: "#6366F1", // Indigo
+
+      surface: '#F5F5F5',
+     
+      error: '#EF4444',
+      white: '#FFFFFF'
   },
   dark: {
     primary: "#3B82F6", // Bright blue
@@ -32,6 +37,10 @@ export const colors = {
     onDuty: "#F59E0B", // Amber
     offDuty: "#3B82F6", // Blue
     sleeping: "#6366F1", // Indigo
+        surface: '#F5F5F5',
+     
+      error: '#EF4444',
+      white: '#FFFFFF'
   }
 };
 
