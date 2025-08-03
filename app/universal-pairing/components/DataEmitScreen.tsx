@@ -69,6 +69,36 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
     }
   }, [device]);
 
+  // Function to start automatic streaming
+  const startAutoStreaming = useCallback(() => {
+    if (streamingIntervalRef.current) {
+      clearInterval(streamingIntervalRef.current);
+    }
+    
+    setIsAutoStreaming(true);
+    console.log('Starting automatic data streaming every 5 seconds');
+    
+    // Start streaming immediately
+    startDataStreaming();
+    
+    // Set up interval for every 5 seconds
+    streamingIntervalRef.current = setInterval(() => {
+      if (device && isConnected) {
+        startDataStreaming();
+      }
+    }, 5000);
+  }, [device, isConnected, startDataStreaming]);
+
+  // Function to stop automatic streaming
+  const stopAutoStreaming = useCallback(() => {
+    if (streamingIntervalRef.current) {
+      clearInterval(streamingIntervalRef.current);
+      streamingIntervalRef.current = null;
+    }
+    setIsAutoStreaming(false);
+    console.log('Stopped automatic data streaming');
+  }, []);
+
   // Update sensor data when new data comes in
   useEffect(() => {
     if (deviceData.length > 0) {
@@ -87,8 +117,10 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [lastDisconnectReason, setLastDisconnectReason] = useState<string | null>(null);
   const [disconnectInfo, setDisconnectInfo] = useState<any>(null);
+  const [isAutoStreaming, setIsAutoStreaming] = useState(false);
   const mountedRef = useRef(true);
   const renderCountRef = useRef(0);
+  const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const pulseAnimation = useSharedValue(1);
 
@@ -103,8 +135,19 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
     // Cleanup on unmount
     return () => {
       mountedRef.current = false;
+      // Clear interval on unmount
+      if (streamingIntervalRef.current) {
+        clearInterval(streamingIntervalRef.current);
+      }
     };
   }, []);
+
+  // Effect to stop auto streaming when device disconnects
+  useEffect(() => {
+    if (!isConnected && isAutoStreaming) {
+      stopAutoStreaming();
+    }
+  }, [isConnected, isAutoStreaming, stopAutoStreaming]);
 
   // // Effect to handle disconnect reasons and connection state
   // useEffect(() => {
@@ -443,18 +486,24 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
         
         <View style={styles.buttonRow}>
           <Button 
-            title="Start All Streaming" 
-            onPress={startDataStreaming} 
+            title={isAutoStreaming ? "Stop Auto Streaming" : "Start Auto Streaming (5s)"} 
+            onPress={isAutoStreaming ? stopAutoStreaming : startAutoStreaming} 
             style={styles.controlButton}
-            variant="primary"
+            variant={isAutoStreaming ? "outline" : "primary"}
           />
           <Button 
-            title="Request All Data" 
-            onPress={() => requestSpecificData('all')} 
+            title="Manual Stream" 
+            onPress={startDataStreaming} 
             style={styles.controlButton}
             variant="secondary"
           />
         </View>
+        
+        {isAutoStreaming && (
+          <View style={[styles.streamingIndicator, { backgroundColor: colors.success + '20', borderColor: colors.success }]}>
+            <Text style={[styles.streamingText, { color: colors.success }]}>🔄 Auto Streaming Every 5 Seconds</Text>
+          </View>
+        )}
         
         <Text style={[styles.specificDataTitle, { color: colors.text }]}>Sensor Data:</Text>
         
@@ -972,6 +1021,17 @@ const styles = StyleSheet.create({
   sensorTime: {
     fontSize: 10,
     textAlign: 'center',
+  },
+  streamingIndicator: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  streamingText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

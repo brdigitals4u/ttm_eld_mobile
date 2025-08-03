@@ -85,12 +85,6 @@ export default function MoreScreen() {
       icon: <Settings size={24} color={colors.primary} />,
       onPress: () => router.push('/select-vehicle'),
     },
-    {
-      title: 'Universal Pairing',
-      subtitle: 'Universal device pairing with SDK',
-      icon: <Zap size={24} color={colors.primary} />,
-      onPress: () => router.push('/(app)/universal-pairing-tab'),
-    },
      {
       title: 'Universal Pairing (New)',
       subtitle: 'Universal device pairing with Protocol',
