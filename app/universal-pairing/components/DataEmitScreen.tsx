@@ -15,6 +15,7 @@ import {
   FlatList,
   InteractionManager,
   NativeModules,
+  ScrollView,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -44,29 +45,40 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   onDisconnect,
   onBack,
 }) => {
-  const startDataStreaming = useCallback(() => {
+  const startDataStreaming = useCallback(async () => {
     if (device) {
-      NativeModules.JimiBridge.startDataStreaming(device.id, (error: string) => {
-        if (error) {
-          console.error('Error starting data streaming:', error);
-        } else {
-          console.log('Data streaming started successfully');
-        }
-      });
+      try {
+        await NativeModules.JimiBridge.startDataStreaming(device.id, null);
+        console.log('Data streaming started successfully');
+      } catch (error) {
+        console.error('Error starting data streaming:', error);
+      }
     }
   }, [device]);
 
-  const requestSpecificData = useCallback((dataType: string) => {
+  const [sensorData, setSensorData] = useState<{[key: string]: any}>({});
+
+  const requestSpecificData = useCallback(async (dataType: string) => {
     if (device) {
-      NativeModules.JimiBridge.requestSpecificData(device.id, dataType, (error: string) => {
-        if (error) {
-          console.error(`Error requesting data for ${dataType}:`, error);
-        } else {
-          console.log(`Requested data for ${dataType}`);
-        }
-      });
+      try {
+        await NativeModules.JimiBridge.requestSpecificData(device.id, dataType);
+        console.log(`Requested data for ${dataType}`);
+      } catch (error) {
+        console.error(`Error requesting data for ${dataType}:`, error);
+      }
     }
   }, [device]);
+
+  // Update sensor data when new data comes in
+  useEffect(() => {
+    if (deviceData.length > 0) {
+      const latestDataMap: {[key: string]: any} = {};
+      deviceData.forEach(data => {
+        latestDataMap[data.dataType] = data;
+      });
+      setSensorData(latestDataMap);
+    }
+  }, [deviceData]);
 
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -311,10 +323,12 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
     []
   );
   return (
-    <Animated.View
-      entering={FadeIn}
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.deviceHeader}>
@@ -424,9 +438,117 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
       )}
 
 {/* Controls for Data */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-        <Button title="Start Streaming" onPress={startDataStreaming} />
-        <Button title="Request Fuel Level" onPress={() => requestSpecificData('fuel_level')} />
+      <View style={styles.controlsContainer}>
+        <Text style={[styles.controlsTitle, { color: colors.text }]}>Data Controls</Text>
+        
+        <View style={styles.buttonRow}>
+          <Button 
+            title="Start All Streaming" 
+            onPress={startDataStreaming} 
+            style={styles.controlButton}
+            variant="primary"
+          />
+          <Button 
+            title="Request All Data" 
+            onPress={() => requestSpecificData('all')} 
+            style={styles.controlButton}
+            variant="secondary"
+          />
+        </View>
+        
+        <Text style={[styles.specificDataTitle, { color: colors.text }]}>Sensor Data:</Text>
+        
+        <View style={styles.sensorGrid}>
+          {/* Fuel Level Card */}
+          <TouchableOpacity 
+            style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => requestSpecificData('fuel_level')}
+          >
+            <Text style={styles.sensorIcon}>⛽</Text>
+            <Text style={[styles.sensorLabel, { color: colors.text }]}>Fuel Level</Text>
+            <Text style={[styles.sensorValue, { color: colors.primary }]}>
+              {sensorData.fuel_level ? `${sensorData.fuel_level.value}%` : '--'}
+            </Text>
+            <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+              {sensorData.fuel_level ? formatTimestamp(sensorData.fuel_level.timestamp) : 'No data'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* GPS Location Card */}
+          <TouchableOpacity 
+            style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => requestSpecificData('gps_location')}
+          >
+            <Text style={styles.sensorIcon}>📍</Text>
+            <Text style={[styles.sensorLabel, { color: colors.text }]}>GPS Location</Text>
+            <Text style={[styles.sensorValue, { color: colors.primary }]}>
+              {sensorData.gps_location ? `${sensorData.gps_location.value}°` : '--'}
+            </Text>
+            <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+              {sensorData.gps_location ? formatTimestamp(sensorData.gps_location.timestamp) : 'No data'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Speed Card */}
+          <TouchableOpacity 
+            style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => requestSpecificData('speed')}
+          >
+            <Text style={styles.sensorIcon}>🚗</Text>
+            <Text style={[styles.sensorLabel, { color: colors.text }]}>Speed</Text>
+            <Text style={[styles.sensorValue, { color: colors.primary }]}>
+              {sensorData.speed ? `${sensorData.speed.value} mph` : '--'}
+            </Text>
+            <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+              {sensorData.speed ? formatTimestamp(sensorData.speed.timestamp) : 'No data'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Temperature Card */}
+          <TouchableOpacity 
+            style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => requestSpecificData('temperature')}
+          >
+            <Text style={styles.sensorIcon}>🌡️</Text>
+            <Text style={[styles.sensorLabel, { color: colors.text }]}>Temperature</Text>
+            <Text style={[styles.sensorValue, { color: colors.primary }]}>
+              {sensorData.temperature ? `${sensorData.temperature.value}°C` : '--'}
+            </Text>
+            <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+              {sensorData.temperature ? formatTimestamp(sensorData.temperature.timestamp) : 'No data'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* OBD Data Card */}
+          <TouchableOpacity 
+            style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => requestSpecificData('obd_data')}
+          >
+            <Text style={styles.sensorIcon}>🔧</Text>
+            <Text style={[styles.sensorLabel, { color: colors.text }]}>OBD Data</Text>
+            <Text style={[styles.sensorValue, { color: colors.primary }]}>
+              {sensorData.obd_data ? `${sensorData.obd_data.value} RPM` : '--'}
+            </Text>
+            <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+              {sensorData.obd_data ? formatTimestamp(sensorData.obd_data.timestamp) : 'No data'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Engine Data Card */}
+          <TouchableOpacity 
+            style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => requestSpecificData('engine_data')}
+          >
+            <Text style={styles.sensorIcon}>🏭</Text>
+            <Text style={[styles.sensorLabel, { color: colors.text }]}>Engine Data</Text>
+            <Text style={[styles.sensorValue, { color: colors.primary }]}>
+              {sensorData.engine_data ? `${sensorData.engine_data.value}°F` : '--'}
+            </Text>
+            <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+              {sensorData.engine_data ? formatTimestamp(sensorData.engine_data.timestamp) : 'No data'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Data Stream */}
@@ -467,6 +589,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
           style={styles.disconnectButton}
         />
       </View>
+      </ScrollView>
 
       <Modal
         visible={confirmDisconnect}
@@ -506,7 +629,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
           </View>
         </View>
       </Modal>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -514,6 +637,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    paddingBottom: 20,
   },
   header: {
     marginBottom: 20,
@@ -769,6 +898,80 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600" as const,
     color: "#fff",
+  },
+  controlsContainer: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 12,
+  },
+  controlsTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  specificDataTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  buttonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  controlButton: {
+    flex: 1,
+  },
+  smallButton: {
+    width: '30%',
+    marginBottom: 8,
+  },
+  sensorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+  },
+  sensorCard: {
+    flex: 1,
+    minWidth: '45%',
+    maxWidth: '48%',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sensorIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  sensorLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  sensorValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  sensorTime: {
+    fontSize: 10,
+    textAlign: 'center',
   },
 });
 
