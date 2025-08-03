@@ -62,12 +62,23 @@ export function useVehicleSetupLogic() {
 
     try {
       if (Platform.OS === 'android') {
-        const permissions = [
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
-        ];
+        const apiLevel = parseInt(Platform.Version.toString(), 10);
+        let permissions = [];
+        
+        if (apiLevel >= 31) {
+          // Android 12+ (API 31+)
+          permissions = [
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ];
+        } else {
+          // Android 11 and below
+          permissions = [
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+          ];
+        }
 
         const results = await PermissionsAndroid.requestMultiple(permissions);
         const allGranted = Object.values(results).every(
@@ -81,11 +92,18 @@ export function useVehicleSetupLogic() {
           console.log("❌ Some permissions denied:", results);
           addLog(`Some permissions denied: ${JSON.stringify(results)}`);
 
-          Alert.alert(
-            'Permissions Required',
-            'Bluetooth and Location permissions are required to scan for ELD devices.',
-            [{ text: 'OK' }]
-          );
+          // Show specific permission guidance
+          const deniedPermissions = Object.entries(results)
+            .filter(([_, status]) => status !== PermissionsAndroid.RESULTS.GRANTED)
+            .map(([permission, _]) => permission);
+          
+          if (deniedPermissions.length > 0) {
+            Alert.alert(
+              'Permissions Required',
+              `The following permissions are required: ${deniedPermissions.join(', ')}. Please grant them in Settings.`,
+              [{ text: 'OK' }]
+            );
+          }
         }
 
         return allGranted;
@@ -99,6 +117,11 @@ export function useVehicleSetupLogic() {
     } catch (error) {
       console.error("Error requesting permissions:", error);
       addLog(`Permission request error: ${error}`);
+      Alert.alert(
+        'Permission Error',
+        'Failed to request permissions. Please grant Bluetooth and Location permissions manually in Settings.',
+        [{ text: 'OK' }]
+      );
       return false;
     }
   }, [addLog]);

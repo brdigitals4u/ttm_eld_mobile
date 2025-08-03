@@ -127,12 +127,30 @@ function SelectVehicleComponent() {
         } else {
           console.log("❌ Some permissions denied:", results);
           addLog(`Some permissions denied: ${JSON.stringify(results)}`);
+          
+          // Show specific permission guidance
+          const deniedPermissions = Object.entries(results)
+            .filter(([_, status]) => status !== PermissionsAndroid.RESULTS.GRANTED)
+            .map(([permission, _]) => permission);
+          
+          if (deniedPermissions.length > 0) {
+            Alert.alert(
+              'Permissions Required',
+              `The following permissions are required: ${deniedPermissions.join(', ')}. Please grant them in Settings.`,
+              [{ text: 'OK' }]
+            );
+          }
         }
         
         return allGranted;
       } catch (error) {
         console.error("Error requesting permissions:", error);
         addLog(`Permission request error: ${error}`);
+        Alert.alert(
+          'Permission Error',
+          'Failed to request permissions. Please grant Bluetooth and Location permissions manually in Settings.',
+          [{ text: 'OK' }]
+        );
         return false;
       }
     } else if (Platform.OS === 'ios') {

@@ -459,14 +459,26 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
             val locationPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             
             Log.d(TAG, "Permission check (Android 12+): BLUETOOTH_SCAN=$scanPermission, BLUETOOTH_CONNECT=$connectPermission, ACCESS_FINE_LOCATION=$locationPermission")
-            scanPermission && connectPermission && locationPermission
+            
+            // For Android 12+, we need all three permissions
+            val allGranted = scanPermission && connectPermission && locationPermission
+            if (!allGranted) {
+                Log.w(TAG, "Missing permissions on Android 12+: scan=$scanPermission, connect=$connectPermission, location=$locationPermission")
+            }
+            allGranted
         } else {
             val bluetoothPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED
             val bluetoothAdminPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED
             val locationPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             
             Log.d(TAG, "Permission check (Android <12): BLUETOOTH=$bluetoothPermission, BLUETOOTH_ADMIN=$bluetoothAdminPermission, ACCESS_FINE_LOCATION=$locationPermission")
-            bluetoothPermission && bluetoothAdminPermission && locationPermission
+            
+            // For Android <12, we need Bluetooth and Location permissions
+            val allGranted = bluetoothPermission && bluetoothAdminPermission && locationPermission
+            if (!allGranted) {
+                Log.w(TAG, "Missing permissions on Android <12: bluetooth=$bluetoothPermission, bluetoothAdmin=$bluetoothAdminPermission, location=$locationPermission")
+            }
+            allGranted
         }
     }
     

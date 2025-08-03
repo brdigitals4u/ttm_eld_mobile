@@ -5,7 +5,7 @@ import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, Na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { FirebaseLogger } from '@/src/services/FirebaseService';
+// Firebase removed - import { FirebaseLogger } from '@/src/services/FirebaseService';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { useAuth } from '@/context/auth-context';
@@ -295,12 +295,24 @@ export default function UniversalPairingScreen() {
   const requestJimiPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
-        const permissions = [
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        ];
+        // Check Android API level for proper permission handling
+        const apiLevel = parseInt(Platform.Version.toString(), 10);
+        let permissions = [];
+        
+        if (apiLevel >= 31) {
+          // Android 12+ (API 31+)
+          permissions = [
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ];
+        } else {
+          // Android 11 and below
+          permissions = [
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+          ];
+        }
         
         const granted = await PermissionsAndroid.requestMultiple(permissions);
         const allGranted = Object.values(granted).every(
@@ -308,13 +320,16 @@ export default function UniversalPairingScreen() {
         );
         
         if (!allGranted) {
+          console.warn('Some permissions denied:', granted);
           Alert.alert('Permission Denied', 'Some permissions are required for universal device pairing.');
           return false;
         }
         
+        console.log('All permissions granted successfully');
         return true;
       } catch (error) {
         console.error('Permission request failed:', error);
+        Alert.alert('Permission Error', 'Failed to request permissions. Please grant them manually in Settings.');
         return false;
       }
     }
@@ -570,15 +585,7 @@ export default function UniversalPairingScreen() {
 
   // Handle Refresh Scan
   const handleRefreshScan = async () => {
-    try {
-      await FirebaseLogger.logEvent('universal_refresh_scan_clicked', {
-        screen: 'universal_pairing',
-        action: 'refresh_scan_button',
-        filter: scanFilter
-      });
-    } catch (error) {
-      FirebaseLogger.recordError(error as Error);
-    }
+    // Firebase removed - analytics logging disabled
     
     if (!isWeb) {
       startUniversalScan();
@@ -589,14 +596,7 @@ export default function UniversalPairingScreen() {
 
   // Handle Back Press
   const handleBackPress = async () => {
-    try {
-      await FirebaseLogger.logEvent('universal_pairing_back_pressed', {
-        screen: 'universal_pairing',
-        action: 'back_button'
-      });
-    } catch (error) {
-      FirebaseLogger.recordError(error as Error);
-    }
+    // Firebase removed - analytics logging disabled
     router.back();
   };
 

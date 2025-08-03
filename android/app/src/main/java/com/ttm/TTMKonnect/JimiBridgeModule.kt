@@ -42,21 +42,21 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         private const val SCAN_INTERVAL = 1000L // 1 second
         
         // Common Bluetooth Service UUIDs
-        private val HEART_RATE_SERVICE = UUID.fromString("180D")
-        private val BATTERY_SERVICE = UUID.fromString("180F")
-        private val GENERIC_ACCESS_SERVICE = UUID.fromString("1800")
-        private val GENERIC_ATTRIBUTE_SERVICE = UUID.fromString("1801")
-        private val ENVIRONMENTAL_SERVICE = UUID.fromString("181A")
-        private val LOCATION_SERVICE = UUID.fromString("1819")
-        private val CUSTOM_SERVICE = UUID.fromString("FFE0")
+        private val HEART_RATE_SERVICE = UUID.fromString("0000180D-0000-1000-8000-00805F9B34FB")
+        private val BATTERY_SERVICE = UUID.fromString("0000180F-0000-1000-8000-00805F9B34FB")
+        private val GENERIC_ACCESS_SERVICE = UUID.fromString("00001800-0000-1000-8000-00805F9B34FB")
+        private val GENERIC_ATTRIBUTE_SERVICE = UUID.fromString("00001801-0000-1000-8000-00805F9B34FB")
+        private val ENVIRONMENTAL_SERVICE = UUID.fromString("0000181A-0000-1000-8000-00805F9B34FB")
+        private val LOCATION_SERVICE = UUID.fromString("00001819-0000-1000-8000-00805F9B34FB")
+        private val CUSTOM_SERVICE = UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB")
         
         // Common Characteristic UUIDs
-        private val HEART_RATE_MEASUREMENT = UUID.fromString("2A37")
-        private val BATTERY_LEVEL = UUID.fromString("2A19")
-        private val DEVICE_NAME = UUID.fromString("2A00")
-        private val TEMPERATURE_MEASUREMENT = UUID.fromString("2A1C")
-        private val LOCATION_MEASUREMENT = UUID.fromString("2A6D")
-        private val CUSTOM_CHARACTERISTIC = UUID.fromString("FFE1")
+        private val HEART_RATE_MEASUREMENT = UUID.fromString("00002A37-0000-1000-8000-00805F9B34FB")
+        private val BATTERY_LEVEL = UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")
+        private val DEVICE_NAME = UUID.fromString("00002A00-0000-1000-8000-00805F9B34FB")
+        private val TEMPERATURE_MEASUREMENT = UUID.fromString("00002A1C-0000-1000-8000-00805F9B34FB")
+        private val LOCATION_MEASUREMENT = UUID.fromString("00002A6D-0000-1000-8000-00805F9B34FB")
+        private val CUSTOM_CHARACTERISTIC = UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB")
     }
     
     // Device Protocol Definitions
@@ -363,10 +363,29 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
 
     private fun checkBluetoothPermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val scanPermission = ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            val connectPermission = ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val locationPermission = ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
+            Log.d(TAG, "JimiBridge permission check (Android 12+): BLUETOOTH_SCAN=$scanPermission, BLUETOOTH_CONNECT=$connectPermission, ACCESS_FINE_LOCATION=$locationPermission")
+            
+            val allGranted = scanPermission && connectPermission && locationPermission
+            if (!allGranted) {
+                Log.w(TAG, "JimiBridge missing permissions on Android 12+: scan=$scanPermission, connect=$connectPermission, location=$locationPermission")
+            }
+            allGranted
         } else {
-            ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val bluetoothPermission = ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED
+            val bluetoothAdminPermission = ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED
+            val locationPermission = ActivityCompat.checkSelfPermission(reactApplicationContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
+            Log.d(TAG, "JimiBridge permission check (Android <12): BLUETOOTH=$bluetoothPermission, BLUETOOTH_ADMIN=$bluetoothAdminPermission, ACCESS_FINE_LOCATION=$locationPermission")
+            
+            val allGranted = bluetoothPermission && bluetoothAdminPermission && locationPermission
+            if (!allGranted) {
+                Log.w(TAG, "JimiBridge missing permissions on Android <12: bluetooth=$bluetoothPermission, bluetoothAdmin=$bluetoothAdminPermission, location=$locationPermission")
+            }
+            allGranted
         }
     }
 
