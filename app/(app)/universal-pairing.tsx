@@ -50,7 +50,7 @@ export default function UniversalPairingScreen() {
   const [screenError, setScreenError] = useState<string | null>(null);
   
   // Initialize contexts with safe defaults
-  let colors, isDark, startScan, stopScan, devices, isScanning, connectToDevice, error, vehicleInfo, setVehicleInfo;
+  let colors, isDark, startScan, stopScan, devices: ArrayLike<UniversalDevice> | EldDevice[] | null | undefined, isScanning, connectToDevice, error, vehicleInfo, setVehicleInfo;
   
   try {
     const themeContext = useTheme();
@@ -392,6 +392,27 @@ export default function UniversalPairingScreen() {
     }
   };
 
+  // Add devices to universal devices state
+  const addDevicesToState = (devices: any[]) => {
+    const universalDevices = devices.map(device => ({
+      ...device,
+      id: device.id || device.address,
+      name: device.name || 'Unknown Device',
+      address: device.address,
+      isConnected: device.isConnected || false,
+      deviceType: device.deviceType || DEVICE_TYPES.UNKNOWN_DEVICE,
+      deviceCategory: device.deviceCategory || DEVICE_CATEGORIES.CAMERA,
+      signalStrength: device.signalStrength || device.rssi || 0,
+      batteryLevel: device.batteryLevel || 0,
+      firmwareVersion: device.firmwareVersion || '1.0.0',
+      lastSeen: device.lastSeen ? new Date(device.lastSeen) : new Date(),
+    }));
+    
+    console.log('📱 Adding devices to state:', universalDevices.length);
+    console.log('📱 Devices:', universalDevices);
+    setUniversalDevices(universalDevices);
+  };
+
   // Cleanup Jimi Bridge
   const cleanupJimiBridge = () => {
     if (eventEmitterRef.current) {
@@ -443,8 +464,14 @@ export default function UniversalPairingScreen() {
 
   // Filter devices based on category
   const getFilteredDevices = () => {
-    if (scanFilter === 'all') return universalDevices;
-    return universalDevices.filter(device => device.deviceCategory === scanFilter);
+    const filtered = scanFilter === 'all' ? universalDevices : universalDevices.filter(device => device.deviceCategory === scanFilter);
+    console.log('🔍 getFilteredDevices:', {
+      scanFilter,
+      universalDevicesLength: universalDevices.length,
+      filteredLength: filtered.length,
+      devices: filtered
+    });
+    return filtered;
   };
 
   // Get device icon based on category
@@ -465,76 +492,82 @@ export default function UniversalPairingScreen() {
     }
   };
 
-  // Render Device Item
-  const renderDeviceItem = ({ item }: { item: UniversalDevice }) => (
-    <Card
-      style={[
-        styles.deviceCard,
-        {
-          borderColor: selectedDevice?.id === item.id ? colors.primary : 'transparent',
-          borderWidth: selectedDevice?.id === item.id ? 2 : 0,
-        },
-      ]}
-      onTouchEnd={() => handleDeviceSelect(item)}
-    >
-      <View style={styles.deviceInfo}>
-        {getDeviceIcon(item)}
-        <View style={styles.deviceDetails}>
-          <View style={styles.deviceHeader}>
-            <Text style={[styles.deviceName, { color: colors.text }]}>
-              {item.name || 'Unknown Device'}
-            </Text>
-            <View style={styles.deviceStatus}>
-              {item.isConnected && (
-                <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
-              )}
-              <Text style={[styles.deviceType, { color: colors.inactive }]}>
-                {item.deviceCategory?.toUpperCase()}
+  //   // Render Device Item
+  const renderDeviceItem = ({ item }: { item: UniversalDevice }) => {
+    console.log('🎨 Rendering device item:', item);
+    return (
+      <Card
+        style={[
+          styles.deviceCard,
+          {
+            borderColor: selectedDevice?.id === item.id ? colors.primary : 'transparent',
+            borderWidth: selectedDevice?.id === item.id ? 2 : 0,
+            backgroundColor: 'red', // Temporary to see if cards are visible
+          },
+        ]}
+        onTouchEnd={() => handleDeviceSelect(item)}
+      >
+        <View style={styles.deviceInfo}>
+          {getDeviceIcon(item)}
+          <View style={styles.deviceDetails}>
+            <View style={styles.deviceHeader}>
+              <Text style={[styles.deviceName, { color: 'white' }]}>
+                {item.name || 'Unknown Device'}
               </Text>
+              <View style={styles.deviceStatus}>
+                {item.isConnected && (
+                  <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+                )}
+                <Text style={[styles.deviceType, { color: 'white' }]}>
+                  {item.deviceCategory?.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.deviceAddress, { color: 'white' }]}>
+              {item.address}
+            </Text>
+            <View style={styles.deviceMetrics}>
+              {item.signalStrength && (
+                <Text style={[styles.deviceMetric, { color: 'white' }]}>
+                  Signal: {item.signalStrength}%
+                </Text>
+              )}
+              {item.batteryLevel && (
+                <Text style={[styles.deviceMetric, { color: 'white' }]}>
+                  Battery: {item.batteryLevel}%
+                </Text>
+              )}
+              {item.firmwareVersion && (
+                <Text style={[styles.deviceMetric, { color: 'white' }]}>
+                  FW: {item.firmwareVersion}
+                </Text>
+              )}
             </View>
           </View>
-          <Text style={[styles.deviceAddress, { color: colors.inactive }]}>
-            {item.address}
-          </Text>
-          <View style={styles.deviceMetrics}>
-            {item.signalStrength && (
-              <Text style={[styles.deviceMetric, { color: colors.inactive }]}>
-                Signal: {item.signalStrength}%
-              </Text>
-            )}
-            {item.batteryLevel && (
-              <Text style={[styles.deviceMetric, { color: colors.inactive }]}>
-                Battery: {item.batteryLevel}%
-              </Text>
-            )}
-            {item.firmwareVersion && (
-              <Text style={[styles.deviceMetric, { color: colors.inactive }]}>
-                FW: {item.firmwareVersion}
-              </Text>
+          <View style={styles.deviceActions}>
+            {item.isConnected ? (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: colors.secondary }]}
+                onPress={() => handleDisconnectDevice(item)}
+              >
+                <X size={16} color={colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                onPress={() => handleConnectDevice(item)}
+                disabled={isConnecting}
+              >
+                <Bluetooth size={16} color={colors.primary} />
+              </TouchableOpacity>
             )}
           </View>
         </View>
-        <View style={styles.deviceActions}>
-          {item.isConnected ? (
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-              onPress={() => handleDisconnectDevice(item)}
-            >
-              <X size={16} color={colors.primary} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.primary }]}
-              onPress={() => handleConnectDevice(item)}
-              disabled={isConnecting}
-            >
-              <Bluetooth size={16} color={colors.primary} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </Card>
-  );
+      </Card>
+    );
+  };
+
+
 
   // Render Connected Device Item
   const renderConnectedDeviceItem = ({ item }: { item: UniversalDevice }) => (
@@ -582,22 +615,6 @@ export default function UniversalPairingScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Back Button */}
-      <View style={styles.backButtonContainer}>
-        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-          <Text style={[styles.backButtonText, { color: colors.text }]}>Back</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.header}>
-        <Bluetooth size={48} color={colors.primary} />
-        <Text style={[styles.title, { color: colors.text }]}>Universal Pairing</Text>
-        <Text style={[styles.subtitle, { color: colors.inactive }]}>
-          Connect any IoT device using Jimi technology
-        </Text>
-      </View>
-
       <View style={styles.content}>
         {/* Filter Options */}
         <View style={styles.filterContainer}>
@@ -667,17 +684,81 @@ export default function UniversalPairingScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Available Devices ({getFilteredDevices().length})
           </Text>
-          <Button
-            title={isScanning ? 'Scanning...' : 'Refresh'}
-            onPress={handleRefreshScan}
-            variant="outline"
-            icon={<RefreshCw size={16} color={colors.primary} />}
-            disabled={isScanning}
-          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button
+              title={isScanning ? 'Scanning...' : 'Refresh'}
+              onPress={handleRefreshScan}
+              variant="outline"
+              icon={<RefreshCw size={16} color={colors.primary} />}
+              disabled={isScanning}
+            />
+            <TouchableOpacity
+              style={{
+                backgroundColor: colors.primary,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 6,
+              }}
+              onPress={() => {
+                // Add the devices you showed me
+                const testDevices = [
+                  {
+                    "firmwareVersion": "1.0.0",
+                    "deviceType": "0",
+                    "batteryLevel": 42,
+                    "signalStrength": 25,
+                    "isConnected": false,
+                    "address": "6C:27:9C:61:56:A6",
+                    "rssi": -45,
+                    "name": "Unknown Device",
+                    "deviceCategory": "camera",
+                    "id": "6C:27:9C:61:56:A6",
+                    "lastSeen": "2025-08-03T05:35:52.570Z"
+                  },
+                  {
+                    "firmwareVersion": "1.0.0",
+                    "deviceType": "0",
+                    "batteryLevel": 76,
+                    "signalStrength": 38,
+                    "isConnected": false,
+                    "address": "44:FA:66:FE:62:D7",
+                    "rssi": -95,
+                    "name": "JODU51741585804",
+                    "deviceCategory": "camera",
+                    "id": "44:FA:66:FE:62:D7",
+                    "lastSeen": "2025-08-03T05:35:52.567Z"
+                  },
+                  {
+                    "firmwareVersion": "1.0.0",
+                    "deviceType": "0",
+                    "batteryLevel": 16,
+                    "signalStrength": 14,
+                    "isConnected": false,
+                    "address": "D5:EC:D4:16:25:3E",
+                    "rssi": -96,
+                    "name": "Unknown Device",
+                    "deviceCategory": "camera",
+                    "id": "D5:EC:D4:16:25:3E",
+                    "lastSeen": "2025-08-03T05:35:49.508Z"
+                  }
+                ];
+                addDevicesToState(testDevices);
+              }}
+            >
+              <Text style={{ color: 'white', fontSize: 12 }}>Add Test</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Device List */}
-        {getFilteredDevices().length === 0 && !isScanning ? (
+                {/* Device List */}
+        {(() => {
+          console.log('🔍 Device list condition check:', {
+            filteredDevicesLength: getFilteredDevices().length,
+            isScanning,
+            shouldShowEmpty: getFilteredDevices().length === 0 && !isScanning
+          });
+          return getFilteredDevices().length === 0 && !isScanning;
+        })() ? (
           <Card>
             <Text style={[styles.emptyText, { color: colors.inactive }]}>
               No {scanFilter === 'all' ? '' : scanFilter} devices found. 
@@ -685,44 +766,24 @@ export default function UniversalPairingScreen() {
             </Text>
           </Card>
         ) : (
+
+          
           <FlatList
-            data={!isWeb ? getFilteredDevices() : [
-              // Mock devices for web demo
-              {
-                id: 'eld-001',
-                name: 'ELD Device 1',
-                address: '00:11:22:33:44:55',
-                deviceType: DEVICE_TYPES.ELD_DEVICE,
-                deviceCategory: DEVICE_CATEGORIES.ELD,
-                signalStrength: 85,
-                batteryLevel: 90,
-                isConnected: false
-              },
-              {
-                id: 'camera-001',
-                name: 'Security Camera',
-                address: '55:44:33:22:11:00',
-                deviceType: DEVICE_TYPES.CAMERA_DEVICE,
-                deviceCategory: DEVICE_CATEGORIES.CAMERA,
-                signalStrength: 72,
-                batteryLevel: 65,
-                isConnected: false
-              },
-              {
-                id: 'tracking-001',
-                name: 'GPS Tracker',
-                address: '12:34:56:78:90:AB',
-                deviceType: DEVICE_TYPES.TRACKING_DEVICE,
-                deviceCategory: DEVICE_CATEGORIES.TRACKING,
-                signalStrength: 95,
-                batteryLevel: 45,
-                isConnected: false
-              },
-            ]}
+            data={getFilteredDevices()}
             renderItem={renderDeviceItem}
             keyExtractor={(item) => item.id}
             style={styles.deviceList}
             contentContainerStyle={styles.deviceListContent}
+            onLayout={() => console.log('📱 FlatList onLayout called')}
+            onContentSizeChange={() => console.log('📱 FlatList content size changed')}
+            ListEmptyComponent={() => {
+              console.log('📱 FlatList is empty');
+              return (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Text style={{ color: colors.inactive }}>No devices found</Text>
+                </View>
+              );
+            }}
           />
         )}
 
@@ -830,6 +891,8 @@ const styles = StyleSheet.create({
   },
   deviceList: {
     flex: 1,
+    height: 400, // Explicit height to ensure FlatList has space
+    backgroundColor: 'yellow', // Temporary to see the container
   },
   deviceListContent: {
     paddingBottom: 16,
