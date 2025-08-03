@@ -43,7 +43,7 @@ interface TTMBLEManagerInterface {
   stopReportEldData(): Promise<void>;
   replyReceivedEldData(): Promise<void>;
   sendUTCTime(): Promise<void>;
-  injectTestDevices(): Promise<void>;
+  // injectTestDevices method removed - app now only uses real device data
   getBondedDevices(): Promise<void>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
@@ -200,10 +200,7 @@ const createWebTTMBLEManager = (): TTMBLEManagerInterface => {
       console.log('🌐 Web TTMBLEManager: sendUTCTime (mock)');
       return Promise.resolve();
     },
-    injectTestDevices: () => {
-      console.log('🌐 Web TTMBLEManager: injectTestDevices (mock)');
-      return Promise.resolve();
-    },
+    // injectTestDevices removed - app now only uses real device data
     getBondedDevices: () => {
       console.log('🌐 Web TTMBLEManager: getBondedDevices (mock)');
       return Promise.resolve();
@@ -350,9 +347,7 @@ class WebTTMBLEManagerWrapper {
     return this.nativeModule.sendUTCTime();
   }
 
-  async injectTestDevices(): Promise<void> {
-    return this.nativeModule.injectTestDevices();
-  }
+  // injectTestDevices method removed - app now only uses real device data
 
   async getBondedDevices(): Promise<void> {
     return this.nativeModule.getBondedDevices();

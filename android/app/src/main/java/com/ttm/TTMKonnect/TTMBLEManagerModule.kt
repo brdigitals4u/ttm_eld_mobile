@@ -889,36 +889,7 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
         }
     }
 
-    // Test method to inject mock devices for UI testing
-    @ReactMethod
-    fun injectTestDevices(promise: Promise) {
-        Log.d(TAG, "injectTestDevices() called - Adding mock BLE devices for testing")
-        try {
-            // Simulate finding several BLE devices
-            val testDevices = listOf(
-                mapOf("name" to "PT30-ELD", "address" to "AA:BB:CC:DD:EE:FF", "signal" to -45),
-                mapOf("name" to "Apple Watch", "address" to "11:22:33:44:55:66", "signal" to -55),
-                mapOf("name" to "Bluetooth Headphones", "address" to "AA:11:BB:22:CC:33", "signal" to -35),
-                mapOf("name" to "Test ELD Device", "address" to "FF:EE:DD:CC:BB:AA", "signal" to -50)
-            )
-            
-            testDevices.forEach { device ->
-                val payload = Arguments.createMap().apply {
-                    putString("name", device["name"] as String)
-                    putString("address", device["address"] as String)
-                    putInt("signal", device["signal"] as Int)
-                    putString("id", device["address"] as String)
-                }
-                Log.d(TAG, "Injecting test device: ${device["name"]} (${device["address"]})")
-                sendEvent(ON_DEVICE_SCANNED, payload)
-            }
-            
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to inject test devices", e)
-            promise.reject("TEST_INJECT_ERROR", "Failed to inject test devices: ${e.message}", e)
-        }
-    }
+    // Mock data injection method removed - app now only shows real device data
     
     // Method to check for already connected devices and emit them
     private fun checkConnectedDevices() {

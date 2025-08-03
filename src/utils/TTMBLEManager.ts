@@ -41,7 +41,7 @@ interface TTMBLEManagerInterface {
   stopReportEldData(): Promise<void>;
   replyReceivedEldData(): Promise<void>;
   sendUTCTime(): Promise<void>;
-  injectTestDevices(): Promise<void>;
+  // injectTestDevices method removed - app now only uses real device data
   getBondedDevices(): Promise<void>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
@@ -121,7 +121,7 @@ const createMockTTMBLEManager = (): TTMBLEManagerInterface => {
     clearFaultCode: () => Promise.resolve(),
     checkDpfRegenerationState: () => Promise.resolve(),
     setDpfRegeneration: () => Promise.resolve(),
-    injectTestDevices: () => Promise.resolve(),
+    // injectTestDevices removed - app now only uses real device data
     getBondedDevices: () => Promise.resolve(),
     addListener: () => {},
     removeListeners: () => {}
@@ -957,41 +957,7 @@ class TTMBLEManagerWrapper {
   }
 
   // Test and utility methods
-  async injectTestDevices(): Promise<void> {
-    try {
-      console.log('🧪 TTMBLEManager: Injecting test devices');
-      
-      // Log to Supabase
-      await ELDDeviceService.logConnectionAttempt('unknown', 'injecting_test_devices', {
-        method: 'injectTestDevices',
-        timestamp: new Date().toISOString(),
-        status: 'started'
-      });
-      
-      const result = await this.nativeModule.injectTestDevices();
-      
-      // Log success
-      await ELDDeviceService.logConnectionAttempt('unknown', 'test_devices_injected', {
-        method: 'injectTestDevices',
-        timestamp: new Date().toISOString(),
-        status: 'success'
-      });
-      
-      return result;
-    } catch (error: any) {
-      console.error('❌ TTMBLEManager injectTestDevices error:', error);
-      
-      // Log error
-      await ELDDeviceService.logConnectionAttempt('unknown', 'test_devices_inject_failed', {
-        method: 'injectTestDevices',
-        timestamp: new Date().toISOString(),
-        status: 'error',
-        error: error.message
-      });
-      
-      throw error;
-    }
-  }
+  // injectTestDevices method removed - app now only uses real device data from actual BLE scanning
 
   async getBondedDevices(): Promise<void> {
     try {

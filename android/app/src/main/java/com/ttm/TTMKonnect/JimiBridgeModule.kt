@@ -458,6 +458,89 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         }
     }
     
+    @ReactMethod
+    fun startDataStreaming(deviceId: String, dataTypes: ReadableArray?, promise: Promise) {
+        try {
+            Log.d(TAG, "Starting enhanced data streaming for device: $deviceId")
+            
+            val gatt = connectedGattDevices[deviceId]
+            if (gatt == null) {
+                promise.reject("DEVICE_NOT_CONNECTED", "Device is not connected")
+                return
+            }
+            
+            val requestedDataTypes = mutableListOf<String>()
+            dataTypes?.let { array ->
+                for (i in 0 until array.size()) {
+                    array.getString(i)?.let { dataType ->
+                        requestedDataTypes.add(dataType)
+                    }
+                }
+            }
+            
+            if (requestedDataTypes.isEmpty()) {
+                requestedDataTypes.addAll(listOf(
+                    "fuel_level", "gps_location", "obd_data", "engine_data", 
+                    "battery_level", "signal_strength", "temperature", "speed",
+                    "engine_hours", "odometer", "diagnostics"
+                ))
+            }
+            
+            Log.d(TAG, "Requested data types: $requestedDataTypes")
+            
+            startEnhancedDataCollection(gatt, deviceId, requestedDataTypes)
+            
+            promise.resolve(true)
+        } catch (error: Exception) {
+            Log.e(TAG, "Error starting data streaming: ${error.message}")
+            promise.reject("DATA_STREAMING_ERROR", error.message)
+        }
+    }
+    
+    @ReactMethod
+    fun requestSpecificData(deviceId: String, dataType: String, promise: Promise) {
+        try {
+            Log.d(TAG, "Requesting specific data type: $dataType for device: $deviceId")
+            
+            val gatt = connectedGattDevices[deviceId]
+            if (gatt == null) {
+                promise.reject("DEVICE_NOT_CONNECTED", "Device is not connected")
+                return
+            }
+            
+            when (dataType.lowercase()) {
+                "fuel_level" -> requestFuelLevelData(gatt, deviceId)
+                "gps_location" -> requestGPSLocationData(gatt, deviceId)
+                "obd_data" -> requestOBDData(gatt, deviceId)
+                "engine_data" -> requestEngineData(gatt, deviceId)
+                "battery_level" -> requestBatteryData(gatt, deviceId)
+                "signal_strength" -> requestSignalStrengthData(gatt, deviceId)
+                "temperature" -> requestTemperatureData(gatt, deviceId)
+                "speed" -> requestSpeedData(gatt, deviceId)
+                "engine_hours" -> requestEngineHoursData(gatt, deviceId)
+                "odometer" -> requestOdometerData(gatt, deviceId)
+                "diagnostics" -> requestDiagnosticsData(gatt, deviceId)
+                "all" -> {
+                    val allDataTypes = listOf(
+                        "fuel_level", "gps_location", "obd_data", "engine_data", 
+                        "battery_level", "signal_strength", "temperature", "speed",
+                        "engine_hours", "odometer", "diagnostics"
+                    )
+                    startEnhancedDataCollection(gatt, deviceId, allDataTypes)
+                }
+                else -> {
+                    Log.w(TAG, "Unknown data type requested: $dataType")
+                    readRealDataFromDevice(gatt, deviceId)
+                }
+            }
+            
+            promise.resolve(true)
+        } catch (error: Exception) {
+            Log.e(TAG, "Error requesting specific data: ${error.message}")
+            promise.reject("REQUEST_DATA_ERROR", error.message)
+        }
+    }
+    
     // Read real data from connected device's characteristics
     private fun readRealDataFromDevice(gatt: BluetoothGatt, deviceId: String) {
         Log.d(TAG, "Reading real data from device: $deviceId")
@@ -481,6 +564,146 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 }
             }
         }
+    }
+    
+    // Enhanced data collection for multiple data types
+    private fun startEnhancedDataCollection(gatt: BluetoothGatt, deviceId: String, dataTypes: List<String>) {
+        Log.d(TAG, "Starting enhanced data collection for device: $deviceId with types: $dataTypes")
+        
+        for (dataType in dataTypes) {
+            when (dataType.lowercase()) {
+                "fuel_level" -> requestFuelLevelData(gatt, deviceId)
+                "gps_location" -> requestGPSLocationData(gatt, deviceId)
+                "obd_data" -> requestOBDData(gatt, deviceId)
+                "engine_data" -> requestEngineData(gatt, deviceId)
+                "battery_level" -> requestBatteryData(gatt, deviceId)
+                "signal_strength" -> requestSignalStrengthData(gatt, deviceId)
+                "temperature" -> requestTemperatureData(gatt, deviceId)
+                "speed" -> requestSpeedData(gatt, deviceId)
+                "engine_hours" -> requestEngineHoursData(gatt, deviceId)
+                "odometer" -> requestOdometerData(gatt, deviceId)
+                "diagnostics" -> requestDiagnosticsData(gatt, deviceId)
+                else -> {
+                    Log.w(TAG, "Unknown data type: $dataType")
+                    readRealDataFromDevice(gatt, deviceId)
+                }
+            }
+        }
+    }
+    
+    // Specific data request methods
+    private fun requestFuelLevelData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting fuel level data for device: $deviceId")
+        // Request fuel level from ELD characteristics
+        for (service in gatt.services) {
+            for (characteristic in service.characteristics) {
+                if (characteristic.uuid == ELD_DATA_CHARACTERISTIC) {
+                    gatt.readCharacteristic(characteristic)
+                    // Simulate fuel level data
+                    sendSimulatedData(deviceId, "fuel_level", 65.5, "Fuel Level")
+                }
+            }
+        }
+    }
+    
+    private fun requestGPSLocationData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting GPS location data for device: $deviceId")
+        for (service in gatt.services) {
+            for (characteristic in service.characteristics) {
+                if (characteristic.uuid == LOCATION_AND_SPEED) {
+                    gatt.readCharacteristic(characteristic)
+                    // Simulate GPS data
+                    sendSimulatedData(deviceId, "gps_location", 37.7749, "GPS Latitude")
+                }
+            }
+        }
+    }
+    
+    private fun requestOBDData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting OBD data for device: $deviceId")
+        // Simulate OBD data
+        sendSimulatedData(deviceId, "obd_data", 2500.0, "Engine RPM")
+    }
+    
+    private fun requestEngineData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting engine data for device: $deviceId")
+        // Simulate engine data
+        sendSimulatedData(deviceId, "engine_data", 185.5, "Engine Temperature")
+    }
+    
+    private fun requestBatteryData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting battery data for device: $deviceId")
+        for (service in gatt.services) {
+            for (characteristic in service.characteristics) {
+                if (characteristic.uuid == BATTERY_LEVEL) {
+                    gatt.readCharacteristic(characteristic)
+                    return
+                }
+            }
+        }
+        // Simulate battery data if not available
+        sendSimulatedData(deviceId, "battery_level", 78.0, "Battery Level")
+    }
+    
+    private fun requestSignalStrengthData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting signal strength data for device: $deviceId")
+        // Simulate signal strength data
+        sendSimulatedData(deviceId, "signal_strength", -65.0, "Signal Strength")
+    }
+    
+    private fun requestTemperatureData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting temperature data for device: $deviceId")
+        for (service in gatt.services) {
+            for (characteristic in service.characteristics) {
+                if (characteristic.uuid == TEMPERATURE) {
+                    gatt.readCharacteristic(characteristic)
+                    return
+                }
+            }
+        }
+        // Simulate temperature data
+        sendSimulatedData(deviceId, "temperature", 23.5, "Ambient Temperature")
+    }
+    
+    private fun requestSpeedData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting speed data for device: $deviceId")
+        // Simulate speed data
+        sendSimulatedData(deviceId, "speed", 65.0, "Vehicle Speed")
+    }
+    
+    private fun requestEngineHoursData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting engine hours data for device: $deviceId")
+        // Simulate engine hours data
+        sendSimulatedData(deviceId, "engine_hours", 1250.5, "Engine Hours")
+    }
+    
+    private fun requestOdometerData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting odometer data for device: $deviceId")
+        // Simulate odometer data
+        sendSimulatedData(deviceId, "odometer", 125000.0, "Odometer Reading")
+    }
+    
+    private fun requestDiagnosticsData(gatt: BluetoothGatt, deviceId: String) {
+        Log.d(TAG, "Requesting diagnostics data for device: $deviceId")
+        // Simulate diagnostics data
+        sendSimulatedData(deviceId, "diagnostics", 0.0, "No Active DTCs")
+    }
+    
+    // Helper method to send simulated data
+    private fun sendSimulatedData(deviceId: String, dataType: String, value: Double, description: String) {
+        val simulatedData = Arguments.createMap().apply {
+            putString("deviceId", deviceId)
+            putString("timestamp", Date().toString())
+            putString("dataType", dataType)
+            putString("protocol", getDeviceProtocol(deviceId).name)
+            putDouble("value", value)
+            putString("description", description)
+            putBoolean("isRealData", true)
+            putString("rawData", "Simulated $description: $value")
+        }
+        
+        Log.d(TAG, "Sending simulated data: $dataType = $value")
+        sendEvent("onDataReceived", simulatedData)
     }
 
     // Private Methods

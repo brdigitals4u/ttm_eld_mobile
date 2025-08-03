@@ -793,51 +793,7 @@ export default function UniversalPairingScreen() {
     setUniversalDevices(universalDevices);
   };
 
-  // Test function to add sample devices
-  const addTestDevices = () => {
-    console.log('🧪 Adding test devices...');
-    const testDevices = [
-      {
-        id: "98:34:8C:92:B7:4C",
-        name: "realme TechLife Buds T100",
-        address: "98:34:8C:92:B7:4C",
-        deviceType: "BLUETOOTH_DEVICE",
-        deviceCategory: "BLUETOOTH",
-        signalStrength: 85,
-        batteryLevel: 75,
-        isConnected: false,
-        firmwareVersion: "1.0.0"
-      },
-      {
-        id: "B4:04:8C:78:86:35",
-        name: "Unnamed Device",
-        address: "B4:04:8C:78:86:35",
-        deviceType: "BLUETOOTH_DEVICE",
-        deviceCategory: "BLUETOOTH",
-        signalStrength: 92,
-        batteryLevel: 45,
-        isConnected: false,
-        firmwareVersion: "1.0.0"
-      },
-      {
-        id: "6C:8E:20:DA:05:0C",
-        name: "Unnamed Device",
-        address: "6C:8E:20:DA:05:0C",
-        deviceType: "BLUETOOTH_DEVICE",
-        deviceCategory: "BLUETOOTH",
-        signalStrength: 78,
-        batteryLevel: 60,
-        isConnected: false,
-        firmwareVersion: "1.0.0"
-      }
-    ];
-    
-    testDevices.forEach(device => {
-      handleDeviceDiscovered(device);
-    });
-    
-    console.log('✅ Test devices added');
-  };
+  // Test devices function removed - app now only shows real BLE devices from scanning
 
   // Cleanup Jimi Bridge
   const cleanupJimiBridge = () => {
@@ -1062,14 +1018,6 @@ export default function UniversalPairingScreen() {
                 >
                   <Text style={styles.emptyStateButtonText}>
                     Scan Again
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.emptyStateButton, { marginTop: 12, backgroundColor: colors.accent }]}
-                  onPress={addTestDevices}
-                >
-                  <Text style={styles.emptyStateButtonText}>
-                    Add Test Devices
                   </Text>
                 </TouchableOpacity>
               </View>

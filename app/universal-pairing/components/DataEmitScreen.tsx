@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   FlatList,
   InteractionManager,
+  NativeModules,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -43,6 +44,30 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   onDisconnect,
   onBack,
 }) => {
+  const startDataStreaming = useCallback(() => {
+    if (device) {
+      NativeModules.JimiBridge.startDataStreaming(device.id, null, (error: string) => {
+        if (error) {
+          console.error('Error starting data streaming:', error);
+        } else {
+          console.log('Data streaming started successfully');
+        }
+      });
+    }
+  }, [device]);
+
+  const requestSpecificData = useCallback((dataType: string) => {
+    if (device) {
+      NativeModules.JimiBridge.requestSpecificData(device.id, dataType, (error: string) => {
+        if (error) {
+          console.error(`Error requesting data for ${dataType}:`, error);
+        } else {
+          console.log(`Requested data for ${dataType}`);
+        }
+      });
+    }
+  }, [device]);
+  
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
@@ -397,6 +422,12 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
           )}
         </Animated.View>
       )}
+
+{/* Controls for Data */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+        <Button title="Start Streaming" onPress={startDataStreaming} />
+        <Button title="Request Fuel Level" onPress={() => requestSpecificData('fuel_level')} />
+      </View>
 
       {/* Data Stream */}
       <View style={styles.dataSection}>
