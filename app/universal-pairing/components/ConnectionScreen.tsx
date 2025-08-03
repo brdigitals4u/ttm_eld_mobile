@@ -13,7 +13,6 @@ import Animated, {
   ZoomIn
 } from 'react-native-reanimated';
 import { useTheme } from '@/context/theme-context';
-import Button from '@/components/Button';
 import { UniversalDevice } from '../types';
 import colors from '@/constants/Colors';
 
@@ -226,19 +225,6 @@ const ConnectionScreen: React.FC<ConnectionScreenProps> = ({ device, onCancel })
         <View style={styles.stepsList}>
           {connectionSteps.map((step, index) => renderConnectionStep(step, index))}
         </View>
-      </View>
-      
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: colors.inactive }]}>
-          This may take a few moments. Please keep your device nearby.
-        </Text>
-        <Button
-          title="Cancel"
-          onPress={onCancel}
-          variant="outline"
-          style={styles.cancelButton}
-        />
-
       </View>
     </Animated.View>
   );

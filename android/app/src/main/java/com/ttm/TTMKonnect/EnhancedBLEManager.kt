@@ -25,6 +25,8 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
         private const val SCAN_PERIOD = 30000L // 30 seconds
         private const val RECONNECT_DELAY = 5000L // 5 seconds
         private const val MAX_RECONNECT_ATTEMPTS = 3
+        private const val DATA_BATCH_SIZE = 10 // Batch data processing
+        private const val GATT_OPERATION_TIMEOUT = 5000L // 5 seconds
     }
 
     // BLE Components
@@ -47,6 +49,8 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
     // Data Processing
     private val dataProcessors = mutableMapOf<String, DataProcessor>()
     private val connectionCallbacks = mutableMapOf<String, ConnectionCallback>()
+    private val dataBatchQueue = ConcurrentHashMap<String, MutableList<ByteArray>>()
+    private var isVerboseLoggingEnabled = false // Performance: Reduce logging
 
     interface ConnectionCallback {
         fun onConnected(device: BluetoothDevice)
@@ -236,7 +240,10 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
             deviceInfo.putString("serviceData", serviceData?.toString())
         }
         
-        Log.d(TAG, "Enhanced device discovered: ${device.name} (${device.address}) RSSI: ${result.rssi}")
+        // Performance: Only log if verbose logging is enabled
+        if (isVerboseLoggingEnabled) {
+            Log.d(TAG, "Enhanced device discovered: ${device.name} (${device.address}) RSSI: ${result.rssi}")
+        }
         sendEvent("onDeviceDiscovered", deviceInfo)
     }
 
@@ -283,7 +290,7 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
                 override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                     when (newState) {
                         BluetoothProfile.STATE_CONNECTED -> {
-                            Log.d(TAG, "Connected to device: ${device.address}")
+                            Log.d(TAG, "Connected to device: ${device.address} with status: $status")
                             isConnecting = false
                             reconnectAttempts = 0
                             
@@ -303,22 +310,41 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
                         }
                         
                         BluetoothProfile.STATE_DISCONNECTED -> {
-                            Log.d(TAG, "Disconnected from device: ${device.address}")
+                            val disconnectReason = getDisconnectReason(status)
+                            Log.d(TAG, "Disconnected from device: ${device.address} with status: $status, reason: $disconnectReason")
                             isConnecting = false
                             
                             // Remove from connected devices
                             connectedDevices.remove(device.address)
                             
-                            // Send disconnection event
-                            sendEvent("onDeviceDisconnected", createEnhancedDeviceInfo(device, null))
+                            // Send disconnection event with reason
+                            val disconnectionInfo = createEnhancedDeviceInfo(device, null).apply {
+                                putString("disconnectReason", disconnectReason)
+                                putInt("disconnectStatus", status)
+                                putString("disconnectCategory", getDisconnectCategory(status))
+                                putBoolean("wasUnexpected", !isUserInitiatedDisconnect(status))
+                                putString("timestamp", Date().toString())
+                            }
+                            sendEvent("onDeviceDisconnected", disconnectionInfo)
                             
-                            // Attempt reconnection if enabled and within limits
-                            if (enableAutoReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                            // Attempt reconnection if enabled and within limits (only for unexpected disconnects)
+                            if (enableAutoReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS && !isUserInitiatedDisconnect(status)) {
                                 reconnectAttempts++
+                                Log.d(TAG, "Attempting auto-reconnect ($reconnectAttempts/$MAX_RECONNECT_ATTEMPTS) for device: ${device.address}")
                                 mainHandler.postDelayed({
                                     connectWithRetry(device, enableAutoReconnect)
                                 }, RECONNECT_DELAY)
                             }
+                        }
+                        
+                        BluetoothProfile.STATE_CONNECTING -> {
+                            Log.d(TAG, "Connecting to device: ${device.address}")
+                            sendEvent("onDeviceConnecting", createEnhancedDeviceInfo(device, null))
+                        }
+                        
+                        BluetoothProfile.STATE_DISCONNECTING -> {
+                            Log.d(TAG, "Disconnecting from device: ${device.address}")
+                            sendEvent("onDeviceDisconnecting", createEnhancedDeviceInfo(device, null))
                         }
                     }
                 }
@@ -525,6 +551,50 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
                 .emit(eventName, params)
         } catch (error: Exception) {
             Log.e(TAG, "Error sending event $eventName: ${error.message}")
+        }
+    }
+
+    // Disconnect Reason Analysis Functions
+    private fun getDisconnectReason(status: Int): String {
+        return when (status) {
+            BluetoothGatt.GATT_SUCCESS -> "Connection terminated successfully"
+            BluetoothGatt.GATT_READ_NOT_PERMITTED -> "Read operation not permitted"
+            BluetoothGatt.GATT_WRITE_NOT_PERMITTED -> "Write operation not permitted"
+            BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION -> "Insufficient authentication"
+            BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED -> "Request not supported"
+            BluetoothGatt.GATT_INSUFFICIENT_ENCRYPTION -> "Insufficient encryption"
+            BluetoothGatt.GATT_INVALID_OFFSET -> "Invalid offset"
+            BluetoothGatt.GATT_INVALID_ATTRIBUTE_LENGTH -> "Invalid attribute length"
+            BluetoothGatt.GATT_CONNECTION_CONGESTED -> "Connection congested"
+            BluetoothGatt.GATT_FAILURE -> "Generic failure"
+            8 -> "Connection timeout" // HCI_ERR_CONNECTION_TIMEOUT
+            19 -> "Connection terminated by remote device" // HCI_ERR_REMOTE_USER_TERMINATED_CONNECTION
+            22 -> "Connection terminated by local host" // HCI_ERR_LMP_RESPONSE_TIMEOUT
+            62 -> "Connection failed to be established" // HCI_ERR_CONNECTION_FAILED_ESTABLISHMENT
+            133 -> "Device not found or out of range" // Common Android BLE error
+            else -> "Unknown disconnect reason (status: $status)"
+        }
+    }
+
+    private fun getDisconnectCategory(status: Int): String {
+        return when (status) {
+            BluetoothGatt.GATT_SUCCESS -> "NORMAL"
+            8, 19, 22, 62, 133 -> "CONNECTION_ISSUE"
+            BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION,
+            BluetoothGatt.GATT_INSUFFICIENT_ENCRYPTION -> "SECURITY_ISSUE"
+            BluetoothGatt.GATT_READ_NOT_PERMITTED,
+            BluetoothGatt.GATT_WRITE_NOT_PERMITTED,
+            BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED -> "PERMISSION_ISSUE"
+            BluetoothGatt.GATT_CONNECTION_CONGESTED -> "PERFORMANCE_ISSUE"
+            else -> "UNKNOWN"
+        }
+    }
+
+    private fun isUserInitiatedDisconnect(status: Int): Boolean {
+        return when (status) {
+            BluetoothGatt.GATT_SUCCESS -> true // Normal disconnect
+            22 -> true // Local host terminated
+            else -> false // All others are likely unexpected
         }
     }
 

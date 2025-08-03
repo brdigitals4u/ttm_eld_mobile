@@ -28,40 +28,61 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
   const checkmarkScale = useSharedValue(0);
   const pulseAnimation = useSharedValue(1);
   const fadeAnimation = useSharedValue(0);
+  const loadingRotation = useSharedValue(0);
 
   useEffect(() => {
-    // Celebration animation sequence
-    successScale.value = withSpring(1, {
-      damping: 10,
-      stiffness: 100,
-    });
-    
-    checkmarkScale.value = withDelay(
-      300,
-      withSpring(1, {
-        damping: 8,
-        stiffness: 150,
-      })
-    );
-    
-    fadeAnimation.value = withDelay(
-      600,
-      withTiming(1, { duration: 800 })
-    );
+    if (device) {
+      // Success animation sequence when device is connected
+      successScale.value = withSpring(1, {
+        damping: 10,
+        stiffness: 100,
+      });
+      
+      checkmarkScale.value = withDelay(
+        300,
+        withSpring(1, {
+          damping: 8,
+          stiffness: 150,
+        })
+      );
+      
+      fadeAnimation.value = withDelay(
+        600,
+        withTiming(1, { duration: 800 })
+      );
 
-    pulseAnimation.value = withDelay(
-      800,
-      withRepeat(
-        withTiming(1.05, { 
+      pulseAnimation.value = withDelay(
+        800,
+        withRepeat(
+          withTiming(1.05, { 
+            duration: 1500, 
+            easing: Easing.inOut(Easing.ease) 
+          }),
+          -1,
+          true
+        )
+      );
+    } else {
+      // Loading animation when no device
+      loadingRotation.value = withRepeat(
+        withTiming(360, { 
           duration: 1500, 
+          easing: Easing.linear 
+        }),
+        -1,
+        false
+      );
+      
+      pulseAnimation.value = withRepeat(
+        withTiming(1.1, { 
+          duration: 1000, 
           easing: Easing.inOut(Easing.ease) 
         }),
         -1,
         true
-      )
-    );
-
-  }, []);
+      );
+    }
+  }, [device]);
 
   const animatedSuccessStyle = useAnimatedStyle(() => {
     return {
@@ -87,9 +108,16 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
     };
   });
 
-  return (
-    <Animated.View entering={FadeIn} style={styles.container}>
-      <View style={styles.header}>
+  const animatedLoadingStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${loadingRotation.value}deg` }],
+    };
+  });
+
+  const renderIcon = () => {
+    if (device) {
+      // Success checkmark
+      return (
         <Animated.View style={[styles.successContainer, animatedSuccessStyle]}>
           <View style={styles.successBackground}>
             <Animated.View style={[styles.checkmarkContainer, animatedCheckmarkStyle]}>
@@ -97,19 +125,41 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
             </Animated.View>
           </View>
         </Animated.View>
+      );
+    } else {
+      // Loading spinner
+      return (
+        <Animated.View style={[styles.loadingContainer, animatedPulseStyle]}>
+          <View style={styles.loadingBackground}>
+            <Animated.View style={[styles.spinner, animatedLoadingStyle]}>
+              <Text style={styles.spinnerText}>⟳</Text>
+            </Animated.View>
+          </View>
+        </Animated.View>
+      );
+    }
+  };
+
+  return (
+    <Animated.View entering={FadeIn} style={styles.container}>
+      <View style={styles.header}>
+        {renderIcon()}
         
         <Animated.Text 
-          entering={BounceIn.delay(800)} 
-          style={[styles.title, {color: !device ? colors.inactive : colors.success}]}
+          entering={device ? BounceIn.delay(800) : FadeIn} 
+          style={[styles.title, {color: device ? colors.success : colors.inactive}]}
         >
-         {!device? 'Establishing Connection ....' :'Connection Successful!'}
+          {device ? 'Connection Successful!' : 'Establishing Connection...'}
         </Animated.Text>
         
         <Animated.Text 
-          entering={SlideInUp.delay(1000)}
+          entering={device ? SlideInUp.delay(1000) : FadeIn.delay(500)}
           style={[styles.subtitle, {color: colors.inactive}]}
         >
-          Your device is now connected and ready to use.
+          {device 
+            ? 'Your device is now connected and ready to use.'
+            : 'Please wait while we connect to your device.'
+          }
         </Animated.Text>
       </View>
       
@@ -128,17 +178,23 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
           <Text style={styles.deviceId}>
             ID: {device.id?.substring(device.id.length - 8) || 'N/A'}
           </Text>
-
         </Animated.View>
       )}
       
-      <Animated.View style={[styles.content, animatedFadeStyle]}>
+      <Animated.View style={[styles.content, device ? animatedFadeStyle : { opacity: 0.5 }]}>
         <Pressable 
-          style={[styles.button, styles.primaryButton]}
+          style={[
+            styles.button, 
+            device ? styles.primaryButton : styles.disabledButton
+          ]}
           onPress={onContinue}
           disabled={!device}
         >
-          <Text style={styles.primaryButtonText}>Continue</Text>
+          <Text style={[
+            device ? styles.primaryButtonText : styles.disabledButtonText
+          ]}>
+            Continue
+          </Text>
         </Pressable>
       </Animated.View>
     </Animated.View>
@@ -177,6 +233,30 @@ const styles = StyleSheet.create({
   checkmark: {
     fontSize: 64,
     color: '#10B981',
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    marginBottom: 24,
+  },
+  loadingBackground: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#6B7280',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  spinner: {
+    padding: 8,
+  },
+  spinnerText: {
+    fontSize: 48,
+    color: '#6B7280',
     fontWeight: 'bold',
   },
   title: {
@@ -252,6 +332,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  disabledButton: {
+    backgroundColor: '#E5E7EB',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  disabledButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#9CA3AF',
   },
 });
 

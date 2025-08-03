@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   Modal,
   TouchableOpacity,
+  FlatList,
+  InteractionManager,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -16,6 +23,7 @@ import Animated, {
   withTiming,
   withRepeat,
   Easing,
+  runOnJS,
 } from "react-native-reanimated";
 import { useTheme } from "@/context/theme-context";
 import Button from "@/components/Button";
@@ -39,6 +47,11 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [lastDisconnectReason, setLastDisconnectReason] = useState<string | null>(null);
+  const [disconnectInfo, setDisconnectInfo] = useState<any>(null);
+  const mountedRef = useRef(true);
+  const renderCountRef = useRef(0);
 
   const pulseAnimation = useSharedValue(1);
 
@@ -49,6 +62,52 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
       -1,
       true
     );
+    
+    // Cleanup on unmount
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Effect to handle disconnect reasons and connection state
+  useEffect(() => {
+    const handleDisconnectEvent = (disconnectionData: any) => {
+      if (!mountedRef.current) return;
+      
+      console.log('Device disconnected with details:', disconnectionData);
+      
+      // Batch state updates for performance
+      InteractionManager.runAfterInteractions(() => {
+        setIsConnected(false);
+        setLastDisconnectReason(disconnectionData.disconnectReason || 'Unknown reason');
+        setDisconnectInfo({
+          reason: disconnectionData.disconnectReason,
+          status: disconnectionData.disconnectStatus,
+          category: disconnectionData.disconnectCategory,
+          wasUnexpected: disconnectionData.wasUnexpected,
+          timestamp: disconnectionData.timestamp,
+        });
+      });
+    };
+
+    const handleConnectEvent = (connectionData: any) => {
+      if (!mountedRef.current) return;
+      
+      console.log('Device connected:', connectionData);
+      
+      InteractionManager.runAfterInteractions(() => {
+        setIsConnected(true);
+        setLastDisconnectReason(null);
+        setDisconnectInfo(null);
+      });
+    };
+
+    // Note: These would be actual event listeners in a real implementation
+    // For now, this shows the structure for handling the enhanced disconnect data
+    
+    return () => {
+      // Cleanup event listeners
+    };
   }, []);
 
   const animatedPulseStyle = useAnimatedStyle(() => {
@@ -87,116 +146,145 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
+  // Memoize expensive calculations
+  const formatTimestamp = useCallback((timestamp: string) => {
     try {
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
     } catch {
       return timestamp;
     }
-  };
+  }, []);
 
-  const formatDataType = (dataType: string) => {
-
-    console.log(dataType)
-
+  const formatDataType = useCallback((dataType: string) => {
     return dataType
       ?.replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
-  };
+  }, []);
 
-  const getLatestData = () => {
+  // Memoize latest data calculation
+  const latestData = useMemo(() => {
     if (!deviceData || deviceData.length === 0) return null;
     return deviceData[deviceData.length - 1];
-  };
+  }, [deviceData]);
 
-  const renderDataItem = (item: DeviceData, index: number) => {
-    return (
-      <Animated.View
-        key={`${item.timestamp}-${index}`}
-        entering={SlideInDown.delay(index * 100)}
-        style={[
-          styles.dataItem,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            borderLeftColor: item.isRealData ? colors.success : colors.warning,
-          },
-        ]}
-      >
-        <View style={styles.dataHeader}>
-          <Text style={[styles.dataType, { color: colors.text }]}>
-            {formatDataType(item.dataType)}
-          </Text>
-          <Text style={[styles.timestamp, { color: colors.inactive }]}>
-            {formatTimestamp(item.timestamp)}
-          </Text>
-        </View>
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item: DeviceData, index: number) => {
+    return `${item.timestamp}-${index}`;
+  }, []);
 
-        <View style={styles.dataContent}>
-          {item.value !== undefined && (
-            <Text style={[styles.dataValue, { color: colors.text }]}>
-              Value: {item.value}
+  // Empty component for FlatList
+  const renderEmptyComponent = useCallback(
+    () => (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyIcon}>📡</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          No Data Received
+        </Text>
+        <Text style={[styles.emptyMessage, { color: colors.inactive }]}>
+          Waiting for data from the connected device...
+        </Text>
+      </View>
+    ),
+    [colors]
+  );
+
+  // Memoize reversed data array for FlatList
+  const reversedDeviceData = useMemo(() => {
+    return deviceData.slice().reverse();
+  }, [deviceData]);
+
+  // Memoized render function for FlatList items
+
+  const renderDataItem = useCallback(
+    ({ item, index }: { item: DeviceData; index: number }) => {
+      return (
+        <Animated.View
+          key={`${item.timestamp}-${index}`}
+          entering={SlideInDown.delay(index * 100)}
+          style={[
+            styles.dataItem,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderLeftColor: item.isRealData
+                ? colors.success
+                : colors.warning,
+            },
+          ]}
+        >
+          <View style={styles.dataHeader}>
+            <Text style={[styles.dataType, { color: colors.text }]}>
+              {formatDataType(item.dataType)}
             </Text>
-          )}
-
-          {item.sensorValue !== undefined && (
-            <Text style={[styles.dataValue, { color: colors.text }]}>
-              Sensor: {item.sensorValue}
+            <Text style={[styles.timestamp, { color: colors.inactive }]}>
+              {formatTimestamp(item.timestamp)}
             </Text>
-          )}
+          </View>
 
-          {item.batteryLevel !== undefined && (
-            <Text style={[styles.dataValue, { color: colors.text }]}>
-              Battery: {item.batteryLevel}%
-            </Text>
-          )}
-
-          {item.signalStrength !== undefined && (
-            <Text style={[styles.dataValue, { color: colors.text }]}>
-              Signal: {item.signalStrength} dBm
-            </Text>
-          )}
-
-          {item.rawData && (
-            <Text
-              style={[styles.rawData, { color: colors.inactive }]}
-              numberOfLines={2}
-            >
-              Raw:{" "}
-              {item.rawData.length > 50
-                ? `${item.rawData.substring(0, 50)}...`
-                : item.rawData}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.dataFooter}>
-          {item.isRealData && (
-            <View
-              style={[
-                styles.realDataBadge,
-                { backgroundColor: colors.success + "20" },
-              ]}
-            >
-              <Text style={[styles.realDataText, { color: colors.success }]}>
-                Real Data
+          <View style={styles.dataContent}>
+            {item.value !== undefined && (
+              <Text style={[styles.dataValue, { color: colors.text }]}>
+                Value: {item.value}
               </Text>
-            </View>
-          )}
+            )}
 
-          {item.protocol && (
-            <Text style={[styles.protocol, { color: colors.inactive }]}>
-              {item.protocol}
-            </Text>
-          )}
-        </View>
-      </Animated.View>
-    );
-  };
+            {item.sensorValue !== undefined && (
+              <Text style={[styles.dataValue, { color: colors.text }]}>
+                Sensor: {item.sensorValue}
+              </Text>
+            )}
 
-  const latestData = getLatestData();
+            {item.batteryLevel !== undefined && (
+              <Text style={[styles.dataValue, { color: colors.text }]}>
+                Battery: {item.batteryLevel}%
+              </Text>
+            )}
 
+            {item.signalStrength !== undefined && (
+              <Text style={[styles.dataValue, { color: colors.text }]}>
+                Signal: {item.signalStrength} dBm
+              </Text>
+            )}
+
+            {item.rawData && (
+              <Text
+                style={[styles.rawData, { color: colors.inactive }]}
+                numberOfLines={2}
+              >
+                Raw:{" "}
+                {item.rawData.length > 50
+                  ? `${item.rawData.substring(0, 50)}...`
+                  : item.rawData}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.dataFooter}>
+            {item.isRealData && (
+              <View
+                style={[
+                  styles.realDataBadge,
+                  { backgroundColor: colors.success + "20" },
+                ]}
+              >
+                <Text style={[styles.realDataText, { color: colors.success }]}>
+                  Real Data
+                </Text>
+              </View>
+            )}
+
+            {item.protocol && (
+              <Text style={[styles.protocol, { color: colors.inactive }]}>
+                {item.protocol}
+              </Text>
+            )}
+          </View>
+        </Animated.View>
+      );
+    },
+    []
+  );
   return (
     <Animated.View
       entering={FadeIn}
@@ -247,6 +335,41 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
         </View>
       </View>
 
+      {/* Disconnect Status */}
+      {!isConnected && disconnectInfo && (
+        <Animated.View
+          entering={SlideInDown.delay(100)}
+          style={[
+            styles.disconnectCard,
+            { 
+              backgroundColor: colors.card, 
+              borderColor: disconnectInfo.wasUnexpected ? colors.danger : colors.warning,
+              borderLeftColor: disconnectInfo.wasUnexpected ? colors.danger : colors.warning 
+            },
+          ]}
+        >
+          <View style={styles.disconnectHeader}>
+            <Text style={[styles.disconnectTitle, { color: colors.text }]}>
+              {disconnectInfo.wasUnexpected ? '⚠️ Unexpected Disconnect' : '✓ Normal Disconnect'}
+            </Text>
+            <Text style={[styles.disconnectTime, { color: colors.inactive }]}>
+              {disconnectInfo.timestamp ? formatTimestamp(disconnectInfo.timestamp) : 'Unknown time'}
+            </Text>
+          </View>
+          <Text style={[styles.disconnectReason, { color: colors.text }]}>
+            Reason: {disconnectInfo.reason || 'Unknown'}
+          </Text>
+          <View style={styles.disconnectMeta}>
+            <Text style={[styles.disconnectCategory, { color: colors.inactive }]}>
+              Category: {disconnectInfo.category || 'UNKNOWN'}
+            </Text>
+            <Text style={[styles.disconnectStatus, { color: colors.inactive }]}>
+              Status Code: {disconnectInfo.status || 'N/A'}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Latest Data Summary */}
       {latestData && (
         <Animated.View
@@ -281,8 +404,12 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
           Data Stream ({deviceData.length} messages)
         </Text>
 
-        <ScrollView
+        <FlatList
           style={styles.dataList}
+          data={reversedDeviceData}
+          keyExtractor={keyExtractor}
+          renderItem={renderDataItem}
+          ListEmptyComponent={renderEmptyComponent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -291,26 +418,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
               tintColor={colors.primary}
             />
           }
-        >
-          {deviceData.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📡</Text>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No Data Received
-              </Text>
-              <Text style={[styles.emptyMessage, { color: colors.inactive }]}>
-                Waiting for data from the connected device...
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.dataContainer}>
-              {deviceData
-                .slice()
-                .reverse()
-                .map((item, index) => renderDataItem(item, index))}
-            </View>
-          )}
-        </ScrollView>
+        />
       </View>
 
       {/* Action Buttons */}
@@ -347,7 +455,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
                 onPress={() => {
                   onDisconnect();
                   setConfirmDisconnect(false);
-                  onBack()
+                  onBack();
                 }}
               >
                 <Text style={styles.modalButtonText}>Confirmed</Text>
@@ -453,6 +561,44 @@ const styles = StyleSheet.create({
   },
   summaryDetail: {
     fontSize: 14,
+  },
+  disconnectCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    marginBottom: 20,
+  },
+  disconnectHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  disconnectTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  disconnectTime: {
+    fontSize: 12,
+    fontFamily: "monospace",
+  },
+  disconnectReason: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  disconnectMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  disconnectCategory: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  disconnectStatus: {
+    fontSize: 12,
+    fontFamily: "monospace",
   },
   dataSection: {
     flex: 1,
