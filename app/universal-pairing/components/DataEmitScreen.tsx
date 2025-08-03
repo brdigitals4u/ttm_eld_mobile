@@ -46,7 +46,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
 }) => {
   const startDataStreaming = useCallback(() => {
     if (device) {
-      NativeModules.JimiBridge.startDataStreaming(device.id, null, (error: string) => {
+      NativeModules.JimiBridge.startDataStreaming(device.id, (error: string) => {
         if (error) {
           console.error('Error starting data streaming:', error);
         } else {
@@ -67,7 +67,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
       });
     }
   }, [device]);
-  
+
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
@@ -94,46 +94,46 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
     };
   }, []);
 
-  // Effect to handle disconnect reasons and connection state
-  useEffect(() => {
-    const handleDisconnectEvent = (disconnectionData: any) => {
-      if (!mountedRef.current) return;
+  // // Effect to handle disconnect reasons and connection state
+  // useEffect(() => {
+  //   const handleDisconnectEvent = (disconnectionData: any) => {
+  //     if (!mountedRef.current) return;
       
-      console.log('Device disconnected with details:', disconnectionData);
+  //     console.log('Device disconnected with details:', disconnectionData);
       
-      // Batch state updates for performance
-      InteractionManager.runAfterInteractions(() => {
-        setIsConnected(false);
-        setLastDisconnectReason(disconnectionData.disconnectReason || 'Unknown reason');
-        setDisconnectInfo({
-          reason: disconnectionData.disconnectReason,
-          status: disconnectionData.disconnectStatus,
-          category: disconnectionData.disconnectCategory,
-          wasUnexpected: disconnectionData.wasUnexpected,
-          timestamp: disconnectionData.timestamp,
-        });
-      });
-    };
+  //     // Batch state updates for performance
+  //     InteractionManager.runAfterInteractions(() => {
+  //       setIsConnected(false);
+  //       setLastDisconnectReason(disconnectionData.disconnectReason || 'Unknown reason');
+  //       setDisconnectInfo({
+  //         reason: disconnectionData.disconnectReason,
+  //         status: disconnectionData.disconnectStatus,
+  //         category: disconnectionData.disconnectCategory,
+  //         wasUnexpected: disconnectionData.wasUnexpected,
+  //         timestamp: disconnectionData.timestamp,
+  //       });
+  //     });
+  //   };
 
-    const handleConnectEvent = (connectionData: any) => {
-      if (!mountedRef.current) return;
+  //   const handleConnectEvent = (connectionData: any) => {
+  //     if (!mountedRef.current) return;
       
-      console.log('Device connected:', connectionData);
+  //     console.log('Device connected:', connectionData);
       
-      InteractionManager.runAfterInteractions(() => {
-        setIsConnected(true);
-        setLastDisconnectReason(null);
-        setDisconnectInfo(null);
-      });
-    };
+  //     InteractionManager.runAfterInteractions(() => {
+  //       setIsConnected(true);
+  //       setLastDisconnectReason(null);
+  //       setDisconnectInfo(null);
+  //     });
+  //   };
 
-    // Note: These would be actual event listeners in a real implementation
-    // For now, this shows the structure for handling the enhanced disconnect data
+  //   // Note: These would be actual event listeners in a real implementation
+  //   // For now, this shows the structure for handling the enhanced disconnect data
     
-    return () => {
-      // Cleanup event listeners
-    };
-  }, []);
+  //   return () => {
+  //     Disc
+  //   };
+  // }, []);
 
   const animatedPulseStyle = useAnimatedStyle(() => {
     return {

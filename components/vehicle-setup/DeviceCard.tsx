@@ -8,13 +8,7 @@ interface DeviceCardProps {
   device: BLEDevice;
   onConnect: () => void;
   isConnecting: boolean;
-  colors: {
-    text: string;
-    inactive: string;
-    primary: string;
-    card: string;
-    border: string;
-  };
+  colors: any;
 }
 
 export default function DeviceCard({
