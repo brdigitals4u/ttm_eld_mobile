@@ -26,7 +26,21 @@ const DeviceListView: React.FC<DeviceListViewProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  const renderDeviceItem = ({ item }: { item: UniversalDevice }) => (
+  // Generate stable unique key for each device
+  const getDeviceKey = (item: UniversalDevice, index: number): string => {
+    // Prefer address as primary key (MAC addresses are unique)
+    if (item.address && item.address.trim()) {
+      return item.address;
+    }
+    // Fallback to id if available
+    if (item.id && item.id.trim()) {
+      return item.id;
+    }
+    // Fallback to combination of name and index for stability
+    return `${item.name || 'unknown'}-${index}`;
+  };
+
+  const renderDeviceItem = ({ item, index }: { item: UniversalDevice, index: number }) => (
     <DeviceCard
       device={item}
       isSelected={selectedDevice?.id === item.id}
@@ -89,7 +103,7 @@ const DeviceListView: React.FC<DeviceListViewProps> = ({
           <FlatList
             data={devices}
             renderItem={renderDeviceItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => getDeviceKey(item, index)}
             showsVerticalScrollIndicator={false}
             style={styles.deviceList}
           />

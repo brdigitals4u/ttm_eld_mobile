@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { ClipboardList, FileText, Home, Settings, Truck, User, Users, Bluetooth } from 'lucide-react-native';
+import { ClipboardList, FileText, Home, Settings, Truck, User, Users, Bluetooth,} from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '@/context/theme-context';
@@ -42,6 +42,7 @@ export default function TabLayout() {
       'status': 'Status',
       'logs': 'Logs',
       'more': 'More',
+      'profile': 'Profile'
     };
     return tabTitles[tabName];
   };
@@ -89,6 +90,13 @@ export default function TabLayout() {
         options={{
           title: 'More',
           tabBarIcon: ({ color, size }: any) => <FileText color={color} size={size} />,
+        }}
+      />
+       <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }: any) => <Settings color={color} size={size} />,
         }}
       />
       </Tabs>

@@ -148,14 +148,14 @@ export const [EldProvider, useEld] = createContextHook(() => {
       };
     };
 
-    if (!isWeb) {
-      initBleManager();
-      const cleanupListeners = setupListeners();
+    // if (!isWeb) {
+    //   initBleManager();
+    //   const cleanupListeners = setupListeners();
       
-      return () => {
-        cleanupListeners();
-      };
-    }
+    //   return () => {
+    //     cleanupListeners();
+    //   };
+    // }
   }, [vehicleInfo]);
 
   const startScan = async () => {

@@ -202,14 +202,23 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val enableRSSI = options.getBoolean("enableRSSI")
             val enableDeviceTypeDetection = options.getBoolean("enableDeviceTypeDetection")
             
-            // Enhanced scanning options
-            val enableBluetoothClassic = options.getBoolean("enableBluetoothClassic") ?: false
-            val enableBluetoothLE = options.getBoolean("enableBluetoothLE") ?: true
-            val enableBluetoothScan = options.getBoolean("enableBluetoothScan") ?: true
+            // Enhanced scanning options with proper error handling
+            val enableBluetoothClassic = try { options.getBoolean("enableBluetoothClassic") } catch (e: Exception) { false }
+            val enableBluetoothLE = try { options.getBoolean("enableBluetoothLE") } catch (e: Exception) { true }
+            val enableBluetoothScan = try { options.getBoolean("enableBluetoothScan") } catch (e: Exception) { true }
             val scanMode = options.getString("scanMode") ?: "LOW_LATENCY"
-            val maxResults = options.getInt("maxResults") ?: 50
-            val enableDuplicateFilter = options.getBoolean("enableDuplicateFilter") ?: true
-            val enableLegacyScan = options.getBoolean("enableLegacyScan") ?: false
+            val maxResults = try { options.getInt("maxResults") } catch (e: Exception) { 50 }
+            val enableDuplicateFilter = try { options.getBoolean("enableDuplicateFilter") } catch (e: Exception) { true }
+            val enableLegacyScan = try { options.getBoolean("enableLegacyScan") } catch (e: Exception) { false }
+            
+            Log.d(TAG, "Scan parameters: filter=$scanFilter, duration=$scanDuration, BLE=$enableBluetoothLE, Classic=$enableBluetoothClassic, Scan=$enableBluetoothScan")
+            
+            // Validate enableBluetoothScan parameter
+            if (!enableBluetoothScan) {
+                Log.w(TAG, "Bluetooth scanning is disabled by parameter")
+                promise.reject("SCAN_DISABLED", "Bluetooth scanning is disabled")
+                return
+            }
             
             if (!checkBluetoothPermissions()) {
                 promise.reject("PERMISSION_DENIED", "Bluetooth permissions are required")
@@ -222,6 +231,13 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             
             if (bluetoothAdapter?.isEnabled == false) {
                 promise.reject("BLUETOOTH_DISABLED", "Bluetooth is not enabled")
+                return
+            }
+            
+            // Check if Bluetooth LE scanner is available
+            if (bluetoothAdapter?.bluetoothLeScanner == null) {
+                Log.e(TAG, "Bluetooth LE scanner is not available")
+                promise.reject("SCANNER_UNAVAILABLE", "Bluetooth LE scanner is not available")
                 return
             }
             
@@ -242,7 +258,8 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             
         } catch (error: Exception) {
             Log.e(TAG, "Error starting universal scan: ${error.message}")
-            promise.reject("SCAN_ERROR", error.message)
+            Log.e(TAG, "Stack trace: ${error.stackTrace.joinToString("\n")}")
+            promise.reject("SCAN_ERROR", error.message ?: "Unknown scanning error")
         }
     }
 
@@ -483,6 +500,16 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val allGranted = scanPermission && connectPermission && locationPermission
             if (!allGranted) {
                 Log.w(TAG, "JimiBridge missing permissions on Android 12+: scan=$scanPermission, connect=$connectPermission, location=$locationPermission")
+                // Send detailed error to React Native
+                sendEvent("onPermissionError", createPermissionErrorInfo(
+                    "BLUETOOTH_PERMISSION_DENIED",
+                    "Required Bluetooth permissions not granted",
+                    mapOf(
+                        "BLUETOOTH_SCAN" to scanPermission,
+                        "BLUETOOTH_CONNECT" to connectPermission,
+                        "ACCESS_FINE_LOCATION" to locationPermission
+                    )
+                ))
             }
             allGranted
         } else {
@@ -495,6 +522,16 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val allGranted = bluetoothPermission && bluetoothAdminPermission && locationPermission
             if (!allGranted) {
                 Log.w(TAG, "JimiBridge missing permissions on Android <12: bluetooth=$bluetoothPermission, bluetoothAdmin=$bluetoothAdminPermission, location=$locationPermission")
+                // Send detailed error to React Native
+                sendEvent("onPermissionError", createPermissionErrorInfo(
+                    "BLUETOOTH_PERMISSION_DENIED",
+                    "Required Bluetooth permissions not granted",
+                    mapOf(
+                        "BLUETOOTH" to bluetoothPermission,
+                        "BLUETOOTH_ADMIN" to bluetoothAdminPermission,
+                        "ACCESS_FINE_LOCATION" to locationPermission
+                    )
+                ))
             }
             allGranted
         }
@@ -575,17 +612,31 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         }
 
         // Start scanning with enhanced settings
-        bluetoothAdapter?.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+        try {
+            bluetoothAdapter?.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
+            Log.d(TAG, "BLE scanner started successfully")
+        } catch (exception: Exception) {
+            Log.e(TAG, "Failed to start BLE scan: ${exception.message}")
+            Log.e(TAG, "Exception stack trace: ${exception.stackTrace.joinToString("\n")}")
+            isScanning = false
+            sendEvent("onScanError", createErrorInfo("Failed to start BLE scan: ${exception.message}"))
+            return
+        }
 
         // Set timer to stop scanning
-        scanTimer = Timer()
-        scanTimer?.schedule(object : TimerTask() {
-            override fun run() {
-                stopScanning()
-            }
-        }, scanDuration)
+        try {
+            scanTimer = Timer()
+            scanTimer?.schedule(object : TimerTask() {
+                override fun run() {
+                    stopScanning()
+                }
+            }, scanDuration)
+            Log.d(TAG, "Scan timer set for ${scanDuration}ms")
+        } catch (exception: Exception) {
+            Log.e(TAG, "Failed to set scan timer: ${exception.message}")
+        }
 
-        Log.d(TAG, "Started enhanced universal scanning")
+        Log.d(TAG, "Started enhanced universal scanning successfully")
     }
 
     private fun stopScanning() {
@@ -1211,6 +1262,19 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         return Arguments.createMap().apply {
             putString("message", message)
             putString("timestamp", Date().toString())
+        }
+    }
+
+    private fun createPermissionErrorInfo(errorCode: String, message: String, permissions: Map<String, Boolean>): WritableMap {
+        return Arguments.createMap().apply {
+            putString("errorCode", errorCode)
+            putString("message", message)
+            putString("timestamp", Date().toString())
+            val permissionMap = Arguments.createMap()
+            permissions.forEach { (key, value) ->
+                permissionMap.putBoolean(key, value)
+            }
+            putMap("permissions", permissionMap)
         }
     }
 

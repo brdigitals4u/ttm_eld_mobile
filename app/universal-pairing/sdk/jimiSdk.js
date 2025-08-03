@@ -3,12 +3,15 @@ import { NativeModules, NativeEventEmitter } from 'react-native';
 const { JimiBridge } = NativeModules;
 const EventEmitter = new NativeEventEmitter(JimiBridge);
 
-export function setupJimiBridgeListeners(onDeviceDiscovered, onDeviceConnected, onDeviceDisconnected, onDataReceived, onConnectionError) {
+export function setupJimiBridgeListeners(onDeviceDiscovered, onDeviceConnected, onDeviceDisconnected, onDataReceived, onConnectionError, onPermissionError) {
   EventEmitter.addListener('onDeviceDiscovered', onDeviceDiscovered);
   EventEmitter.addListener('onDeviceConnected', onDeviceConnected);
   EventEmitter.addListener('onDeviceDisconnected', onDeviceDisconnected);
   EventEmitter.addListener('onDataReceived', onDataReceived);
   EventEmitter.addListener('onConnectionError', onConnectionError);
+  if (onPermissionError) {
+    EventEmitter.addListener('onPermissionError', onPermissionError);
+  }
 }
 
 export function removeJimiBridgeListeners() {
@@ -17,6 +20,7 @@ export function removeJimiBridgeListeners() {
   EventEmitter.removeAllListeners('onDeviceDisconnected');
   EventEmitter.removeAllListeners('onDataReceived');
   EventEmitter.removeAllListeners('onConnectionError');
+  EventEmitter.removeAllListeners('onPermissionError');
 }
 
 export async function startDeviceScan(scanOptions) {

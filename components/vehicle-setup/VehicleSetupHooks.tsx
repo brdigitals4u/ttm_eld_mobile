@@ -141,43 +141,43 @@ export function useVehicleSetupLogic() {
       }
     };
 
-    initializeSDK();
+    // initializeSDK();
 
-    scanSubscription = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
-      console.log('🔍 Device found:', device);
-      addScannedDevice(device); // should update scannedDevices context and in turn, the ref.
-      addLog(`Device found: ${device.name || 'Unknown'} (${device.id})`);
-    });
+    // scanSubscription = TTMBLEManager.onDeviceScanned((device: BLEDevice) => {
+    //   console.log('🔍 Device found:', device);
+    //   addScannedDevice(device); // should update scannedDevices context and in turn, the ref.
+    //   addLog(`Device found: ${device.name || 'Unknown'} (${device.id})`);
+    // });
 
-    connectFailureSubscription = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
-      console.error("Connection failed:", error);
-      setIsConnecting(false);
-      setConnectingDeviceId(null);
+    // connectFailureSubscription = TTMBLEManager.onConnectFailure((error: ConnectionFailure) => {
+    //   console.error("Connection failed:", error);
+    //   setIsConnecting(false);
+    //   setConnectingDeviceId(null);
 
-      setError({
-        type: 'connection_failed',
-        message: error.message || 'Connection failed',
-        details: `Status: ${error.status || 'unknown'}`,
-        code: error.status
-      });
-      setStep(SetupStep.ERROR);
+    //   setError({
+    //     type: 'connection_failed',
+    //     message: error.message || 'Connection failed',
+    //     details: `Status: ${error.status || 'unknown'}`,
+    //     code: error.status
+    //   });
+    //   setStep(SetupStep.ERROR);
 
-      // Log connection failure to Supabase
-      if (selectedDeviceForPasscode) {
-        ELDDeviceService.logConnectionFailure(selectedDeviceForPasscode, error);
-      }
+    //   // Log connection failure to Supabase
+    //   if (selectedDeviceForPasscode) {
+    //     ELDDeviceService.logConnectionFailure(selectedDeviceForPasscode, error);
+    //   }
 
-      setShowPasscodeModal(false);
-      setPasscode('');
-      setDeviceId('');
-      setSelectedDeviceForPasscode(null);
+    //   setShowPasscodeModal(false);
+    //   setPasscode('');
+    //   setDeviceId('');
+    //   setSelectedDeviceForPasscode(null);
 
-      trackEvent('connection_failure_handled', {
-        screen: 'select_vehicle',
-        error_status: error.status || 'unknown',
-        error_message: error.message || 'unknown',
-      });
-    });
+    //   trackEvent('connection_failure_handled', {
+    //     screen: 'select_vehicle',
+    //     error_status: error.status || 'unknown',
+    //     error_message: error.message || 'unknown',
+    //   });
+    // });
 
     return () => {
       scanSubscription?.remove && scanSubscription.remove();
