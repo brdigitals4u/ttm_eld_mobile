@@ -5,15 +5,11 @@ import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, Na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-// Firebase removed - import { FirebaseLogger } from '@/src/services/FirebaseService';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
 import { useAuth } from '@/context/auth-context';
 import { useEld } from '@/context/eld-context';
 import { useTheme } from '@/context/theme-context';
 import { EldDevice } from '@/types/eld';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Check if running on web
 const isWeb = false;
@@ -228,6 +224,53 @@ export default function UniversalPairingScreen() {
     if (!isWeb) {
       initializeJimiBridge();
       startUniversalScan();
+      
+      // Add test devices for UI testing
+      const testDevices = [
+        {
+          id: 'test-eld-1',
+          name: 'ELD Device 1',
+          address: '00:11:22:33:44:55',
+          isConnected: false,
+          deviceType: 'ELD_DEVICE',
+          deviceCategory: 'ELD',
+          signalStrength: 85,
+          batteryLevel: 90,
+          firmwareVersion: '2.1.0',
+          lastSeen: new Date(),
+        },
+        {
+          id: 'test-camera-1',
+          name: 'Security Camera',
+          address: 'AA:BB:CC:DD:EE:FF',
+          isConnected: false,
+          deviceType: 'CAMERA_DEVICE',
+          deviceCategory: 'CAMERA',
+          signalStrength: 72,
+          batteryLevel: 65,
+          firmwareVersion: '1.5.2',
+          lastSeen: new Date(),
+        },
+        {
+          id: 'test-sensor-1',
+          name: 'Temperature Sensor',
+          address: '80:8A:BD:80:D0:9D',
+          isConnected: false,
+          deviceType: 'BLUETOOTH_SENSOR',
+          deviceCategory: 'SENSOR',
+          signalStrength: 95,
+          batteryLevel: 100,
+          sensorData: 23.5,
+          dataType: 'temperature',
+          firmwareVersion: '1.0.0',
+          lastSeen: new Date(),
+        }
+      ];
+      
+      // Add test devices after a short delay
+      setTimeout(() => {
+        addDevicesToState(testDevices);
+      }, 2000);
     }
 
     return () => {
@@ -295,24 +338,12 @@ export default function UniversalPairingScreen() {
   const requestJimiPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
-        // Check Android API level for proper permission handling
-        const apiLevel = parseInt(Platform.Version.toString(), 10);
-        let permissions = [];
-        
-        if (apiLevel >= 31) {
-          // Android 12+ (API 31+)
-          permissions = [
-            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          ];
-        } else {
-          // Android 11 and below
-          permissions = [
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-          ];
-        }
+        const permissions = [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ];
         
         const granted = await PermissionsAndroid.requestMultiple(permissions);
         const allGranted = Object.values(granted).every(
@@ -320,16 +351,13 @@ export default function UniversalPairingScreen() {
         );
         
         if (!allGranted) {
-          console.warn('Some permissions denied:', granted);
           Alert.alert('Permission Denied', 'Some permissions are required for universal device pairing.');
           return false;
         }
         
-        console.log('All permissions granted successfully');
         return true;
       } catch (error) {
         console.error('Permission request failed:', error);
-        Alert.alert('Permission Error', 'Failed to request permissions. Please grant them manually in Settings.');
         return false;
       }
     }
@@ -585,7 +613,7 @@ export default function UniversalPairingScreen() {
 
   // Handle Refresh Scan
   const handleRefreshScan = async () => {
-    // Firebase removed - analytics logging disabled
+
     
     if (!isWeb) {
       startUniversalScan();
@@ -596,7 +624,6 @@ export default function UniversalPairingScreen() {
 
   // Handle Back Press
   const handleBackPress = async () => {
-    // Firebase removed - analytics logging disabled
     router.back();
   };
 
