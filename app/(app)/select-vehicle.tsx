@@ -19,7 +19,7 @@ import Modal from 'react-native-modal';
 import { useVehicleSetup, VehicleSetupProvider, SetupStep, ConnectionStage } from '@/context/vehicle-setup-context';
 import { TTMBLEManager, BLEDevice, ConnectionFailure, NotifyData, TTMEventSubscription } from "@/src/utils/TTMBLEManager";
 import { router } from "expo-router";
-import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { PermissionsAndroid } from 'react-native';
 import { useAnalytics } from '@/src/hooks/useAnalytics';
 import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 // import { useTheme } from '@/context/theme-context'; // Uncomment if you have theme context
@@ -99,46 +99,51 @@ function SelectVehicleComponent() {
       permission_type: 'bluetooth_location',
     });
 
-    let permissionsToRequest = [] as any;
     if (Platform.OS === 'android') {
       const apiLevel = parseInt(Platform.Version.toString(), 10);
+      let permissionsToRequest = [];
+      
       if (apiLevel >= 31) {
         permissionsToRequest = [
-          PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
-          PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
-          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         ];
       } else {
         permissionsToRequest = [
-          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         ];
       }
-    } else if (Platform.OS === 'ios') {
-      permissionsToRequest = [
-        PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
-      ] as any;
-    }
-
-    const statuses = await requestMultiple(permissionsToRequest);
-    let allGranted = true;
-    const deniedPermissions: string[] = [];
-    
-    for (const permission of permissionsToRequest) {
-      if (statuses[permission] !== RESULTS.GRANTED) {
-        allGranted = false;
-        deniedPermissions.push(permission);
+      
+      try {
+        const results = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+        const allGranted = Object.values(results).every(
+          result => result === PermissionsAndroid.RESULTS.GRANTED
+        );
+        
+        if (allGranted) {
+          console.log("✅ All permissions granted");
+          addLog("All permissions granted");
+        } else {
+          console.log("❌ Some permissions denied:", results);
+          addLog(`Some permissions denied: ${JSON.stringify(results)}`);
+        }
+        
+        return allGranted;
+      } catch (error) {
+        console.error("Error requesting permissions:", error);
+        addLog(`Permission request error: ${error}`);
+        return false;
       }
+    } else if (Platform.OS === 'ios') {
+      // For iOS, we'll assume permissions are granted for now
+      console.log("✅ iOS permissions assumed granted");
+      addLog("iOS permissions assumed granted");
+      return true;
     }
-
-    trackEvent('permission_request_completed', {
-      platform: Platform.OS,
-      screen: 'select_vehicle',
-      granted: allGranted,
-      denied_permissions: deniedPermissions.join(','),
-    });
-
-    return allGranted;
-  }, [trackEvent]);
+    
+    return false;
+  }, [trackEvent, addLog]);
 
   useEffect(() => {
     // Initialize TTM SDK

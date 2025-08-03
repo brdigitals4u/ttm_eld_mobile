@@ -5,6 +5,7 @@ import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -83,26 +84,43 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
     // Enhanced Scanning with Background Support
     fun startEnhancedScan(options: ReadableMap, promise: Promise) {
         try {
+            Log.d(TAG, "=== Starting Enhanced BLE Scan ===")
+            Log.d(TAG, "Checking permissions...")
+            
             if (!checkPermissions()) {
+                Log.e(TAG, "Bluetooth permissions not granted")
                 promise.reject("PERMISSION_DENIED", "Bluetooth permissions required")
                 return
             }
+            Log.d(TAG, "Permissions check passed")
 
             if (bluetoothAdapter?.isEnabled == false) {
+                Log.e(TAG, "Bluetooth is not enabled")
                 promise.reject("BLUETOOTH_DISABLED", "Bluetooth is not enabled")
                 return
             }
+            Log.d(TAG, "Bluetooth is enabled")
+
+            // Check location services
+            if (!isLocationEnabled()) {
+                Log.e(TAG, "Location services are disabled - required for BLE scanning")
+                promise.reject("LOCATION_DISABLED", "Location services must be enabled for Bluetooth scanning")
+                return
+            }
+            Log.d(TAG, "Location services are enabled")
 
             val scanFilter = options.getString("scanFilter") ?: "all"
             val enableBackgroundScan = options.getBoolean("enableBackgroundScan")
             val scanDuration = options.getInt("scanDuration").toLong()
+
+            Log.d(TAG, "Scan parameters: filter=$scanFilter, backgroundScan=$enableBackgroundScan, duration=${scanDuration}ms")
 
             isBackgroundMode = enableBackgroundScan
             startScanning(scanFilter, scanDuration)
             promise.resolve(true)
 
         } catch (error: Exception) {
-            Log.e(TAG, "Error starting enhanced scan: ${error.message}")
+            Log.e(TAG, "Error starting enhanced scan: ${error.message}", error)
             promise.reject("SCAN_ERROR", error.message)
         }
     }
@@ -436,11 +454,28 @@ class EnhancedBLEManager(private val context: ReactApplicationContext) {
     // Utility Methods
     private fun checkPermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val scanPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            val connectPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val locationPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
+            Log.d(TAG, "Permission check (Android 12+): BLUETOOTH_SCAN=$scanPermission, BLUETOOTH_CONNECT=$connectPermission, ACCESS_FINE_LOCATION=$locationPermission")
+            scanPermission && connectPermission && locationPermission
         } else {
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val bluetoothPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED
+            val bluetoothAdminPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED
+            val locationPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
+            Log.d(TAG, "Permission check (Android <12): BLUETOOTH=$bluetoothPermission, BLUETOOTH_ADMIN=$bluetoothAdminPermission, ACCESS_FINE_LOCATION=$locationPermission")
+            bluetoothPermission && bluetoothAdminPermission && locationPermission
         }
+    }
+    
+    private fun isLocationEnabled(): Boolean {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        Log.d(TAG, "Location services: GPS=$isGpsEnabled, Network=$isNetworkEnabled")
+        return isGpsEnabled || isNetworkEnabled
     }
 
     private fun createEnhancedDeviceInfo(device: BluetoothDevice, scanResult: ScanResult?): WritableMap {

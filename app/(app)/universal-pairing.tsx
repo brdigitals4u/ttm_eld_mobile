@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
-import { ArrowLeft, Bluetooth, RefreshCw, Truck, Wifi, Signal, Battery, Settings, X } from 'lucide-react-native';
+import { ArrowLeft, Bluetooth, RefreshCw, Truck, Wifi, Signal, Battery, Settings, X, Search, Filter, Zap, ShieldCheck, Circle } from 'lucide-react-native';
 import React, { useEffect, useState, useRef } from 'react';
-import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, NativeModules, NativeEventEmitter, PermissionsAndroid } from 'react-native';
+import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, NativeModules, NativeEventEmitter, PermissionsAndroid, Animated, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { FirebaseLogger } from '@/src/services/FirebaseService';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -10,6 +12,8 @@ import { useAuth } from '@/context/auth-context';
 import { useEld } from '@/context/eld-context';
 import { useTheme } from '@/context/theme-context';
 import { EldDevice } from '@/types/eld';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Check if running on web
 const isWeb = false;
@@ -30,41 +34,68 @@ const DEVICE_CATEGORIES = {
   ELD: 'eld',
   TRACKING: 'tracking',
   DOORBELL: 'doorbell',
-  PANORAMIC: 'panoramic'
+  PANORAMIC: 'panoramic',
+  BLUETOOTH: 'bluetooth',
+  SENSOR: 'sensor',
+  IOT: 'iot'
 };
 
 interface UniversalDevice extends EldDevice {
+  id: string;
+  name: string;
+  address: string;
+  isConnected: boolean;
   deviceType?: string;
   deviceCategory?: string;
   signalStrength?: number;
   batteryLevel?: number;
-  isConnected: any;
   lastSeen?: Date;
   firmwareVersion?: string;
   uid?: string;
   imei?: string;
+  sensorData?: number;
+  dataType?: string;
 }
 
 export default function UniversalPairingScreen() {
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scanningRotation = useRef(new Animated.Value(0)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  
   // Add error boundary and debugging
   const [screenError, setScreenError] = useState<string | null>(null);
   
   // Initialize contexts with safe defaults
-  let colors, isDark, startScan, stopScan, devices: ArrayLike<UniversalDevice> | EldDevice[] | null | undefined, isScanning, connectToDevice, error, vehicleInfo, setVehicleInfo;
+  let colors: any, isDark: boolean, startScan: any, stopScan: any, devices: any, isScanning: boolean, connectToDevice: any, error: any, vehicleInfo: any, setVehicleInfo: any;
   
   try {
     const themeContext = useTheme();
     colors = themeContext?.colors || {
-      background: '#FFFFFF',
-      text: '#000000',
-      primary: '#3B82F6',
-      inactive: '#666666',
-      surface: '#F5F5F5',
+      background: '#0F0F10',
+      surface: '#1A1A1D',
+      surfaceVariant: '#2A2A2F',
+      text: '#FFFFFF',
+      textSecondary: '#B0B0B8',
+      primary: '#6366F1',
+      primaryLight: '#8B5CF6',
+      secondary: '#8B5CF6',
+      accent: '#F59E0B',
       success: '#10B981',
+      warning: '#F59E0B',
       error: '#EF4444',
-      white: '#FFFFFF'
+      white: '#FFFFFF',
+      black: '#000000',
+      inactive: '#6B7280',
+      border: '#2A2A2F',
+      overlay: 'rgba(0, 0, 0, 0.7)',
+      gradient: ['#6366F1', '#8B5CF6', '#EC4899'],
+      cardGradient: ['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.05)'],
+      surfaceGradient: ['#1A1A1D', '#2A2A2F'],
     };
-    isDark = themeContext?.isDark || false;
+    isDark = themeContext?.isDark ?? true;
     
     const eldContext = useEld();
     startScan = eldContext?.startScan || (() => console.log('startScan not available'));
@@ -86,18 +117,30 @@ export default function UniversalPairingScreen() {
     });
   } catch (err) {
     console.error('Error loading contexts:', err);
-    // Set fallback values
+    // Set modern dark theme fallback
     colors = {
-      background: '#FFFFFF',
-      text: '#000000',
-      primary: '#3B82F6',
-      inactive: '#666666',
-      surface: '#F5F5F5',
+      background: '#0F0F10',
+      surface: '#1A1A1D',
+      surfaceVariant: '#2A2A2F',
+      text: '#FFFFFF',
+      textSecondary: '#B0B0B8',
+      primary: '#6366F1',
+      primaryLight: '#8B5CF6',
+      secondary: '#8B5CF6',
+      accent: '#F59E0B',
       success: '#10B981',
+      warning: '#F59E0B',
       error: '#EF4444',
-      white: '#FFFFFF'
+      white: '#FFFFFF',
+      black: '#000000',
+      inactive: '#6B7280',
+      border: '#2A2A2F',
+      overlay: 'rgba(0, 0, 0, 0.7)',
+      gradient: ['#6366F1', '#8B5CF6', '#EC4899'],
+      cardGradient: ['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.05)'],
+      surfaceGradient: ['#1A1A1D', '#2A2A2F'],
     };
-    isDark = false;
+    isDark = true;
     startScan = () => console.log('startScan not available');
     stopScan = () => console.log('stopScan not available');
     devices = [];
@@ -120,6 +163,66 @@ export default function UniversalPairingScreen() {
   // Jimi IoT Bridge References
   const jimiBridgeRef = useRef<any>(null);
   const eventEmitterRef = useRef<any>(null);
+
+  // Animation effects
+  useEffect(() => {
+    // Entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Pulse animation for connected devices
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    if (isScanning) {
+      pulseAnimation.start();
+      
+      // Rotation animation for scanning icon
+      const rotationAnimation = Animated.loop(
+        Animated.timing(scanningRotation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      );
+      rotationAnimation.start();
+    } else {
+      pulseAnimation.stop();
+      scanningRotation.setValue(0);
+    }
+
+    return () => {
+      pulseAnimation.stop();
+    };
+  }, [isScanning]);
 
   useEffect(() => {
     if (!isWeb) {
@@ -197,10 +300,6 @@ export default function UniversalPairingScreen() {
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-          // PermissionsAndroid.PERMISSIONS.INTERNET,
-          // PermissionsAndroid.PERMISSIONS.ACCESS_NETWORK_STATE,
-          // PermissionsAndroid.PERMISSIONS.WAKE_LOCK,
-          // PermissionsAndroid.PERMISSIONS.FOREGROUND_SERVICE,
         ];
         
         const granted = await PermissionsAndroid.requestMultiple(permissions);
@@ -227,11 +326,17 @@ export default function UniversalPairingScreen() {
     try {
       if (jimiBridgeRef.current) {
         await jimiBridgeRef.current.startUniversalScan({
-          scanFilter: scanFilter,
           scanDuration: 30000,
           enableBackgroundScan: true,
           enableRSSI: true,
-          enableDeviceTypeDetection: true
+          enableDeviceTypeDetection: true,
+          enableBluetoothLE: true,
+          enableBluetoothClassic: false,
+          enableLegacyScan: false,
+          enableDuplicateFilter: true,
+          scanFilter: "all",
+          maxResults: 100,
+          scanMode: "LOW_LATENCY"
         });
       } else {
         startScan();
@@ -275,7 +380,19 @@ export default function UniversalPairingScreen() {
     let deviceType = DEVICE_TYPES.UNKNOWN_DEVICE;
     let deviceCategory = DEVICE_CATEGORIES.CAMERA;
 
-    if (device.uid && device.uid.length >= 18) {
+    // Check if it's a Bluetooth device
+    if (device.address && device.address.includes(':')) {
+      if (device.sensorData !== undefined || device.dataType === 'sensor') {
+        deviceCategory = DEVICE_CATEGORIES.SENSOR;
+        deviceType = 'BLUETOOTH_SENSOR';
+      } else if (device.name && device.name.toLowerCase().includes('bluetooth')) {
+        deviceCategory = DEVICE_CATEGORIES.BLUETOOTH;
+        deviceType = 'BLUETOOTH_DEVICE';
+      } else {
+        deviceCategory = DEVICE_CATEGORIES.IOT;
+        deviceType = 'BLUETOOTH_IOT';
+      }
+    } else if (device.uid && device.uid.length >= 18) {
       const typeCode = device.uid.substring(15, 18);
       deviceType = typeCode;
       
@@ -304,10 +421,10 @@ export default function UniversalPairingScreen() {
       ...device,
       deviceType,
       deviceCategory,
-      signalStrength: Math.floor(Math.random() * 100),
-      batteryLevel: Math.floor(Math.random() * 100),
+      signalStrength: device.signalStrength || Math.floor(Math.random() * 100),
+      batteryLevel: device.batteryLevel || Math.floor(Math.random() * 100),
       lastSeen: new Date(),
-      firmwareVersion: '1.0.0'
+      firmwareVersion: device.firmwareVersion || '1.0.0'
     };
   };
 
@@ -341,7 +458,34 @@ export default function UniversalPairingScreen() {
 
   // Handle Data Received (Jimi IoT Style)
   const handleDataReceived = (data: any) => {
-    console.log('Processing received data:', data);
+    console.log('🔍 === JIMI IOT DATA RECEIVED ===');
+    console.log('📊 Raw data:', JSON.stringify(data, null, 2));
+    
+    if (data.dataType === 'sensor') {
+      setUniversalDevices(prev => 
+        prev.map(device => 
+          device.id === data.deviceId 
+            ? { 
+                ...device, 
+                lastSeen: new Date(data.timestamp),
+                sensorData: data.value,
+                dataType: data.dataType
+              }
+            : device
+        )
+      );
+    }
+  };
+
+  // Test function to send real Bluetooth data
+  const testRealBluetoothData = async (deviceId: string, sensorValue: number) => {
+    try {
+      console.log('🧪 Testing real Bluetooth data for device:', deviceId, 'value:', sensorValue);
+      await jimiBridgeRef.current?.sendRealBluetoothData(deviceId, sensorValue, 'sensor');
+      console.log('✅ Real Bluetooth data sent successfully');
+    } catch (error) {
+      console.error('❌ Error sending real Bluetooth data:', error);
+    }
   };
 
   // Handle Connection Error
@@ -409,7 +553,6 @@ export default function UniversalPairingScreen() {
     }));
     
     console.log('📱 Adding devices to state:', universalDevices.length);
-    console.log('📱 Devices:', universalDevices);
     setUniversalDevices(universalDevices);
   };
 
@@ -464,347 +607,492 @@ export default function UniversalPairingScreen() {
 
   // Filter devices based on category
   const getFilteredDevices = () => {
-    const filtered = scanFilter === 'all' ? universalDevices : universalDevices.filter(device => device.deviceCategory === scanFilter);
-    console.log('🔍 getFilteredDevices:', {
-      scanFilter,
-      universalDevicesLength: universalDevices.length,
-      filteredLength: filtered.length,
-      devices: filtered
-    });
-    return filtered;
+    return scanFilter === 'all' ? universalDevices : universalDevices.filter(device => device.deviceCategory === scanFilter);
   };
 
-  // Get device icon based on category
+  // Get device icon with modern styling
   const getDeviceIcon = (device: UniversalDevice) => {
+    const iconProps = { size: 20, color: colors.primary };
+    
     switch (device.deviceCategory) {
       case DEVICE_CATEGORIES.ELD:
-        return <Truck size={24} color={colors.primary} />;
+        return <Truck {...iconProps} />;
       case DEVICE_CATEGORIES.CAMERA:
-        return <Bluetooth size={24} color={colors.primary} />;
+        return <Bluetooth {...iconProps} />;
       case DEVICE_CATEGORIES.TRACKING:
-        return <Signal size={24} color={colors.primary} />;
+        return <Signal {...iconProps} />;
       case DEVICE_CATEGORIES.DOORBELL:
-        return <Wifi size={24} color={colors.primary} />;
+        return <Wifi {...iconProps} />;
       case DEVICE_CATEGORIES.PANORAMIC:
-        return <Settings size={24} color={colors.primary} />;
+        return <Settings {...iconProps} />;
+      case DEVICE_CATEGORIES.BLUETOOTH:
+        return <Bluetooth {...iconProps} />;
+      case DEVICE_CATEGORIES.SENSOR:
+        return <Zap size={20} color={colors.success} />;
+      case DEVICE_CATEGORIES.IOT:
+        return <Wifi {...iconProps} />;
       default:
-        return <Bluetooth size={24} color={colors.primary} />;
+        return <Bluetooth {...iconProps} />;
     }
   };
 
-  //   // Render Device Item
-  const renderDeviceItem = ({ item }: { item: UniversalDevice }) => {
-    console.log('🎨 Rendering device item:', item);
+  // Get signal strength color and bars
+  const getSignalStrength = (strength: number) => {
+    const bars = Math.ceil((strength / 100) * 4);
+    const color = strength >= 70 ? colors.success : strength >= 40 ? colors.warning : colors.error;
+    return { bars, color };
+  };
+
+  // Get battery color
+  const getBatteryColor = (level: number) => {
+    if (level >= 60) return colors.success;
+    if (level >= 30) return colors.warning;
+    return colors.error;
+  };
+
+  // Render modern device item
+  const renderDeviceItem = ({ item, index }: { item: UniversalDevice; index: number }) => {
+    const isSelected = selectedDevice?.id === item.id;
+    const signal = getSignalStrength(item.signalStrength || 0);
+    
     return (
-      <Card
+      <Animated.View
         style={[
-          styles.deviceCard,
           {
-            borderColor: selectedDevice?.id === item.id ? colors.primary : 'transparent',
-            borderWidth: selectedDevice?.id === item.id ? 2 : 0,
-            backgroundColor: 'red', // Temporary to see if cards are visible
-          },
+            opacity: fadeAnim,
+            transform: [
+              { 
+                translateY: slideAnim.interpolate({
+                  inputRange: [0, 50],
+                  outputRange: [0, 50 + index * 5],
+                })
+              }
+            ]
+          }
         ]}
-        onTouchEnd={() => handleDeviceSelect(item)}
       >
-        <View style={styles.deviceInfo}>
-          {getDeviceIcon(item)}
-          <View style={styles.deviceDetails}>
+        <TouchableOpacity
+          style={[
+            styles.modernDeviceCard,
+            isSelected && [styles.selectedDeviceCard, { borderColor: colors.primary }],
+          ]}
+          onPress={() => handleDeviceSelect(item)}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={isSelected ? [colors.primary + '20', colors.primaryLight + '10'] : [colors.surface, colors.surfaceVariant]}
+            style={styles.deviceCardGradient}
+          >
+            {/* Device Header */}
             <View style={styles.deviceHeader}>
-              <Text style={[styles.deviceName, { color: 'white' }]}>
-                {item.name || 'Unknown Device'}
-              </Text>
-              <View style={styles.deviceStatus}>
+              <View style={styles.deviceIconContainer}>
+                <View style={[styles.deviceIconWrapper, { backgroundColor: colors.primary + '20' }]}>
+                  {getDeviceIcon(item)}
+                </View>
                 {item.isConnected && (
-                  <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+                  <Animated.View 
+                    style={[
+                      styles.connectedIndicator,
+                      {
+                        backgroundColor: colors.success,
+                        transform: [{ scale: pulseAnim }]
+                      }
+                    ]}
+                  >
+                    <Circle size={8} color={colors.white} fill={colors.white} />
+                  </Animated.View>
                 )}
-                <Text style={[styles.deviceType, { color: 'white' }]}>
-                  {item.deviceCategory?.toUpperCase()}
+              </View>
+              
+              <View style={styles.deviceMainInfo}>
+                <View style={styles.deviceTitleRow}>
+                  <Text style={[styles.modernDeviceName, { color: colors.text }]} numberOfLines={1}>
+                    {item.name || 'Unknown Device'}
+                  </Text>
+                  {item.deviceCategory ? (
+                    <View style={[styles.deviceCategoryBadge, { backgroundColor: colors.primary + '20' }]}>
+                      <Text style={[styles.deviceCategoryText, { color: colors.primary }]}>
+                        {item.deviceCategory.charAt(0).toUpperCase() + item.deviceCategory.slice(1)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={[styles.modernDeviceAddress, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {item.address}
                 </Text>
+                
+                {/* Device Metrics Row */}
+                <View style={styles.deviceMetricsRow}>
+                  {/* Signal Strength */}
+                  <View style={styles.metricItem}>
+                    <View style={styles.signalBars}>
+                      {[...Array(4)].map((_, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.signalBar,
+                            {
+                              height: 4 + (i * 2),
+                              backgroundColor: i < signal.bars ? signal.color : colors.inactive,
+                            }
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    <Text style={[styles.metricText, { color: signal.color }]}>
+                      {item.signalStrength}%
+                    </Text>
+                  </View>
+                  
+                  {/* Battery Level */}
+                  {item.batteryLevel !== undefined && (
+                    <View style={styles.metricItem}>
+                      <Battery size={12} color={getBatteryColor(item.batteryLevel)} />
+                      <Text style={[styles.metricText, { color: getBatteryColor(item.batteryLevel) }]}>
+                        {item.batteryLevel}%
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Sensor Data */}
+                  {item.sensorData !== undefined && (
+                    <View style={styles.metricItem}>
+                      <Zap size={12} color={colors.success} />
+                      <Text style={[styles.metricText, { color: colors.success }]}>
+                        {item.sensorData}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Firmware Version */}
+                  <Text style={[styles.firmwareText, { color: colors.inactive }]}>
+                    v{item.firmwareVersion}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Button */}
+              <View style={styles.deviceActionArea}>
+                {item.isConnected ? (
+                  <TouchableOpacity
+                    style={[styles.modernActionButton, styles.disconnectButton, { backgroundColor: colors.error + '20' }]}
+                    onPress={() => handleDisconnectDevice(item)}
+                  >
+                    <X size={16} color={colors.error} />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.modernActionButton, styles.connectButton, { backgroundColor: colors.primary + '20' }]}
+                    onPress={() => handleConnectDevice(item)}
+                    disabled={isConnecting}
+                  >
+                    <Bluetooth size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            <Text style={[styles.deviceAddress, { color: 'white' }]}>
-              {item.address}
-            </Text>
-            <View style={styles.deviceMetrics}>
-              {item.signalStrength && (
-                <Text style={[styles.deviceMetric, { color: 'white' }]}>
-                  Signal: {item.signalStrength}%
-                </Text>
-              )}
-              {item.batteryLevel && (
-                <Text style={[styles.deviceMetric, { color: 'white' }]}>
-                  Battery: {item.batteryLevel}%
-                </Text>
-              )}
-              {item.firmwareVersion && (
-                <Text style={[styles.deviceMetric, { color: 'white' }]}>
-                  FW: {item.firmwareVersion}
-                </Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.deviceActions}>
-            {item.isConnected ? (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: colors.secondary }]}
-                onPress={() => handleDisconnectDevice(item)}
-              >
-                <X size={16} color={colors.primary} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: colors.primary }]}
-                onPress={() => handleConnectDevice(item)}
-                disabled={isConnecting}
-              >
-                <Bluetooth size={16} color={colors.primary} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Card>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
-
-
-  // Render Connected Device Item
+  // Render connected device chip
   const renderConnectedDeviceItem = ({ item }: { item: UniversalDevice }) => (
-    <Card style={[styles.connectedDeviceCard, { borderColor: colors?.success || '#10B981' }]}>
-      <View style={styles.deviceInfo}>
-        {getDeviceIcon(item)}
-        <View style={styles.deviceDetails}>
-          <Text style={[styles.deviceName, { color: colors?.text || '#000' }]}>
-            {item.name || 'Unknown Device'}
+    <View style={styles.connectedDeviceChip}>
+      <LinearGradient
+        colors={[colors.success + '30', colors.success + '15']}
+        style={styles.connectedDeviceGradient}
+      >
+        <View style={styles.connectedDeviceContent}>
+          <View style={[styles.smallIconWrapper, { backgroundColor: colors.success + '20' }]}>
+            {getDeviceIcon(item)}
+          </View>
+          <Text style={[styles.connectedDeviceName, { color: colors.text }]} numberOfLines={1}>
+            {item.name}
           </Text>
-          <Text style={[styles.deviceAddress, { color: colors?.inactive || '#666' }]}>
-            {item.address} • Connected
-          </Text>
+          <TouchableOpacity
+            style={styles.disconnectChipButton}
+            onPress={() => handleDisconnectDevice(item)}
+          >
+            <X size={12} color={colors.error} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.disconnectButton, { backgroundColor: colors.danger || '#EF4444' }]}
-          onPress={() => handleDisconnectDevice(item)}
-        >
-          <X size={16} color={colors.primary || '#FFF'} />
-        </TouchableOpacity>
-      </View>
-    </Card>
+      </LinearGradient>
+    </View>
   );
 
   // Handle screen errors
   if (screenError) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Screen Error</Text>
-          <Text style={styles.errorMessage}>{screenError}</Text>
-          <TouchableOpacity 
-            style={styles.errorButton} 
-            onPress={() => {
-              setScreenError(null);
-              router.back();
-            }}
-          >
-            <Text style={styles.errorButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <LinearGradient colors={colors.gradient} style={styles.errorContainer}>
+          <BlurView intensity={20} style={styles.errorBlur}>
+            <Text style={styles.errorTitle}>Oops! Something went wrong</Text>
+            <Text style={styles.errorMessage}>{screenError}</Text>
+            <TouchableOpacity style={styles.errorButton} onPress={() => router.back()}>
+              <Text style={styles.errorButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
 
+  const rotateInterpolate = scanningRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        {/* Filter Options */}
-        <View style={styles.filterContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Device Filter
-          </Text>
-          <View style={styles.filterButtons}>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                {
-                  backgroundColor: scanFilter === 'all' ? colors.primary : colors.surface,
-                  borderColor: colors.primary
-                }
-              ]}
-              onPress={() => setScanFilter('all')}
-            >
-              <Text style={[
-                styles.filterButtonText,
-                { color: scanFilter === 'all' ? colors.white : colors.primary }
-              ]}>
-                ALL
-              </Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <LinearGradient colors={[colors.background, colors.surface]} style={styles.backgroundGradient}>
+        <SafeAreaView style={styles.safeArea}>
+          {/* Modern Header */}
+          <Animated.View 
+            style={[
+              styles.modernHeader,
+              {
+                opacity: headerAnim,
+                transform: [{ translateY: headerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-20, 0]
+                })}]
+              }
+            ]}
+          >
+            <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+              <View style={[styles.backButtonWrapper, { backgroundColor: colors.surface }]}>
+                <ArrowLeft size={20} color={colors.text} />
+              </View>
             </TouchableOpacity>
-            {Object.entries(DEVICE_CATEGORIES).map(([key, value]) => (
+            
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                Device Pairing
+              </Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                Discover & connect IoT devices nearby
+              </Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View 
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            {/* Filter Pills Container */}
+            <View style={styles.filterSection}>
+              <View style={styles.filterHeader}>
+                <Text style={[styles.filterLabel, { color: colors.text }]}>Filter Devices</Text>
+                <View style={styles.scanningIndicator}>
+                  <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+                    <RefreshCw size={16} color={isScanning ? colors.primary : colors.inactive} />
+                  </Animated.View>
+                  <Text style={[styles.scanningText, { color: isScanning ? colors.primary : colors.inactive }]}>
+                    {isScanning ? 'Scanning...' : 'Idle'}
+                  </Text>
+                </View>
+              </View>
+              
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterPillsContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.filterPill,
+                    scanFilter === 'all' && [styles.activeFilterPill, { backgroundColor: colors.primary }],
+                    { borderColor: colors.border }
+                  ]}
+                  onPress={() => setScanFilter('all')}
+                >
+                  <Text style={[
+                    styles.filterPillText,
+                    { color: scanFilter === 'all' ? colors.white : colors.textSecondary }
+                  ]}>
+                    All ({universalDevices.length})
+                  </Text>
+                </TouchableOpacity>
+                
+                {Object.entries(DEVICE_CATEGORIES).slice(0, 6).map(([key, value]) => {
+                  const count = universalDevices.filter(d => d.deviceCategory === value).length;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[
+                        styles.filterPill,
+                        scanFilter === value && [styles.activeFilterPill, { backgroundColor: colors.primary }],
+                        { borderColor: colors.border }
+                      ]}
+                      onPress={() => setScanFilter(value)}
+                    >
+                      <Text style={[
+                        styles.filterPillText,
+                        { color: scanFilter === value ? colors.white : colors.textSecondary }
+                      ]}>
+                        {key} ({count})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Connected Devices Section */}
+            {connectedDevices.length > 0 && (
+              <View style={styles.connectedSection}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Connected ({connectedDevices.length})
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.connectedDevicesList}>
+                  {connectedDevices.map((device) => (
+                    <View key={device.id}>
+                      {renderConnectedDeviceItem({ item: device })}
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Action Bar */}
+            <View style={styles.actionBar}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Available Devices ({getFilteredDevices().length})
+              </Text>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.refreshButton, { backgroundColor: colors.surface }]}
+                  onPress={handleRefreshScan}
+                  disabled={isScanning}
+                >
+                  <RefreshCw size={16} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.testButton, { backgroundColor: colors.accent + '20' }]}
+                  onPress={() => {
+                    const testDevices = [
+                      {
+                        "firmwareVersion": "1.0.0",
+                        "deviceType": "0",
+                        "batteryLevel": 42,
+                        "signalStrength": 85,
+                        "isConnected": false,
+                        "address": "6C:27:9C:61:56:A6",
+                        "rssi": -45,
+                        "name": "Smart Sensor Pro",
+                        "deviceCategory": "sensor",
+                        "id": "6C:27:9C:61:56:A6",
+                        "lastSeen": new Date().toISOString(),
+                        "sensorData": 42,
+                        "dataType": "sensor"
+                      },
+                      {
+                        "firmwareVersion": "2.1.0",
+                        "deviceType": "181",
+                        "batteryLevel": 76,
+                        "signalStrength": 92,
+                        "isConnected": false,
+                        "address": "44:FA:66:FE:62:D7",
+                        "rssi": -35,
+                        "name": "ELD Tracker V2",
+                        "deviceCategory": "eld",
+                        "id": "44:FA:66:FE:62:D7",
+                        "lastSeen": new Date().toISOString()
+                      },
+                      {
+                        "firmwareVersion": "1.5.2",
+                        "deviceType": "BLUETOOTH_SENSOR",
+                        "batteryLevel": 95,
+                        "signalStrength": 78,
+                        "isConnected": false,
+                        "address": "80:8A:BD:80:D0:9D",
+                        "rssi": -40,
+                        "name": "Temperature Sensor",
+                        "deviceCategory": "sensor",
+                        "id": "80:8A:BD:80:D0:9D",
+                        "lastSeen": new Date().toISOString(),
+                        "sensorData": 23.5,
+                        "dataType": "sensor"
+                      }
+                    ];
+                    addDevicesToState(testDevices);
+                  }}
+                >
+                  <Text style={[styles.testButtonText, { color: colors.accent }]}>Test</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Device List */}
+            {getFilteredDevices().length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                <LinearGradient
+                  colors={[colors.surface, colors.surfaceVariant]}
+                  style={styles.emptyStateGradient}
+                >
+                  <Search size={48} color={colors.inactive} />
+                  <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+                    No devices found
+                  </Text>
+                  <Text style={[styles.emptyStateMessage, { color: colors.textSecondary }]}>
+                    Make sure your devices are powered on and in pairing mode, then tap refresh to scan again.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.emptyStateButton, { backgroundColor: colors.primary }]}
+                    onPress={handleRefreshScan}
+                  >
+                    <Text style={[styles.emptyStateButtonText, { color: colors.white }]}>
+                      Scan Again
+                    </Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </View>
+            ) : (
+              <FlatList
+                data={getFilteredDevices()}
+                keyExtractor={item => item.id}
+                renderItem={renderDeviceItem}
+                style={styles.deviceList}
+                contentContainerStyle={styles.deviceListContent}
+                showsVerticalScrollIndicator={false}
+                ItemSeparatorComponent={() => <View style={styles.deviceSeparator} />}
+              />
+            )}
+
+            {/* Bottom Actions */}
+            <View style={styles.bottomActions}>
               <TouchableOpacity
-                key={key}
                 style={[
-                  styles.filterButton,
-                  {
-                    backgroundColor: scanFilter === value ? colors.primary : colors.surface,
-                    borderColor: colors.primary
+                  styles.primaryActionButton,
+                  { 
+                    backgroundColor: selectedDevice ? colors.primary : colors.inactive,
+                    opacity: selectedDevice && !isConnecting ? 1 : 0.6
                   }
                 ]}
-                onPress={() => setScanFilter(value)}
+                onPress={() => selectedDevice && handleConnectDevice(selectedDevice)}
+                disabled={!selectedDevice || isConnecting}
               >
-                <Text style={[
-                  styles.filterButtonText,
-                  { color: scanFilter === value ? colors.white : colors.primary }
-                ]}>
-                  {key}
+                <Text style={[styles.primaryActionButtonText, { color: colors.white }]}>
+                  {isConnecting ? 'Connecting...' : 'Connect Selected Device'}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Connected Devices */}
-        {connectedDevices.length > 0 && (
-          <View style={styles.connectedSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Connected Devices ({connectedDevices.length})
-            </Text>
-            <FlatList
-              data={connectedDevices}
-              renderItem={renderConnectedDeviceItem}
-              keyExtractor={(item) => item.id}
-              style={styles.connectedDeviceList}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-            />
-          </View>
-        )}
-
-        {/* Scan Header */}
-        <View style={styles.scanHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Available Devices ({getFilteredDevices().length})
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button
-              title={isScanning ? 'Scanning...' : 'Refresh'}
-              onPress={handleRefreshScan}
-              variant="outline"
-              icon={<RefreshCw size={16} color={colors.primary} />}
-              disabled={isScanning}
-            />
-            <TouchableOpacity
-              style={{
-                backgroundColor: colors.primary,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 6,
-              }}
-              onPress={() => {
-                // Add the devices you showed me
-                const testDevices = [
-                  {
-                    "firmwareVersion": "1.0.0",
-                    "deviceType": "0",
-                    "batteryLevel": 42,
-                    "signalStrength": 25,
-                    "isConnected": false,
-                    "address": "6C:27:9C:61:56:A6",
-                    "rssi": -45,
-                    "name": "Unknown Device",
-                    "deviceCategory": "camera",
-                    "id": "6C:27:9C:61:56:A6",
-                    "lastSeen": "2025-08-03T05:35:52.570Z"
-                  },
-                  {
-                    "firmwareVersion": "1.0.0",
-                    "deviceType": "0",
-                    "batteryLevel": 76,
-                    "signalStrength": 38,
-                    "isConnected": false,
-                    "address": "44:FA:66:FE:62:D7",
-                    "rssi": -95,
-                    "name": "JODU51741585804",
-                    "deviceCategory": "camera",
-                    "id": "44:FA:66:FE:62:D7",
-                    "lastSeen": "2025-08-03T05:35:52.567Z"
-                  },
-                  {
-                    "firmwareVersion": "1.0.0",
-                    "deviceType": "0",
-                    "batteryLevel": 16,
-                    "signalStrength": 14,
-                    "isConnected": false,
-                    "address": "D5:EC:D4:16:25:3E",
-                    "rssi": -96,
-                    "name": "Unknown Device",
-                    "deviceCategory": "camera",
-                    "id": "D5:EC:D4:16:25:3E",
-                    "lastSeen": "2025-08-03T05:35:49.508Z"
-                  }
-                ];
-                addDevicesToState(testDevices);
-              }}
-            >
-              <Text style={{ color: 'white', fontSize: 12 }}>Add Test</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-                {/* Device List */}
-        {(() => {
-          console.log('🔍 Device list condition check:', {
-            filteredDevicesLength: getFilteredDevices().length,
-            isScanning,
-            shouldShowEmpty: getFilteredDevices().length === 0 && !isScanning
-          });
-          return getFilteredDevices().length === 0 && !isScanning;
-        })() ? (
-          <Card>
-            <Text style={[styles.emptyText, { color: colors.inactive }]}>
-              No {scanFilter === 'all' ? '' : scanFilter} devices found. 
-              Make sure your devices are powered on and in pairing mode.
-            </Text>
-          </Card>
-        ) : (
-
-          
-          <FlatList
-            data={getFilteredDevices()}
-            renderItem={renderDeviceItem}
-            keyExtractor={(item) => item.id}
-            style={styles.deviceList}
-            contentContainerStyle={styles.deviceListContent}
-            onLayout={() => console.log('📱 FlatList onLayout called')}
-            onContentSizeChange={() => console.log('📱 FlatList content size changed')}
-            ListEmptyComponent={() => {
-              console.log('📱 FlatList is empty');
-              return (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Text style={{ color: colors.inactive }}>No devices found</Text>
-                </View>
-              );
-            }}
-          />
-        )}
-
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <Button
-            title="Connect Selected"
-            onPress={() => selectedDevice && handleConnectDevice(selectedDevice)}
-            disabled={!selectedDevice || isConnecting}
-            fullWidth
-          />
-          <Button
-            title="Skip for Now"
-            onPress={handleSkip}
-            variant="outline"
-            fullWidth
-            style={{ marginTop: 12 }}
-          />
-        </View>
-      </View>
-    </SafeAreaView>
+              
+              <TouchableOpacity
+                style={[styles.secondaryActionButton, { borderColor: colors.border }]}
+                onPress={handleSkip}
+              >
+                <Text style={[styles.secondaryActionButtonText, { color: colors.textSecondary }]}>
+                  Skip for Now
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 }
 
@@ -812,189 +1100,387 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  backButtonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  backgroundGradient: {
+    flex: 1,
   },
-  backButton: {
+  safeArea: {
+    flex: 1,
+  },
+  modernHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500' as const,
-    marginLeft: 8,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    marginTop: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 8,
     paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  backButtonWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
   },
   content: {
     flex: 1,
-    padding: 20,
-    maxWidth: 600,
-    width: '100%',
-    alignSelf: 'center',
+    paddingHorizontal: 20,
   },
-  filterContainer: {
-    marginBottom: 20,
+  filterSection: {
+    marginVertical: 20,
   },
-  filterButtons: {
+  filterHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
-  filterButtonText: {
+  scanningIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  scanningText: {
     fontSize: 12,
-    fontWeight: '600' as const,
+    fontWeight: '500',
+  },
+  filterPillsContainer: {
+    flexDirection: 'row',
+  },
+  filterPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 8,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  activeFilterPill: {
+    borderColor: 'transparent',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   connectedSection: {
     marginBottom: 20,
   },
-  connectedDeviceList: {
-    marginTop: 8,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
   },
-  connectedDeviceCard: {
+  connectedDevicesList: {
+    flexDirection: 'row',
+  },
+  connectedDeviceChip: {
     marginRight: 12,
-    minWidth: 200,
-    borderWidth: 2,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  scanHeader: {
+  connectedDeviceGradient: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  connectedDeviceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: 150,
+  },
+  smallIconWrapper: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  connectedDeviceName: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  disconnectChipButton: {
+    padding: 2,
+  },
+  actionBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 16,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  refreshButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  testButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  testButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   deviceList: {
     flex: 1,
-    height: 400, // Explicit height to ensure FlatList has space
-    backgroundColor: 'yellow', // Temporary to see the container
   },
   deviceListContent: {
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
-  deviceCard: {
-    marginVertical: 8,
+  deviceSeparator: {
+    height: 12,
   },
-  deviceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  modernDeviceCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  deviceDetails: {
-    marginLeft: 12,
-    flex: 1,
+  selectedDeviceCard: {
+    borderWidth: 2,
+    elevation: 8,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+  },
+  deviceCardGradient: {
+    padding: 16,
   },
   deviceHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deviceIconContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  deviceIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  connectedIndicator: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#1A1A1D',
+  },
+  deviceMainInfo: {
+    flex: 1,
+  },
+  deviceTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 4,
   },
-  deviceName: {
+  modernDeviceName: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
   },
-  deviceStatus: {
+  deviceCategoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  deviceCategoryText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  modernDeviceAddress: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  deviceMetricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
-  },
-  deviceType: {
-    fontSize: 10,
-    fontWeight: '500' as const,
-  },
-  deviceAddress: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  deviceMetrics: {
-    flexDirection: 'row',
-    marginTop: 4,
     gap: 12,
   },
-  deviceMetric: {
-    fontSize: 12,
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  deviceActions: {
-    marginLeft: 8,
+  signalBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 1,
   },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  signalBar: {
+    width: 3,
+    backgroundColor: '#666',
+    borderRadius: 1,
+  },
+  metricText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  firmwareText: {
+    fontSize: 10,
+    fontWeight: '400',
+    marginLeft: 'auto',
+  },
+  deviceActionArea: {
+    marginLeft: 12,
+  },
+  modernActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  connectButton: {
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   disconnectButton: {
-    width: 32,
-    height: 32,
+    // No additional styles needed
+  },
+  emptyState: {
+    flex: 1,
     borderRadius: 16,
+    overflow: 'hidden',
+  },
+  emptyStateGradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 32,
   },
-  emptyText: {
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateMessage: {
+    fontSize: 14,
     textAlign: 'center',
-    fontSize: 16,
-    padding: 20,
+    lineHeight: 20,
+    marginBottom: 24,
   },
-  buttonContainer: {
-    marginTop: 24,
+  emptyStateButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  emptyStateButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bottomActions: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  primaryActionButton: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  primaryActionButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  secondaryActionButton: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  secondaryActionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
   },
+  errorBlur: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
   errorTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#EF4444',
-    marginBottom: 16,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#FFF',
+    textAlign: 'center',
   },
   errorMessage: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    marginBottom: 20,
+    color: '#CCC',
     textAlign: 'center',
-    marginBottom: 24,
   },
   errorButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#6366F1',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 16,
   },
   errorButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
