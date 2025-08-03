@@ -15,6 +15,7 @@ import Animated, {
 import { useTheme } from '@/context/theme-context';
 import Button from '@/components/Button';
 import { UniversalDevice } from '../types';
+import colors from '@/constants/Colors';
 
 interface ConnectionScreenProps {
   device: UniversalDevice | null;
@@ -231,13 +232,13 @@ const ConnectionScreen: React.FC<ConnectionScreenProps> = ({ device, onCancel })
         <Text style={[styles.footerText, { color: colors.inactive }]}>
           This may take a few moments. Please keep your device nearby.
         </Text>
-        
         <Button
           title="Cancel"
           onPress={onCancel}
           variant="outline"
           style={styles.cancelButton}
         />
+
       </View>
     </Animated.View>
   );
@@ -381,6 +382,8 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     minWidth: 120,
+    color: colors.dark.danger,
+    backgroundColor: colors.dark.card
   },
 });
 

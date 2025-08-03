@@ -100,9 +100,9 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
         
         <Animated.Text 
           entering={BounceIn.delay(800)} 
-          style={[styles.title, {color: colors.success}]}
+          style={[styles.title, {color: !device ? colors.inactive : colors.success}]}
         >
-          Connection Successful!
+         {!device? 'Establishing Connection ....' :'Connection Successful!'}
         </Animated.Text>
         
         <Animated.Text 
@@ -136,6 +136,7 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
         <Pressable 
           style={[styles.button, styles.primaryButton]}
           onPress={onContinue}
+          disabled={!device}
         >
           <Text style={styles.primaryButtonText}>Continue</Text>
         </Pressable>

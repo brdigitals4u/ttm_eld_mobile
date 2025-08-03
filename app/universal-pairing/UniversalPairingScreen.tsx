@@ -4,6 +4,7 @@ import { useTheme } from '@/context/theme-context';
 import DeviceListView from './components/DeviceListView';
 import ConnectionScreen from './components/ConnectionScreen';
 import SuccessScreen from './components/SuccessScreen';
+import DataEmitScreen from './components/DataEmitScreen';
 import { ToastProvider, useToast } from './components/ToastProvider';
 import {
   setupJimiBridgeListeners,
@@ -136,12 +137,18 @@ const UniversalPairingContent: React.FC = () => {
     showToast(`Device ${device.name} connected successfully`, 'success');
   };
 
-  const handleDeviceDisconnected = (device: UniversalDevice) => {
+  const handleDeviceDisconnected = (disconnectionData: any) => {
+    // Extract device and reason from SDK data
+    const device = disconnectionData.device || disconnectionData;
+    const reason = disconnectionData.reason || disconnectionData.disconnectionReason || 'Unknown reason';
+    
+    console.log('disconnectionData', disconnectionData)
+
     console.log('📱 Device Disconnected:', {
       deviceName: device.name,
       deviceId: device.id,
       address: device.address,
-      reason: 'User initiated or connection lost',
+      reason: reason,
       timestamp: new Date().toISOString(),
     });
     
@@ -151,7 +158,7 @@ const UniversalPairingContent: React.FC = () => {
       connectionState: 'idle',
     }));
     
-    showToast(`Device ${device.name} disconnected`, 'info');
+    showToast(`Device ${device.name} disconnected: ${reason}`, 'info');
   };
 
   const handleDataReceived = (data: any) => {
@@ -399,7 +406,9 @@ const UniversalPairingContent: React.FC = () => {
     try {
       await disconnectDevice(connectedDevice.address);
     } catch (error) {
-      setState((prevState) => ({ ...prevState, error: 'Failed to disconnect' }));
+      console.log(error)
+      
+      setState((prevState) => ({ ...prevState }));
     }
   };
 
@@ -416,7 +425,16 @@ const UniversalPairingContent: React.FC = () => {
         return (
           <SuccessScreen
             device={state.connectedDevice}
-            onContinue={() => setState((prevState) => ({ ...prevState, connectionState: 'idle' }))}
+            onContinue={() => setState((prevState) => ({ ...prevState, connectionState: 'dataEmit' }))}
+          />
+        );
+      case 'dataEmit':
+        return (
+          <DataEmitScreen
+            device={state.connectedDevice}
+            deviceData={state.deviceData}
+            onDisconnect={handleDisconnect}
+            onBack={() => setState((prevState) => ({ ...prevState, connectionState: 'idle' }))}
           />
         );
       default:

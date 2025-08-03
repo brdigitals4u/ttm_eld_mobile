@@ -60,7 +60,7 @@ export interface DeviceData {
   isRealData?: boolean;
 }
 
-export type ConnectionState = 'idle' | 'scanning' | 'connecting' | 'connected' | 'disconnecting' | 'error';
+export type ConnectionState = 'idle' | 'scanning' | 'connecting' | 'connected' | 'dataEmit' | 'disconnecting' | 'error';
 
 export interface PairingState {
   devices: UniversalDevice[];
