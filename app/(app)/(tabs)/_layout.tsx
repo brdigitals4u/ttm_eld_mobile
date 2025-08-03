@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { ClipboardList, FileText, Fuel, Home, Settings, Truck, User, Users, Bluetooth } from 'lucide-react-native';
+import { ClipboardList, FileText, Home, Settings, Truck, User, Users, Bluetooth } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '@/context/theme-context';
@@ -41,11 +41,9 @@ export default function TabLayout() {
       'index': 'Dashboard',
       'status': 'Status',
       'logs': 'Logs',
-      'fuel': 'Fuel',
-      'universal-pairing': 'Universal Pairing',
       'more': 'More',
     };
-    return tabTitles[tabName] || tabName;
+    return tabTitles[tabName];
   };
 
   return (
@@ -84,20 +82,6 @@ export default function TabLayout() {
         options={{
           title: 'Logs',
           tabBarIcon: ({ color, size }: any) => <ClipboardList color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="fuel"
-        options={{
-          title: 'Fuel',
-          tabBarIcon: ({ color, size }: any) => <Fuel color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="universal-pairing"
-        options={{
-          title: 'Universal Pairing',
-          tabBarIcon: ({ color, size }: any) => <Bluetooth color={color} size={size} />,
         }}
       />
       <Tabs.Screen

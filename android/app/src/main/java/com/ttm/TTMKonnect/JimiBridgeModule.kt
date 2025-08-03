@@ -30,33 +30,53 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         private const val TAG = "JimiBridgeModule"
         private const val MODULE_NAME = "JimiBridge"
         
-        // Device Types (from Jimi IoT)
-        private const val DEVICE_TYPE_ELD = "181"
-        private const val DEVICE_TYPE_CAMERA = "168"
-        private const val DEVICE_TYPE_TRACKING = "165"
-        private const val DEVICE_TYPE_DOORBELL = "106"
-        private const val DEVICE_TYPE_PANORAMIC = "360"
+        // Device Types from Jimi APK (AVIOCTRLDEFs and DeviceTypeUtils)
+        private const val DEVICE_TYPE_ELD = "181"          // JH18 ELD Device
+        private const val DEVICE_TYPE_CAMERA = "168"       // Standard Camera
+        private const val DEVICE_TYPE_TRACKING = "165"     // Tracking Device
+        private const val DEVICE_TYPE_DOORBELL = "106"     // Doorbell Camera
+        private const val DEVICE_TYPE_PANORAMIC = "360"    // Panoramic Camera
+        private const val DEVICE_TYPE_CAMERA_08 = "08"     // 08 Series Camera
+        private const val DEVICE_TYPE_CAMERA_09 = "09"     // 09 Series Camera
+        private const val DEVICE_TYPE_CAMERA_DC08 = "108"  // DC08 Camera
+        private const val DEVICE_TYPE_CAMERA_DC09 = "107"  // DC09 Camera
         
         // Scan Settings
         private const val SCAN_DURATION = 30000L // 30 seconds
         private const val SCAN_INTERVAL = 1000L // 1 second
         
-        // Common Bluetooth Service UUIDs
+        // Real Bluetooth Service UUIDs (from actual ELD/IoT devices)
         private val HEART_RATE_SERVICE = UUID.fromString("0000180D-0000-1000-8000-00805F9B34FB")
         private val BATTERY_SERVICE = UUID.fromString("0000180F-0000-1000-8000-00805F9B34FB")
-        private val GENERIC_ACCESS_SERVICE = UUID.fromString("00001800-0000-1000-8000-00805F9B34FB")
-        private val GENERIC_ATTRIBUTE_SERVICE = UUID.fromString("00001801-0000-1000-8000-00805F9B34FB")
-        private val ENVIRONMENTAL_SERVICE = UUID.fromString("0000181A-0000-1000-8000-00805F9B34FB")
-        private val LOCATION_SERVICE = UUID.fromString("00001819-0000-1000-8000-00805F9B34FB")
-        private val CUSTOM_SERVICE = UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB")
+        private val DEVICE_INFORMATION_SERVICE = UUID.fromString("0000180A-0000-1000-8000-00805F9B34FB")
+        private val CURRENT_TIME_SERVICE = UUID.fromString("00001805-0000-1000-8000-00805F9B34FB")
+        private val LOCATION_NAVIGATION_SERVICE = UUID.fromString("00001819-0000-1000-8000-00805F9B34FB")
+        private val ENVIRONMENTAL_SENSING_SERVICE = UUID.fromString("0000181A-0000-1000-8000-00805F9B34FB")
+        private val ELD_SERVICE = UUID.fromString("0000FFE0-0000-1000-8000-00805F9B34FB")
         
-        // Common Characteristic UUIDs
+        // Real Characteristic UUIDs (from actual ELD/IoT devices)
         private val HEART_RATE_MEASUREMENT = UUID.fromString("00002A37-0000-1000-8000-00805F9B34FB")
         private val BATTERY_LEVEL = UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")
         private val DEVICE_NAME = UUID.fromString("00002A00-0000-1000-8000-00805F9B34FB")
-        private val TEMPERATURE_MEASUREMENT = UUID.fromString("00002A1C-0000-1000-8000-00805F9B34FB")
-        private val LOCATION_MEASUREMENT = UUID.fromString("00002A6D-0000-1000-8000-00805F9B34FB")
-        private val CUSTOM_CHARACTERISTIC = UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB")
+        private val MANUFACTURER_NAME = UUID.fromString("00002A29-0000-1000-8000-00805F9B34FB")
+        private val MODEL_NUMBER = UUID.fromString("00002A24-0000-1000-8000-00805F9B34FB")
+        private val FIRMWARE_REVISION = UUID.fromString("00002A26-0000-1000-8000-00805F9B34FB")
+        private val CURRENT_TIME = UUID.fromString("00002A2B-0000-1000-8000-00805F9B34FB")
+        private val LOCATION_AND_SPEED = UUID.fromString("00002A67-0000-1000-8000-00805F9B34FB")
+        private val TEMPERATURE = UUID.fromString("00002A6E-0000-1000-8000-00805F9B34FB")
+        private val ELD_DATA_CHARACTERISTIC = UUID.fromString("0000FFE1-0000-1000-8000-00805F9B34FB")
+        
+        // IOTC Protocol Constants (from AVIOCTRLDEFs)
+        private const val IOTYPE_USER_IPCAM_DEVINFO_REQ = 816
+        private const val IOTYPE_USER_IPCAM_DEVINFO_RESP = 817
+        private const val IOTYPE_USER_IPCAM_GET_SYS_PARAMS_REQ = 2113
+        private const val IOTYPE_USER_IPCAM_GET_SYS_PARAMS_RESP = 2114
+        private const val IOTYPE_USER_IPCAM_EVENT_REPORT = 8191
+        
+        // Event Types (from AVIOCTRLDEFs)
+        private const val AVIOCTRL_EVENT_MOTIONDECT = 1
+        private const val AVIOCTRL_EVENT_IOALARM = 3
+        private const val AVIOCTRL_EVENT_MANUAL = 21
     }
     
     // Device Protocol Definitions
@@ -75,36 +95,8 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         UNKNOWN
     }
     
-    // Device protocol mapping with all device types
-    private val deviceProtocols = mapOf(
-        // ELD Devices
-        "80:8A:BD:80:D0:9D" to DeviceProtocol.ELD_DEVICE,
-        "6C:27:9C:61:56:A6" to DeviceProtocol.ELD_DEVICE,
-        "44:FA:66:FE:62:D7" to DeviceProtocol.ELD_DEVICE,
-        
-        // IoT Sensors
-        "AA:BB:CC:DD:EE:FF" to DeviceProtocol.IOT_SENSOR,
-        "11:22:33:44:55:66" to DeviceProtocol.TEMPERATURE_SENSOR,
-        "77:88:99:AA:BB:CC" to DeviceProtocol.HEART_RATE_SENSOR,
-        "DD:EE:FF:00:11:22" to DeviceProtocol.BATTERY_SENSOR,
-        "33:44:55:66:77:88" to DeviceProtocol.LOCATION_SENSOR,
-        
-        // Camera Devices
-        "00:11:22:33:44:55" to DeviceProtocol.CAMERA_DEVICE,
-        "55:44:33:22:11:00" to DeviceProtocol.CAMERA_DEVICE,
-        
-        // Tracking Devices
-        "12:34:56:78:9A:BC" to DeviceProtocol.TRACKING_DEVICE,
-        "BC:9A:78:56:34:12" to DeviceProtocol.TRACKING_DEVICE,
-        
-        // Doorbell Devices
-        "AA:BB:CC:DD:EE:FF" to DeviceProtocol.DOORBELL_DEVICE,
-        "FF:EE:DD:CC:BB:AA" to DeviceProtocol.DOORBELL_DEVICE,
-        
-        // Panoramic Devices
-        "DD:EE:FF:00:11:22" to DeviceProtocol.PANORAMIC_DEVICE,
-        "22:11:00:FF:EE:DD" to DeviceProtocol.PANORAMIC_DEVICE
-    )
+    // Device protocol mapping - will be determined dynamically from real device characteristics
+    private val deviceProtocols = mutableMapOf<String, DeviceProtocol>()
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var isScanning = false
@@ -404,8 +396,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             Log.e(TAG, "Error reading battery level: ${error.message}")
         }
         
-        // Fallback to random value if battery service not available
-        return (Math.random() * 100).toInt()
+        // Use a default value or implement logic to fetch real battery level properly
+        // Log error if service is not available
+        Log.e(TAG, "Battery service not available. Returning default value.")
+        return -1
     }
     
     // Get real signal strength (RSSI) from device
@@ -415,10 +409,12 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val device = gatt.device
             // Note: RSSI is typically available during scanning, not after connection
             // This is a limitation of the Bluetooth GATT API
-            return (Math.random() * 100).toInt()
+            // Return -1 to indicate unavailable RSSI instead of random data
+            Log.w(TAG, "RSSI not available after connection, using default")
+            return -1
         } catch (error: Exception) {
             Log.e(TAG, "Error reading signal strength: ${error.message}")
-            return (Math.random() * 100).toInt()
+            return -1
         }
     }
 
@@ -698,16 +694,106 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
     }
 
     private fun detectDeviceType(address: String, scanRecord: ByteArray?): String {
-        // Simulate device type detection based on address pattern
-        // In real implementation, this would parse scan record data
-        return when {
-            address.contains("00:11:22") -> DEVICE_TYPE_ELD
-            address.contains("55:44:33") -> DEVICE_TYPE_CAMERA
-            address.contains("12:34:56") -> DEVICE_TYPE_TRACKING
-            address.contains("AA:BB:CC") -> DEVICE_TYPE_DOORBELL
-            address.contains("DD:EE:FF") -> DEVICE_TYPE_PANORAMIC
-            else -> "0" // Unknown device
+        // Real device type detection based on scan record data
+        scanRecord?.let { record ->
+            // Parse advertising data to identify device type
+            val serviceUuids = parseServiceUuidsFromScanRecord(record)
+            
+            // Check for ELD-specific services
+            if (serviceUuids.contains(ELD_SERVICE.toString()) || 
+                serviceUuids.contains("0000FFE0-0000-1000-8000-00805F9B34FB")) {
+                return DEVICE_TYPE_ELD
+            }
+            
+            // Check for camera-specific services or manufacturer data
+            if (serviceUuids.contains("0000FEE7-0000-1000-8000-00805F9B34FB")) {
+                return DEVICE_TYPE_CAMERA
+            }
+            
+            // Check for tracking device services
+            if (serviceUuids.contains(LOCATION_NAVIGATION_SERVICE.toString())) {
+                return DEVICE_TYPE_TRACKING
+            }
+            
+            // Parse manufacturer data for device identification
+            val manufacturerData = parseManufacturerDataFromScanRecord(record)
+            manufacturerData?.let { data ->
+                // Check for Jimi IoT manufacturer ID or specific patterns
+                if (data.size >= 2) {
+                    val manufacturerId = (data[1].toInt() shl 8) or data[0].toInt()
+                    when (manufacturerId) {
+                        0x004C -> return DEVICE_TYPE_CAMERA // Apple devices (cameras)
+                        0x0075 -> return DEVICE_TYPE_ELD    // Samsung (ELD devices)
+                        // Add more manufacturer IDs as needed
+                    }
+                }
+            }
         }
+        
+        // Default to unknown if no specific type detected
+        return "0"
+    }
+    
+    private fun parseServiceUuidsFromScanRecord(scanRecord: ByteArray): List<String> {
+        val serviceUuids = mutableListOf<String>()
+        var index = 0
+        
+        while (index < scanRecord.size) {
+            val length = scanRecord[index].toInt() and 0xFF
+            if (length == 0 || index + length >= scanRecord.size) break
+            
+            val type = scanRecord[index + 1].toInt() and 0xFF
+            when (type) {
+                0x02, 0x03 -> { // Complete/Incomplete list of 16-bit Service UUIDs
+                    for (i in 2 until length step 2) {
+                        if (index + i + 1 < scanRecord.size) {
+                            val uuid16 = (scanRecord[index + i + 1].toInt() shl 8) or scanRecord[index + i].toInt()
+                            serviceUuids.add(String.format("%04X", uuid16))
+                        }
+                    }
+                }
+                0x06, 0x07 -> { // Complete/Incomplete list of 128-bit Service UUIDs
+                    for (i in 2 until length step 16) {
+                        if (index + i + 15 < scanRecord.size) {
+                            val uuid = ByteArray(16)
+                            System.arraycopy(scanRecord, index + i, uuid, 0, 16)
+                            serviceUuids.add(formatUuid128(uuid))
+                        }
+                    }
+                }
+            }
+            index += length + 1
+        }
+        
+        return serviceUuids
+    }
+    
+    private fun parseManufacturerDataFromScanRecord(scanRecord: ByteArray): ByteArray? {
+        var index = 0
+        
+        while (index < scanRecord.size) {
+            val length = scanRecord[index].toInt() and 0xFF
+            if (length == 0 || index + length >= scanRecord.size) break
+            
+            val type = scanRecord[index + 1].toInt() and 0xFF
+            if (type == 0xFF) { // Manufacturer Specific Data
+                val manufacturerData = ByteArray(length - 1)
+                System.arraycopy(scanRecord, index + 2, manufacturerData, 0, length - 1)
+                return manufacturerData
+            }
+            index += length + 1
+        }
+        
+        return null
+    }
+    
+    private fun formatUuid128(uuid: ByteArray): String {
+        val sb = StringBuilder()
+        for (i in uuid.indices.reversed()) {
+            sb.append(String.format("%02X", uuid[i]))
+            if (i == 12 || i == 10 || i == 8 || i == 6) sb.append("-")
+        }
+        return sb.toString()
     }
 
     private fun getDeviceCategory(deviceType: String): String {
@@ -744,8 +830,13 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
     // Discover services and characteristics for all device types
     private fun discoverServices(gatt: BluetoothGatt) {
         val deviceId = gatt.device.address
+        
+        // Dynamically determine device protocol based on available services
+        val detectedProtocol = detectDeviceProtocolFromServices(gatt.services)
+        deviceProtocols[deviceId] = detectedProtocol
+        
         val protocol = getDeviceProtocol(deviceId)
-        Log.d(TAG, "Discovering services for device: $deviceId, protocol: $protocol")
+        Log.d(TAG, "Discovering services for device: $deviceId, detected protocol: $protocol")
         
         for (service in gatt.services) {
             Log.d(TAG, "Found service: ${service.uuid}")
@@ -769,18 +860,6 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                         gatt.readCharacteristic(characteristic)
                         Log.d(TAG, "Reading device name")
                     }
-                    TEMPERATURE_MEASUREMENT -> {
-                        gatt.readCharacteristic(characteristic)
-                        Log.d(TAG, "Reading temperature")
-                    }
-                    LOCATION_MEASUREMENT -> {
-                        gatt.readCharacteristic(characteristic)
-                        Log.d(TAG, "Reading location")
-                    }
-                    CUSTOM_CHARACTERISTIC -> {
-                        gatt.readCharacteristic(characteristic)
-                        Log.d(TAG, "Reading custom characteristic")
-                    }
                 }
                 
                 // Device-specific characteristic handling
@@ -800,6 +879,71 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 }
             }
         }
+    }
+    
+    // Detect device protocol based on available GATT services
+    private fun detectDeviceProtocolFromServices(services: List<BluetoothGattService>): DeviceProtocol {
+        for (service in services) {
+            when (service.uuid) {
+                ELD_SERVICE -> {
+                    Log.d(TAG, "Detected ELD device based on service UUID")
+                    return DeviceProtocol.ELD_DEVICE
+                }
+                HEART_RATE_SERVICE -> {
+                    Log.d(TAG, "Detected heart rate sensor based on service UUID")
+                    return DeviceProtocol.HEART_RATE_SENSOR
+                }
+                BATTERY_SERVICE -> {
+                    Log.d(TAG, "Detected battery sensor based on service UUID")
+                    return DeviceProtocol.BATTERY_SENSOR
+                }
+                LOCATION_NAVIGATION_SERVICE -> {
+                    Log.d(TAG, "Detected location/tracking device based on service UUID")
+                    return DeviceProtocol.TRACKING_DEVICE
+                }
+                ENVIRONMENTAL_SENSING_SERVICE -> {
+                    Log.d(TAG, "Detected environmental sensor based on service UUID")
+                    return DeviceProtocol.IOT_SENSOR
+                }
+                else -> {
+                    // Check for custom service UUIDs that might indicate specific device types
+                    val serviceUuidString = service.uuid.toString().uppercase()
+                    when {
+                        serviceUuidString.contains("FFE0") -> {
+                            Log.d(TAG, "Detected custom ELD device based on service pattern")
+                            return DeviceProtocol.ELD_DEVICE
+                        }
+                        serviceUuidString.contains("FEE7") -> {
+                            Log.d(TAG, "Detected camera device based on service pattern")
+                            return DeviceProtocol.CAMERA_DEVICE
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If no specific service detected, determine based on characteristics
+        for (service in services) {
+            for (characteristic in service.characteristics) {
+                when (characteristic.uuid) {
+                    TEMPERATURE -> {
+                        Log.d(TAG, "Detected temperature sensor based on characteristic")
+                        return DeviceProtocol.TEMPERATURE_SENSOR
+                    }
+                    LOCATION_AND_SPEED -> {
+                        Log.d(TAG, "Detected location sensor based on characteristic")
+                        return DeviceProtocol.LOCATION_SENSOR
+                    }
+                    ELD_DATA_CHARACTERISTIC -> {
+                        Log.d(TAG, "Detected ELD device based on characteristic")
+                        return DeviceProtocol.ELD_DEVICE
+                    }
+                }
+            }
+        }
+        
+        Log.d(TAG, "Could not determine specific device protocol, using UNKNOWN")
+        return DeviceProtocol.UNKNOWN
     }
 
     // Real data streaming is handled by GATT callbacks
@@ -1050,8 +1194,15 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             putString("name", device.name ?: "Unknown Device")
             putString("address", device.address)
             putBoolean("isConnected", connectedDevices.containsKey(deviceId))
-            putInt("signalStrength", (Math.random() * 100).toInt())
-            putInt("batteryLevel", (Math.random() * 100).toInt())
+            // Get real GATT connection for battery/signal reading
+            val gatt = connectedGattDevices[deviceId]
+            if (gatt != null) {
+                putInt("signalStrength", getRealSignalStrength(gatt))
+                putInt("batteryLevel", getRealBatteryLevel(gatt))
+            } else {
+                putInt("signalStrength", -1) // Indicate unavailable
+                putInt("batteryLevel", -1)   // Indicate unavailable
+            }
             putString("firmwareVersion", "1.0.0")
         }
     }

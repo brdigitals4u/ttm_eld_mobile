@@ -1,10 +1,45 @@
-import { Briefcase, Mail, Phone, Truck, User } from 'lucide-react-native';
+import { Briefcase, Mail, Phone, Truck, User, Settings } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/context/theme-context';
+
+interface MenuItemProps {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+}
+
+function MenuItem({ title, subtitle, icon, onPress }: MenuItemProps) {
+  const { colors, isDark } = useTheme();
+  
+  return (
+    <TouchableOpacity onPress={onPress}>
+      <Card style={styles.menuItem}>
+        <View style={styles.menuItemContent}>
+          <View style={styles.menuItemIcon}>
+            {icon}
+          </View>
+          <View style={styles.menuItemText}>
+            <Text style={[styles.menuItemTitle, { color: colors.text }]}>
+              {title}
+            </Text>
+            <Text style={[styles.menuItemSubtitle, { color: colors.inactive }]}>
+              {subtitle}
+            </Text>
+          </View>
+          <Text style={[styles.menuItemArrow, { color: colors.inactive }]}>
+            ›
+          </Text>
+        </View>
+      </Card>
+    </TouchableOpacity>
+  );
+}
 
 export default function ProfileScreen() {
   const { colors, isDark } = useTheme();
@@ -13,6 +48,16 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     logout();
   };
+
+  const menuItems = [
+    {
+      title: 'Settings',
+      subtitle: 'Manage Setting',
+      icon: <Settings size={24} color={colors.primary} />,
+      onPress: () => router.push('/(app)/settings'),
+    },
+  
+  ];
 
   return (
     <ScrollView 
@@ -121,6 +166,16 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
+ {menuItems.map((item, index) => (
+          <MenuItem
+            key={index}
+            title={item.title}
+            subtitle={item.subtitle}
+            icon={item.icon}
+            onPress={item.onPress}
+          />
+        ))}
+
       <Button
         title="Log Out"
         onPress={handleLogout}
@@ -189,5 +244,33 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 20,
+  },
+    menuContainer: {
+    gap: 8,
+  },
+  menuItem: {
+    marginBottom: 0,
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuItemIcon: {
+    marginRight: 16,
+  },
+  menuItemText: {
+    flex: 1,
+  },
+  menuItemTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 4,
+  },
+  menuItemSubtitle: {
+    fontSize: 14,
+  },
+  menuItemArrow: {
+    fontSize: 20,
+    fontWeight: '300' as const,
   },
 });

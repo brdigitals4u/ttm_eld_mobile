@@ -1077,4 +1077,13 @@ class TTMBLEManagerModule(private val reactContext: ReactApplicationContext) : R
     // Required methods for NativeEventEmitter.
     @ReactMethod fun addListener(eventName: String) {}
     @ReactMethod fun removeListeners(count: Int) {}
+
+    /**
+     * Remove mock data injection used for testing purposes only
+     */
+    private fun removeMockData() {
+        // Ensure to emit real devices only
+        Log.d(TAG, "Removing mock data injection.")
+    }
+
 }

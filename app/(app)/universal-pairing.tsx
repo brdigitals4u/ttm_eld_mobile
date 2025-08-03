@@ -1,10 +1,8 @@
 import { router } from 'expo-router';
-import { ArrowLeft, Bluetooth, RefreshCw, Truck, Wifi, Signal, Battery, Settings, X, Search, Filter, Zap, ShieldCheck, Circle } from 'lucide-react-native';
-import React, { useEffect, useState, useRef } from 'react';
+import { ArrowLeft, Bluetooth, Truck, Wifi, Signal, Settings, Search, Zap, Circle } from 'lucide-react-native';
+import { useEffect, useState, useRef } from 'react';
 import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, NativeModules, NativeEventEmitter, PermissionsAndroid, Animated, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
 import { useAuth } from '@/context/auth-context';
 import { useEld } from '@/context/eld-context';
 import { useTheme } from '@/context/theme-context';
@@ -303,8 +301,16 @@ export default function UniversalPairingScreen() {
   // Initialize Jimi IoT Bridge
   const initializeJimiBridge = async () => {
     try {
+      console.log('🔍 === DEBUGGING NATIVE MODULES ===');
+      console.log('📱 Available Native Modules:', Object.keys(NativeModules));
+      console.log('📱 JimiBridge module exists:', !!NativeModules.JimiBridge);
+      
       if (NativeModules.JimiBridge) {
         jimiBridgeRef.current = NativeModules.JimiBridge;
+        console.log('📱 JimiBridge methods:', Object.getOwnPropertyNames(jimiBridgeRef.current));
+        console.log('📱 getRealDeviceData exists:', typeof jimiBridgeRef.current.getRealDeviceData);
+        console.log('📱 getRealDeviceData function:', jimiBridgeRef.current.getRealDeviceData);
+        
         eventEmitterRef.current = new NativeEventEmitter(jimiBridgeRef.current);
         setupJimiEventListeners();
         await requestJimiPermissions();

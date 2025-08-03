@@ -2,24 +2,13 @@ import { useEffect } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import UniversalPairingScreen from './universal-pairing';
 
 export default function UniversalPairingTab() {
-  useEffect(() => {
-    // Small delay to show loading state, then redirect
-    const timer = setTimeout(() => {
-      router.replace('/(app)/universal-pairing');
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Show loading state instead of null
+  // Show loading state while redirecting
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading Universal Pairing...</Text>
-      </View>
+     <UniversalPairingScreen />
     </SafeAreaView>
   );
 }
@@ -40,4 +29,4 @@ const styles = StyleSheet.create({
     color: '#666666',
     fontWeight: '500',
   },
-}); 
+});
