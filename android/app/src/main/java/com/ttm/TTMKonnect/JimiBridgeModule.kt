@@ -42,30 +42,25 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         private const val DEVICE_TYPE_CAMERA_DC08 = "DC08"  // DC08 Camera (changed from "108" to avoid conflict)
         private const val DEVICE_TYPE_CAMERA_DC09 = "DC09"  // DC09 Camera (changed from "107" to avoid conflict)
         
-            // Platform Types (from PlatFormType.java in Jimi APK)
-    private const val PLATFORM_IH008C = 0              // Basic IH008C platform
-    private const val PLATFORM_IH008C_NIGHT_VISION = 1 // IH008C with night vision
-    private const val PLATFORM_IH008E = 2              // Basic IH008E platform
-    private const val PLATFORM_IH008E_NIGHT_VISION = 3 // IH008E with night vision
-    private const val PLATFORM_IH010 = 4               // Basic IH010 platform
-    private const val PLATFORM_IH010_NIGHT_VISION = 5  // IH010 with night vision
-    private const val PLATFORM_IH018 = 6               // Basic IH018 platform
-    private const val PLATFORM_IH018_NIGHT_VISION = 7  // IH018 with night vision
-    private const val PLATFORM_HAVE_IRCUT = 100        // Platform with IRCUT filter
-    private const val PLATFORM_IH008C_IRCUT = 100      // IH008C with IRCUT filter
-    private const val PLATFORM_IH008C_NIGHT_VISION_IRCUT = 101 // IH008C with night vision + IRCUT
-    private const val PLATFORM_IH008E_IRCUT = 102      // IH008E with IRCUT filter
-    private const val PLATFORM_IH008E_NIGHT_VISION_IRCUT = 103 // IH008E with night vision + IRCUT
-    private const val PLATFORM_IH010_IRCUT = 104       // IH010 with IRCUT filter
-    private const val PLATFORM_IH010_NIGHT_VISION_IRCUT = 105 // IH010 with night vision + IRCUT
-    private const val PLATFORM_IH018_IRCUT = 106       // IH018 with IRCUT filter
-    private const val PLATFORM_IH018_NIGHT_VISION_IRCUT = 107 // IH018 with night vision + IRCUT
-    private const val PLATFORM_IH009 = 108             // ELD Device (Jimi ELD) - KD032 devices
-    
-    // Device Type Detection (following Jimi APK DeviceTypeUtils.java patterns)
-    private const val DEVICE_TYPE_ELD = "181"          // ELD Device Type (from Jimi APK)
-    private const val DEVICE_TYPE_CAMERA = "168"       // Camera Device Type
-    private const val DEVICE_TYPE_TRACKING = "165"     // Tracking Device Type
+        // Platform Types (from PlatFormType.java in Jimi APK)
+        private const val PLATFORM_IH008C = 0              // Basic IH008C platform
+        private const val PLATFORM_IH008C_NIGHT_VISION = 1 // IH008C with night vision
+        private const val PLATFORM_IH008E = 2              // Basic IH008E platform
+        private const val PLATFORM_IH008E_NIGHT_VISION = 3 // IH008E with night vision
+        private const val PLATFORM_IH010 = 4               // Basic IH010 platform
+        private const val PLATFORM_IH010_NIGHT_VISION = 5  // IH010 with night vision
+        private const val PLATFORM_IH018 = 6               // Basic IH018 platform
+        private const val PLATFORM_IH018_NIGHT_VISION = 7  // IH018 with night vision
+        private const val PLATFORM_HAVE_IRCUT = 100        // Platform with IRCUT filter
+        private const val PLATFORM_IH008C_IRCUT = 100      // IH008C with IRCUT filter
+        private const val PLATFORM_IH008C_NIGHT_VISION_IRCUT = 101 // IH008C with night vision + IRCUT
+        private const val PLATFORM_IH008E_IRCUT = 102      // IH008E with IRCUT filter
+        private const val PLATFORM_IH008E_NIGHT_VISION_IRCUT = 103 // IH008E with night vision + IRCUT
+        private const val PLATFORM_IH010_IRCUT = 104       // IH010 with IRCUT filter
+        private const val PLATFORM_IH010_NIGHT_VISION_IRCUT = 105 // IH010 with night vision + IRCUT
+        private const val PLATFORM_IH018_IRCUT = 106       // IH018 with IRCUT filter
+        private const val PLATFORM_IH018_NIGHT_VISION_IRCUT = 107 // IH018 with night vision + IRCUT
+        private const val PLATFORM_IH009 = 108             // ELD Device (Jimi ELD) - KD032 devices
         
         // Scan Settings
         private const val SCAN_DURATION = 30000L // 30 seconds
