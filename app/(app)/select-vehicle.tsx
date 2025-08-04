@@ -378,7 +378,7 @@ function SelectVehicleComponent() {
         addLog(`Connecting to ${device.name || device.id}...`);
         
         // Connect using Jimi IoT app flow - no passcode, simple connection
-        await TTMBLEManager.connect(device.id, "66666666", true);
+        await TTMBLEManager.connect(device.id, "XkGOqXsA", false);
         addLog('Connection request sent successfully');
         
         // Wait for connection and authentication

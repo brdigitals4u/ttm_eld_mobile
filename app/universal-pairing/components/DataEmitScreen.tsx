@@ -45,6 +45,12 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   onDisconnect,
   onBack,
 }) => {
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+
   const startDataStreaming = useCallback(async () => {
     if (device) {
       try {
@@ -54,7 +60,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
         console.error('Error starting data streaming:', error);
       }
     }
-  }, [device]);
+  }, [device]) as any;
 
   const [sensorData, setSensorData] = useState<{[key: string]: any}>({});
 
@@ -111,16 +117,13 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   }, [deviceData]);
 
   const { colors } = useTheme();
-  const [refreshing, setRefreshing] = useState(false);
-  const [isConnected, setIsConnected] = useState(true);
-  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
-  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+
   const [lastDisconnectReason, setLastDisconnectReason] = useState<string | null>(null);
   const [disconnectInfo, setDisconnectInfo] = useState<any>(null);
   const [isAutoStreaming, setIsAutoStreaming] = useState(false);
   const mountedRef = useRef(true);
   const renderCountRef = useRef(0);
-  const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamingIntervalRef = useRef<any>(null);
 
   const pulseAnimation = useSharedValue(1);
 
