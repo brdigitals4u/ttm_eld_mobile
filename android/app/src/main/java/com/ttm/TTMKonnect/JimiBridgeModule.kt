@@ -1233,6 +1233,14 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         Log.d(TAG, "Raw data: ${data.contentToString()}")
         
         val protocol = getDeviceProtocol(deviceId)
+        
+        // Check if this is ELD JSON data
+        if (protocol == DeviceProtocol.ELD_DEVICE) {
+            processELDJsonData(deviceId, data, characteristicUuid)
+            return
+        }
+        
+        // Process as regular sensor data
         val sensorValue = parseSensorData(deviceId, data, characteristicUuid)
         
         Log.d(TAG, "Parsed sensor value: $sensorValue, protocol: $protocol")
@@ -1249,6 +1257,262 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         }
         
         sendEvent("onDataReceived", realData)
+    }
+    
+    // Process ELD JSON data specifically
+    private fun processELDJsonData(deviceId: String, data: ByteArray, characteristicUuid: String) {
+        Log.d(TAG, "Processing ELD JSON data from device: $deviceId")
+        
+        try {
+            // Convert byte array to string
+            val jsonString = String(data, Charsets.UTF_8)
+            Log.d(TAG, "ELD JSON string: $jsonString")
+            
+            // Parse JSON data
+            val jsonObject = JSONObject(jsonString)
+            
+            // Extract ELD data components
+            val eldData = parseELDJsonObject(jsonObject)
+            
+            // Send structured ELD data to React Native
+            val eldDataMap = Arguments.createMap().apply {
+                putString("deviceId", deviceId)
+                putString("timestamp", Date().toString())
+                putString("dataType", "ELD_DATA")
+                putString("protocol", "ELD_DEVICE")
+                putString("characteristicUuid", characteristicUuid)
+                putBoolean("isRealData", true)
+                putString("rawData", jsonString)
+                
+                // Add structured ELD data
+                eldData?.let { eld ->
+                    putMap("eldData", eld)
+                }
+            }
+            
+            Log.d(TAG, "Sending structured ELD data to React Native")
+            sendEvent("onDataReceived", eldDataMap)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing ELD JSON data: ${e.message}")
+            
+            // Send error data to React Native
+            val errorData = Arguments.createMap().apply {
+                putString("deviceId", deviceId)
+                putString("timestamp", Date().toString())
+                putString("dataType", "ELD_ERROR")
+                putString("protocol", "ELD_DEVICE")
+                putString("error", "JSON parsing failed: ${e.message}")
+                putString("rawData", String(data, Charsets.UTF_8))
+            }
+            
+            sendEvent("onDataReceived", errorData)
+        }
+    }
+    
+    // Parse ELD JSON object into structured data
+    private fun parseELDJsonObject(jsonObject: JSONObject): WritableMap? {
+        try {
+            val eldMap = Arguments.createMap()
+            
+            // Parse VIN data
+            if (jsonObject.has("vin")) {
+                val vinData = parseVINData(jsonObject.getJSONObject("vin"))
+                eldMap.putMap("vin", vinData)
+            }
+            
+            // Parse CAN data (engine metrics)
+            if (jsonObject.has("can")) {
+                val canData = parseCANData(jsonObject.getJSONObject("can"))
+                eldMap.putMap("can", canData)
+            }
+            
+            // Parse GPS data
+            if (jsonObject.has("gps")) {
+                val gpsData = parseGPSData(jsonObject.getJSONObject("gps"))
+                eldMap.putMap("gps", gpsData)
+            }
+            
+            // Parse event data
+            if (jsonObject.has("events")) {
+                val eventsData = parseEventData(jsonObject.getJSONArray("events"))
+                eldMap.putArray("events", eventsData)
+            }
+            
+            // Parse device status
+            if (jsonObject.has("status")) {
+                val statusData = parseStatusData(jsonObject.getJSONObject("status"))
+                eldMap.putMap("status", statusData)
+            }
+            
+            return eldMap
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing ELD JSON object: ${e.message}")
+            return null
+        }
+    }
+    
+    // Parse VIN data from JSON
+    private fun parseVINData(vinObject: JSONObject): WritableMap {
+        val vinMap = Arguments.createMap()
+        
+        try {
+            if (vinObject.has("number")) {
+                vinMap.putString("number", vinObject.getString("number"))
+            }
+            if (vinObject.has("make")) {
+                vinMap.putString("make", vinObject.getString("make"))
+            }
+            if (vinObject.has("model")) {
+                vinMap.putString("model", vinObject.getString("model"))
+            }
+            if (vinObject.has("year")) {
+                vinMap.putInt("year", vinObject.getInt("year"))
+            }
+            if (vinObject.has("engine")) {
+                vinMap.putString("engine", vinObject.getString("engine"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing VIN data: ${e.message}")
+        }
+        
+        return vinMap
+    }
+    
+    // Parse CAN data (engine metrics) from JSON
+    private fun parseCANData(canObject: JSONObject): WritableMap {
+        val canMap = Arguments.createMap()
+        
+        try {
+            if (canObject.has("engineRPM")) {
+                canMap.putDouble("engineRPM", canObject.getDouble("engineRPM"))
+            }
+            if (canObject.has("throttlePosition")) {
+                canMap.putDouble("throttlePosition", canObject.getDouble("throttlePosition"))
+            }
+            if (canObject.has("fuelLevel")) {
+                canMap.putDouble("fuelLevel", canObject.getDouble("fuelLevel"))
+            }
+            if (canObject.has("engineTemp")) {
+                canMap.putDouble("engineTemp", canObject.getDouble("engineTemp"))
+            }
+            if (canObject.has("speed")) {
+                canMap.putDouble("speed", canObject.getDouble("speed"))
+            }
+            if (canObject.has("odometer")) {
+                canMap.putDouble("odometer", canObject.getDouble("odometer"))
+            }
+            if (canObject.has("engineHours")) {
+                canMap.putDouble("engineHours", canObject.getDouble("engineHours"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing CAN data: ${e.message}")
+        }
+        
+        return canMap
+    }
+    
+    // Parse GPS data from JSON
+    private fun parseGPSData(gpsObject: JSONObject): WritableMap {
+        val gpsMap = Arguments.createMap()
+        
+        try {
+            if (gpsObject.has("latitude")) {
+                gpsMap.putDouble("latitude", gpsObject.getDouble("latitude"))
+            }
+            if (gpsObject.has("longitude")) {
+                gpsMap.putDouble("longitude", gpsObject.getDouble("longitude"))
+            }
+            if (gpsObject.has("altitude")) {
+                gpsMap.putDouble("altitude", gpsObject.getDouble("altitude"))
+            }
+            if (gpsObject.has("heading")) {
+                gpsMap.putDouble("heading", gpsObject.getDouble("heading"))
+            }
+            if (gpsObject.has("speed")) {
+                gpsMap.putDouble("speed", gpsObject.getDouble("speed"))
+            }
+            if (gpsObject.has("accuracy")) {
+                gpsMap.putDouble("accuracy", gpsObject.getDouble("accuracy"))
+            }
+            if (gpsObject.has("timestamp")) {
+                gpsMap.putString("timestamp", gpsObject.getString("timestamp"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing GPS data: ${e.message}")
+        }
+        
+        return gpsMap
+    }
+    
+    // Parse event data from JSON array
+    private fun parseEventData(eventsArray: org.json.JSONArray): WritableArray {
+        val eventsWritableArray = Arguments.createArray()
+        
+        try {
+            for (i in 0 until eventsArray.length()) {
+                val eventObject = eventsArray.getJSONObject(i)
+                val eventMap = Arguments.createMap()
+                
+                if (eventObject.has("type")) {
+                    eventMap.putString("type", eventObject.getString("type"))
+                }
+                if (eventObject.has("timestamp")) {
+                    eventMap.putString("timestamp", eventObject.getString("timestamp"))
+                }
+                if (eventObject.has("description")) {
+                    eventMap.putString("description", eventObject.getString("description"))
+                }
+                if (eventObject.has("location")) {
+                    val locationObject = eventObject.getJSONObject("location")
+                    val locationMap = Arguments.createMap()
+                    if (locationObject.has("latitude")) {
+                        locationMap.putDouble("latitude", locationObject.getDouble("latitude"))
+                    }
+                    if (locationObject.has("longitude")) {
+                        locationMap.putDouble("longitude", locationObject.getDouble("longitude"))
+                    }
+                    eventMap.putMap("location", locationMap)
+                }
+                if (eventObject.has("driverId")) {
+                    eventMap.putString("driverId", eventObject.getString("driverId"))
+                }
+                
+                eventsWritableArray.pushMap(eventMap)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing event data: ${e.message}")
+        }
+        
+        return eventsWritableArray
+    }
+    
+    // Parse status data from JSON
+    private fun parseStatusData(statusObject: JSONObject): WritableMap {
+        val statusMap = Arguments.createMap()
+        
+        try {
+            if (statusObject.has("connectionStatus")) {
+                statusMap.putString("connectionStatus", statusObject.getString("connectionStatus"))
+            }
+            if (statusObject.has("batteryLevel")) {
+                statusMap.putDouble("batteryLevel", statusObject.getDouble("batteryLevel"))
+            }
+            if (statusObject.has("signalStrength")) {
+                statusMap.putDouble("signalStrength", statusObject.getDouble("signalStrength"))
+            }
+            if (statusObject.has("lastUpdate")) {
+                statusMap.putString("lastUpdate", statusObject.getString("lastUpdate"))
+            }
+            if (statusObject.has("firmwareVersion")) {
+                statusMap.putString("firmwareVersion", statusObject.getString("firmwareVersion"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing status data: ${e.message}")
+        }
+        
+        return statusMap
     }
     
     // Get device protocol

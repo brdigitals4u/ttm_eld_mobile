@@ -17,6 +17,30 @@ export interface UniversalDevice {
   characteristicUuid?: string;
   rawData?: string;
   isRealData?: boolean;
+  vin?: string;
+  canData?: {
+    engine_throttle?: number;
+    air_flow?: number;
+    engine_runtime?: number;
+    engine_load?: number;
+    coolant_temp?: number;
+    vehicle_distance?: number;
+    speed?: number;
+    fuel_level?: number;
+    engine_rpm?: number;
+    voltage?: number;
+  };
+  gpsData?: {
+    latitude?: number;
+    longitude?: number;
+    heading?: number;
+    timestamp?: string;
+  };
+  eventData?: {
+    event_type?: string;
+    trigger?: string;
+    id?: number;
+  };
 }
 
 export interface ScanOptions {

@@ -29,6 +29,15 @@ const UniversalPairingContent: React.FC = () => {
     error: null,
     deviceData: [],
   });
+  
+  // Separate state for ELD data
+  const [eldData, setEldData] = useState<{
+    vin?: string;
+    canData?: any;
+    gpsData?: any;
+    eventData?: any;
+    timestamp?: string;
+  } | null>(null);
 
   useEffect(() => {
     const initializeJimiBridge = async () => {
@@ -171,9 +180,10 @@ const UniversalPairingContent: React.FC = () => {
       batteryLevel: data?.batteryLevel,
       signalStrength: data?.signalStrength,
       isRealData: data?.isRealData || false,
+      hasEldData: !!data?.eldData,
     };
     
-    console.log('📊 ELD Data Received:', logData);
+    console.log('📊 Data Received:', logData);
     
     // Log detailed data if needed for debugging
     if (data?.rawData) {
@@ -185,6 +195,75 @@ const UniversalPairingContent: React.FC = () => {
       });
     }
     
+    // Handle structured ELD data from native module
+    if (data.dataType === 'ELD_DATA' && data.eldData) {
+      console.log('📊 ELD Structured Data Received:', data.eldData);
+      
+      // Extract structured ELD components
+      const { vin, can, gps, events, status } = data.eldData;
+      
+      // Store parsed ELD data in dedicated ELD state
+      setEldData({
+        vin: vin || null,
+        canData: can || null,
+        gpsData: gps || null,
+        eventData: events || null,
+        status: status || null,
+        timestamp,
+      });
+      
+      // Update connected device with ELD data
+      setState((prevState) => ({
+        ...prevState,
+        connectedDevice: prevState.connectedDevice ? {
+          ...prevState.connectedDevice,
+          vin: vin || null,
+          canData: can || null,
+          gpsData: gps || null,
+          eventData: events || null,
+          status: status || null,
+        } : null,
+      }));
+    }
+    
+    // Handle ELD errors
+    if (data.dataType === 'ELD_ERROR') {
+      console.error('❌ ELD Error:', data.error);
+      showToast(`ELD Error: ${data.error}`, 'error');
+    }
+    
+    // Fallback: try to parse raw JSON data for compatibility
+    if (data.protocol === 'ELD_DEVICE' && data.rawData && !data.eldData) {
+      try {
+        const eldJson = JSON.parse(data.rawData);
+        const { vin, can_data, gps_data, event_data } = eldJson;
+        console.log('📊 ELD JSON Parsed (fallback):', { vin, can_data, gps_data, event_data });
+        
+        // Store parsed ELD data in dedicated ELD state
+        setEldData({
+          vin,
+          canData: can_data,
+          gpsData: gps_data,
+          eventData: event_data,
+          timestamp,
+        });
+        
+        // Update connected device with ELD data
+        setState((prevState) => ({
+          ...prevState,
+          connectedDevice: prevState.connectedDevice ? {
+            ...prevState.connectedDevice,
+            vin,
+            canData: can_data,
+            gpsData: gps_data,
+            eventData: event_data,
+          } : null,
+        }));
+      } catch (e) {
+        console.error('❌ Failed to parse ELD JSON:', e.message);
+      }
+    }
+
     // Update state with received data
     setState((prevState) => ({
       ...prevState,

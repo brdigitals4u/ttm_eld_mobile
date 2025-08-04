@@ -178,6 +178,9 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
           <Text style={styles.deviceId}>
             ID: {device.id?.substring(device.id.length - 8) || 'N/A'}
           </Text>
+          <Text style={styles.deviceProtocol}>
+            Protocol: {device.protocol || 'Unknown'}
+          </Text>
         </Animated.View>
       )}
       
@@ -306,7 +309,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  deviceProtocol: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '600',
     marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   content: {
     marginBottom: 24,

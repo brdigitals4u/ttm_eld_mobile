@@ -29,8 +29,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTheme } from "@/context/theme-context";
 import Button from "@/components/Button";
-import { UniversalDevice, DeviceData } from "../types";
-import colors from "@/constants/Colors";
+import { UniversalDevice, DeviceData } from '../types';
+import colors from '@/constants/Colors';
+import ELDDisplay from './eld/ELDDisplay';
 
 interface DataEmitScreenProps {
   device: UniversalDevice | null;
@@ -124,6 +125,9 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   const mountedRef = useRef(true);
   const renderCountRef = useRef(0);
   const streamingIntervalRef = useRef<any>(null);
+  
+  // Check if this is an ELD device
+  const isELDDevice = device?.protocol === 'ELD_DEVICE';
 
   const pulseAnimation = useSharedValue(1);
 
@@ -626,6 +630,19 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
         />
       </View>
 
+      {/* ELD Display Section - Only for ELD Devices */}
+      {isELDDevice && (
+        <View style={styles.eldSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            ELD Dashboard
+          </Text>
+          <ELDDisplay 
+            device={device}
+            timestamp={latestData?.timestamp}
+          />
+        </View>
+      )}
+
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <Button
@@ -1035,6 +1052,14 @@ const styles = StyleSheet.create({
   streamingText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  eldSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
 });
 
