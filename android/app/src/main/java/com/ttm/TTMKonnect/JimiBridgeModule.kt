@@ -1966,12 +1966,6 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         val eldComplianceMap = Arguments.createMap()
         
         try {
-            // Null check for input
-            if (eldDataObject == null) {
-                Log.e(TAG, "ELD data object is null")
-                return eldComplianceMap
-            }
-            
             // 24-Hour Period Data
             if (eldDataObject.has("periodStartTime")) {
                 try {
