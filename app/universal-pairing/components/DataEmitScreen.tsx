@@ -891,6 +891,83 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             }}
             timestamp={latestData?.timestamp}
           />
+          
+          {/* OBD Protocol Data Comparison */}
+          <View style={styles.obdComparisonSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              🔧 OBD Protocol Data Comparison
+            </Text>
+            
+            {/* OBD Engine Data */}
+            <View style={styles.obdDataGrid}>
+              <View style={[styles.obdDataCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.obdDataIcon}>⚡</Text>
+                <Text style={[styles.obdDataLabel, { color: colors.text }]}>Engine RPM</Text>
+                <Text style={[styles.obdDataValue, { color: colors.primary }]}>
+                  {sensorData?.obd_rpm ? `${sensorData?.obd_rpm.value} RPM` : '--'}
+                </Text>
+                <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x0C</Text>
+              </View>
+              
+              <View style={[styles.obdDataCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.obdDataIcon}>🚗</Text>
+                <Text style={[styles.obdDataLabel, { color: colors.text }]}>Vehicle Speed</Text>
+                <Text style={[styles.obdDataValue, { color: colors.primary }]}>
+                  {sensorData?.obd_speed ? `${sensorData?.obd_speed.value} km/h` : '--'}
+                </Text>
+                <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x0D</Text>
+              </View>
+              
+              <View style={[styles.obdDataCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.obdDataIcon}>🌡️</Text>
+                <Text style={[styles.obdDataLabel, { color: colors.text }]}>Engine Temp</Text>
+                <Text style={[styles.obdDataValue, { color: colors.primary }]}>
+                  {sensorData?.obd_temperature ? `${sensorData?.obd_temperature.value}°F` : '--'}
+                </Text>
+                <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x05</Text>
+              </View>
+              
+              <View style={[styles.obdDataCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.obdDataIcon}>⛽</Text>
+                <Text style={[styles.obdDataLabel, { color: colors.text }]}>Fuel Level</Text>
+                <Text style={[styles.obdDataValue, { color: colors.primary }]}>
+                  {sensorData?.obd_fuel_level ? `${sensorData?.obd_fuel_level.value}%` : '--'}
+                </Text>
+                <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x2F</Text>
+              </View>
+              
+              <View style={[styles.obdDataCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.obdDataIcon}>🔋</Text>
+                <Text style={[styles.obdDataLabel, { color: colors.text }]}>Voltage</Text>
+                <Text style={[styles.obdDataValue, { color: colors.primary }]}>
+                  {sensorData?.obd_voltage ? `${sensorData?.obd_voltage.value} mV` : '--'}
+                </Text>
+                <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x42</Text>
+              </View>
+              
+              <View style={[styles.obdDataCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={styles.obdDataIcon}>🎛️</Text>
+                <Text style={[styles.obdDataLabel, { color: colors.text }]}>Throttle</Text>
+                <Text style={[styles.obdDataValue, { color: colors.primary }]}>
+                  {sensorData?.obd_throttle ? `${sensorData?.obd_throttle.value}%` : '--'}
+                </Text>
+                <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x11</Text>
+              </View>
+            </View>
+            
+            {/* Data Source Comparison */}
+            <View style={styles.comparisonInfo}>
+              <Text style={[styles.comparisonInfoText, { color: colors.text }]}>
+                📊 Data Source: Both ELD and OBD data come from actual hardware
+              </Text>
+              <Text style={[styles.comparisonInfoText, { color: colors.inactive }]}>
+                🔧 OBD Protocol: Standard OBD-II PIDs from vehicle diagnostics
+              </Text>
+              <Text style={[styles.comparisonInfoText, { color: colors.inactive }]}>
+                📱 ELD Protocol: FMCSA-compliant Electronic Logging Device data
+              </Text>
+            </View>
+          </View>
         </View>
       ) : (
         // Default Device View (Non-ELD Devices)
@@ -1426,6 +1503,62 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: 12,
+  },
+  // OBD Comparison Styles
+  obdComparisonSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  obdDataGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 12,
+  },
+  obdDataCard: {
+    flex: 1,
+    minWidth: 150,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  obdDataIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  obdDataLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  obdDataValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  obdDataSource: {
+    fontSize: 10,
+    fontFamily: "monospace",
+    textAlign: "center",
+    opacity: 0.7,
+  },
+  comparisonInfo: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 8,
+  },
+  comparisonInfoText: {
+    fontSize: 12,
+    marginBottom: 4,
+    lineHeight: 16,
   },
 });
 
