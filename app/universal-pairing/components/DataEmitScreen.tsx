@@ -398,6 +398,150 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
     }
   }, []);
 
+  // Test function to simulate ELD data flow
+  const testELDDataFlow = useCallback(async () => {
+    try {
+      console.log('🧪 Starting ELD Test Data Flow...');
+      
+      // Log test start
+      FirebaseLogger.logELDEvent('test_eld_flow_started', {
+        deviceId: device?.id || 'test-device',
+        deviceName: device?.name || 'Test ELD Device',
+      });
+      
+      // Simulate ELD JSON data from hardware
+      const testELDData = {
+        // 24-Hour Period Data
+        period_start_time: { value: "2024-01-15T00:00:00Z", timestamp: new Date().toISOString() },
+        date: { value: "2024-01-15", timestamp: new Date().toISOString() },
+        time: { value: "10:30:00", timestamp: new Date().toISOString() },
+        timezone_offset: { value: "-05:00", timestamp: new Date().toISOString() },
+        
+        // Carrier Information
+        carrier_name: { value: "Test Carrier Inc.", timestamp: new Date().toISOString() },
+        carrier_usdot_number: { value: "1234567", timestamp: new Date().toISOString() },
+        
+        // Vehicle Information
+        vin: { value: "SALYK2EX2LA257358", timestamp: new Date().toISOString() },
+        cmv_power_unit_number: { value: "TRUCK-001", timestamp: new Date().toISOString() },
+        trailer_numbers: { value: "TRAILER-001", timestamp: new Date().toISOString() },
+        vehicle_miles: { value: "1250.5", timestamp: new Date().toISOString() },
+        engine_hours: { value: "3600", timestamp: new Date().toISOString() },
+        
+        // Driver Information
+        driver_first_name: { value: "John", timestamp: new Date().toISOString() },
+        driver_last_name: { value: "Driver", timestamp: new Date().toISOString() },
+        driver_license_number: { value: "DL123456789", timestamp: new Date().toISOString() },
+        driver_license_issuing_state: { value: "CA", timestamp: new Date().toISOString() },
+        driver_location_description: { value: "Los Angeles, CA", timestamp: new Date().toISOString() },
+        
+        // ELD Device Information
+        eld_identifier: { value: "ELD-TEST-001", timestamp: new Date().toISOString() },
+        eld_provider: { value: "Test ELD Provider", timestamp: new Date().toISOString() },
+        eld_registration_id: { value: "REG-123456", timestamp: new Date().toISOString() },
+        eld_username: { value: "testdriver", timestamp: new Date().toISOString() },
+        eld_account_type: { value: "DRIVER", timestamp: new Date().toISOString() },
+        eld_authentication_value: { value: "AUTH-TEST-123", timestamp: new Date().toISOString() },
+        
+        // Event Data
+        event_code: { value: "PERIODIC", timestamp: new Date().toISOString() },
+        event_type: { value: "DRIVING", timestamp: new Date().toISOString() },
+        event_sequence_id: { value: "12345", timestamp: new Date().toISOString() },
+        event_record_origin: { value: "AUTOMATIC", timestamp: new Date().toISOString() },
+        event_record_status: { value: "ACTIVE", timestamp: new Date().toISOString() },
+        event_data_check_value: { value: "CHECK-123", timestamp: new Date().toISOString() },
+        
+        // Location Data
+        latitude: { value: "40.7128", timestamp: new Date().toISOString() },
+        longitude: { value: "-74.0060", timestamp: new Date().toISOString() },
+        geo_location: { value: "New York, NY", timestamp: new Date().toISOString() },
+        distance_since_last_valid_coordinates: { value: "0.5", timestamp: new Date().toISOString() },
+        
+        // Diagnostic Data
+        malfunction_indicator_status: { value: "OK", timestamp: new Date().toISOString() },
+        malfunction_diagnostic_code: { value: "P0000", timestamp: new Date().toISOString() },
+        data_diagnostic_event_indicator_status: { value: "NORMAL", timestamp: new Date().toISOString() },
+        
+        // Configuration
+        exempt_driver_configuration: { value: "NONE", timestamp: new Date().toISOString() },
+        multiday_basis_used: { value: "7", timestamp: new Date().toISOString() },
+        
+        // Additional Data
+        order_number: { value: "ORD-123456", timestamp: new Date().toISOString() },
+        shipping_document_number: { value: "SHIP-789", timestamp: new Date().toISOString() },
+        output_file_comment: { value: "Test comment", timestamp: new Date().toISOString() },
+        comment_annotation: { value: "Test annotation", timestamp: new Date().toISOString() },
+        
+        // File Data
+        file_data_check_value: { value: "FILE-CHECK-123", timestamp: new Date().toISOString() },
+        line_data_check_value: { value: "LINE-CHECK-456", timestamp: new Date().toISOString() },
+        
+        // CAN Data (Engine Performance)
+        engine_throttle: { value: "45.2", timestamp: new Date().toISOString() },
+        engine_throttle_valve_1_position_1: { value: "42.1", timestamp: new Date().toISOString() },
+        engine_intake_air_mass_flow_rate: { value: "12.5", timestamp: new Date().toISOString() },
+        engine_percent_load_at_current_speed: { value: "78.5", timestamp: new Date().toISOString() },
+        engine_speed: { value: "2200", timestamp: new Date().toISOString() },
+        engine_runtime: { value: "3600", timestamp: new Date().toISOString() },
+        engine_running_time: { value: "3600", timestamp: new Date().toISOString() },
+        time_since_engine_start: { value: "1800", timestamp: new Date().toISOString() },
+        accelerator_pedal_position_1: { value: "35.0", timestamp: new Date().toISOString() },
+        
+        // Vehicle Status
+        wheel_based_vehicle_speed: { value: "65.0", timestamp: new Date().toISOString() },
+        total_vehicle_distance: { value: "1250.5", timestamp: new Date().toISOString() },
+        acc_out_status: { value: "ACTIVE", timestamp: new Date().toISOString() },
+        malfunction_indicator_lamp: { value: "OFF", timestamp: new Date().toISOString() },
+        
+        // Environmental Data
+        engine_inlet_air_temperature: { value: "85.0", timestamp: new Date().toISOString() },
+        engine_coolant_temperature: { value: "185.0", timestamp: new Date().toISOString() },
+        
+        // OBD Test Data
+        obd_rpm: { value: "2500", timestamp: new Date().toISOString() },
+        obd_speed: { value: "65", timestamp: new Date().toISOString() },
+        obd_temperature: { value: "185", timestamp: new Date().toISOString() },
+        obd_fuel_level: { value: "75", timestamp: new Date().toISOString() },
+        obd_voltage: { value: "13500", timestamp: new Date().toISOString() },
+        obd_throttle: { value: "45", timestamp: new Date().toISOString() },
+        
+        // Additional sensor data
+        fuel_level: { value: "75", timestamp: new Date().toISOString() },
+        gps_location: { value: "40.7128, -74.0060", timestamp: new Date().toISOString() },
+        speed: { value: "65", timestamp: new Date().toISOString() },
+        temperature: { value: "23.5", timestamp: new Date().toISOString() },
+        obd_data: { value: "2500", timestamp: new Date().toISOString() },
+        engine_data: { value: "185", timestamp: new Date().toISOString() },
+        battery: { value: "85", timestamp: new Date().toISOString() },
+      };
+      
+      // Update sensor data with test values
+      setSensorData(testELDData);
+      
+                    console.log('✅ Test ELD data flow completed successfully');
+       
+       // Log test completion
+       FirebaseLogger.logELDEvent('test_eld_flow_completed', {
+         deviceId: device?.id || 'test-device',
+         dataPoints: Object.keys(testELDData).length,
+       });
+       
+       // Show success message
+       alert('🧪 Test ELD Data Flow Completed!\n\nAll ELD and OBD data has been populated with test values.\n\nYou can now see:\n• ELD Dashboard with FMCSA data\n• OBD Protocol comparison\n• Real-time data stream\n\nThis simulates the complete flow from KD032-43148B device.');
+       
+     } catch (error: any) {
+       console.error('❌ Test ELD data flow failed:', error);
+       
+       // Log error
+       FirebaseLogger.logELDEvent('test_eld_flow_error', {
+         deviceId: device?.id || 'test-device',
+         error: error?.message || 'Unknown error',
+       });
+       
+       alert('❌ Test failed. Please check console for details.');
+     }
+  }, [device]);
+
   const formatDataType = useCallback((dataType: string) => {
     return dataType
       ?.replace(/_/g, " ")
@@ -659,6 +803,19 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             style={styles.controlButton}
             variant="secondary"
           />
+        </View>
+        
+        {/* Test ELD Data Flow Button */}
+        <View style={styles.testButtonContainer}>
+          <Button 
+            title="🧪 TEST ELD Data Flow" 
+            onPress={testELDDataFlow} 
+            style={styles.testButton}
+            variant="outline"
+          />
+          <Text style={[styles.testButtonDescription, { color: colors.inactive }]}>
+            Simulates complete ELD + OBD data from KD032-43148B device
+          </Text>
         </View>
         
         {isAutoStreaming && (
@@ -1559,6 +1716,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 4,
     lineHeight: 16,
+  },
+  // Test Button Styles
+  testButtonContainer: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.3)',
+  },
+  testButton: {
+    marginBottom: 8,
+  },
+  testButtonDescription: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });
 
