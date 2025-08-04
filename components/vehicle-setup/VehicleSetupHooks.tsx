@@ -5,7 +5,6 @@ import { useVehicleSetup } from '@/context/vehicle-setup-context';
 import { TTMBLEManager, BLEDevice, ConnectionFailure, NotifyData } from '@/src/utils/TTMBLEManager';
 import { useAnalytics } from '@/src/hooks/useAnalytics';
 import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
-import { ELDDeviceService } from '@/src/services/ELDDeviceService';
 import { SetupStep, ConnectionStage } from '@/context/vehicle-setup-context';
 
 export function useVehicleSetupLogic() {
@@ -269,8 +268,7 @@ export function useVehicleSetupLogic() {
       setStep(SetupStep.CONNECTING);
       setConnectionStage(ConnectionStage.CONNECTING);
 
-      // Log connection attempt
-      await ELDDeviceService.logConnectionAttempt(device, 8, {});
+
 
       trackEvent('connection_started', {
         screen: 'select_vehicle',
@@ -284,8 +282,6 @@ export function useVehicleSetupLogic() {
       console.log("✅ Device connected successfully");
       addLog(`Device ${device.name || device.id} connected successfully`);
 
-      // Log successful connection
-      await ELDDeviceService.logConnectionSuccess(device);
 
       setStep(SetupStep.SUCCESS);
       setConnectionStage(ConnectionStage.CONNECTED);
@@ -331,11 +327,7 @@ export function useVehicleSetupLogic() {
         message: 'Unable to collect ELD data from this device because it did not send any ELD data within timeout period',
         reason: errorMessage
       };
-      try {
-        await ELDDeviceService.logConnectionError(device, supabaseErrorDetails);
-      } catch (logError) {
-        console.warn('Failed to log connection error:', logError);
-      }
+
     } finally {
       setIsConnecting(false);
       setConnectingDeviceId(null);

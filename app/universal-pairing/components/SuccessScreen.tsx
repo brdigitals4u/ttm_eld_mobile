@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTheme } from '@/context/theme-context';
 import { UniversalDevice } from '../types';
+import { SupabaseLogger } from '../../../src/services/ELDDeviceService';
 
 interface SuccessScreenProps {
   device: UniversalDevice | null;
@@ -32,6 +33,20 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
 
   useEffect(() => {
     if (device) {
+      // Log when user reaches success screen
+      SupabaseLogger.logEvent('success_screen_reached', {
+        deviceId: device.id,
+        deviceName: device.name,
+        deviceAddress: device.address,
+        status: 'connected',
+        eventData: {
+          protocol: device.protocol,
+          deviceType: device.deviceType,
+          deviceCategory: device.deviceCategory,
+          timestamp: new Date().toISOString()
+        }
+      });
+
       // Success animation sequence when device is connected
       successScale.value = withSpring(1, {
         damping: 10,
@@ -140,6 +155,33 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
     }
   };
 
+  const handleContinue = () => {
+    if (device) {
+      // Log successful connection completion
+      SupabaseLogger.logEvent('connection_completed', {
+        deviceId: device.id,
+        deviceName: device.name,
+        deviceAddress: device.address,
+        status: 'connected',
+        eventData: {
+          protocol: device.protocol,
+          deviceType: device.deviceType,
+          deviceCategory: device.deviceCategory,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      // Log user action
+      SupabaseLogger.logUserAction('continue_to_data_screen', device.id, {
+        screen: 'SuccessScreen',
+        action: 'continue',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    onContinue();
+  };
+
   return (
     <Animated.View entering={FadeIn} style={styles.container}>
       <View style={styles.header}>
@@ -190,7 +232,7 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ device, onContinue }) => 
             styles.button, 
             device ? styles.primaryButton : styles.disabledButton
           ]}
-          onPress={onContinue}
+          onPress={handleContinue}
           disabled={!device}
         >
           <Text style={[

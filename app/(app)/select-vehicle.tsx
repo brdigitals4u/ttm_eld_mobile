@@ -25,7 +25,6 @@ import { useNavigationAnalytics } from '@/src/hooks/useNavigationAnalytics';
 // import { useTheme } from '@/context/theme-context'; // Uncomment if you have theme context
 import { Search, Bluetooth, Truck } from 'lucide-react-native'; // Add these icons
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ELDDeviceService } from '@/src/services/ELDDeviceService';
 import { safeRemoveListener } from '@/components/vehicle-setup/ListenerCleanup';
 import {
   ScanDevicesStep,
@@ -178,24 +177,10 @@ function SelectVehicleComponent() {
         console.log('TTM SDK configured for testing - all devices visible');
         
         // Log SDK initialization to Supabase
-        ELDDeviceService.logConnectionAttempt(
-          { id: 'sdk_init', name: 'TTM SDK', address: 'N/A', signal: 0 },
-          0,
-          'ttm_sdk'
-        );
+
       } catch (error: any) {
         console.error('Failed to initialize TTM SDK:', error);
-        // Log SDK initialization error
-        ELDDeviceService.logConnectionError(
-          { id: 'sdk_init', name: 'TTM SDK', address: 'N/A', signal: 0 },
-          {
-            errorType: 'SDK_INIT_ERROR',
-            errorCode: 'SDK_INIT_FAILED',
-            ttmSdkMessage: error.message,
-            message: 'TTM SDK initialization failed',
-            reason: error.message
-          }
-        );
+ 
       }
     };
 
@@ -212,15 +197,7 @@ function SelectVehicleComponent() {
       setConnectingDeviceId(null);
       
       // Log connection failure to Supabase
-      if (selectedDevice) {
-        ELDDeviceService.logConnectionError(selectedDevice, {
-          errorType: 'CONNECTION_FAILURE',
-          errorCode: error.status.toString(),
-          ttmSdkMessage: error.message,
-          message: 'TTM SDK connection failed',
-          reason: error.message
-        });
-      }
+
     });
 
     const disconnectSubscription = TTMBLEManager.onDisconnected(() => {
@@ -235,19 +212,12 @@ function SelectVehicleComponent() {
     const connectedSubscription = TTMBLEManager.onConnected(() => {
       setIsConnected(true);
       
-      // Log successful connection to Supabase
-      if (selectedDevice) {
-        ELDDeviceService.logConnectionSuccess(selectedDevice);
-      }
+
     });
 
     const authSubscription = TTMBLEManager.onAuthenticationPassed(() => {
       console.log('Device authentication passed');
-      
-      // Log successful authentication to Supabase
-      if (connectingDeviceId) {
-        ELDDeviceService.logAuthentication(connectingDeviceId, true);
-      }
+
     });
 
     // Global data listener - only active when NOT in data collection phase
@@ -266,9 +236,6 @@ function SelectVehicleComponent() {
       setReceivedData(prev => [...prev, data]);
       
         // Log ALL ELD data to Supabase for analysis
-      if (connectingDeviceId) {
-        ELDDeviceService.logELDData(connectingDeviceId, data);
-        }
       }
     });
 
@@ -423,15 +390,13 @@ function SelectVehicleComponent() {
       await TTMBLEManager.startReportEldData();
         addLog('ELD data collection started - data should appear in real-time');
         
-        // Log successful connection
-        ELDDeviceService.logConnectionSuccess(device);
+
         
         // Set up real-time data listener like Jimi IoT app
         const eldDataListener = TTMBLEManager.onNotifyReceived((data: NotifyData) => {
           console.log('Real-time ELD data received:', data);
           
-          // Log all data to Supabase for analysis
-          ELDDeviceService.logELDData(device.id, data);
+
           
           // Display data in real-time like Jimi IoT app
           addLog(`Real-time data: ${data.dataType} received`);
@@ -447,14 +412,6 @@ function SelectVehicleComponent() {
               data.dataType === 'CONNECTION_STATUS') {
             addLog('ELD data flowing in real-time');
             setStep(SetupStep.SUCCESS);
-            ELDDeviceService.logDataCollectionStatus(
-              device.id,
-              'active',
-              1,
-              new Date(),
-              undefined,
-              `Real-time ELD data flowing: ${data.dataType}`
-            );
           }
       });
 
@@ -465,13 +422,6 @@ function SelectVehicleComponent() {
         console.error('TTM SDK connection error:', ttmSdkError);
         
         // Log connection error to Supabase
-        ELDDeviceService.logConnectionError(device, {
-          errorType: 'connection_failed',
-          errorCode: ttmSdkError.code || 'UNKNOWN_ERROR',
-          ttmSdkMessage: ttmSdkError.message,
-          message: ttmSdkError.message || 'Connection failed',
-          reason: ttmSdkError.message
-        });
         
         // Enhanced error handling based on TTM SDK error codes
         let finalErrorType = 'connection_failed';

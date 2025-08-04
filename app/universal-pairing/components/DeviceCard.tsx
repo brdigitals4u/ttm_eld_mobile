@@ -40,20 +40,49 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, isSelected }) 
   });
   
   const getDeviceIcon = () => {
-    switch (device.deviceCategory) {
-      case 'eld':
-        return '🚛';
-      case 'camera':
-        return '📷';
-      case 'tracking':
-        return '📍';
-      case 'bluetooth':
-        return '📶';
-      case 'sensor':
-        return '🔬';
-      default:
-        return '🛠️';
+    // Check for ELD devices first (highest priority)
+    if (device.deviceType === '181' || 
+        device.deviceCategory === 'eld' || 
+        device.protocol === 'ELD_DEVICE' ||
+        device.name?.toUpperCase().includes('KD032') ||
+        device.name?.toUpperCase().includes('ELD') ||
+        device.name?.toUpperCase().includes('JIMI')) {
+      return '🚛';
     }
+    
+    // Check for camera devices
+    if (device.deviceType === '168' || 
+        device.deviceCategory === 'camera' || 
+        device.protocol === 'CAMERA_DEVICE' ||
+        device.name?.toUpperCase().includes('CAMERA') ||
+        device.name?.toUpperCase().includes('CAM')) {
+      return '📷';
+    }
+    
+    // Check for tracking devices
+    if (device.deviceType === '165' || 
+        device.deviceCategory === 'tracking' || 
+        device.protocol === 'TRACKING_DEVICE' ||
+        device.name?.toUpperCase().includes('TRACKER') ||
+        device.name?.toUpperCase().includes('GPS')) {
+      return '📍';
+    }
+    
+    // Check for IoT sensors
+    if (device.deviceCategory === 'sensor' || 
+        device.protocol === 'IOT_SENSOR' ||
+        device.name?.toUpperCase().includes('SENSOR')) {
+      return '🔬';
+    }
+    
+    // Check for general Bluetooth devices
+    if (device.deviceCategory === 'bluetooth' || 
+        device.protocol === 'UNKNOWN') {
+      return '📶';
+    }
+    
+    // Default fallback
+    return '🛠️';
   };
   
   return (
@@ -80,7 +109,13 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, isSelected }) 
               {device.address}
             </Text>
             <Text style={[styles.type, { color: colors.inactive }]}>
-              {device.deviceType || 'Unknown Type'}
+              {device.protocol === 'ELD_DEVICE' ? 'ELD Device' :
+               device.protocol === 'CAMERA_DEVICE' ? 'Camera Device' :
+               device.protocol === 'TRACKING_DEVICE' ? 'Tracking Device' :
+               device.deviceType === '181' ? 'ELD Device' :
+               device.deviceType === '168' ? 'Camera Device' :
+               device.deviceType === '165' ? 'Tracking Device' :
+               device.deviceType || 'Unknown Type'}
             </Text>
             {device.signalStrength && (
               <Text style={[styles.signal, { color: colors.inactive }]}>
@@ -89,6 +124,16 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onPress, isSelected }) 
             )}
           </View>
           <View style={styles.statusContainer}>
+            {device.protocol && device.protocol !== 'UNKNOWN' && (
+              <View style={[
+                styles.protocolBadge, 
+                { backgroundColor: device.protocol === 'ELD_DEVICE' ? colors.success : colors.primary }
+              ]}>
+                <Text style={[styles.protocolText, { color: '#fff' }]}>
+                  {device.protocol.replace('_DEVICE', '')}
+                </Text>
+              </View>
+            )}
             <View style={[
               styles.statusBadge, 
               { backgroundColor: device.isConnected ? colors.success : colors.inactive }
@@ -153,6 +198,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   status: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  protocolBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  protocolText: {
     fontSize: 12,
     fontWeight: '600',
   },

@@ -1,7 +1,7 @@
 import { supabase, ELDDeviceLog } from '../lib/supabase';
 import { BLEDevice, ConnectionFailure, NotifyData } from '../utils/TTMBLEManager';
 
-export class ELDDeviceService {
+export class SupabaseLogger {
   private static sessionId = this.generateSessionId();
 
   private static generateSessionId(): string {
@@ -13,6 +13,62 @@ export class ELDDeviceService {
     });
   }
 
+  /**
+   * Generic log method for any type of data
+   */
+  static async log(
+    data: {
+      deviceId?: string;
+      deviceName?: string;
+      deviceAddress?: string;
+      status?: 'connected' | 'disconnected' | 'failed' | 'in_progress';
+      eventType?: string;
+      dataType?: string;
+      rawData?: any;
+      errorMessage?: string;
+      errorCode?: string;
+      eventData?: any;
+      sessionId?: string;
+      passcodeLength?: number;
+      authenticationPassed?: boolean;
+      ackReceived?: boolean;
+      ackData?: any;
+    }
+  ): Promise<void> {
+    try {
+      const logData: ELDDeviceLog = {
+        device_id: data.deviceId || 'SYSTEM',
+        device_name: data.deviceName,
+        device_address: data.deviceAddress,
+        status: data.status || 'connected',
+        event_type: (data.eventType as any) || 'system',
+        session_id: data.sessionId || this.sessionId,
+        data_type: data.dataType,
+        raw_data: typeof data.rawData === 'string' ? data.rawData : JSON.stringify(data.rawData),
+        error_message: data.errorMessage,
+        error_code: data.errorCode,
+        passcode_length: data.passcodeLength,
+        authentication_passed: data.authenticationPassed,
+        ack_received: data.ackReceived,
+        ack_data: typeof data.ackData === 'string' ? data.ackData : JSON.stringify(data.ackData),
+        event_data: data.eventData,
+      };
+
+      const { error } = await supabase
+        .from('eld_device_logs')
+        .insert(logData);
+
+      if (error) {
+        console.error('Failed to log data to Supabase:', error);
+        console.log('📝 Fallback: Logging to console only');
+      } else {
+        console.log('✅ Data logged to Supabase successfully');
+      }
+    } catch (error) {
+      console.error('Error logging data:', error);
+      console.log('📝 Fallback: Logging to console only');
+    }
+  }
 
   /**
    * Log connection attempt with method detection
@@ -22,20 +78,18 @@ export class ELDDeviceService {
     passcodeLength: any,
     connectionMethod: any
   ): Promise<void> {
-    try {
-
-      const logData = {...device, passcodeLength, connectionMethod}
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log connection attempt:', error);
+    await this.log({
+      deviceId: device?.id,
+      deviceName: device?.name,
+      deviceAddress: device?.address,
+      status: 'in_progress',
+      eventType: 'connection_attempt',
+      eventData: {
+        passcodeLength,
+        connectionMethod,
+        timestamp: new Date().toISOString()
       }
-    } catch (error) {
-      console.error('Error logging connection attempt:', error);
-    }
+    });
   }
 
   /**
@@ -45,113 +99,64 @@ export class ELDDeviceService {
     device: BLEDevice,
     connectionMethod: 'ttm_sdk' | 'direct_ble' = 'ttm_sdk'
   ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: device.id,
-        status: 'connected',
-        event_type: 'connection' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        data_type: 'connection',
-        raw_data: JSON.stringify({
-          device_name: device.name,
-          device_address: device.address,
-          connection_method: connectionMethod,
-          timestamp: new Date().toISOString()
-        }),
-        ack_received: true,
-        error_message: null as any,
-        event_data: {
-          connection_method: connectionMethod,
-          success: true,
-          device_info: {
-            name: device.name,
-            address: device.address
-          }
+    await this.log({
+      deviceId: device.id,
+      deviceName: device.name,
+      deviceAddress: device.address,
+      status: 'connected',
+      eventType: 'connection',
+      eventData: {
+        connection_method: connectionMethod,
+        success: true,
+        device_info: {
+          name: device.name,
+          address: device.address
         },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log connection success:', error);
+        timestamp: new Date().toISOString()
       }
-    } catch (error) {
-      console.error('Error logging connection success:', error);
-    }
+    });
   }
 
   /**
    * Log connection failure
    */
   static async logConnectionFailure(device: BLEDevice, failure: ConnectionFailure): Promise<void> {
-    try {
-      // Always log to console for debugging
-      console.log('🔴 Connection Failure Logged:', {
-        device: device.name || device.id,
-        error: failure.message,
-        status: failure.status,
-        timestamp: new Date().toISOString()
-      });
+    // Always log to console for debugging
+    console.log('🔴 Connection Failure Logged:', {
+      device: device.name || device.id,
+      error: failure.message,
+      status: failure.status,
+      timestamp: new Date().toISOString()
+    });
 
-      const logData: ELDDeviceLog = {
-        device_id: device.id,
-        device_name: device.name,
-        device_address: device.address,
-        status: 'failed',
-        event_type: 'error' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        error_message: failure.message,
-        error_code: failure.status?.toString() || 'unknown',
-        event_data: {
-          device_info: device,
-          failure_details: failure,
-          failure_timestamp: new Date().toISOString(),
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log connection failure to Supabase:', error);
-        console.log('📝 Fallback: Logging to console only');
-      } else {
-        console.log('✅ Connection failure logged to Supabase successfully');
+    await this.log({
+      deviceId: device.id,
+      deviceName: device.name,
+      deviceAddress: device.address,
+      status: 'failed',
+      eventType: 'error',
+      errorMessage: failure.message,
+      errorCode: failure.status?.toString() || 'unknown',
+      eventData: {
+        device_info: device,
+        failure_details: failure,
+        failure_timestamp: new Date().toISOString(),
       }
-    } catch (error) {
-      console.error('Error logging connection failure:', error);
-      console.log('📝 Fallback: Logging to console only');
-    }
+    });
   }
 
   /**
    * Log device disconnection
    */
   static async logDisconnection(deviceId: string): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: deviceId,
-        status: 'disconnected',
-        event_type: 'disconnection' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        event_data: {
-          disconnection_timestamp: new Date().toISOString()
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log disconnection:', error);
+    await this.log({
+      deviceId,
+      status: 'disconnected',
+      eventType: 'disconnection',
+      eventData: {
+        disconnection_timestamp: new Date().toISOString()
       }
-    } catch (error) {
-      console.error('Error logging disconnection:', error);
-    }
+    });
   }
 
   /**
@@ -162,87 +167,438 @@ export class ELDDeviceService {
     passed: boolean, 
     passcodeLength?: number
   ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: deviceId,
-        status: passed ? 'connected' : 'failed',
-        event_type: 'authentication' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        passcode_length: passcodeLength,
+    await this.log({
+      deviceId,
+      status: passed ? 'connected' : 'failed',
+      eventType: 'authentication',
+      passcodeLength,
+      authenticationPassed: passed,
+      eventData: {
         authentication_passed: passed,
-        event_data: {
-          authentication_passed: passed,
-          passcode_length: passcodeLength,
-          authentication_timestamp: new Date().toISOString()
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log authentication:', error);
+        passcode_length: passcodeLength,
+        authentication_timestamp: new Date().toISOString()
       }
-    } catch (error) {
-      console.error('Error logging authentication:', error);
-    }
+    });
   }
 
   /**
    * Log ELD data received from device
    */
   static async logELDData(deviceId: string, data: NotifyData): Promise<void> {
-    try {
-      // Always log to console for debugging
-      console.log('📊 ELD Data Logged:', {
-        deviceId,
-        dataType: data.dataType,
-        rawDataLength: data.rawData?.length || 0,
-        ack: data.ack,
-        error: data.error,
-        timestamp: new Date().toISOString()
-      });
+    // Always log to console for debugging
+    console.log('📊 ELD Data Logged:', {
+      deviceId,
+      dataType: data.dataType,
+      rawDataLength: data.rawData?.length || 0,
+      ack: data.ack,
+      error: data.error,
+      timestamp: new Date().toISOString()
+    });
 
-      const logData: ELDDeviceLog = {
-        device_id: deviceId,
-        status: 'connected',
-        event_type: 'data_received' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        data_type: data.dataType || 'unknown',
-        raw_data: data.rawData || data.toString(),
-        ack_received: !!data.ack,
-        ack_data: data.ack?.toString(),
-        event_data: {
+    await this.log({
+      deviceId,
+      status: 'connected',
+      eventType: 'data_received',
+      dataType: data.dataType || 'unknown',
+      rawData: data.rawData || data.toString(),
+      ackReceived: !!data.ack,
+      ackData: data.ack?.toString(),
+      eventData: {
+        data_type: data.dataType,
+        raw_data_length: data.rawData?.length || 0,
+        has_ack: !!data.ack,
+        has_error: !!data.error,
+        raw_data_preview: data.rawData?.substring(0, 100) || 'No raw data',
+        data_analysis: {
           data_type: data.dataType,
           raw_data_length: data.rawData?.length || 0,
           has_ack: !!data.ack,
           has_error: !!data.error,
-          raw_data_preview: data.rawData?.substring(0, 100) || 'No raw data',
-          data_analysis: {
-            data_type: data.dataType,
-            raw_data_length: data.rawData?.length || 0,
-            has_ack: !!data.ack,
-            has_error: !!data.error,
-            raw_data_preview: data.rawData?.substring(0, 100) || 'No raw data'
-          }
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log ELD data to Supabase:', error);
-        console.log('📝 Fallback: Logging to console only');
-      } else {
-        console.log('✅ ELD data logged to Supabase successfully');
+          raw_data_preview: data.rawData?.substring(0, 100) || 'No raw data'
+        }
       }
-    } catch (error) {
-      console.error('Error logging ELD data:', error);
-      console.log('📝 Fallback: Logging to console only');
+    });
+  }
+
+  /**
+   * Log any type of event data
+   */
+  static async logEvent(
+    eventType: string,
+    data: {
+      deviceId?: string;
+      deviceName?: string;
+      deviceAddress?: string;
+      status?: 'connected' | 'disconnected' | 'failed' | 'in_progress';
+      dataType?: string;
+      rawData?: any;
+      errorMessage?: string;
+      errorCode?: string;
+      eventData?: any;
     }
+  ): Promise<void> {
+    await this.log({
+      ...data,
+      eventType
+    });
+  }
+
+  /**
+   * Log system events
+   */
+  static async logSystemEvent(
+    eventType: string,
+    eventData?: any,
+    errorMessage?: string
+  ): Promise<void> {
+    await this.log({
+      deviceId: 'SYSTEM',
+      status: errorMessage ? 'failed' : 'connected',
+      eventType,
+      errorMessage,
+      eventData: {
+        ...eventData,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Log SDK events
+   */
+  static async logSDKEvent(
+    eventType: string,
+    deviceId?: string,
+    eventData?: any,
+    errorMessage?: string
+  ): Promise<void> {
+    await this.log({
+      deviceId: deviceId || 'SDK',
+      status: errorMessage ? 'failed' : 'connected',
+      eventType,
+      errorMessage,
+      eventData: {
+        ...eventData,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Log user actions
+   */
+  static async logUserAction(
+    action: string,
+    deviceId?: string,
+    actionData?: any
+  ): Promise<void> {
+    await this.log({
+      deviceId: deviceId || 'USER',
+      status: 'connected',
+      eventType: 'user_action',
+      eventData: {
+        action,
+        action_data: actionData,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Log performance metrics
+   */
+  static async logPerformance(
+    metric: string,
+    value: number,
+    unit?: string,
+    deviceId?: string,
+    additionalData?: any
+  ): Promise<void> {
+    await this.log({
+      deviceId: deviceId || 'PERFORMANCE',
+      status: 'connected',
+      eventType: 'performance_metric',
+      eventData: {
+        metric,
+        value,
+        unit,
+        additional_data: additionalData,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Log error with full context
+   */
+  static async logError(
+    error: Error | string,
+    context: {
+      deviceId?: string;
+      deviceName?: string;
+      deviceAddress?: string;
+      eventType?: string;
+      additionalData?: any;
+    } = {}
+  ): Promise<void> {
+    const errorMessage = typeof error === 'string' ? error : error.message;
+    const errorStack = typeof error === 'string' ? undefined : error.stack;
+
+    await this.log({
+      deviceId: context.deviceId || 'ERROR',
+      deviceName: context.deviceName,
+      deviceAddress: context.deviceAddress,
+      status: 'failed',
+      eventType: context.eventType || 'error',
+      errorMessage,
+      eventData: {
+        error_message: errorMessage,
+        error_stack: errorStack,
+        additional_data: context.additionalData,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Log connection error with detailed error information
+   */
+  static async logConnectionError(
+    device: BLEDevice, 
+    errorDetails: {
+      errorType: string;
+      errorCode: string;
+      ttmSdkMessage: string;
+      message: string;
+      reason: string;
+      timeoutDuration?: number;
+    }
+  ): Promise<void> {
+    // Always log to console for debugging
+    console.log('🔴 Connection Error Logged:', {
+      device: device.name || device.id,
+      errorType: errorDetails.errorType,
+      errorCode: errorDetails.errorCode,
+      ttmSdkMessage: errorDetails.ttmSdkMessage,
+      message: errorDetails.message,
+      reason: errorDetails.reason,
+      timestamp: new Date().toISOString()
+    });
+
+    await this.log({
+      deviceId: device.id,
+      deviceName: device.name,
+      deviceAddress: device.address,
+      status: 'failed',
+      eventType: 'error',
+      errorMessage: errorDetails.message,
+      errorCode: errorDetails.errorCode,
+      eventData: {
+        errorType: errorDetails.errorType,
+        errorCode: errorDetails.errorCode,
+        ttmSdkMessage: errorDetails.ttmSdkMessage,
+        message: errorDetails.message,
+        reason: errorDetails.reason,
+        timeoutDuration: errorDetails.timeoutDuration,
+        device_info: device,
+        error_timestamp: new Date().toISOString(),
+      }
+    });
+  }
+
+  /**
+   * Log step-by-step connection process
+   */
+  static async logConnectionStep(
+    deviceId: string,
+    step: 'scan_started' | 'scan_completed' | 'device_found' | 'device_selected' | 
+          'identify_device' | 'gathering_info' | 'capturing_id' | 'pairing' | 
+          'connection_established' | 'authentication_started' | 'authentication_completed' |
+          'data_collection_started' | 'data_collection_active' | 'data_collection_failed',
+    deviceName?: string,
+    stepData?: any,
+    errorCode?: string,
+    errorMessage?: string
+  ): Promise<void> {
+    await this.log({
+      deviceId,
+      deviceName,
+      status: errorCode ? 'failed' : 'in_progress',
+      eventType: 'connection_step',
+      errorCode,
+      errorMessage,
+      eventData: {
+        step,
+        step_data: stepData,
+        timestamp: new Date().toISOString(),
+        sdk_info: {
+          version: '1.0.3',
+          platform: 'android',
+          manufacturer: 'Jimi IoT'
+        }
+      }
+    });
+  }
+
+  /**
+   * Log SDK initialization status
+   */
+  static async logSDKInitialization(
+    success: boolean,
+    errorMessage?: string,
+    sdkVersion?: string
+  ): Promise<void> {
+    await this.log({
+      deviceId: 'SDK_INIT',
+      status: success ? 'connected' : 'failed',
+      eventType: 'sdk_initialization',
+      errorMessage,
+      eventData: {
+        initialization_success: success,
+        sdk_version: sdkVersion || '1.0.3',
+        timestamp: new Date().toISOString(),
+        platform_info: {
+          os: 'android',
+          manufacturer: 'Jimi IoT',
+          library: 'libble-native-lib.so'
+        }
+      }
+    });
+  }
+
+  /**
+   * Log permission request results
+   */
+  static async logPermissionRequest(
+    permissionType: string,
+    granted: boolean,
+    deniedPermissions?: string[]
+  ): Promise<void> {
+    await this.log({
+      deviceId: 'PERMISSIONS',
+      status: granted ? 'connected' : 'failed',
+      eventType: 'permission_request',
+      eventData: {
+        permission_type: permissionType,
+        granted,
+        denied_permissions: deniedPermissions,
+        timestamp: new Date().toISOString(),
+      }
+    });
+  }
+
+  /**
+   * Log data collection monitoring
+   */
+  static async logDataCollectionStatus(
+    deviceId: string,
+    status: 'started' | 'active' | 'idle' | 'timeout' | 'error',
+    dataCount: number = 0,
+    lastDataReceived?: Date,
+    errorCode?: string,
+    errorDetails?: string
+  ): Promise<void> {
+    await this.log({
+      deviceId,
+      status: status === 'error' ? 'failed' : 'connected',
+      eventType: 'data_collection',
+      errorCode,
+      errorMessage: errorDetails,
+      eventData: {
+        collection_status: status,
+        data_count: dataCount,
+        last_data_received: lastDataReceived?.toISOString(),
+        monitoring_timestamp: new Date().toISOString(),
+        timeout_duration: status === 'timeout' ? '30_seconds' : undefined,
+      }
+    });
+  }
+
+  /**
+   * Send comprehensive diagnostic logs
+   */
+  static async sendDiagnosticLogs(diagnosticData: {
+    errorType: string;
+    errorMessage: string;
+    deviceInfo?: any;
+    logs: string[];
+    stackTrace?: string;
+    sdkVersion?: string;
+    appVersion?: string;
+  }): Promise<void> {
+    await this.log({
+      deviceId: diagnosticData.deviceInfo?.id || 'DIAGNOSTIC',
+      deviceName: diagnosticData.deviceInfo?.name,
+      deviceAddress: diagnosticData.deviceInfo?.address,
+      status: 'failed',
+      eventType: 'diagnostic_report',
+      errorMessage: diagnosticData.errorMessage,
+      eventData: {
+        error_type: diagnosticData.errorType,
+        device_info: diagnosticData.deviceInfo,
+        application_logs: diagnosticData.logs,
+        stack_trace: diagnosticData.stackTrace,
+        sdk_version: diagnosticData.sdkVersion || '1.0.3',
+        app_version: diagnosticData.appVersion,
+        diagnostic_timestamp: new Date().toISOString(),
+        system_info: {
+          platform: 'android',
+          sdk_manufacturer: 'Jimi IoT',
+          native_library: 'libble-native-lib.so'
+        }
+      }
+    });
+  }
+
+  /**
+   * Log SDK method calls and responses
+   */
+  static async logSDKMethodCall(
+    methodName: string,
+    parameters?: any,
+    result?: any,
+    error?: any,
+    duration?: number
+  ): Promise<void> {
+    await this.log({
+      deviceId: 'SDK_METHOD',
+      status: error ? 'failed' : 'connected',
+      eventType: 'sdk_method_call',
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      eventData: {
+        method_name: methodName,
+        parameters,
+        result,
+        error_details: error,
+        execution_duration_ms: duration,
+        timestamp: new Date().toISOString(),
+      }
+    });
+  }
+
+  /**
+   * Log BLE device signal strength and connection quality
+   */
+  static async logConnectionQuality(
+    deviceId: string,
+    signalStrength?: number,
+    connectionLatency?: number,
+    dataRate?: number,
+    connectionStability?: 'stable' | 'unstable' | 'intermittent'
+  ): Promise<void> {
+    await this.log({
+      deviceId,
+      status: 'connected',
+      eventType: 'connection_quality',
+      eventData: {
+        signal_strength_dbm: signalStrength,
+        connection_latency_ms: connectionLatency,
+        data_rate_bps: dataRate,
+        connection_stability: connectionStability,
+        quality_check_timestamp: new Date().toISOString(),
+      }
+    });
   }
 
   /**
@@ -319,357 +675,6 @@ export class ELDDeviceService {
     } catch (error) {
       console.error('Error fetching recent device activity:', error);
       return [];
-    }
-  }
-
-  /**
-   * Log connection error with detailed error information
-   */
-  static async logConnectionError(
-    device: BLEDevice, 
-    errorDetails: {
-      errorType: string;
-      errorCode: string;
-      ttmSdkMessage: string;
-      message: string;
-      reason: string;
-      timeoutDuration?: number;
-    }
-  ): Promise<void> {
-    try {
-      // Always log to console for debugging
-      console.log('🔴 Connection Error Logged:', {
-        device: device.name || device.id,
-        errorType: errorDetails.errorType,
-        errorCode: errorDetails.errorCode,
-        ttmSdkMessage: errorDetails.ttmSdkMessage,
-        message: errorDetails.message,
-        reason: errorDetails.reason,
-        timestamp: new Date().toISOString()
-      });
-
-      const logData: ELDDeviceLog = {
-        device_id: device.id,
-        device_name: device.name,
-        device_address: device.address,
-        status: 'failed',
-        event_type: 'error' as any, // Fixed: use valid enum value
-        session_id: this.sessionId,
-        error_message: errorDetails.message,
-        error_code: errorDetails.errorCode,
-        event_data: {
-          errorType: errorDetails.errorType,
-          errorCode: errorDetails.errorCode,
-          ttmSdkMessage: errorDetails.ttmSdkMessage,
-          message: errorDetails.message,
-          reason: errorDetails.reason,
-          timeoutDuration: errorDetails.timeoutDuration,
-          device_info: device,
-          error_timestamp: new Date().toISOString(),
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log connection error to Supabase:', error);
-        console.log('📝 Fallback: Logging to console only');
-      } else {
-        console.log('✅ Connection error logged to Supabase successfully');
-      }
-    } catch (error) {
-      console.error('Error logging connection error:', error);
-      console.log('📝 Fallback: Logging to console only');
-    }
-  }
-
-  /**
-   * Log step-by-step connection process
-   */
-  static async logConnectionStep(
-    deviceId: string,
-    step: 'scan_started' | 'scan_completed' | 'device_found' | 'device_selected' | 
-          'identify_device' | 'gathering_info' | 'capturing_id' | 'pairing' | 
-          'connection_established' | 'authentication_started' | 'authentication_completed' |
-          'data_collection_started' | 'data_collection_active' | 'data_collection_failed',
-    deviceName?: string,
-    stepData?: any,
-    errorCode?: string,
-    errorMessage?: string
-  ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: deviceId,
-        device_name: deviceName,
-        status: errorCode ? 'failed' : 'in_progress',
-        event_type: 'connection_step',
-        session_id: this.sessionId,
-        error_code: errorCode,
-        error_message: errorMessage,
-        event_data: {
-          step,
-          step_data: stepData,
-          timestamp: new Date().toISOString(),
-          sdk_info: {
-            version: '1.0.3',
-            platform: 'android',
-            manufacturer: 'Jimi IoT'
-          }
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log connection step:', error);
-      }
-    } catch (error) {
-      console.error('Error logging connection step:', error);
-    }
-  }
-
-  /**
-   * Log SDK initialization status
-   */
-  static async logSDKInitialization(
-    success: boolean,
-    errorMessage?: string,
-    sdkVersion?: string
-  ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: 'SDK_INIT',
-        status: success ? 'connected' : 'failed',
-        event_type: 'sdk_initialization',
-        session_id: this.sessionId,
-        error_message: errorMessage,
-        event_data: {
-          initialization_success: success,
-          sdk_version: sdkVersion || '1.0.3',
-          timestamp: new Date().toISOString(),
-          platform_info: {
-            os: 'android',
-            manufacturer: 'Jimi IoT',
-            library: 'libble-native-lib.so'
-          }
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log SDK initialization:', error);
-      }
-    } catch (error) {
-      console.error('Error logging SDK initialization:', error);
-    }
-  }
-
-  /**
-   * Log permission request results
-   */
-  static async logPermissionRequest(
-    permissionType: string,
-    granted: boolean,
-    deniedPermissions?: string[]
-  ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: 'PERMISSIONS',
-        status: granted ? 'connected' : 'failed',
-        event_type: 'permission_request',
-        session_id: this.sessionId,
-        event_data: {
-          permission_type: permissionType,
-          granted,
-          denied_permissions: deniedPermissions,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log permission request:', error);
-      }
-    } catch (error) {
-      console.error('Error logging permission request:', error);
-    }
-  }
-
-  /**
-   * Log data collection monitoring
-   */
-  static async logDataCollectionStatus(
-    deviceId: string,
-    status: 'started' | 'active' | 'idle' | 'timeout' | 'error',
-    dataCount: number = 0,
-    lastDataReceived?: Date,
-    errorCode?: string,
-    errorDetails?: string
-  ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: deviceId,
-        status: status === 'error' ? 'failed' : 'connected',
-        event_type: 'data_collection' as any,
-        session_id: this.sessionId,
-        error_code: errorCode,
-        error_message: errorDetails,
-        event_data: {
-          collection_status: status,
-          data_count: dataCount,
-          last_data_received: lastDataReceived?.toISOString(),
-          monitoring_timestamp: new Date().toISOString(),
-          timeout_duration: status === 'timeout' ? '30_seconds' : undefined,
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log data collection status:', error);
-      }
-    } catch (error) {
-      console.error('Error logging data collection status:', error);
-    }
-  }
-
-  /**
-   * Send comprehensive diagnostic logs
-   */
-  static async sendDiagnosticLogs(diagnosticData: {
-    errorType: string;
-    errorMessage: string;
-    deviceInfo?: any;
-    logs: string[];
-    stackTrace?: string;
-    sdkVersion?: string;
-    appVersion?: string;
-  }): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: diagnosticData.deviceInfo?.id || 'DIAGNOSTIC',
-        device_name: diagnosticData.deviceInfo?.name,
-        device_address: diagnosticData.deviceInfo?.address,
-        status: 'failed',
-        event_type: 'diagnostic_report',
-        session_id: this.sessionId,
-        error_message: diagnosticData.errorMessage,
-        event_data: {
-          error_type: diagnosticData.errorType,
-          device_info: diagnosticData.deviceInfo,
-          application_logs: diagnosticData.logs,
-          stack_trace: diagnosticData.stackTrace,
-          sdk_version: diagnosticData.sdkVersion || '1.0.3',
-          app_version: diagnosticData.appVersion,
-          diagnostic_timestamp: new Date().toISOString(),
-          system_info: {
-            platform: 'android',
-            sdk_manufacturer: 'Jimi IoT',
-            native_library: 'libble-native-lib.so'
-          }
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to send diagnostic logs:', error);
-      } else {
-        console.log('Diagnostic logs sent successfully');
-      }
-    } catch (error) {
-      console.error('Error sending diagnostic logs:', error);
-    }
-  }
-
-  /**
-   * Log SDK method calls and responses
-   */
-  static async logSDKMethodCall(
-    methodName: string,
-    parameters?: any,
-    result?: any,
-    error?: any,
-    duration?: number
-  ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: 'SDK_METHOD',
-        status: error ? 'failed' : 'connected',
-        event_type: 'sdk_method_call',
-        session_id: this.sessionId,
-        error_message: error?.message,
-        error_code: error?.code,
-        event_data: {
-          method_name: methodName,
-          parameters,
-          result,
-          error_details: error,
-          execution_duration_ms: duration,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      const { error: logError } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (logError) {
-        console.error('Failed to log SDK method call:', logError);
-      }
-    } catch (logError) {
-      console.error('Error logging SDK method call:', logError);
-    }
-  }
-
-  /**
-   * Log BLE device signal strength and connection quality
-   */
-  static async logConnectionQuality(
-    deviceId: string,
-    signalStrength?: number,
-    connectionLatency?: number,
-    dataRate?: number,
-    connectionStability?: 'stable' | 'unstable' | 'intermittent'
-  ): Promise<void> {
-    try {
-      const logData: ELDDeviceLog = {
-        device_id: deviceId,
-        status: 'connected',
-        event_type: 'connection_quality',
-        session_id: this.sessionId,
-        event_data: {
-          signal_strength_dbm: signalStrength,
-          connection_latency_ms: connectionLatency,
-          data_rate_bps: dataRate,
-          connection_stability: connectionStability,
-          quality_check_timestamp: new Date().toISOString(),
-        },
-      };
-
-      const { error } = await supabase
-        .from('eld_device_logs')
-        .insert(logData);
-
-      if (error) {
-        console.error('Failed to log connection quality:', error);
-      }
-    } catch (error) {
-      console.error('Error logging connection quality:', error);
     }
   }
 

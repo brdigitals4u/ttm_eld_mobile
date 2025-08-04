@@ -949,9 +949,12 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             deviceInfo.putString("deviceType", deviceType)
             deviceInfo.putString("deviceCategory", getDeviceCategory(deviceType))
             
-            // Add protocol information
-            val protocol = getDeviceProtocol(device.address)
+            // Enhanced protocol detection during scan phase
+            val protocol = detectProtocolFromScanData(device, result.scanRecord?.bytes)
             deviceInfo.putString("protocol", protocol.name)
+            
+            // Store the detected protocol for later use
+            deviceProtocols[device.address] = protocol
         }
         
         // Add scan record information
@@ -963,47 +966,172 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         // Add timestamp
         deviceInfo.putString("scanTimestamp", Date().toString())
         
-        Log.d(TAG, "Enhanced device discovered: ${device.name} (${device.address}) - Protocol: ${getDeviceProtocol(device.address)}")
+        Log.d(TAG, "Enhanced device discovered: ${device.name} (${device.address}) - Protocol: ${deviceProtocols[device.address] ?: DeviceProtocol.UNKNOWN}")
         sendEvent("onDeviceDiscovered", deviceInfo)
     }
 
-    private fun detectDeviceType(address: String, scanRecord: ByteArray?): String {
-        // Real device type detection based on scan record data
-        scanRecord?.let { record ->
-            // Parse advertising data to identify device type
-            val serviceUuids = parseServiceUuidsFromScanRecord(record)
+    // Enhanced protocol detection during scan phase
+    private fun detectProtocolFromScanData(device: BluetoothDevice, scanRecord: ByteArray?): DeviceProtocol {
+        Log.d(TAG, "🔍 Protocol Detection for device: ${device.name} (${device.address})")
+        
+        // Check device name patterns first
+        device.name?.let { deviceName ->
+            val nameUpper = deviceName.uppercase()
+            Log.d(TAG, "🔍 Device name: $deviceName (uppercase: $nameUpper)")
             
-            // Check for ELD-specific services
-            if (serviceUuids.contains(ELD_SERVICE.toString()) || 
-                serviceUuids.contains("0000FFE0-0000-1000-8000-00805F9B34FB")) {
-                return DEVICE_TYPE_ELD
+            // ELD device name patterns
+            if (nameUpper.contains("KD032") || 
+                nameUpper.contains("ELD") || 
+                nameUpper.contains("JIMI") ||
+                nameUpper.contains("TRUCK") ||
+                nameUpper.contains("LOG")) {
+                Log.d(TAG, "✅ Detected ELD device by name pattern: $deviceName")
+                return DeviceProtocol.ELD_DEVICE
             }
             
-            // Check for camera-specific services or manufacturer data
-            if (serviceUuids.contains("0000FEE7-0000-1000-8000-00805F9B34FB")) {
-                return DEVICE_TYPE_CAMERA
+            // Camera device name patterns
+            if (nameUpper.contains("CAMERA") || 
+                nameUpper.contains("CAM") || 
+                nameUpper.contains("DOORBELL")) {
+                Log.d(TAG, "📷 Detected camera device by name pattern: $deviceName")
+                return DeviceProtocol.CAMERA_DEVICE
+            }
+            
+            // Tracking device name patterns
+            if (nameUpper.contains("TRACKER") || 
+                nameUpper.contains("GPS") || 
+                nameUpper.contains("LOCATION")) {
+                Log.d(TAG, "📍 Detected tracking device by name pattern: $deviceName")
+                return DeviceProtocol.TRACKING_DEVICE
+            }
+        }
+        
+        // Check scan record for service UUIDs
+        scanRecord?.let { record ->
+            val serviceUuids = parseServiceUuidsFromScanRecord(record)
+            Log.d(TAG, "🔍 Service UUIDs found: $serviceUuids")
+            
+            // Check for ELD-specific services
+            if (serviceUuids.contains("FFE0") || 
+                serviceUuids.contains("0000FFE0-0000-1000-8000-00805F9B34FB") ||
+                serviceUuids.contains("181")) {
+                Log.d(TAG, "✅ Detected ELD device by service UUID: $serviceUuids")
+                return DeviceProtocol.ELD_DEVICE
+            }
+            
+            // Check for camera-specific services
+            if (serviceUuids.contains("FEE7") || 
+                serviceUuids.contains("0000FEE7-0000-1000-8000-00805F9B34FB") ||
+                serviceUuids.contains("168")) {
+                Log.d(TAG, "📷 Detected camera device by service UUID: $serviceUuids")
+                return DeviceProtocol.CAMERA_DEVICE
             }
             
             // Check for tracking device services
-            if (serviceUuids.contains(LOCATION_NAVIGATION_SERVICE.toString())) {
-                return DEVICE_TYPE_TRACKING
+            if (serviceUuids.contains("1819") || 
+                serviceUuids.contains("00001819-0000-1000-8000-00805F9B34FB") ||
+                serviceUuids.contains("165")) {
+                Log.d(TAG, "📍 Detected tracking device by service UUID: $serviceUuids")
+                return DeviceProtocol.TRACKING_DEVICE
             }
             
             // Parse manufacturer data for device identification
             val manufacturerData = parseManufacturerDataFromScanRecord(record)
             manufacturerData?.let { data ->
+                Log.d(TAG, "🔍 Manufacturer data found: ${data.contentToString()}")
                 // Check for Jimi IoT manufacturer ID or specific patterns
                 if (data.size >= 2) {
                     val manufacturerId = (data[1].toInt() shl 8) or data[0].toInt()
+                    Log.d(TAG, "🔍 Manufacturer ID: 0x${String.format("%04X", manufacturerId)}")
                     when (manufacturerId) {
-                        0x004C -> return DEVICE_TYPE_CAMERA // Apple devices (cameras)
-                        0x0075 -> return DEVICE_TYPE_ELD    // Samsung (ELD devices)
+                        0x004C -> {
+                            Log.d(TAG, "📷 Detected Apple device by manufacturer ID")
+                            return DeviceProtocol.CAMERA_DEVICE
+                        }
+                        0x0075 -> {
+                            Log.d(TAG, "✅ Detected Samsung device by manufacturer ID")
+                            return DeviceProtocol.ELD_DEVICE
+                        }
                         // Add more manufacturer IDs as needed
                     }
                 }
             }
         }
         
+        // Check device address patterns (some devices have recognizable MAC patterns)
+        val address = device.address.uppercase()
+        Log.d(TAG, "🔍 Device address: $address")
+        if (address.contains("43:14") || address.contains("C4:A8")) {
+            Log.d(TAG, "✅ Detected ELD device by address pattern: $address")
+            return DeviceProtocol.ELD_DEVICE
+        }
+        
+        Log.d(TAG, "❌ Could not determine protocol from scan data, will detect after connection")
+        return DeviceProtocol.UNKNOWN
+    }
+
+    private fun detectDeviceType(address: String, scanRecord: ByteArray?): String {
+        Log.d(TAG, "🔍 Device Type Detection for address: $address")
+        
+        // Real device type detection based on scan record data
+        scanRecord?.let { record ->
+            // Parse advertising data to identify device type
+            val serviceUuids = parseServiceUuidsFromScanRecord(record)
+            Log.d(TAG, "🔍 Service UUIDs found: $serviceUuids")
+            
+            // Check for ELD-specific services
+            if (serviceUuids.contains(ELD_SERVICE.toString()) || 
+                serviceUuids.contains("0000FFE0-0000-1000-8000-00805F9B34FB") ||
+                serviceUuids.contains("181")) {
+                Log.d(TAG, "✅ Detected ELD device by service UUID: $serviceUuids")
+                return DEVICE_TYPE_ELD
+            }
+            
+            // Check for camera-specific services or manufacturer data
+            if (serviceUuids.contains("0000FEE7-0000-1000-8000-00805F9B34FB") ||
+                serviceUuids.contains("168")) {
+                Log.d(TAG, "📷 Detected camera device by service UUID: $serviceUuids")
+                return DEVICE_TYPE_CAMERA
+            }
+            
+            // Check for tracking device services
+            if (serviceUuids.contains(LOCATION_NAVIGATION_SERVICE.toString()) ||
+                serviceUuids.contains("165")) {
+                Log.d(TAG, "📍 Detected tracking device by service UUID: $serviceUuids")
+                return DEVICE_TYPE_TRACKING
+            }
+            
+            // Parse manufacturer data for device identification
+            val manufacturerData = parseManufacturerDataFromScanRecord(record)
+            manufacturerData?.let { data ->
+                Log.d(TAG, "🔍 Manufacturer data found: ${data.contentToString()}")
+                // Check for Jimi IoT manufacturer ID or specific patterns
+                if (data.size >= 2) {
+                    val manufacturerId = (data[1].toInt() shl 8) or data[0].toInt()
+                    Log.d(TAG, "🔍 Manufacturer ID: 0x${String.format("%04X", manufacturerId)}")
+                    when (manufacturerId) {
+                        0x004C -> {
+                            Log.d(TAG, "📷 Detected Apple device by manufacturer ID")
+                            return DEVICE_TYPE_CAMERA // Apple devices (cameras)
+                        }
+                        0x0075 -> {
+                            Log.d(TAG, "✅ Detected Samsung device by manufacturer ID")
+                            return DEVICE_TYPE_ELD    // Samsung (ELD devices)
+                        }
+                        // Add more manufacturer IDs as needed
+                    }
+                }
+            }
+        }
+        
+        // Check device name patterns for ELD devices
+        // This is a fallback if scan record doesn't contain the service UUID
+        if (address.contains("KD032") || address.contains("ELD") || address.contains("JIMI")) {
+            Log.d(TAG, "✅ Detected ELD device by address/name pattern: $address")
+            return DEVICE_TYPE_ELD
+        }
+        
+        Log.d(TAG, "❌ Default to unknown device type")
         // Default to unknown if no specific type detected
         return "0"
     }
@@ -1051,23 +1179,25 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             
             val type = scanRecord[index + 1].toInt() and 0xFF
             if (type == 0xFF) { // Manufacturer Specific Data
-                val manufacturerData = ByteArray(length - 1)
-                System.arraycopy(scanRecord, index + 2, manufacturerData, 0, length - 1)
-                return manufacturerData
+                if (index + 2 + length <= scanRecord.size) {
+                    val manufacturerData = ByteArray(length - 1)
+                    System.arraycopy(scanRecord, index + 2, manufacturerData, 0, length - 1)
+                    return manufacturerData
+                }
             }
             index += length + 1
         }
-        
         return null
     }
     
     private fun formatUuid128(uuid: ByteArray): String {
-        val sb = StringBuilder()
-        for (i in uuid.indices.reversed()) {
-            sb.append(String.format("%02X", uuid[i]))
-            if (i == 12 || i == 10 || i == 8 || i == 6) sb.append("-")
-        }
-        return sb.toString()
+        return String.format(
+            "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+            uuid[0], uuid[1], uuid[2], uuid[3],
+            uuid[4], uuid[5], uuid[6], uuid[7],
+            uuid[8], uuid[9], uuid[10], uuid[11],
+            uuid[12], uuid[13], uuid[14], uuid[15]
+        )
     }
 
     private fun getDeviceCategory(deviceType: String): String {
@@ -1107,10 +1237,23 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         
         // Dynamically determine device protocol based on available services
         val detectedProtocol = detectDeviceProtocolFromServices(gatt.services)
+        val previousProtocol = deviceProtocols[deviceId]
         deviceProtocols[deviceId] = detectedProtocol
         
         val protocol = getDeviceProtocol(deviceId)
         Log.d(TAG, "Discovering services for device: $deviceId, detected protocol: $protocol")
+        
+        // Send protocol update event if protocol changed
+        if (previousProtocol != detectedProtocol) {
+            val protocolUpdateInfo = Arguments.createMap().apply {
+                putString("deviceId", deviceId)
+                putString("previousProtocol", previousProtocol?.name ?: "UNKNOWN")
+                putString("newProtocol", detectedProtocol.name)
+                putString("timestamp", Date().toString())
+            }
+            sendEvent("onProtocolUpdated", protocolUpdateInfo)
+            Log.d(TAG, "Protocol updated for device $deviceId: ${previousProtocol?.name ?: "UNKNOWN"} -> ${detectedProtocol.name}")
+        }
         
         for (service in gatt.services) {
             Log.d(TAG, "Found service: ${service.uuid}")

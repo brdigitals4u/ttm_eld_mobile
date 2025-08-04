@@ -18,7 +18,8 @@ import { PairingState, UniversalDevice } from './types';
 // Import logging services
 import { FirebaseLogger } from '../../src/utils/FirebaseLogger';
 import { SentryLogger } from '../../src/utils/SentryLogger';
-import { SupabaseLogger } from '../../src/utils/SupabaseLogger';
+import { SupabaseLogger } from '@/src/services/ELDDeviceService';
+
 
 const UniversalPairingContent: React.FC = () => {
   const { colors } = useTheme();
@@ -93,6 +94,10 @@ const UniversalPairingContent: React.FC = () => {
         // Log to analytics
         FirebaseLogger.logELDEvent('jimi_bridge_initialization_started');
         SentryLogger.logELDEvent('jimi_bridge_initialization_started');
+        SupabaseLogger.logSDKEvent('jimi_bridge_initialization_started', undefined, {
+          module: 'JimiBridge',
+          platform: Platform.OS
+        });
         
         if (NativeModules.JimiBridge) {
           jimiBridgeRef.current = NativeModules.JimiBridge;
@@ -112,6 +117,8 @@ const UniversalPairingContent: React.FC = () => {
             // Log permission status
             FirebaseLogger.logELDEvent('permissions_requested', { permissions: granted });
             SentryLogger.logELDEvent('permissions_requested', { permissions: granted });
+            SupabaseLogger.logPermissionRequest('bluetooth', Object.values(granted).every(p => p === 'granted'), 
+              Object.entries(granted).filter(([_, status]) => status !== 'granted').map(([perm]) => perm));
           } else {
             console.log('🔐 Using default permissions for iOS');
           }
@@ -120,12 +127,20 @@ const UniversalPairingContent: React.FC = () => {
           // Log successful initialization
           FirebaseLogger.logELDEvent('jimi_bridge_initialization_success');
           SentryLogger.logELDEvent('jimi_bridge_initialization_success');
+          SupabaseLogger.logSDKEvent('jimi_bridge_initialization_success', undefined, {
+            module: 'JimiBridge',
+            platform: Platform.OS
+          });
         } else {
           console.log('Jimi IoT Bridge not available, using fallback');
           
           // Log fallback scenario
           FirebaseLogger.logELDEvent('jimi_bridge_not_available');
           SentryLogger.logELDEvent('jimi_bridge_not_available');
+          SupabaseLogger.logSDKEvent('jimi_bridge_not_available', undefined, {
+            module: 'JimiBridge',
+            platform: Platform.OS
+          });
         }
       } catch (error: any) {
         console.error('Failed to initialize Jimi Bridge:', error);
@@ -133,6 +148,10 @@ const UniversalPairingContent: React.FC = () => {
         // Log initialization error
         FirebaseLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message || 'Unknown error' });
         SentryLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message || 'Unknown error' });
+        SupabaseLogger.logError(error, {
+          eventType: 'jimi_bridge_initialization_error',
+          additionalData: { platform: Platform.OS }
+        });
       }
     };
 
@@ -144,7 +163,8 @@ const UniversalPairingContent: React.FC = () => {
       handleDeviceDisconnected,
       handleDataReceived,
       handleConnectionError,
-      handlePermissionError
+      handlePermissionError,
+      handleProtocolUpdated
     );
     return () => removeJimiBridgeListeners();
   }, []);
@@ -189,6 +209,28 @@ const UniversalPairingContent: React.FC = () => {
         deviceType,
         deviceCategory,
       });
+
+      SentryLogger.logELDEvent('device_discovered', {
+        deviceName,
+        deviceId,
+        deviceType,
+        deviceCategory,
+      })
+      
+      SupabaseLogger.logEvent('device_discovered', {
+        deviceId,
+        deviceName,
+        deviceAddress,
+        status: isConnected ? 'connected' : 'in_progress',
+        eventData: {
+          deviceType,
+          deviceCategory,
+          signalStrength,
+          batteryLevel,
+          isConnected,
+          timestamp,
+        }
+      });
       
       setState((prevState) => {
         // Check if device already exists to prevent duplicates
@@ -228,6 +270,10 @@ const UniversalPairingContent: React.FC = () => {
       // Log error to analytics
       FirebaseLogger.logELDEvent('device_discovery_error', { error: error?.message || 'Unknown error' });
       SentryLogger.logELDEvent('device_discovery_error', { error: error?.message || 'Unknown error' });
+      SupabaseLogger.logError(error, {
+        eventType: 'device_discovery_error',
+        additionalData: { platform: Platform.OS }
+      });
     }
   };
 
@@ -264,6 +310,19 @@ const UniversalPairingContent: React.FC = () => {
         deviceCategory,
       });
       
+      SupabaseLogger.logEvent('device_connected', {
+        deviceId,
+        deviceName,
+        deviceAddress,
+        status: 'connected',
+        eventData: {
+          deviceType,
+          deviceCategory,
+          isConnected: true,
+          timestamp,
+        }
+      });
+
       setState((prevState) => ({
         ...prevState,
         connectedDevice: device,
@@ -277,6 +336,12 @@ const UniversalPairingContent: React.FC = () => {
       // Log error to analytics
       FirebaseLogger.logELDEvent('device_connection_error', { error: error?.message || 'Unknown error' });
       SentryLogger.logELDEvent('device_connection_error', { error: error?.message || 'Unknown error' });
+
+      SupabaseLogger.logError(error, {
+        eventType: 'device_connection_error',
+        additionalData: { platform: Platform.OS }
+      });
+
     }
   };
 
@@ -313,6 +378,19 @@ const UniversalPairingContent: React.FC = () => {
         reason,
       });
       
+
+      SupabaseLogger.logEvent('device_disconnected', {
+        deviceId,
+        deviceName,
+        deviceAddress,
+        status: 'disconnected',
+        eventData: {
+          reason,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+
       setState((prevState) => ({
         ...prevState,
         connectedDevice: null,
@@ -326,6 +404,11 @@ const UniversalPairingContent: React.FC = () => {
       // Log error to analytics
       FirebaseLogger.logELDEvent('device_disconnection_error', { error: error?.message || 'Unknown error' });
       SentryLogger.logELDEvent('device_disconnection_error', { error: error?.message || 'Unknown error' });
+      SupabaseLogger.logError(error, {
+        eventType: 'device_disconnection_error',
+        additionalData: { platform: Platform.OS }
+      });
+      
     }
   };
 
@@ -370,6 +453,7 @@ const UniversalPairingContent: React.FC = () => {
         isRealData,
         hasEldData,
       });
+      
       
       // Log detailed data if needed for debugging
       if (rawData) {
@@ -567,6 +651,58 @@ const UniversalPairingContent: React.FC = () => {
       // Log error to analytics
       FirebaseLogger.logELDEvent('permission_error', { error: error?.message || 'Unknown error' });
       SentryLogger.logELDEvent('permission_error', { error: error?.message || 'Unknown error' });
+    }
+  };
+
+  const handleProtocolUpdated = (protocolData: any) => {
+    try {
+      // Null checks and fallbacks
+      const deviceId = protocolData?.deviceId || 'unknown';
+      const previousProtocol = protocolData?.previousProtocol || 'UNKNOWN';
+      const newProtocol = protocolData?.newProtocol || 'UNKNOWN';
+      const timestamp = new Date().toISOString();
+      
+      console.log('🔄 Protocol Updated:', {
+        deviceId,
+        previousProtocol,
+        newProtocol,
+        timestamp,
+      });
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('protocol_updated', {
+        deviceId,
+        previousProtocol,
+        newProtocol,
+      });
+      SentryLogger.logELDEvent('protocol_updated', {
+        deviceId,
+        previousProtocol,
+        newProtocol,
+      });
+      
+      // Update the connected device with the new protocol
+      setState((prevState) => ({
+        ...prevState,
+        connectedDevice: prevState.connectedDevice ? {
+          ...prevState.connectedDevice,
+          protocol: newProtocol,
+        } : null,
+      }));
+      
+      // Show toast notification for protocol update
+      if (newProtocol === 'ELD_DEVICE') {
+        showToast(`Device identified as ELD! Protocol: ${newProtocol}`, 'success');
+      } else if (previousProtocol === 'UNKNOWN' && newProtocol !== 'UNKNOWN') {
+        showToast(`Device protocol detected: ${newProtocol}`, 'info');
+      }
+      
+    } catch (error: any) {
+      console.error('Error in handleProtocolUpdated:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('protocol_update_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('protocol_update_error', { error: error?.message || 'Unknown error' });
     }
   };
 
