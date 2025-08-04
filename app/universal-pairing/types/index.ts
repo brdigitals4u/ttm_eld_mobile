@@ -5,6 +5,7 @@ export interface UniversalDevice {
   isConnected: boolean;
   deviceType?: string;
   deviceCategory?: string;
+  platformId?: number; // Hardware platform identifier (108 = ELD device)
   signalStrength?: number;
   batteryLevel?: number;
   lastSeen?: Date;
@@ -20,6 +21,10 @@ export interface UniversalDevice {
   
   // FMCSA ELD Compliance Data Elements
   eldData?: {
+    // Hardware Platform Identifier
+    platformId?: number; // 108 = ELD device (PLATFORM_IH009)
+    platformName?: string; // Platform name (e.g., "PLATFORM_IH009")
+    
     // 24-Hour Period Data
     periodStartTime?: string;
     date?: string;

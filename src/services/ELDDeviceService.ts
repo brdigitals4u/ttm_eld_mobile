@@ -21,8 +21,8 @@ export class SupabaseLogger {
       deviceId?: string;
       deviceName?: string;
       deviceAddress?: string;
-      status?: 'connected' | 'disconnected' | 'failed' | 'in_progress';
-      eventType?: string;
+      status?: 'connected' | 'disconnected' | 'connecting' | 'failed';
+      eventType?: string; // Allow any string, will be mapped to valid enum
       dataType?: string;
       rawData?: any;
       errorMessage?: string;
@@ -36,12 +36,51 @@ export class SupabaseLogger {
     }
   ): Promise<void> {
     try {
+      // Map event types to valid enum values
+      const mapEventType = (eventType?: string): 'connection' | 'disconnection' | 'data_received' | 'error' | 'authentication' => {
+        switch (eventType) {
+          case 'connection_attempt':
+          case 'connection':
+            return 'connection';
+          case 'disconnection':
+            return 'disconnection';
+          case 'data_received':
+          case 'eld_data':
+            return 'data_received';
+          case 'error':
+          case 'connection_error':
+          case 'authentication_error':
+            return 'error';
+          case 'authentication':
+            return 'authentication';
+          default:
+            return 'connection'; // Default fallback
+        }
+      };
+
+      // Map status to valid enum values
+      const mapStatus = (status?: string): 'connected' | 'disconnected' | 'connecting' | 'failed' => {
+        switch (status) {
+          case 'connected':
+            return 'connected';
+          case 'disconnected':
+            return 'disconnected';
+          case 'in_progress':
+          case 'connecting':
+            return 'connecting';
+          case 'failed':
+            return 'failed';
+          default:
+            return 'connecting'; // Default fallback
+        }
+      };
+
       const logData: ELDDeviceLog = {
         device_id: data.deviceId || 'SYSTEM',
         device_name: data.deviceName,
         device_address: data.deviceAddress,
-        status: data.status || 'connected',
-        event_type: (data.eventType as any) || 'system',
+        status: mapStatus(data.status),
+        event_type: mapEventType(data.eventType),
         session_id: data.sessionId || this.sessionId,
         data_type: data.dataType,
         raw_data: typeof data.rawData === 'string' ? data.rawData : JSON.stringify(data.rawData),
@@ -54,18 +93,32 @@ export class SupabaseLogger {
         event_data: data.eventData,
       };
 
+      console.log('📊 Attempting to log to Supabase:', {
+        device_id: logData.device_id,
+        status: logData.status,
+        event_type: logData.event_type,
+        data_type: logData.data_type
+      });
+
       const { error } = await supabase
         .from('eld_device_logs')
         .insert(logData);
 
       if (error) {
-        console.error('Failed to log data to Supabase:', error);
+        console.error('❌ Failed to log data to Supabase:', error);
+        console.error('📊 Data that failed:', JSON.stringify(logData, null, 2));
+        console.error('🔍 Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         console.log('📝 Fallback: Logging to console only');
       } else {
         console.log('✅ Data logged to Supabase successfully');
       }
     } catch (error) {
-      console.error('Error logging data:', error);
+      console.error('❌ Error logging data:', error);
       console.log('📝 Fallback: Logging to console only');
     }
   }
@@ -82,8 +135,8 @@ export class SupabaseLogger {
       deviceId: device?.id,
       deviceName: device?.name,
       deviceAddress: device?.address,
-      status: 'in_progress',
-      eventType: 'connection_attempt',
+      status: 'connecting',
+      eventType: 'connection',
       eventData: {
         passcodeLength,
         connectionMethod,
@@ -221,7 +274,7 @@ export class SupabaseLogger {
   }
 
   /**
-   * Log any type of event data
+   * Log a generic event
    */
   static async logEvent(
     eventType: string,
@@ -229,7 +282,7 @@ export class SupabaseLogger {
       deviceId?: string;
       deviceName?: string;
       deviceAddress?: string;
-      status?: 'connected' | 'disconnected' | 'failed' | 'in_progress';
+      status?: 'connected' | 'disconnected' | 'connecting' | 'failed';
       dataType?: string;
       rawData?: any;
       errorMessage?: string;
@@ -239,7 +292,7 @@ export class SupabaseLogger {
   ): Promise<void> {
     await this.log({
       ...data,
-      eventType
+      eventType,
     });
   }
 
@@ -423,7 +476,7 @@ export class SupabaseLogger {
     await this.log({
       deviceId,
       deviceName,
-      status: errorCode ? 'failed' : 'in_progress',
+      status: errorCode ? 'failed' : 'connecting',
       eventType: 'connection_step',
       errorCode,
       errorMessage,

@@ -221,7 +221,7 @@ const UniversalPairingContent: React.FC = () => {
         deviceId,
         deviceName,
         deviceAddress,
-        status: isConnected ? 'connected' : 'in_progress',
+        status: isConnected ? 'connected' : 'connecting',
         eventData: {
           deviceType,
           deviceCategory,
@@ -476,6 +476,14 @@ const UniversalPairingContent: React.FC = () => {
         const gps = eldDataObj?.gps || null;
         const events = eldDataObj?.events || null;
         const status = eldDataObj?.status || null;
+        const platformId = eldDataObj?.platformId || null;
+        const platformName = eldDataObj?.platformName || null;
+        
+        // Check if platformId indicates ELD device (108 = PLATFORM_IH009 = ELD platform)
+        if (platformId === 108) {
+          console.log('✅ Platform ID 108 (PLATFORM_IH009) detected - This is an ELD device!');
+          console.log('📋 Platform Name:', platformName);
+        }
         
         // Store parsed ELD data in dedicated ELD state
         setEldData({
@@ -497,6 +505,7 @@ const UniversalPairingContent: React.FC = () => {
             gpsData: gps,
             eventData: events,
             status,
+            platformId,
           } : null,
         }));
         
@@ -688,6 +697,19 @@ const UniversalPairingContent: React.FC = () => {
           ...prevState.connectedDevice,
           protocol: newProtocol,
         } : null,
+        // Also update the device in the devices list
+        devices: prevState.devices.map((device) => {
+          if (device.id === deviceId || device.address === deviceId) {
+            console.log('🔄 Updating device protocol in list:', device.name, '->', newProtocol);
+            return {
+              ...device,
+              protocol: newProtocol,
+              deviceType: newProtocol === 'ELD_DEVICE' ? '181' : device.deviceType,
+              deviceCategory: newProtocol === 'ELD_DEVICE' ? 'eld' : device.deviceCategory,
+            };
+          }
+          return device;
+        }),
       }));
       
       // Show toast notification for protocol update

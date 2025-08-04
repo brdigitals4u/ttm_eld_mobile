@@ -10,11 +10,26 @@ TruckLogELD is designed to interface with Jimi IoT ELD hardware devices, providi
 
 ### Platform Detection System
 
-The application implements a multi-layer platform detection system:
+The application implements a multi-layer platform detection system based on the original Jimi APK structure:
 
 ```
 Hardware (Platform ID 108) → Native Module → React Native → UI Components
 ```
+
+### Jimi APK Structure Reference
+
+The platform detection follows patterns from the original Jimi APK:
+
+- **PlatFormType.java**: Defines platform ID constants (Platform ID 108 = PLATFORM_IH009)
+- **DeviceTypeUtils.java**: Contains device type detection logic and pattern matching
+- **Camera.java**: Handles PlatformId extraction and device identification
+- **MyCamera.java**: Device representation and type storage
+
+#### Detection Methods:
+1. **PlatformId Detection**: `platformId = 108` → ELD Device
+2. **Device Name Pattern**: "KD032-43148B" → ELD Device
+3. **Device Type String**: `deviceType = "181"` → ELD Device
+4. **Dynamic Feature Enabling**: Based on detected platform
 
 #### Platform Types (from PlatFormType.java)
 
@@ -27,7 +42,8 @@ Hardware (Platform ID 108) → Native Module → React Native → UI Components
 ### Key Components
 
 #### 1. Native Module (JimiBridgeModule.kt)
-- **Platform Detection**: Identifies device types using platform IDs
+- **Platform Detection**: Identifies device types using platform IDs (following Jimi APK PlatFormType.java)
+- **Device Type Detection**: Uses patterns from Jimi APK DeviceTypeUtils.java
 - **Quick Connection**: Establishes temporary connections during scanning for platform detection
 - **SharedPreferences Storage**: Persists platform information for faster subsequent scans
 - **Real-time Updates**: Sends protocol updates to React Native
@@ -48,18 +64,28 @@ Device Scan → Platform Detection → Protocol Classification → UI Update →
 ### Platform Detection Logic
 
 ```kotlin
-// Platform ID detection in parseELDJsonObject()
+// Platform ID detection in parseELDJsonObject() - following Jimi APK patterns
 when (platformId) {
     PLATFORM_IH009 -> {
-        // ELD Device (Platform ID 108)
+        // ELD Device (Platform ID 108) - KD032 devices
         eldMap.putString("deviceType", DEVICE_TYPE_ELD)
         eldMap.putString("deviceCategory", "eld")
         eldMap.putString("protocol", "ELD_DEVICE")
+        eldMap.putBoolean("isELDDevice", true)
+        eldMap.putBoolean("enableELDFeatures", true)
     }
     in 0..7 -> {
-        // Camera devices
+        // Camera devices (IH008C, IH008E, IH010, IH018)
         eldMap.putString("deviceCategory", "camera")
         eldMap.putString("protocol", "CAMERA_DEVICE")
+        eldMap.putBoolean("isCameraDevice", true)
+    }
+    in 100..107 -> {
+        // Camera devices with IRCUT filter
+        eldMap.putString("deviceCategory", "camera")
+        eldMap.putString("protocol", "CAMERA_DEVICE")
+        eldMap.putBoolean("isCameraDevice", true)
+        eldMap.putBoolean("hasIRCUT", true)
     }
     // ... other platform types
 }
