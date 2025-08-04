@@ -1960,4 +1960,352 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         ELDServiceEventBroadcaster.getInstance().setReactContext(null)
         Log.d(TAG, "JimiBridgeModule destroyed and unregistered from event broadcaster")
     }
+
+    // Parse FMCSA ELD Compliance Data
+    private fun parseELDComplianceData(eldDataObject: JSONObject): WritableMap {
+        val eldComplianceMap = Arguments.createMap()
+        
+        try {
+            // Null check for input
+            if (eldDataObject == null) {
+                Log.e(TAG, "ELD data object is null")
+                return eldComplianceMap
+            }
+            
+            // 24-Hour Period Data
+            if (eldDataObject.has("periodStartTime")) {
+                try {
+                    eldComplianceMap.putString("periodStartTime", eldDataObject.getString("periodStartTime"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing periodStartTime: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("date")) {
+                try {
+                    eldComplianceMap.putString("date", eldDataObject.getString("date"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing date: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("time")) {
+                try {
+                    eldComplianceMap.putString("time", eldDataObject.getString("time"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing time: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("timeZoneOffset")) {
+                try {
+                    eldComplianceMap.putInt("timeZoneOffset", eldDataObject.getInt("timeZoneOffset"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing timeZoneOffset: ${e.message}")
+                }
+            }
+            
+            // Carrier Information
+            if (eldDataObject.has("carrierName")) {
+                try {
+                    eldComplianceMap.putString("carrierName", eldDataObject.getString("carrierName"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing carrierName: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("carrierUSDOTNumber")) {
+                try {
+                    eldComplianceMap.putString("carrierUSDOTNumber", eldDataObject.getString("carrierUSDOTNumber"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing carrierUSDOTNumber: ${e.message}")
+                }
+            }
+            
+            // Vehicle Information
+            if (eldDataObject.has("vin")) {
+                try {
+                    eldComplianceMap.putString("vin", eldDataObject.getString("vin"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing vin: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("cmvPowerUnitNumber")) {
+                try {
+                    eldComplianceMap.putString("cmvPowerUnitNumber", eldDataObject.getString("cmvPowerUnitNumber"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing cmvPowerUnitNumber: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("trailerNumbers")) {
+                try {
+                    val trailerArray = eldDataObject.getJSONArray("trailerNumbers")
+                    val trailerWritableArray = Arguments.createArray()
+                    for (i in 0 until trailerArray.length()) {
+                        trailerWritableArray.pushString(trailerArray.getString(i))
+                    }
+                    eldComplianceMap.putArray("trailerNumbers", trailerWritableArray)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing trailerNumbers: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("vehicleMiles")) {
+                try {
+                    eldComplianceMap.putDouble("vehicleMiles", eldDataObject.getDouble("vehicleMiles"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing vehicleMiles: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("engineHours")) {
+                try {
+                    eldComplianceMap.putDouble("engineHours", eldDataObject.getDouble("engineHours"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing engineHours: ${e.message}")
+                }
+            }
+            
+            // Driver Information
+            if (eldDataObject.has("driverFirstName")) {
+                try {
+                    eldComplianceMap.putString("driverFirstName", eldDataObject.getString("driverFirstName"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing driverFirstName: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("driverLastName")) {
+                try {
+                    eldComplianceMap.putString("driverLastName", eldDataObject.getString("driverLastName"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing driverLastName: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("driverLicenseNumber")) {
+                try {
+                    eldComplianceMap.putString("driverLicenseNumber", eldDataObject.getString("driverLicenseNumber"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing driverLicenseNumber: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("driverLicenseIssuingState")) {
+                try {
+                    eldComplianceMap.putString("driverLicenseIssuingState", eldDataObject.getString("driverLicenseIssuingState"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing driverLicenseIssuingState: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("driverLocationDescription")) {
+                try {
+                    eldComplianceMap.putString("driverLocationDescription", eldDataObject.getString("driverLocationDescription"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing driverLocationDescription: ${e.message}")
+                }
+            }
+            
+            // ELD Device Information
+            if (eldDataObject.has("eldIdentifier")) {
+                try {
+                    eldComplianceMap.putString("eldIdentifier", eldDataObject.getString("eldIdentifier"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eldIdentifier: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eldProvider")) {
+                try {
+                    eldComplianceMap.putString("eldProvider", eldDataObject.getString("eldProvider"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eldProvider: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eldRegistrationId")) {
+                try {
+                    eldComplianceMap.putString("eldRegistrationId", eldDataObject.getString("eldRegistrationId"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eldRegistrationId: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eldUsername")) {
+                try {
+                    eldComplianceMap.putString("eldUsername", eldDataObject.getString("eldUsername"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eldUsername: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eldAccountType")) {
+                try {
+                    eldComplianceMap.putString("eldAccountType", eldDataObject.getString("eldAccountType"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eldAccountType: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eldAuthenticationValue")) {
+                try {
+                    eldComplianceMap.putString("eldAuthenticationValue", eldDataObject.getString("eldAuthenticationValue"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eldAuthenticationValue: ${e.message}")
+                }
+            }
+            
+            // Event Data
+            if (eldDataObject.has("eventCode")) {
+                try {
+                    eldComplianceMap.putString("eventCode", eldDataObject.getString("eventCode"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eventCode: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eventType")) {
+                try {
+                    eldComplianceMap.putString("eventType", eldDataObject.getString("eventType"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eventType: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eventSequenceId")) {
+                try {
+                    eldComplianceMap.putInt("eventSequenceId", eldDataObject.getInt("eventSequenceId"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eventSequenceId: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eventRecordOrigin")) {
+                try {
+                    eldComplianceMap.putString("eventRecordOrigin", eldDataObject.getString("eventRecordOrigin"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eventRecordOrigin: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eventRecordStatus")) {
+                try {
+                    eldComplianceMap.putString("eventRecordStatus", eldDataObject.getString("eventRecordStatus"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eventRecordStatus: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("eventDataCheckValue")) {
+                try {
+                    eldComplianceMap.putString("eventDataCheckValue", eldDataObject.getString("eventDataCheckValue"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing eventDataCheckValue: ${e.message}")
+                }
+            }
+            
+            // Location Data
+            if (eldDataObject.has("latitude")) {
+                try {
+                    eldComplianceMap.putDouble("latitude", eldDataObject.getDouble("latitude"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing latitude: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("longitude")) {
+                try {
+                    eldComplianceMap.putDouble("longitude", eldDataObject.getDouble("longitude"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing longitude: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("geoLocation")) {
+                try {
+                    eldComplianceMap.putString("geoLocation", eldDataObject.getString("geoLocation"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing geoLocation: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("distanceSinceLastValidCoordinates")) {
+                try {
+                    eldComplianceMap.putDouble("distanceSinceLastValidCoordinates", eldDataObject.getDouble("distanceSinceLastValidCoordinates"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing distanceSinceLastValidCoordinates: ${e.message}")
+                }
+            }
+            
+            // Diagnostic Data
+            if (eldDataObject.has("malfunctionIndicatorStatus")) {
+                try {
+                    eldComplianceMap.putString("malfunctionIndicatorStatus", eldDataObject.getString("malfunctionIndicatorStatus"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing malfunctionIndicatorStatus: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("malfunctionDiagnosticCode")) {
+                try {
+                    eldComplianceMap.putString("malfunctionDiagnosticCode", eldDataObject.getString("malfunctionDiagnosticCode"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing malfunctionDiagnosticCode: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("dataDiagnosticEventIndicatorStatus")) {
+                try {
+                    eldComplianceMap.putString("dataDiagnosticEventIndicatorStatus", eldDataObject.getString("dataDiagnosticEventIndicatorStatus"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing dataDiagnosticEventIndicatorStatus: ${e.message}")
+                }
+            }
+            
+            // Configuration
+            if (eldDataObject.has("exemptDriverConfiguration")) {
+                try {
+                    eldComplianceMap.putString("exemptDriverConfiguration", eldDataObject.getString("exemptDriverConfiguration"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing exemptDriverConfiguration: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("multidayBasisUsed")) {
+                try {
+                    eldComplianceMap.putInt("multidayBasisUsed", eldDataObject.getInt("multidayBasisUsed"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing multidayBasisUsed: ${e.message}")
+                }
+            }
+            
+            // Additional Data
+            if (eldDataObject.has("orderNumber")) {
+                try {
+                    eldComplianceMap.putString("orderNumber", eldDataObject.getString("orderNumber"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing orderNumber: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("shippingDocumentNumber")) {
+                try {
+                    eldComplianceMap.putString("shippingDocumentNumber", eldDataObject.getString("shippingDocumentNumber"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing shippingDocumentNumber: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("outputFileComment")) {
+                try {
+                    eldComplianceMap.putString("outputFileComment", eldDataObject.getString("outputFileComment"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing outputFileComment: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("commentAnnotation")) {
+                try {
+                    eldComplianceMap.putString("commentAnnotation", eldDataObject.getString("commentAnnotation"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing commentAnnotation: ${e.message}")
+                }
+            }
+            
+            // File Data
+            if (eldDataObject.has("fileDataCheckValue")) {
+                try {
+                    eldComplianceMap.putString("fileDataCheckValue", eldDataObject.getString("fileDataCheckValue"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing fileDataCheckValue: ${e.message}")
+                }
+            }
+            if (eldDataObject.has("lineDataCheckValue")) {
+                try {
+                    eldComplianceMap.putString("lineDataCheckValue", eldDataObject.getString("lineDataCheckValue"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing lineDataCheckValue: ${e.message}")
+                }
+            }
+            
+            Log.d(TAG, "Successfully parsed ELD compliance data with ${eldComplianceMap.toHashMap().size} fields")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing ELD compliance data: ${e.message}")
+        }
+        
+        return eldComplianceMap
+    }
 } 
