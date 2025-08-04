@@ -13,16 +13,43 @@ interface ELDDisplayProps {
     protocol?: string;
     vin?: string;
     canData?: {
+      // Engine Performance Metrics
       engine_throttle?: number;
-      air_flow?: number;
+      engine_throttle_valve_1_position_1?: number;
+      engine_intake_air_mass_flow_rate?: number;
+      engine_percent_load_at_current_speed?: number;
+      engine_speed?: number;
       engine_runtime?: number;
+      engine_running_time?: number;
+      time_since_engine_start?: number;
+      accelerator_pedal_position_1?: number;
+      
+      // Vehicle Status
+      wheel_based_vehicle_speed?: number;
+      total_vehicle_distance?: number;
+      acc_out_status?: string;
+      malfunction_indicator_lamp?: string;
+      
+      // Environmental Data
+      engine_inlet_air_temperature?: number;
+      engine_coolant_temperature?: number;
+      intake_manifold_absolute_pressure?: number;
+      barometric_pressure?: number;
+      
+      // Fuel System
+      fuel_level?: number;
+      fuel_level_1?: number;
+      
+      // Electrical System
+      voltage?: number;
+      
+      // Legacy fields for backward compatibility
+      air_flow?: number;
       engine_load?: number;
       coolant_temp?: number;
       vehicle_distance?: number;
       speed?: number;
-      fuel_level?: number;
       engine_rpm?: number;
-      voltage?: number;
     };
     gpsData?: {
       latitude?: number;

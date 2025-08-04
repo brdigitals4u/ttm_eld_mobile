@@ -33,9 +33,48 @@ const UniversalPairingContent: React.FC = () => {
   // Separate state for ELD data
   const [eldData, setEldData] = useState<{
     vin?: string;
-    canData?: any;
+    canData?: {
+      // Engine Performance Metrics
+      engine_throttle?: number;
+      engine_throttle_valve_1_position_1?: number;
+      engine_intake_air_mass_flow_rate?: number;
+      engine_percent_load_at_current_speed?: number;
+      engine_speed?: number;
+      engine_runtime?: number;
+      engine_running_time?: number;
+      time_since_engine_start?: number;
+      accelerator_pedal_position_1?: number;
+      
+      // Vehicle Status
+      wheel_based_vehicle_speed?: number;
+      total_vehicle_distance?: number;
+      acc_out_status?: string;
+      malfunction_indicator_lamp?: string;
+      
+      // Environmental Data
+      engine_inlet_air_temperature?: number;
+      engine_coolant_temperature?: number;
+      intake_manifold_absolute_pressure?: number;
+      barometric_pressure?: number;
+      
+      // Fuel System
+      fuel_level?: number;
+      fuel_level_1?: number;
+      
+      // Electrical System
+      voltage?: number;
+      
+      // Legacy fields for backward compatibility
+      air_flow?: number;
+      engine_load?: number;
+      coolant_temp?: number;
+      vehicle_distance?: number;
+      speed?: number;
+      engine_rpm?: number;
+    };
     gpsData?: any;
     eventData?: any;
+    status?: any;
     timestamp?: string;
   } | null>(null);
 
@@ -259,7 +298,7 @@ const UniversalPairingContent: React.FC = () => {
             eventData: event_data,
           } : null,
         }));
-      } catch (e) {
+      } catch (e: any) {
         console.error('❌ Failed to parse ELD JSON:', e.message);
       }
     }

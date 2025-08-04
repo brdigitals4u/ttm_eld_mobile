@@ -637,7 +637,59 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             ELD Dashboard
           </Text>
           <ELDDisplay 
-            device={device}
+            device={{
+              ...device,
+              canData: {
+                // Engine Performance Metrics
+                engine_throttle: sensorData.engine_throttle?.value,
+                engine_throttle_valve_1_position_1: sensorData.engine_throttle_valve_1_position_1?.value,
+                engine_intake_air_mass_flow_rate: sensorData.engine_intake_air_mass_flow_rate?.value,
+                engine_percent_load_at_current_speed: sensorData.engine_percent_load_at_current_speed?.value,
+                engine_speed: sensorData.engine_speed?.value,
+                engine_runtime: sensorData.engine_runtime?.value,
+                engine_running_time: sensorData.engine_running_time?.value,
+                time_since_engine_start: sensorData.time_since_engine_start?.value,
+                accelerator_pedal_position_1: sensorData.accelerator_pedal_position_1?.value,
+                
+                // Vehicle Status
+                wheel_based_vehicle_speed: sensorData.wheel_based_vehicle_speed?.value,
+                total_vehicle_distance: sensorData.total_vehicle_distance?.value,
+                acc_out_status: sensorData.acc_out_status?.value,
+                malfunction_indicator_lamp: sensorData.malfunction_indicator_lamp?.value,
+                
+                // Environmental Data
+                engine_inlet_air_temperature: sensorData.engine_inlet_air_temperature?.value,
+                engine_coolant_temperature: sensorData.engine_coolant_temperature?.value,
+                intake_manifold_absolute_pressure: sensorData.intake_manifold_absolute_pressure?.value,
+                barometric_pressure: sensorData.barometric_pressure?.value,
+                
+                // Fuel System
+                fuel_level: sensorData.fuel_level?.value,
+                fuel_level_1: sensorData.fuel_level_1?.value,
+                
+                // Electrical System
+                voltage: sensorData.voltage?.value,
+                
+                // Legacy fields for backward compatibility
+                air_flow: sensorData.air_flow?.value,
+                engine_load: sensorData.engine_load?.value,
+                coolant_temp: sensorData.coolant_temp?.value,
+                vehicle_distance: sensorData.vehicle_distance?.value,
+                speed: sensorData.speed?.value,
+                engine_rpm: sensorData.engine_rpm?.value,
+              },
+              gpsData: {
+                latitude: sensorData.gps_latitude?.value,
+                longitude: sensorData.gps_longitude?.value,
+                heading: sensorData.gps_heading?.value,
+                timestamp: sensorData.gps_timestamp?.value,
+              },
+              eventData: {
+                event_type: sensorData.event_type?.value,
+                trigger: sensorData.event_trigger?.value,
+                id: sensorData.event_id?.value,
+              },
+            }}
             timestamp={latestData?.timestamp}
           />
         </View>

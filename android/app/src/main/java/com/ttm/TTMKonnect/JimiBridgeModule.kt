@@ -1385,9 +1385,80 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         val canMap = Arguments.createMap()
         
         try {
+            // Engine Performance Metrics
             if (canObject.has("engineRPM")) {
                 canMap.putDouble("engineRPM", canObject.getDouble("engineRPM"))
             }
+            if (canObject.has("engineSpeed")) {
+                canMap.putDouble("engineSpeed", canObject.getDouble("engineSpeed"))
+            }
+            if (canObject.has("engineThrottleValve1Position1")) {
+                canMap.putDouble("engineThrottleValve1Position1", canObject.getDouble("engineThrottleValve1Position1"))
+            }
+            if (canObject.has("engineThrottle")) {
+                canMap.putDouble("engineThrottle", canObject.getDouble("engineThrottle"))
+            }
+            if (canObject.has("engineIntakeAirMassFlowRate")) {
+                canMap.putDouble("engineIntakeAirMassFlowRate", canObject.getDouble("engineIntakeAirMassFlowRate"))
+            }
+            if (canObject.has("enginePercentLoadAtCurrentSpeed")) {
+                canMap.putDouble("enginePercentLoadAtCurrentSpeed", canObject.getDouble("enginePercentLoadAtCurrentSpeed"))
+            }
+            if (canObject.has("engineRuntime")) {
+                canMap.putDouble("engineRuntime", canObject.getDouble("engineRuntime"))
+            }
+            if (canObject.has("engineRunningTime")) {
+                canMap.putDouble("engineRunningTime", canObject.getDouble("engineRunningTime"))
+            }
+            if (canObject.has("timeSinceEngineStart")) {
+                canMap.putDouble("timeSinceEngineStart", canObject.getDouble("timeSinceEngineStart"))
+            }
+            if (canObject.has("acceleratorPedalPosition1")) {
+                canMap.putDouble("acceleratorPedalPosition1", canObject.getDouble("acceleratorPedalPosition1"))
+            }
+            
+            // Vehicle Status
+            if (canObject.has("wheelBasedVehicleSpeed")) {
+                canMap.putDouble("wheelBasedVehicleSpeed", canObject.getDouble("wheelBasedVehicleSpeed"))
+            }
+            if (canObject.has("totalVehicleDistance")) {
+                canMap.putDouble("totalVehicleDistance", canObject.getDouble("totalVehicleDistance"))
+            }
+            if (canObject.has("accOutStatus")) {
+                canMap.putString("accOutStatus", canObject.getString("accOutStatus"))
+            }
+            if (canObject.has("malfunctionIndicatorLamp")) {
+                canMap.putString("malfunctionIndicatorLamp", canObject.getString("malfunctionIndicatorLamp"))
+            }
+            
+            // Environmental Data
+            if (canObject.has("engineInletAirTemperature")) {
+                canMap.putDouble("engineInletAirTemperature", canObject.getDouble("engineInletAirTemperature"))
+            }
+            if (canObject.has("engineCoolantTemperature")) {
+                canMap.putDouble("engineCoolantTemperature", canObject.getDouble("engineCoolantTemperature"))
+            }
+            if (canObject.has("intakeManifoldAbsolutePressure")) {
+                canMap.putDouble("intakeManifoldAbsolutePressure", canObject.getDouble("intakeManifoldAbsolutePressure"))
+            }
+            if (canObject.has("barometricPressure")) {
+                canMap.putDouble("barometricPressure", canObject.getDouble("barometricPressure"))
+            }
+            
+            // Fuel System
+            if (canObject.has("fuelLevel")) {
+                canMap.putDouble("fuelLevel", canObject.getDouble("fuelLevel"))
+            }
+            if (canObject.has("fuelLevel1")) {
+                canMap.putDouble("fuelLevel1", canObject.getDouble("fuelLevel1"))
+            }
+            
+            // Electrical System
+            if (canObject.has("voltage")) {
+                canMap.putDouble("voltage", canObject.getDouble("voltage"))
+            }
+            
+            // Legacy fields for backward compatibility
             if (canObject.has("throttlePosition")) {
                 canMap.putDouble("throttlePosition", canObject.getDouble("throttlePosition"))
             }
@@ -1406,6 +1477,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             if (canObject.has("engineHours")) {
                 canMap.putDouble("engineHours", canObject.getDouble("engineHours"))
             }
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing CAN data: ${e.message}")
         }
