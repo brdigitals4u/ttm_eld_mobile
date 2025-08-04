@@ -33,6 +33,11 @@ import { UniversalDevice, DeviceData } from '../types';
 import colors from '@/constants/Colors';
 import ELDDisplay from './eld/ELDDisplay';
 
+// Import logging services
+import { FirebaseLogger } from '../../../src/utils/FirebaseLogger';
+import { SentryLogger } from '../../../src/utils/SentryLogger';
+import { SupabaseLogger } from '../../../src/utils/SupabaseLogger';
+
 interface DataEmitScreenProps {
   device: UniversalDevice | null;
   deviceData: DeviceData[];
@@ -53,47 +58,197 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
 
   const startDataStreaming = useCallback(async () => {
-    if (device) {
-      try {
-        await NativeModules.JimiBridge.startDataStreaming(device.id, null);
-        console.log('Data streaming started successfully');
-      } catch (error) {
-        console.error('Error starting data streaming:', error);
+    try {
+      // Null checks and fallbacks
+      const deviceId = device?.id || 'unknown';
+      const deviceName = device?.name || 'Unknown Device';
+      
+      if (!device) {
+        console.warn('⚠️ No device available for data streaming');
+        
+        // Log warning to analytics
+        FirebaseLogger.logELDEvent('data_streaming_no_device');
+        SentryLogger.logELDEvent('data_streaming_no_device');
+        return;
       }
+      
+      console.log('📊 Starting data streaming for device:', {
+        deviceId,
+        deviceName,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('data_streaming_started', {
+        deviceId,
+        deviceName,
+      });
+      SentryLogger.logELDEvent('data_streaming_started', {
+        deviceId,
+        deviceName,
+      });
+      
+      await NativeModules.JimiBridge.startDataStreaming(deviceId, null);
+      console.log('✅ Data streaming started successfully');
+      
+      // Log success to analytics
+      FirebaseLogger.logELDEvent('data_streaming_success', {
+        deviceId,
+        deviceName,
+      });
+      SentryLogger.logELDEvent('data_streaming_success', {
+        deviceId,
+        deviceName,
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Error starting data streaming:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('data_streaming_error', { 
+        error: error?.message || 'Unknown error',
+        deviceId: device?.id || 'unknown',
+      });
+      SentryLogger.logELDEvent('data_streaming_error', { 
+        error: error?.message || 'Unknown error',
+        deviceId: device?.id || 'unknown',
+      });
     }
-  }, [device]) as any;
+  }, [device]);
 
   const [sensorData, setSensorData] = useState<{[key: string]: any}>({});
 
   const requestSpecificData = useCallback(async (dataType: string) => {
-    if (device) {
-      try {
-        await NativeModules.JimiBridge.requestSpecificData(device.id, dataType);
-        console.log(`Requested data for ${dataType}`);
-      } catch (error) {
-        console.error(`Error requesting data for ${dataType}:`, error);
+    try {
+      // Null checks and fallbacks
+      const deviceId = device?.id || 'unknown';
+      const deviceName = device?.name || 'Unknown Device';
+      
+      if (!device) {
+        console.warn('⚠️ No device available for specific data request');
+        
+        // Log warning to analytics
+        FirebaseLogger.logELDEvent('specific_data_request_no_device', { dataType });
+        SentryLogger.logELDEvent('specific_data_request_no_device', { dataType });
+        return;
       }
+      
+      console.log(`📊 Requesting specific data for ${dataType}:`, {
+        deviceId,
+        deviceName,
+        dataType,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('specific_data_requested', {
+        deviceId,
+        deviceName,
+        dataType,
+      });
+      SentryLogger.logELDEvent('specific_data_requested', {
+        deviceId,
+        deviceName,
+        dataType,
+      });
+      
+      await NativeModules.JimiBridge.requestSpecificData(deviceId, dataType);
+      console.log(`✅ Requested data for ${dataType}`);
+      
+      // Log success to analytics
+      FirebaseLogger.logELDEvent('specific_data_request_success', {
+        deviceId,
+        deviceName,
+        dataType,
+      });
+      SentryLogger.logELDEvent('specific_data_request_success', {
+        deviceId,
+        deviceName,
+        dataType,
+      });
+      
+    } catch (error: any) {
+      console.error(`❌ Error requesting data for ${dataType}:`, error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('specific_data_request_error', { 
+        error: error?.message || 'Unknown error',
+        dataType,
+        deviceId: device?.id || 'unknown',
+      });
+      SentryLogger.logELDEvent('specific_data_request_error', { 
+        error: error?.message || 'Unknown error',
+        dataType,
+        deviceId: device?.id || 'unknown',
+      });
     }
   }, [device]);
 
   // Function to start automatic streaming
   const startAutoStreaming = useCallback(() => {
-    if (streamingIntervalRef.current) {
-      clearInterval(streamingIntervalRef.current);
-    }
-    
-    setIsAutoStreaming(true);
-    console.log('Starting automatic data streaming every 5 seconds');
-    
-    // Start streaming immediately
-    startDataStreaming();
-    
-    // Set up interval for every 5 seconds
-    streamingIntervalRef.current = setInterval(() => {
-      if (device && isConnected) {
-        startDataStreaming();
+    try {
+      // Null checks and fallbacks
+      const deviceId = device?.id || 'unknown';
+      const deviceName = device?.name || 'Unknown Device';
+      
+      if (streamingIntervalRef.current) {
+        clearInterval(streamingIntervalRef.current);
       }
-    }, 5000);
+      
+      setIsAutoStreaming(true);
+      console.log('🔄 Starting automatic data streaming every 5 seconds:', {
+        deviceId,
+        deviceName,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('auto_streaming_started', {
+        deviceId,
+        deviceName,
+        interval: 5000,
+      });
+      SentryLogger.logELDEvent('auto_streaming_started', {
+        deviceId,
+        deviceName,
+        interval: 5000,
+      });
+      
+      // Start streaming immediately
+      startDataStreaming();
+      
+      // Set up interval for every 5 seconds
+      streamingIntervalRef.current = setInterval(() => {
+        if (device && isConnected) {
+          startDataStreaming();
+        } else {
+          console.warn('⚠️ Auto streaming stopped: device not connected');
+          
+          // Log warning to analytics
+          FirebaseLogger.logELDEvent('auto_streaming_stopped_no_connection', {
+            deviceId,
+            deviceName,
+          });
+          SentryLogger.logELDEvent('auto_streaming_stopped_no_connection', {
+            deviceId,
+            deviceName,
+          });
+        }
+      }, 5000);
+      
+    } catch (error: any) {
+      console.error('❌ Error starting auto streaming:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('auto_streaming_error', { 
+        error: error?.message || 'Unknown error',
+        deviceId: device?.id || 'unknown',
+      });
+      SentryLogger.logELDEvent('auto_streaming_error', { 
+        error: error?.message || 'Unknown error',
+        deviceId: device?.id || 'unknown',
+      });
+    }
   }, [device, isConnected, startDataStreaming]);
 
   // Function to stop automatic streaming
@@ -639,6 +794,72 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
           <ELDDisplay 
             device={{
               ...device,
+              eldData: {
+                // 24-Hour Period Data
+                periodStartTime: sensorData.period_start_time?.value,
+                date: sensorData.date?.value,
+                time: sensorData.time?.value,
+                timeZoneOffset: sensorData.timezone_offset?.value,
+                
+                // Carrier Information
+                carrierName: sensorData.carrier_name?.value,
+                carrierUSDOTNumber: sensorData.carrier_usdot_number?.value,
+                
+                // Vehicle Information
+                vin: sensorData.vin?.value,
+                cmvPowerUnitNumber: sensorData.cmv_power_unit_number?.value,
+                trailerNumbers: sensorData.trailer_numbers?.value,
+                vehicleMiles: sensorData.vehicle_miles?.value,
+                engineHours: sensorData.engine_hours?.value,
+                
+                // Driver Information
+                driverFirstName: sensorData.driver_first_name?.value,
+                driverLastName: sensorData.driver_last_name?.value,
+                driverLicenseNumber: sensorData.driver_license_number?.value,
+                driverLicenseIssuingState: sensorData.driver_license_issuing_state?.value,
+                driverLocationDescription: sensorData.driver_location_description?.value,
+                
+                // ELD Device Information
+                eldIdentifier: sensorData.eld_identifier?.value,
+                eldProvider: sensorData.eld_provider?.value,
+                eldRegistrationId: sensorData.eld_registration_id?.value,
+                eldUsername: sensorData.eld_username?.value,
+                eldAccountType: sensorData.eld_account_type?.value,
+                eldAuthenticationValue: sensorData.eld_authentication_value?.value,
+                
+                // Event Data
+                eventCode: sensorData.event_code?.value,
+                eventType: sensorData.event_type?.value,
+                eventSequenceId: sensorData.event_sequence_id?.value,
+                eventRecordOrigin: sensorData.event_record_origin?.value,
+                eventRecordStatus: sensorData.event_record_status?.value,
+                eventDataCheckValue: sensorData.event_data_check_value?.value,
+                
+                // Location Data
+                latitude: sensorData.latitude?.value,
+                longitude: sensorData.longitude?.value,
+                geoLocation: sensorData.geo_location?.value,
+                distanceSinceLastValidCoordinates: sensorData.distance_since_last_valid_coordinates?.value,
+                
+                // Diagnostic Data
+                malfunctionIndicatorStatus: sensorData.malfunction_indicator_status?.value,
+                malfunctionDiagnosticCode: sensorData.malfunction_diagnostic_code?.value,
+                dataDiagnosticEventIndicatorStatus: sensorData.data_diagnostic_event_indicator_status?.value,
+                
+                // Configuration
+                exemptDriverConfiguration: sensorData.exempt_driver_configuration?.value,
+                multidayBasisUsed: sensorData.multiday_basis_used?.value,
+                
+                // Additional Data
+                orderNumber: sensorData.order_number?.value,
+                shippingDocumentNumber: sensorData.shipping_document_number?.value,
+                outputFileComment: sensorData.output_file_comment?.value,
+                commentAnnotation: sensorData.comment_annotation?.value,
+                
+                // File Data
+                fileDataCheckValue: sensorData.file_data_check_value?.value,
+                lineDataCheckValue: sensorData.line_data_check_value?.value,
+              },
               canData: {
                 // Engine Performance Metrics
                 engine_throttle: sensorData.engine_throttle?.value,

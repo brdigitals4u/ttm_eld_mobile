@@ -1264,29 +1264,73 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         Log.d(TAG, "Processing ELD JSON data from device: $deviceId")
         
         try {
-            // Convert byte array to string
-            val jsonString = String(data, Charsets.UTF_8)
+            // Null checks and validation
+            if (deviceId.isNullOrEmpty()) {
+                Log.e(TAG, "Device ID is null or empty")
+                sendErrorEvent(deviceId, "Device ID is null or empty", data)
+                return
+            }
+            
+            if (data.isEmpty()) {
+                Log.e(TAG, "Data is empty for device: $deviceId")
+                sendErrorEvent(deviceId, "Data is empty", data)
+                return
+            }
+            
+            if (characteristicUuid.isNullOrEmpty()) {
+                Log.w(TAG, "Characteristic UUID is null or empty, using default")
+            }
+            
+            // Convert byte array to string with null check
+            val jsonString = try {
+                String(data, Charsets.UTF_8)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error converting byte array to string: ${e.message}")
+                sendErrorEvent(deviceId, "Byte array conversion failed: ${e.message}", data)
+                return
+            }
+            
+            if (jsonString.isNullOrEmpty()) {
+                Log.e(TAG, "JSON string is null or empty for device: $deviceId")
+                sendErrorEvent(deviceId, "JSON string is null or empty", data)
+                return
+            }
+            
             Log.d(TAG, "ELD JSON string: $jsonString")
             
-            // Parse JSON data
-            val jsonObject = JSONObject(jsonString)
+            // Parse JSON data with null check
+            val jsonObject = try {
+                JSONObject(jsonString)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing JSON object: ${e.message}")
+                sendErrorEvent(deviceId, "JSON parsing failed: ${e.message}", data)
+                return
+            }
             
-            // Extract ELD data components
-            val eldData = parseELDJsonObject(jsonObject)
+            // Extract ELD data components with null check
+            val eldData = try {
+                parseELDJsonObject(jsonObject)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing ELD JSON object: ${e.message}")
+                sendErrorEvent(deviceId, "ELD JSON parsing failed: ${e.message}", data)
+                return
+            }
             
-            // Send structured ELD data to React Native
+            // Send structured ELD data to React Native with null check
             val eldDataMap = Arguments.createMap().apply {
                 putString("deviceId", deviceId)
                 putString("timestamp", Date().toString())
                 putString("dataType", "ELD_DATA")
                 putString("protocol", "ELD_DEVICE")
-                putString("characteristicUuid", characteristicUuid)
+                putString("characteristicUuid", characteristicUuid ?: "unknown")
                 putBoolean("isRealData", true)
                 putString("rawData", jsonString)
                 
-                // Add structured ELD data
+                // Add structured ELD data with null check
                 eldData?.let { eld ->
                     putMap("eldData", eld)
+                } ?: run {
+                    Log.w(TAG, "ELD data is null, sending without structured data")
                 }
             }
             
@@ -1295,60 +1339,112 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing ELD JSON data: ${e.message}")
-            
-            // Send error data to React Native
+            sendErrorEvent(deviceId, "ELD processing failed: ${e.message}", data)
+        }
+    }
+    
+    // Helper method to send error events
+    private fun sendErrorEvent(deviceId: String, errorMessage: String, rawData: ByteArray) {
+        try {
             val errorData = Arguments.createMap().apply {
                 putString("deviceId", deviceId)
                 putString("timestamp", Date().toString())
                 putString("dataType", "ELD_ERROR")
                 putString("protocol", "ELD_DEVICE")
-                putString("error", "JSON parsing failed: ${e.message}")
-                putString("rawData", String(data, Charsets.UTF_8))
+                putString("error", errorMessage)
+                putString("rawData", try {
+                    String(rawData, Charsets.UTF_8)
+                } catch (e: Exception) {
+                    "Failed to convert raw data: ${e.message}"
+                })
             }
             
             sendEvent("onDataReceived", errorData)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending error event: ${e.message}")
         }
     }
     
     // Parse ELD JSON object into structured data
     private fun parseELDJsonObject(jsonObject: JSONObject): WritableMap? {
         try {
+            // Null check for input
+            if (jsonObject == null) {
+                Log.e(TAG, "JSON object is null")
+                return null
+            }
+            
             val eldMap = Arguments.createMap()
             
-            // Parse VIN data
+            // Parse FMCSA ELD Compliance Data with null check
+            if (jsonObject.has("eldData")) {
+                try {
+                    val eldDataObject = jsonObject.getJSONObject("eldData")
+                    if (eldDataObject != null) {
+                        val eldDataMap = parseELDComplianceData(eldDataObject)
+                        eldMap.putMap("eldData", eldDataMap)
+                    } else {
+                        Log.w(TAG, "ELD data object is null")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing ELD compliance data: ${e.message}")
+                }
+            }
+            
+            // Parse VIN data with null check
             if (jsonObject.has("vin")) {
-                val vinData = parseVINData(jsonObject.getJSONObject("vin"))
-                eldMap.putMap("vin", vinData)
+                try {
+                    val vinData = parseVINData(jsonObject.getJSONObject("vin"))
+                    eldMap.putMap("vin", vinData)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing VIN data: ${e.message}")
+                }
             }
             
-            // Parse CAN data (engine metrics)
+            // Parse CAN data (engine metrics) with null check
             if (jsonObject.has("can")) {
-                val canData = parseCANData(jsonObject.getJSONObject("can"))
-                eldMap.putMap("can", canData)
+                try {
+                    val canData = parseCANData(jsonObject.getJSONObject("can"))
+                    eldMap.putMap("can", canData)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing CAN data: ${e.message}")
+                }
             }
             
-            // Parse GPS data
+            // Parse GPS data with null check
             if (jsonObject.has("gps")) {
-                val gpsData = parseGPSData(jsonObject.getJSONObject("gps"))
-                eldMap.putMap("gps", gpsData)
+                try {
+                    val gpsData = parseGPSData(jsonObject.getJSONObject("gps"))
+                    eldMap.putMap("gps", gpsData)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing GPS data: ${e.message}")
+                }
             }
             
-            // Parse event data
+            // Parse event data with null check
             if (jsonObject.has("events")) {
-                val eventsData = parseEventData(jsonObject.getJSONArray("events"))
-                eldMap.putArray("events", eventsData)
+                try {
+                    val eventsData = parseEventData(jsonObject.getJSONArray("events"))
+                    eldMap.putArray("events", eventsData)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing event data: ${e.message}")
+                }
             }
             
-            // Parse device status
+            // Parse device status with null check
             if (jsonObject.has("status")) {
-                val statusData = parseStatusData(jsonObject.getJSONObject("status"))
-                eldMap.putMap("status", statusData)
+                try {
+                    val statusData = parseStatusData(jsonObject.getJSONObject("status"))
+                    eldMap.putMap("status", statusData)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing status data: ${e.message}")
+                }
             }
             
             return eldMap
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing ELD JSON object: ${e.message}")
+            Log.e(TAG, "Error in parseELDJsonObject: ${e.message}")
             return null
         }
     }

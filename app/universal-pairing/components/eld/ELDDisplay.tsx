@@ -6,12 +6,79 @@ import VINDisplay from './VINDisplay';
 import CANDataDashboard from './CANDataDashboard';
 import GPSLocationView from './GPSLocationView';
 import EventDataTimeline from './EventDataTimeline';
+import ELDComplianceDashboard from './ELDComplianceDashboard';
 
 interface ELDDisplayProps {
   device?: {
     name?: string;
     protocol?: string;
     vin?: string;
+    eldData?: {
+      // 24-Hour Period Data
+      periodStartTime?: string;
+      date?: string;
+      time?: string;
+      timeZoneOffset?: number;
+      
+      // Carrier Information
+      carrierName?: string;
+      carrierUSDOTNumber?: string;
+      
+      // Vehicle Information
+      vin?: string;
+      cmvPowerUnitNumber?: string;
+      trailerNumbers?: string[];
+      vehicleMiles?: number;
+      engineHours?: number;
+      
+      // Driver Information
+      driverFirstName?: string;
+      driverLastName?: string;
+      driverLicenseNumber?: string;
+      driverLicenseIssuingState?: string;
+      driverLocationDescription?: string;
+      
+      // ELD Device Information
+      eldIdentifier?: string;
+      eldProvider?: string;
+      eldRegistrationId?: string;
+      eldUsername?: string;
+      eldAccountType?: string;
+      eldAuthenticationValue?: string;
+      
+      // Event Data
+      eventCode?: string;
+      eventType?: string;
+      eventSequenceId?: number;
+      eventRecordOrigin?: string;
+      eventRecordStatus?: string;
+      eventDataCheckValue?: string;
+      
+      // Location Data
+      latitude?: number;
+      longitude?: number;
+      geoLocation?: string;
+      distanceSinceLastValidCoordinates?: number;
+      
+      // Diagnostic Data
+      malfunctionIndicatorStatus?: string;
+      malfunctionDiagnosticCode?: string;
+      dataDiagnosticEventIndicatorStatus?: string;
+      
+      // Configuration
+      exemptDriverConfiguration?: string;
+      multidayBasisUsed?: number;
+      
+      // Additional Data
+      orderNumber?: string;
+      shippingDocumentNumber?: string;
+      outputFileComment?: string;
+      commentAnnotation?: string;
+      
+      // File Data
+      fileDataCheckValue?: string;
+      lineDataCheckValue?: string;
+    };
     canData?: {
       // Engine Performance Metrics
       engine_throttle?: number;
@@ -97,9 +164,19 @@ const ELDDisplay: React.FC<ELDDisplayProps> = ({ device, timestamp }) => {
         </Text>
 
         <View style={styles.dataContainer}>
+          {/* FMCSA Compliance Dashboard - Most Important */}
+          <ELDComplianceDashboard eldData={device.eldData} />
+          
+          {/* Vehicle Information */}
           <VINDisplay vin={device.vin} timestamp={timestamp} />
+          
+          {/* Engine & Vehicle Data */}
           <CANDataDashboard canData={device.canData} />
+          
+          {/* GPS Location */}
           <GPSLocationView gpsData={device.gpsData} />
+          
+          {/* Event Timeline */}
           <EventDataTimeline eventData={device.eventData} />
         </View>
 

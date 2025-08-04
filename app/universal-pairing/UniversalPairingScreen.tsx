@@ -15,6 +15,11 @@ import {
 } from './sdk/jimiSdk';
 import { PairingState, UniversalDevice } from './types';
 
+// Import logging services
+import { FirebaseLogger } from '../../src/utils/FirebaseLogger';
+import { SentryLogger } from '../../src/utils/SentryLogger';
+import { SupabaseLogger } from '../../src/utils/SupabaseLogger';
+
 const UniversalPairingContent: React.FC = () => {
   const { colors } = useTheme();
   const { showToast } = useToast();
@@ -85,6 +90,10 @@ const UniversalPairingContent: React.FC = () => {
         console.log('📱 Available Native Modules:', Object.keys(NativeModules));
         console.log('📱 JimiBridge module exists:', !!NativeModules.JimiBridge);
         
+        // Log to analytics
+        FirebaseLogger.logELDEvent('jimi_bridge_initialization_started');
+        SentryLogger.logELDEvent('jimi_bridge_initialization_started');
+        
         if (NativeModules.JimiBridge) {
           jimiBridgeRef.current = NativeModules.JimiBridge;
           console.log('📱 JimiBridge methods:', Object.getOwnPropertyNames(jimiBridgeRef.current));
@@ -99,15 +108,31 @@ const UniversalPairingContent: React.FC = () => {
               PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
             ]);
             console.log('🔐 Permissions:', granted);
+            
+            // Log permission status
+            FirebaseLogger.logELDEvent('permissions_requested', { permissions: granted });
+            SentryLogger.logELDEvent('permissions_requested', { permissions: granted });
           } else {
             console.log('🔐 Using default permissions for iOS');
           }
           console.log('Jimi IoT Bridge initialized successfully');
+          
+          // Log successful initialization
+          FirebaseLogger.logELDEvent('jimi_bridge_initialization_success');
+          SentryLogger.logELDEvent('jimi_bridge_initialization_success');
         } else {
           console.log('Jimi IoT Bridge not available, using fallback');
+          
+          // Log fallback scenario
+          FirebaseLogger.logELDEvent('jimi_bridge_not_available');
+          SentryLogger.logELDEvent('jimi_bridge_not_available');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize Jimi Bridge:', error);
+        
+        // Log initialization error
+        FirebaseLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message || 'Unknown error' });
+        SentryLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message || 'Unknown error' });
       }
     };
 
@@ -125,165 +150,256 @@ const UniversalPairingContent: React.FC = () => {
   }, []);
 
   const handleDeviceDiscovered = (device: UniversalDevice) => {
-    console.log('🔍 Device Discovered:', {
-      deviceName: device.name || 'Unknown Device',
-      deviceId: device.id,
-      address: device.address,
-      deviceType: device.deviceType,
-      deviceCategory: device.deviceCategory,
-      signalStrength: device.signalStrength,
-      batteryLevel: device.batteryLevel,
-      isConnected: device.isConnected,
-      timestamp: new Date().toISOString(),
-    });
-    
-    setState((prevState) => {
-      // Check if device already exists to prevent duplicates
-      const existingDeviceIndex = prevState.devices.findIndex(
-        (existingDevice) => existingDevice.id === device.id || existingDevice.address === device.address
-      );
+    try {
+      // Null checks and fallbacks
+      const deviceName = device?.name || 'Unknown Device';
+      const deviceId = device?.id || 'unknown';
+      const deviceAddress = device?.address || 'unknown';
+      const deviceType = device?.deviceType || 'unknown';
+      const deviceCategory = device?.deviceCategory || 'unknown';
+      const signalStrength = device?.signalStrength || -1;
+      const batteryLevel = device?.batteryLevel || -1;
+      const isConnected = device?.isConnected || false;
+      const timestamp = new Date().toISOString();
       
-      let updatedDevices;
-      if (existingDeviceIndex !== -1) {
-        // Update existing device with new information
-        updatedDevices = [...prevState.devices];
-        updatedDevices[existingDeviceIndex] = {
-          ...updatedDevices[existingDeviceIndex],
-          ...device,
-        };
-      } else {
-        // Add new device
-        updatedDevices = [...prevState.devices, {
-          ...device,
-          timestamp: new Date().toISOString(),
-        }];
-      }
-      
-      return {
-        ...prevState,
-        devices: updatedDevices,
-      };
-    });
-  };
-
-  const handleDeviceConnected = (device: UniversalDevice) => {
-    console.log('📱 Device Connected:', {
-      deviceName: device.name,
-      deviceId: device.id,
-      address: device.address,
-      deviceType: device.deviceType,
-      deviceCategory: device.deviceCategory,
-      timestamp: new Date().toISOString(),
-    });
-    
-    setState((prevState) => ({
-      ...prevState,
-      connectedDevice: device,
-      connectionState: 'connected',
-    }));
-    
-    showToast(`Device ${device.name} connected successfully`, 'success');
-  };
-
-  const handleDeviceDisconnected = (disconnectionData: any) => {
-    // Extract device and reason from SDK data
-    const device = disconnectionData.device || disconnectionData;
-    const reason = disconnectionData.reason || disconnectionData.disconnectionReason || 'Unknown reason';
-    
-    console.log('disconnectionData', disconnectionData)
-
-    console.log('📱 Device Disconnected:', {
-      deviceName: device.name,
-      deviceId: device.id,
-      address: device.address,
-      reason: reason,
-      timestamp: new Date().toISOString(),
-    });
-    
-    setState((prevState) => ({
-      ...prevState,
-      connectedDevice: null,
-      connectionState: 'idle',
-    }));
-    
-    showToast(`Device ${device.name} disconnected: ${reason}`, 'info');
-  };
-
-  const handleDataReceived = (data: any) => {
-    const timestamp = new Date().toISOString();
-    const logData = {
-      timestamp,
-      dataType: data?.dataType || 'unknown',
-      deviceId: data?.deviceId || 'unknown',
-      rawDataSize: data?.rawData ? data.rawData.length : 0,
-      batteryLevel: data?.batteryLevel,
-      signalStrength: data?.signalStrength,
-      isRealData: data?.isRealData || false,
-      hasEldData: !!data?.eldData,
-    };
-    
-    console.log('📊 Data Received:', logData);
-    
-    // Log detailed data if needed for debugging
-    if (data?.rawData) {
-      console.log('📊 Raw Data Details:', {
-        rawData: data.rawData,
-        parsedData: data.rawData.length > 100 ? 
-          `${data.rawData.substring(0, 100)}... (truncated)` : 
-          data.rawData,
-      });
-    }
-    
-    // Handle structured ELD data from native module
-    if (data.dataType === 'ELD_DATA' && data.eldData) {
-      console.log('📊 ELD Structured Data Received:', data.eldData);
-      
-      // Extract structured ELD components
-      const { vin, can, gps, events, status } = data.eldData;
-      
-      // Store parsed ELD data in dedicated ELD state
-      setEldData({
-        vin: vin || null,
-        canData: can || null,
-        gpsData: gps || null,
-        eventData: events || null,
-        status: status || null,
+      console.log('🔍 Device Discovered:', {
+        deviceName,
+        deviceId,
+        address: deviceAddress,
+        deviceType,
+        deviceCategory,
+        signalStrength,
+        batteryLevel,
+        isConnected,
         timestamp,
       });
       
-      // Update connected device with ELD data
+      // Log to analytics
+      FirebaseLogger.logELDEvent('device_discovered', {
+        deviceName,
+        deviceId,
+        deviceType,
+        deviceCategory,
+        signalStrength,
+        batteryLevel,
+      });
+      SentryLogger.logELDEvent('device_discovered', {
+        deviceName,
+        deviceId,
+        deviceType,
+        deviceCategory,
+      });
+      
+      setState((prevState) => {
+        // Check if device already exists to prevent duplicates
+        const existingDeviceIndex = prevState.devices.findIndex(
+          (existingDevice) => {
+            const existingId = existingDevice?.id || '';
+            const existingAddress = existingDevice?.address || '';
+            const newId = deviceId || '';
+            const newAddress = deviceAddress || '';
+            return existingId === newId || existingAddress === newAddress;
+          }
+        );
+        
+        let updatedDevices;
+        if (existingDeviceIndex !== -1) {
+          // Update existing device with new information
+          updatedDevices = [...prevState.devices];
+          updatedDevices[existingDeviceIndex] = {
+            ...updatedDevices[existingDeviceIndex],
+            ...device,
+          };
+        } else {
+          // Add new device
+          updatedDevices = [...prevState.devices, {
+            ...device,
+          }];
+        }
+        
+        return {
+          ...prevState,
+          devices: updatedDevices,
+        };
+      });
+    } catch (error: any) {
+      console.error('Error in handleDeviceDiscovered:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('device_discovery_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('device_discovery_error', { error: error?.message || 'Unknown error' });
+    }
+  };
+
+  const handleDeviceConnected = (device: UniversalDevice) => {
+    try {
+      // Null checks and fallbacks
+      const deviceName = device?.name || 'Unknown Device';
+      const deviceId = device?.id || 'unknown';
+      const deviceAddress = device?.address || 'unknown';
+      const deviceType = device?.deviceType || 'unknown';
+      const deviceCategory = device?.deviceCategory || 'unknown';
+      const timestamp = new Date().toISOString();
+      
+      console.log('📱 Device Connected:', {
+        deviceName,
+        deviceId,
+        address: deviceAddress,
+        deviceType,
+        deviceCategory,
+        timestamp,
+      });
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('device_connected', {
+        deviceName,
+        deviceId,
+        deviceType,
+        deviceCategory,
+      });
+      SentryLogger.logELDEvent('device_connected', {
+        deviceName,
+        deviceId,
+        deviceType,
+        deviceCategory,
+      });
+      
       setState((prevState) => ({
         ...prevState,
-        connectedDevice: prevState.connectedDevice ? {
-          ...prevState.connectedDevice,
-          vin: vin || null,
-          canData: can || null,
-          gpsData: gps || null,
-          eventData: events || null,
-          status: status || null,
-        } : null,
+        connectedDevice: device,
+        connectionState: 'connected',
       }));
+      
+      showToast(`Device ${deviceName} connected successfully`, 'success');
+    } catch (error: any) {
+      console.error('Error in handleDeviceConnected:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('device_connection_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('device_connection_error', { error: error?.message || 'Unknown error' });
     }
-    
-    // Handle ELD errors
-    if (data.dataType === 'ELD_ERROR') {
-      console.error('❌ ELD Error:', data.error);
-      showToast(`ELD Error: ${data.error}`, 'error');
+  };
+
+  const handleDeviceDisconnected = (disconnectionData: any) => {
+    try {
+      // Extract device and reason from SDK data with null checks
+      const device = disconnectionData?.device || disconnectionData || {};
+      const reason = disconnectionData?.reason || disconnectionData?.disconnectionReason || 'Unknown reason';
+      
+      // Null checks and fallbacks
+      const deviceName = device?.name || 'Unknown Device';
+      const deviceId = device?.id || 'unknown';
+      const deviceAddress = device?.address || 'unknown';
+      const timestamp = new Date().toISOString();
+      
+      console.log('disconnectionData', disconnectionData);
+      console.log('📱 Device Disconnected:', {
+        deviceName,
+        deviceId,
+        address: deviceAddress,
+        reason,
+        timestamp,
+      });
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('device_disconnected', {
+        deviceName,
+        deviceId,
+        reason,
+      });
+      SentryLogger.logELDEvent('device_disconnected', {
+        deviceName,
+        deviceId,
+        reason,
+      });
+      
+      setState((prevState) => ({
+        ...prevState,
+        connectedDevice: null,
+        connectionState: 'idle',
+      }));
+      
+      showToast(`Device ${deviceName} disconnected: ${reason}`, 'info');
+    } catch (error: any) {
+      console.error('Error in handleDeviceDisconnected:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('device_disconnection_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('device_disconnection_error', { error: error?.message || 'Unknown error' });
     }
-    
-    // Fallback: try to parse raw JSON data for compatibility
-    if (data.protocol === 'ELD_DEVICE' && data.rawData && !data.eldData) {
-      try {
-        const eldJson = JSON.parse(data.rawData);
-        const { vin, can_data, gps_data, event_data } = eldJson;
-        console.log('📊 ELD JSON Parsed (fallback):', { vin, can_data, gps_data, event_data });
+  };
+
+  const handleDataReceived = (data: any) => {
+    try {
+      const timestamp = new Date().toISOString();
+      
+      // Null checks and fallbacks
+      const dataType = data?.dataType || 'unknown';
+      const deviceId = data?.deviceId || 'unknown';
+      const rawData = data?.rawData || '';
+      const batteryLevel = data?.batteryLevel || -1;
+      const signalStrength = data?.signalStrength || -1;
+      const isRealData = data?.isRealData || false;
+      const hasEldData = !!data?.eldData;
+      
+      const logData = {
+        timestamp,
+        dataType,
+        deviceId,
+        rawDataSize: rawData.length,
+        batteryLevel,
+        signalStrength,
+        isRealData,
+        hasEldData,
+      };
+      
+      console.log('📊 Data Received:', logData);
+      
+      // Log to analytics
+      FirebaseLogger.logELDEvent('data_received', {
+        dataType,
+        deviceId,
+        rawDataSize: rawData.length,
+        isRealData,
+        hasEldData,
+      });
+      SentryLogger.logELDEvent('data_received', {
+        dataType,
+        deviceId,
+        rawDataSize: rawData.length,
+        isRealData,
+        hasEldData,
+      });
+      
+      // Log detailed data if needed for debugging
+      if (rawData) {
+        console.log('📊 Raw Data Details:', {
+          rawData,
+          parsedData: rawData.length > 100 ? 
+            `${rawData.substring(0, 100)}... (truncated)` : 
+            rawData,
+        });
+      }
+      
+      // Handle structured ELD data from native module
+      if (dataType === 'ELD_DATA' && data?.eldData) {
+        console.log('📊 ELD Structured Data Received:', data.eldData);
+        
+        // Extract structured ELD components with null checks
+        const eldDataObj = data.eldData || {};
+        const vin = eldDataObj?.vin || null;
+        const can = eldDataObj?.can || null;
+        const gps = eldDataObj?.gps || null;
+        const events = eldDataObj?.events || null;
+        const status = eldDataObj?.status || null;
         
         // Store parsed ELD data in dedicated ELD state
         setEldData({
           vin,
-          canData: can_data,
-          gpsData: gps_data,
-          eventData: event_data,
+          canData: can,
+          gpsData: gps,
+          eventData: events,
+          status,
           timestamp,
         });
         
@@ -293,84 +409,178 @@ const UniversalPairingContent: React.FC = () => {
           connectedDevice: prevState.connectedDevice ? {
             ...prevState.connectedDevice,
             vin,
-            canData: can_data,
-            gpsData: gps_data,
-            eventData: event_data,
+            canData: can,
+            gpsData: gps,
+            eventData: events,
+            status,
           } : null,
         }));
-      } catch (e: any) {
-        console.error('❌ Failed to parse ELD JSON:', e.message);
+        
+        // Log ELD data to analytics
+        FirebaseLogger.logELDEvent('eld_data_processed', {
+          deviceId,
+          hasVin: !!vin,
+          hasCanData: !!can,
+          hasGpsData: !!gps,
+          hasEventData: !!events,
+          hasStatus: !!status,
+        });
+        SentryLogger.logELDEvent('eld_data_processed', {
+          deviceId,
+          hasVin: !!vin,
+          hasCanData: !!can,
+          hasGpsData: !!gps,
+          hasEventData: !!events,
+          hasStatus: !!status,
+        });
       }
-    }
+      
+      // Handle ELD errors
+      if (dataType === 'ELD_ERROR') {
+        const errorMessage = data?.error || 'Unknown ELD error';
+        console.error('❌ ELD Error:', errorMessage);
+        
+        // Log error to analytics
+        FirebaseLogger.logELDEvent('eld_error', { error: errorMessage });
+        SentryLogger.logELDEvent('eld_error', { error: errorMessage });
+        
+        showToast(`ELD Error: ${errorMessage}`, 'error');
+      }
+      
+      // Fallback: try to parse raw JSON data for compatibility
+      if (data?.protocol === 'ELD_DEVICE' && rawData && !data?.eldData) {
+        try {
+          const eldJson = JSON.parse(rawData);
+          const { vin, can_data, gps_data, event_data } = eldJson;
+          console.log('📊 ELD JSON Parsed (fallback):', { vin, can_data, gps_data, event_data });
+          
+          // Store parsed ELD data in dedicated ELD state
+          setEldData({
+            vin: vin || null,
+            canData: can_data || null,
+            gpsData: gps_data || null,
+            eventData: event_data || null,
+            timestamp,
+          });
+          
+          // Update connected device with ELD data
+          setState((prevState) => ({
+            ...prevState,
+            connectedDevice: prevState.connectedDevice ? {
+              ...prevState.connectedDevice,
+              vin: vin || null,
+              canData: can_data || null,
+              gpsData: gps_data || null,
+              eventData: event_data || null,
+            } : null,
+          }));
+        } catch (e: any) {
+          console.error('❌ Failed to parse ELD JSON:', e?.message);
+          
+          // Log parsing error to analytics
+          FirebaseLogger.logELDEvent('eld_json_parsing_error', { error: e?.message });
+          SentryLogger.logELDEvent('eld_json_parsing_error', { error: e?.message });
+        }
+      }
 
-    // Update state with received data
-    setState((prevState) => ({
-      ...prevState,
-      deviceData: [...prevState.deviceData, {
-        deviceId: data?.deviceId || 'unknown',
-        timestamp,
-        dataType: data?.dataType || 'unknown',
-        value: data?.value,
-        sensorValue: data?.sensorValue,
-        protocol: data?.protocol,
-        characteristicUuid: data?.characteristicUuid,
-        rawData: data?.rawData,
-        batteryLevel: data?.batteryLevel,
-        signalStrength: data?.signalStrength,
-        deviceName: data?.deviceName,
-        isConnected: data?.isConnected,
-        isRealData: data?.isRealData || false,
-      }],
-    }));
+      // Update state with received data
+      setState((prevState) => ({
+        ...prevState,
+        deviceData: [...prevState.deviceData, {
+          deviceId,
+          timestamp,
+          dataType,
+          value: data?.value || null,
+          sensorValue: data?.sensorValue || null,
+          protocol: data?.protocol || null,
+          characteristicUuid: data?.characteristicUuid || null,
+          rawData,
+          batteryLevel,
+          signalStrength,
+          deviceName: data?.deviceName || null,
+          isConnected: data?.isConnected || false,
+          isRealData,
+        }],
+      }));
+    } catch (error: any) {
+      console.error('Error in handleDataReceived:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('data_processing_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('data_processing_error', { error: error?.message || 'Unknown error' });
+    }
   };
 
   const handleConnectionError = async (error: any) => {
-    console.error('❌ Connection Error:', {
-      message: error?.message || 'Unknown error',
-      code: error?.code,
-      stack: error?.stack,
-      timestamp: new Date().toISOString(),
-      deviceId: error?.deviceId || 'unknown',
-      method: 'handleConnectionError'
-    });    
-    setState((prevState) => ({
-      ...prevState,
-      connectionState: 'error',
-      error: error.message,
-    }));
-    
-    showToast(`Connection failed: ${error.message}`, 'error');
+    try {
+      console.error('❌ Connection Error:', {
+        message: error?.message || 'Unknown error',
+        code: error?.code,
+        stack: error?.stack,
+        timestamp: new Date().toISOString(),
+        deviceId: error?.deviceId || 'unknown',
+        method: 'handleConnectionError'
+      });    
+      setState((prevState) => ({
+        ...prevState,
+        connectionState: 'error',
+        error: error?.message || 'Unknown error',
+      }));
+      
+      showToast(`Connection failed: ${error?.message || 'Unknown error'}`, 'error');
+      
+      // Log connection error to analytics
+      FirebaseLogger.logELDEvent('connection_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('connection_error', { error: error?.message || 'Unknown error' });
+    } catch (error: any) {
+      console.error('Error in handleConnectionError:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('connection_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('connection_error', { error: error?.message || 'Unknown error' });
+    }
   };
 
   const handlePermissionError = (error: any) => {
-    console.error('❌ Permission Error:', {
-      errorCode: error?.errorCode,
-      message: error?.message,
-      permissions: error?.permissions,
-      timestamp: error?.timestamp,
-    });
-    
-    setState((prevState) => ({
-      ...prevState,
-      error: `Permission Error: ${error.message}`,
-      isScanning: false,
-    }));
-    
-    showToast(`Permission Error: ${error.message}`, 'error');
+    try {
+      console.error('❌ Permission Error:', {
+        errorCode: error?.errorCode,
+        message: error?.message,
+        permissions: error?.permissions,
+        timestamp: error?.timestamp,
+      });
+      
+      setState((prevState) => ({
+        ...prevState,
+        error: `Permission Error: ${error?.message || 'Unknown error'}`,
+        isScanning: false,
+      }));
+      
+      showToast(`Permission Error: ${error?.message || 'Unknown error'}`, 'error');
+      
+      // Log permission error to analytics
+      FirebaseLogger.logELDEvent('permission_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('permission_error', { error: error?.message || 'Unknown error' });
+    } catch (error: any) {
+      console.error('Error in handlePermissionError:', error);
+      
+      // Log error to analytics
+      FirebaseLogger.logELDEvent('permission_error', { error: error?.message || 'Unknown error' });
+      SentryLogger.logELDEvent('permission_error', { error: error?.message || 'Unknown error' });
+    }
   };
 
   const handleStartScan = async () => {
-    console.log('🔍 Starting device scan...', {
-      scanFilter: 'all',
-      scanDuration: 30000,
-      enableBackgroundScan: false,
-      enableRSSI: true,
-      enableDeviceTypeDetection: true,
-      timestamp: new Date().toISOString(),
-    });
-    
     try {
-      setState((prevState) => ({ ...prevState, isScanning: true, devices: [] }));
+      console.log('🔍 Starting device scan...', {
+        scanFilter: 'all',
+        scanDuration: 30000,
+        enableBackgroundScan: false,
+        enableRSSI: true,
+        enableDeviceTypeDetection: true,
+        timestamp: new Date().toISOString(),
+      });
+      
       showToast('Starting device scan...', 'info');
       
       // Check if JimiBridge is available
