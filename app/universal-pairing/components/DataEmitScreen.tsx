@@ -678,10 +678,10 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             <Text style={styles.sensorIcon}>⛽</Text>
             <Text style={[styles.sensorLabel, { color: colors.text }]}>Fuel Level</Text>
             <Text style={[styles.sensorValue, { color: colors.primary }]}>
-              {sensorData.fuel_level ? `${sensorData.fuel_level.value}%` : '--'}
+              {sensorData?.fuel_level ? `${sensorData?.fuel_level.value}%` : '--'}
             </Text>
             <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-              {sensorData.fuel_level ? formatTimestamp(sensorData.fuel_level.timestamp) : 'No data'}
+              {sensorData?.fuel_level ? formatTimestamp(sensorData?.fuel_level.timestamp) : 'No data'}
             </Text>
           </TouchableOpacity>
 
@@ -693,10 +693,10 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             <Text style={styles.sensorIcon}>📍</Text>
             <Text style={[styles.sensorLabel, { color: colors.text }]}>GPS Location</Text>
             <Text style={[styles.sensorValue, { color: colors.primary }]}>
-              {sensorData.gps_location ? `${sensorData.gps_location.value}°` : '--'}
+              {sensorData?.gps_location ? `${sensorData?.gps_location.value}°` : '--'}
             </Text>
             <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-              {sensorData.gps_location ? formatTimestamp(sensorData.gps_location.timestamp) : 'No data'}
+              {sensorData?.gps_location ? formatTimestamp(sensorData?.gps_location.timestamp) : 'No data'}
             </Text>
           </TouchableOpacity>
 
@@ -708,10 +708,10 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             <Text style={styles.sensorIcon}>🚗</Text>
             <Text style={[styles.sensorLabel, { color: colors.text }]}>Speed</Text>
             <Text style={[styles.sensorValue, { color: colors.primary }]}>
-              {sensorData.speed ? `${sensorData.speed.value} mph` : '--'}
+              {sensorData?.speed ? `${sensorData?.speed.value} mph` : '--'}
             </Text>
             <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-              {sensorData.speed ? formatTimestamp(sensorData.speed.timestamp) : 'No data'}
+              {sensorData?.speed ? formatTimestamp(sensorData?.speed.timestamp) : 'No data'}
             </Text>
           </TouchableOpacity>
 
@@ -723,10 +723,10 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             <Text style={styles.sensorIcon}>🌡️</Text>
             <Text style={[styles.sensorLabel, { color: colors.text }]}>Temperature</Text>
             <Text style={[styles.sensorValue, { color: colors.primary }]}>
-              {sensorData.temperature ? `${sensorData.temperature.value}°C` : '--'}
+              {sensorData?.temperature ? `${sensorData?.temperature.value}°C` : '--'}
             </Text>
             <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-              {sensorData.temperature ? formatTimestamp(sensorData.temperature.timestamp) : 'No data'}
+              {sensorData?.temperature ? formatTimestamp(sensorData?.temperature.timestamp) : 'No data'}
             </Text>
           </TouchableOpacity>
 
@@ -738,10 +738,10 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             <Text style={styles.sensorIcon}>🔧</Text>
             <Text style={[styles.sensorLabel, { color: colors.text }]}>OBD Data</Text>
             <Text style={[styles.sensorValue, { color: colors.primary }]}>
-              {sensorData.obd_data ? `${sensorData.obd_data.value} RPM` : '--'}
+              {sensorData?.obd_data ? `${sensorData?.obd_data.value} RPM` : '--'}
             </Text>
             <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-              {sensorData.obd_data ? formatTimestamp(sensorData.obd_data.timestamp) : 'No data'}
+              {sensorData?.obd_data ? formatTimestamp(sensorData?.obd_data.timestamp) : 'No data'}
             </Text>
           </TouchableOpacity>
 
@@ -753,40 +753,18 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
             <Text style={styles.sensorIcon}>🏭</Text>
             <Text style={[styles.sensorLabel, { color: colors.text }]}>Engine Data</Text>
             <Text style={[styles.sensorValue, { color: colors.primary }]}>
-              {sensorData.engine_data ? `${sensorData.engine_data.value}°F` : '--'}
+              {sensorData?.engine_data ? `${sensorData?.engine_data.value}°F` : '--'}
             </Text>
             <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-              {sensorData.engine_data ? formatTimestamp(sensorData.engine_data.timestamp) : 'No data'}
+              {sensorData?.engine_data ? formatTimestamp(sensorData?.engine_data.timestamp) : 'No data'}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Data Stream */}
-      <View style={styles.dataSection}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Data Stream ({deviceData.length} messages)
-        </Text>
-
-        <FlatList
-          style={styles.dataList}
-          data={reversedDeviceData}
-          keyExtractor={keyExtractor}
-          renderItem={renderDataItem}
-          ListEmptyComponent={renderEmptyComponent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-        />
-      </View>
-
-      {/* ELD Display Section - Only for ELD Devices */}
-      {isELDDevice && (
+      {/* Conditional Rendering based on Device Type */}
+      {isELDDevice ? (
+        // ELD Device View
         <View style={styles.eldSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             ELD Dashboard
@@ -796,124 +774,233 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
               ...device,
               eldData: {
                 // 24-Hour Period Data
-                periodStartTime: sensorData.period_start_time?.value,
-                date: sensorData.date?.value,
-                time: sensorData.time?.value,
-                timeZoneOffset: sensorData.timezone_offset?.value,
+                periodStartTime: sensorData?.period_start_time?.value,
+                date: sensorData?.date?.value,
+                time: sensorData?.time?.value,
+                timeZoneOffset: sensorData?.timezone_offset?.value,
                 
                 // Carrier Information
-                carrierName: sensorData.carrier_name?.value,
-                carrierUSDOTNumber: sensorData.carrier_usdot_number?.value,
+                carrierName: sensorData?.carrier_name?.value,
+                carrierUSDOTNumber: sensorData?.carrier_usdot_number?.value,
                 
                 // Vehicle Information
-                vin: sensorData.vin?.value,
-                cmvPowerUnitNumber: sensorData.cmv_power_unit_number?.value,
-                trailerNumbers: sensorData.trailer_numbers?.value,
-                vehicleMiles: sensorData.vehicle_miles?.value,
-                engineHours: sensorData.engine_hours?.value,
+                vin: sensorData?.vin?.value,
+                cmvPowerUnitNumber: sensorData?.cmv_power_unit_number?.value,
+                trailerNumbers: sensorData?.trailer_numbers?.value,
+                vehicleMiles: sensorData?.vehicle_miles?.value,
+                engineHours: sensorData?.engine_hours?.value,
                 
                 // Driver Information
-                driverFirstName: sensorData.driver_first_name?.value,
-                driverLastName: sensorData.driver_last_name?.value,
-                driverLicenseNumber: sensorData.driver_license_number?.value,
-                driverLicenseIssuingState: sensorData.driver_license_issuing_state?.value,
-                driverLocationDescription: sensorData.driver_location_description?.value,
+                driverFirstName: sensorData?.driver_first_name?.value,
+                driverLastName: sensorData?.driver_last_name?.value,
+                driverLicenseNumber: sensorData?.driver_license_number?.value,
+                driverLicenseIssuingState: sensorData?.driver_license_issuing_state?.value,
+                driverLocationDescription: sensorData?.driver_location_description?.value,
                 
                 // ELD Device Information
-                eldIdentifier: sensorData.eld_identifier?.value,
-                eldProvider: sensorData.eld_provider?.value,
-                eldRegistrationId: sensorData.eld_registration_id?.value,
-                eldUsername: sensorData.eld_username?.value,
-                eldAccountType: sensorData.eld_account_type?.value,
-                eldAuthenticationValue: sensorData.eld_authentication_value?.value,
+                eldIdentifier: sensorData?.eld_identifier?.value,
+                eldProvider: sensorData?.eld_provider?.value,
+                eldRegistrationId: sensorData?.eld_registration_id?.value,
+                eldUsername: sensorData?.eld_username?.value,
+                eldAccountType: sensorData?.eld_account_type?.value,
+                eldAuthenticationValue: sensorData?.eld_authentication_value?.value,
                 
                 // Event Data
-                eventCode: sensorData.event_code?.value,
-                eventType: sensorData.event_type?.value,
-                eventSequenceId: sensorData.event_sequence_id?.value,
-                eventRecordOrigin: sensorData.event_record_origin?.value,
-                eventRecordStatus: sensorData.event_record_status?.value,
-                eventDataCheckValue: sensorData.event_data_check_value?.value,
+                eventCode: sensorData?.event_code?.value,
+                eventType: sensorData?.event_type?.value,
+                eventSequenceId: sensorData?.event_sequence_id?.value,
+                eventRecordOrigin: sensorData?.event_record_origin?.value,
+                eventRecordStatus: sensorData?.event_record_status?.value,
+                eventDataCheckValue: sensorData?.event_data_check_value?.value,
                 
                 // Location Data
-                latitude: sensorData.latitude?.value,
-                longitude: sensorData.longitude?.value,
-                geoLocation: sensorData.geo_location?.value,
-                distanceSinceLastValidCoordinates: sensorData.distance_since_last_valid_coordinates?.value,
+                latitude: sensorData?.latitude?.value,
+                longitude: sensorData?.longitude?.value,
+                geoLocation: sensorData?.geo_location?.value,
+                distanceSinceLastValidCoordinates: sensorData?.distance_since_last_valid_coordinates?.value,
                 
                 // Diagnostic Data
-                malfunctionIndicatorStatus: sensorData.malfunction_indicator_status?.value,
-                malfunctionDiagnosticCode: sensorData.malfunction_diagnostic_code?.value,
-                dataDiagnosticEventIndicatorStatus: sensorData.data_diagnostic_event_indicator_status?.value,
+                malfunctionIndicatorStatus: sensorData?.malfunction_indicator_status?.value,
+                malfunctionDiagnosticCode: sensorData?.malfunction_diagnostic_code?.value,
+                dataDiagnosticEventIndicatorStatus: sensorData?.data_diagnostic_event_indicator_status?.value,
                 
                 // Configuration
-                exemptDriverConfiguration: sensorData.exempt_driver_configuration?.value,
-                multidayBasisUsed: sensorData.multiday_basis_used?.value,
+                exemptDriverConfiguration: sensorData?.exempt_driver_configuration?.value,
+                multidayBasisUsed: sensorData?.multiday_basis_used?.value,
                 
                 // Additional Data
-                orderNumber: sensorData.order_number?.value,
-                shippingDocumentNumber: sensorData.shipping_document_number?.value,
-                outputFileComment: sensorData.output_file_comment?.value,
-                commentAnnotation: sensorData.comment_annotation?.value,
+                orderNumber: sensorData?.order_number?.value,
+                shippingDocumentNumber: sensorData?.shipping_document_number?.value,
+                outputFileComment: sensorData?.output_file_comment?.value,
+                commentAnnotation: sensorData?.comment_annotation?.value,
                 
                 // File Data
-                fileDataCheckValue: sensorData.file_data_check_value?.value,
-                lineDataCheckValue: sensorData.line_data_check_value?.value,
+                fileDataCheckValue: sensorData?.file_data_check_value?.value,
+                lineDataCheckValue: sensorData?.line_data_check_value?.value,
               },
               canData: {
                 // Engine Performance Metrics
-                engine_throttle: sensorData.engine_throttle?.value,
-                engine_throttle_valve_1_position_1: sensorData.engine_throttle_valve_1_position_1?.value,
-                engine_intake_air_mass_flow_rate: sensorData.engine_intake_air_mass_flow_rate?.value,
-                engine_percent_load_at_current_speed: sensorData.engine_percent_load_at_current_speed?.value,
-                engine_speed: sensorData.engine_speed?.value,
-                engine_runtime: sensorData.engine_runtime?.value,
-                engine_running_time: sensorData.engine_running_time?.value,
-                time_since_engine_start: sensorData.time_since_engine_start?.value,
-                accelerator_pedal_position_1: sensorData.accelerator_pedal_position_1?.value,
+                engine_throttle: sensorData?.engine_throttle?.value,
+                engine_throttle_valve_1_position_1: sensorData?.engine_throttle_valve_1_position_1?.value,
+                engine_intake_air_mass_flow_rate: sensorData?.engine_intake_air_mass_flow_rate?.value,
+                engine_percent_load_at_current_speed: sensorData?.engine_percent_load_at_current_speed?.value,
+                engine_speed: sensorData?.engine_speed?.value,
+                engine_runtime: sensorData?.engine_runtime?.value,
+                engine_running_time: sensorData?.engine_running_time?.value,
+                time_since_engine_start: sensorData?.time_since_engine_start?.value,
+                accelerator_pedal_position_1: sensorData?.accelerator_pedal_position_1?.value,
                 
                 // Vehicle Status
-                wheel_based_vehicle_speed: sensorData.wheel_based_vehicle_speed?.value,
-                total_vehicle_distance: sensorData.total_vehicle_distance?.value,
-                acc_out_status: sensorData.acc_out_status?.value,
-                malfunction_indicator_lamp: sensorData.malfunction_indicator_lamp?.value,
+                wheel_based_vehicle_speed: sensorData?.wheel_based_vehicle_speed?.value,
+                total_vehicle_distance: sensorData?.total_vehicle_distance?.value,
+                acc_out_status: sensorData?.acc_out_status?.value,
+                malfunction_indicator_lamp: sensorData?.malfunction_indicator_lamp?.value,
                 
                 // Environmental Data
-                engine_inlet_air_temperature: sensorData.engine_inlet_air_temperature?.value,
-                engine_coolant_temperature: sensorData.engine_coolant_temperature?.value,
-                intake_manifold_absolute_pressure: sensorData.intake_manifold_absolute_pressure?.value,
-                barometric_pressure: sensorData.barometric_pressure?.value,
+                engine_inlet_air_temperature: sensorData?.engine_inlet_air_temperature?.value,
+                engine_coolant_temperature: sensorData?.engine_coolant_temperature?.value,
+                intake_manifold_absolute_pressure: sensorData?.intake_manifold_absolute_pressure?.value,
+                barometric_pressure: sensorData?.barometric_pressure?.value,
                 
                 // Fuel System
-                fuel_level: sensorData.fuel_level?.value,
-                fuel_level_1: sensorData.fuel_level_1?.value,
+                fuel_level: sensorData?.fuel_level?.value,
+                fuel_level_1: sensorData?.fuel_level_1?.value,
                 
                 // Electrical System
-                voltage: sensorData.voltage?.value,
+                voltage: sensorData?.voltage?.value,
                 
                 // Legacy fields for backward compatibility
-                air_flow: sensorData.air_flow?.value,
-                engine_load: sensorData.engine_load?.value,
-                coolant_temp: sensorData.coolant_temp?.value,
-                vehicle_distance: sensorData.vehicle_distance?.value,
-                speed: sensorData.speed?.value,
-                engine_rpm: sensorData.engine_rpm?.value,
+                air_flow: sensorData?.air_flow?.value,
+                engine_load: sensorData?.engine_load?.value,
+                coolant_temp: sensorData?.coolant_temp?.value,
+                vehicle_distance: sensorData?.vehicle_distance?.value,
+                speed: sensorData?.speed?.value,
+                engine_rpm: sensorData?.engine_rpm?.value,
               },
               gpsData: {
-                latitude: sensorData.gps_latitude?.value,
-                longitude: sensorData.gps_longitude?.value,
-                heading: sensorData.gps_heading?.value,
-                timestamp: sensorData.gps_timestamp?.value,
+                latitude: sensorData?.gps_latitude?.value,
+                longitude: sensorData?.gps_longitude?.value,
+                heading: sensorData?.gps_heading?.value,
+                timestamp: sensorData?.gps_timestamp?.value,
               },
               eventData: {
-                event_type: sensorData.event_type?.value,
-                trigger: sensorData.event_trigger?.value,
-                id: sensorData.event_id?.value,
+                event_type: sensorData?.event_type?.value,
+                trigger: sensorData?.event_trigger?.value,
+                id: sensorData?.event_id?.value,
               },
             }}
             timestamp={latestData?.timestamp}
           />
         </View>
+      ) : (
+        // Default Device View (Non-ELD Devices)
+        <>
+          {/* Sensor Cards */}
+          <View style={styles.sensorSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Sensor Data
+            </Text>
+            <View style={styles.sensorGrid}>
+              {/* Battery Card */}
+              <TouchableOpacity 
+                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => requestSpecificData('battery')}
+              >
+                <Text style={styles.sensorIcon}>🔋</Text>
+                <Text style={[styles.sensorLabel, { color: colors.text }]}>Battery</Text>
+                <Text style={[styles.sensorValue, { color: colors.primary }]}>
+                  {sensorData?.battery ? `${sensorData?.battery.value}%` : '--'}
+                </Text>
+                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+                  {sensorData?.battery ? formatTimestamp(sensorData?.battery.timestamp) : 'No data'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Speed Card */}
+              <TouchableOpacity 
+                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => requestSpecificData('speed')}
+              >
+                <Text style={styles.sensorIcon}>🚗</Text>
+                <Text style={[styles.sensorLabel, { color: colors.text }]}>Speed</Text>
+                <Text style={[styles.sensorValue, { color: colors.primary }]}>
+                  {sensorData?.speed ? `${sensorData?.speed.value} mph` : '--'}
+                </Text>
+                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+                  {sensorData?.speed ? formatTimestamp(sensorData?.speed.timestamp) : 'No data'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Temperature Card */}
+              <TouchableOpacity 
+                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => requestSpecificData('temperature')}
+              >
+                <Text style={styles.sensorIcon}>🌡️</Text>
+                <Text style={[styles.sensorLabel, { color: colors.text }]}>Temperature</Text>
+                <Text style={[styles.sensorValue, { color: colors.primary }]}>
+                  {sensorData?.temperature ? `${sensorData?.temperature.value}°C` : '--'}
+                </Text>
+                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+                  {sensorData?.temperature ? formatTimestamp(sensorData?.temperature.timestamp) : 'No data'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* OBD Data Card */}
+              <TouchableOpacity 
+                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => requestSpecificData('obd_data')}
+              >
+                <Text style={styles.sensorIcon}>🔧</Text>
+                <Text style={[styles.sensorLabel, { color: colors.text }]}>OBD Data</Text>
+                <Text style={[styles.sensorValue, { color: colors.primary }]}>
+                  {sensorData?.obd_data ? `${sensorData?.obd_data.value} RPM` : '--'}
+                </Text>
+                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+                  {sensorData?.obd_data ? formatTimestamp(sensorData?.obd_data.timestamp) : 'No data'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Engine Data Card */}
+              <TouchableOpacity 
+                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => requestSpecificData('engine_data')}
+              >
+                <Text style={styles.sensorIcon}>🏭</Text>
+                <Text style={[styles.sensorLabel, { color: colors.text }]}>Engine Data</Text>
+                <Text style={[styles.sensorValue, { color: colors.primary }]}>
+                  {sensorData?.engine_data ? `${sensorData?.engine_data.value}°F` : '--'}
+                </Text>
+                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+                  {sensorData?.engine_data ? formatTimestamp(sensorData?.engine_data.timestamp) : 'No data'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Data Stream */}
+          <View style={styles.dataSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Data Stream ({deviceData.length} messages)
+            </Text>
+
+            <FlatList
+              style={styles.dataList}
+              data={reversedDeviceData}
+              keyExtractor={keyExtractor}
+              renderItem={renderDataItem}
+              ListEmptyComponent={renderEmptyComponent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={colors.primary}
+                />
+              }
+            />
+          </View>
+        </>
       )}
 
       {/* Action Buttons */}
@@ -1333,6 +1420,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  sensorSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 12,
   },
 });
 
