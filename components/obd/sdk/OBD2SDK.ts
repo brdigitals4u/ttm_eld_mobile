@@ -1,8 +1,9 @@
-// OBD2 SDK for handling OBD2 operations
+import OBD2 from '@furkanom/react-native-obd2';
+
 export interface OBD2Device {
   id: string;
   name: string;
-  type: 'OBD2';
+  address: string;
   connected: boolean;
 }
 
@@ -15,70 +16,88 @@ export interface OBD2Data {
 }
 
 class OBD2SDK {
-  private devices: OBD2Device[] = [];
-  private connectedDevice: OBD2Device | null = null;
+  private mockupMode: boolean = false;
 
-  // Mock permission request
+  // Enable/Disable mockup mode
+  setMockUpMode(enabled: boolean) {
+    this.mockupMode = enabled;
+    OBD2.setMockUpMode(enabled);
+  }
+
+  // Request permissions
   async requestPermissions(): Promise<boolean> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('OBD2 permissions granted');
-        resolve(true);
-      }, 1000);
-    });
+    try {
+      const granted = await OBD2.requestPermissions();
+      return granted;
+    } catch (error) {
+      console.error('OBD2 Permission request failed:', error);
+      return false;
+    }
   }
 
-  // Mock device scanning
+  // Scan for devices
   async scanDevices(): Promise<OBD2Device[]> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const mockDevices: OBD2Device[] = [
-          { id: '1', name: 'OBD2 Simulator 1', type: 'OBD2', connected: false },
-          { id: '2', name: 'OBD2 Simulator 2', type: 'OBD2', connected: false },
-          { id: '3', name: 'OBD2 Test Device', type: 'OBD2', connected: false },
-        ];
-        this.devices = mockDevices;
-        resolve(mockDevices);
-      }, 2000);
-    });
+    try {
+      const devices = await OBD2.scanDevices();
+      return devices.map((device: any, index: number) => ({
+        id: device.id || `device_${index}`,
+        name: device.name || `OBD2 Device ${index + 1}`,
+        address: device.address || device.id,
+        connected: false,
+      }));
+    } catch (error) {
+      console.error('OBD2 Scan failed:', error);
+      return [];
+    }
   }
 
-  // Mock device connection
+  // Connect to device
   async connectToDevice(device: OBD2Device): Promise<boolean> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        this.connectedDevice = { ...device, connected: true };
-        console.log(`Connected to ${device.name}`);
-        resolve(true);
-      }, 1500);
-    });
+    try {
+      const success = await OBD2.connect(device.address);
+      return success;
+    } catch (error) {
+      console.error('OBD2 Connection failed:', error);
+      return false;
+    }
   }
 
-  // Mock OBD2 data streaming
+  // Disconnect from device
+  async disconnect(): Promise<void> {
+    try {
+      await OBD2.disconnect();
+    } catch (error) {
+      console.error('OBD2 Disconnect failed:', error);
+    }
+  }
+
+  // Start data streaming
   startDataStream(callback: (data: OBD2Data) => void): () => void {
-    const interval = setInterval(() => {
-      const mockData: OBD2Data = {
-        rpm: Math.floor(Math.random() * 3000) + 800,
-        speed: Math.floor(Math.random() * 80) + 20,
-        engineTemp: Math.floor(Math.random() * 40) + 80,
-        fuelLevel: Math.floor(Math.random() * 100),
+    const subscription = OBD2.onDataReceived((data: any) => {
+      const obdData: OBD2Data = {
+        rpm: data.rpm || 0,
+        speed: data.speed || 0,
+        engineTemp: data.engineTemp || data.coolantTemp || 0,
+        fuelLevel: data.fuelLevel || 0,
         timestamp: new Date(),
       };
-      callback(mockData);
-    }, 1000);
+      callback(obdData);
+    });
 
-    return () => clearInterval(interval);
+    // Return cleanup function
+    return () => {
+      if (subscription && typeof subscription.remove === 'function') {
+        subscription.remove();
+      }
+    };
   }
 
-  getConnectedDevice(): OBD2Device | null {
-    return this.connectedDevice;
-  }
-
-  disconnect(): void {
-    if (this.connectedDevice) {
-      this.connectedDevice.connected = false;
-      this.connectedDevice = null;
-      console.log('Disconnected from OBD2 device');
+  // Get connection status
+  async isConnected(): Promise<boolean> {
+    try {
+      return await OBD2.isConnected();
+    } catch (error) {
+      return false;
     }
   }
 }

@@ -93,19 +93,19 @@ export default function MoreScreen() {
     },
     {
       title: 'OBD2',
-      subtitle: 'Mockup mode for end-to-end testing',
+      subtitle: 'Real OBD2 device connection and data streaming',
       icon: <Zap size={24} color={colors.primary} />,
       onPress: () => router.push('/(app)/obd2'),
     },
     {
       title: 'OBD Manager',
-      subtitle: 'Manage Bluetooth OBD connections',
+      subtitle: 'Bluetooth OBD device management and diagnostics',
       icon: <Bluetooth size={24} color={colors.primary} />,
       onPress: () => router.push('/(app)/obd-manager'),
     },
     {
       title: 'OBD Tools',
-      subtitle: 'Tools for OBD operations',
+      subtitle: 'Advanced OBD diagnostic tools and analysis',
       icon: <Wrench size={24} color={colors.primary} />,
       onPress: () => router.push('/(app)/obd-tools'),
     },

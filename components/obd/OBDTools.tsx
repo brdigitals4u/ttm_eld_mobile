@@ -1,96 +1,105 @@
-import React, { useCallback } from 'react';
-import { SafeAreaView, ScrollView } from 'react-native';
-import { useTheme } from '@/context/theme-context';
+import React, { useEffect, useState, useCallback } from 'react';
+import { SafeAreaView, ScrollView, Text, View, StyleSheet } from 'react-native';
 import Button from '@/components/Button';
-import DeviceCard from './components/DeviceCard';
-import DataDisplayCard from './components/DataDisplayCard';
-import { useOBDTools } from './hooks/useOBDTools';
+import { useTheme } from '@/context/theme-context';
+import OBDToolsSDK, { OBDTool, DiagnosticData } from './sdk/OBDToolsSDK';
 
-const OBDTools = () => {
+export default function OBDTools() {
   const { colors } = useTheme();
-  const {
-    devices,
-    connectedDevice,
-    currentData,
-    isScanning,
-    isConnecting,
-    permissionsGranted,
-    requestPermissions,
-    scanDevices,
-    connectToDevice,
-    disconnect,
-    readDTCCodes,
-    clearDTCCodes,
-  } = useOBDTools();
+  const [tools, setTools] = useState<OBDTool[]>([]);
+  const [connectedTool, setConnectedTool] = useState<OBDTool | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [data, setData] = useState<DiagnosticData | null>(null);
 
-  const handlePermissions = useCallback(async () => {
-    await requestPermissions();
-  }, [requestPermissions]);
-
-  const handleScan = useCallback(async () => {
-    await scanDevices();
-  }, [scanDevices]);
-
-  const handleConnect = useCallback(async (device: any) => {
-    await connectToDevice(device);
-  }, [connectToDevice]);
-
-  const handleDisconnect = useCallback(() => {
-    disconnect();
-  }, [disconnect]);
-
-  const handleReadDTCCodes = useCallback(async () => {
-    const codes = await readDTCCodes();
-    console.log('DTC Codes:', codes);
-  }, [readDTCCodes]);
-
-  const handleClearDTCCodes = useCallback(async () => {
-    const success = await clearDTCCodes();
-    if (success) {
-      console.log('DTC Codes cleared');
+  const requestPermissions = useCallback(async () => {
+    const granted = await OBDToolsSDK.requestPermissions();
+    if (granted) {
+      console.log('Permissions granted.');
     }
-  }, [clearDTCCodes]);
+  }, []);
+
+  const scanTools = useCallback(async () => {
+    setIsScanning(true);
+    const foundTools = await OBDToolsSDK.scanTools();
+    setTools(foundTools);
+    setIsScanning(false);
+  }, []);
+
+  const connectToTool = useCallback(async (tool: OBDTool) => {
+    setIsConnecting(true);
+    const success = await OBDToolsSDK.connectToTool(tool);
+    setIsConnecting(false);
+    if (success) {
+      setConnectedTool(tool);
+      // Start data stream
+      const cleanup = OBDToolsSDK.startDataStream(setData);
+      return () => cleanup();
+    }
+  }, []);
+
+  const disconnect = useCallback(async () => {
+    if (connectedTool) {
+      await OBDToolsSDK.disconnect();
+      setConnectedTool(null);
+      setData(null);
+    }
+  }, [connectedTool]);
+
+  useEffect(() => {
+    requestPermissions();
+  }, [requestPermissions]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Button title="Request Advanced Permissions" onPress={handlePermissions} disabled={permissionsGranted} />
+      <ScrollView contentContainerStyle={styles.container}>
 
-        {permissionsGranted && (
-          <Button title="Scan Advanced Devices" onPress={handleScan} loading={isScanning} />
-        )}
+        <Button title="Scan for Tools" onPress={scanTools} loading={isScanning} />
 
-        {devices.map((device) => (
-          <DeviceCard
-            key={device.id}
-            device={device}
-            onConnect={() => handleConnect(device)}
-            isConnecting={isConnecting}
-          />
+        {tools.map((tool) => (
+          <View key={tool.id} style={styles.toolRow}>
+            <Text style={{ color: colors.text }}>{tool.name}</Text>
+            <Button
+              title="Connect"
+              onPress={() => connectToTool(tool)}
+              loading={isConnecting && connectedTool?.id === tool.id}
+            />
+          </View>
         ))}
 
-        {connectedDevice && currentData && (
-          <React.Fragment>
-            <DataDisplayCard
-              title="OBD Diagnostic Data"
-              data={[
-                { label: 'RPM', value: currentData.liveData.rpm, unit: 'rpm' },
-                { label: 'Speed', value: currentData.liveData.speed, unit: 'km/h' },
-                { label: 'Engine Temp', value: currentData.liveData.engineTemp, unit: '°C' },
-                { label: 'Fuel Level', value: currentData.liveData.fuelLevel, unit: '%' },
-                { label: 'O2 Sensor', value: currentData.liveData.o2Sensor, unit: 'V' },
-                { label: 'MAF', value: currentData.liveData.maf, unit: 'g/s' },
-              ]}
-              timestamp={currentData.timestamp}
-            />
-            <Button title="Read DTC Codes" onPress={handleReadDTCCodes} />
-            <Button title="Clear DTC Codes" onPress={handleClearDTCCodes} />
-          </React.Fragment>
+        {connectedTool && data && (
+          <View style={styles.dataContainer}>
+            <Text style={[styles.dataTitle, { color: colors.text }]}>Connected to {connectedTool.name}</Text>
+            <Text style={{ color: colors.text }}>RPM: {data.liveData.rpm}</Text>
+            <Text style={{ color: colors.text }}>Speed: {data.liveData.speed} km/h</Text>
+            <Text style={{ color: colors.text }}>Engine Temperature: {data.liveData.engineTemp} °C</Text>
+            <Text style={{ color: colors.text }}>Fuel Level: {data.liveData.fuelLevel}%</Text>
+            <Text style={{ color: colors.text }}>O2 Sensor: {data.liveData.o2Sensor} V</Text>
+            <Text style={{ color: colors.text }}>MAF: {data.liveData.maf} g/s</Text>
+            <Button title="Disconnect" onPress={disconnect} />
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
   );
-};
+}
 
-export default OBDTools;
-
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+  },
+  toolRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  dataContainer: {
+    marginTop: 20,
+  },
+  dataTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+});

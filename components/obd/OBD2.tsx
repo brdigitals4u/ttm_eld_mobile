@@ -1,95 +1,104 @@
-import React, { useCallback } from 'react';
-import { SafeAreaView, ScrollView } from 'react-native';
-import { useTheme } from '@/context/theme-context';
+import React, { useEffect, useState, useCallback } from 'react';
+import { SafeAreaView, ScrollView, Text, View, StyleSheet } from 'react-native';
 import Button from '@/components/Button';
-import DeviceCard from './components/DeviceCard';
-import DataDisplayCard from './components/DataDisplayCard';
-import { useOBD2 } from './hooks/useOBD2';
-import { isFeatureEnabled, FeatureFlags } from '@/constants/FeatureFlags';
+import { useTheme } from '@/context/theme-context';
+import OBD2SDK, { OBD2Device, OBD2Data } from './sdk/OBD2SDK';
 
-const OBD2 = () => {
+export default function OBD2() {
   const { colors } = useTheme();
+  const [devices, setDevices] = useState<OBD2Device[]>([]);
+  const [connectedDevice, setConnectedDevice] = useState<OBD2Device | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [data, setData] = useState<OBD2Data | null>(null);
 
-  const {
-    devices,
-    connectedDevice,
-    currentData,
-    isScanning,
-    isConnecting,
-    permissionsGranted,
-    requestPermissions,
-    scanDevices,
-    connectToDevice,
-    disconnect,
-  } = useOBD2();
-
-  const isMockupMode = isFeatureEnabled('OBD2_MOCKUP_MODE');
-  const enableAnimations = isFeatureEnabled('OBD2_ENABLE_ANIMATIONS');
-
-  console.log(`Mockup Mode: ${isMockupMode}`);
-
-  const handlePermissions = useCallback(async () => {
-    if (isMockupMode) {
-      await requestPermissions();
+  const requestPermissions = useCallback(async () => {
+    const granted = await OBD2SDK.requestPermissions();
+    if (granted) {
+      console.log('Permissions granted.');
     }
-  }, [requestPermissions, isMockupMode]);
+  }, []);
 
-  const handleScan = useCallback(async () => {
-    if (isMockupMode) {
-      await scanDevices();
-    }
-  }, [scanDevices, isMockupMode]);
+  const scanDevices = useCallback(async () => {
+    setIsScanning(true);
+    const foundDevices = await OBD2SDK.scanDevices();
+    setDevices(foundDevices);
+    setIsScanning(false);
+  }, []);
 
-  const handleConnect = useCallback(async (device) => {
-    if (isMockupMode) {
-      await connectToDevice(device);
+  const connectToDevice = useCallback(async (device: OBD2Device) => {
+    setIsConnecting(true);
+    const success = await OBD2SDK.connectToDevice(device);
+    setIsConnecting(false);
+    if (success) {
+      setConnectedDevice(device);
+      // Start data stream
+      const cleanup = OBD2SDK.startDataStream(setData);
+      return () => cleanup();
     }
-  }, [connectToDevice, isMockupMode]);
+  }, []);
 
-  const handleDisconnect = useCallback(() => {
-    if (isMockupMode) {
-      disconnect();
+  const disconnect = useCallback(async () => {
+    if (connectedDevice) {
+      await OBD2SDK.disconnect();
+      setConnectedDevice(null);
+      setData(null);
     }
-  }, [disconnect, isMockupMode]);
+  }, [connectedDevice]);
+
+  useEffect(() => {
+    requestPermissions();
+  }, [requestPermissions]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        {isMockupMode ? (
-          <Button title="Request Permissions" onPress={handlePermissions} disabled={permissionsGranted} />
-        ) : (
-          <Button title="Mockup Mode Disabled" disabled onPress={() => false}/>
-        )}
+      <ScrollView contentContainerStyle={styles.container}>
 
-        {permissionsGranted && isMockupMode && (
-          <Button title="Scan Devices" onPress={handleScan} loading={isScanning} />
-        )}
+        <Button title="Scan for Devices" onPress={scanDevices} loading={isScanning} />
 
         {devices.map((device) => (
-          <DeviceCard
-            key={device.id}
-            device={device}
-            onConnect={() => handleConnect(device)}
-            isConnecting={isConnecting}
-          />
+          <View key={device.id} style={styles.deviceRow}>
+            <Text style={{ color: colors.text }}>{device.name}</Text>
+            <Button
+              title="Connect"
+              onPress={() => connectToDevice(device)}
+              loading={isConnecting && connectedDevice?.id === device.id}
+            />
+          </View>
         ))}
 
-        {connectedDevice && currentData && (
-          <DataDisplayCard
-            title="OBD2 Data"
-            data={[
-              { label: 'RPM', value: currentData.rpm, unit: 'rpm' },
-              { label: 'Speed', value: currentData.speed, unit: 'km/h' },
-              { label: 'Engine Temp', value: currentData.engineTemp, unit: '°C' },
-              { label: 'Fuel Level', value: currentData.fuelLevel, unit: '%' },
-            ]}
-            timestamp={currentData.timestamp}
-          />
+        {connectedDevice && data && (
+          <View style={styles.dataContainer}>
+            <Text style={[styles.dataTitle, { color: colors.text }]}>Connected to {connectedDevice.name}</Text>
+            <Text style={{ color: colors.text }}>RPM: {data.rpm}</Text>
+            <Text style={{ color: colors.text }}>Speed: {data.speed} km/h</Text>
+            <Text style={{ color: colors.text }}>Engine Temperature: {data.engineTemp} °C</Text>
+            <Text style={{ color: colors.text }}>Fuel Level: {data.fuelLevel}%</Text>
+            <Button title="Disconnect" onPress={disconnect} />
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
   );
-};
+}
 
-export default OBD2;
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+  },
+  deviceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  dataContainer: {
+    marginTop: 20,
+  },
+  dataTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+});
 

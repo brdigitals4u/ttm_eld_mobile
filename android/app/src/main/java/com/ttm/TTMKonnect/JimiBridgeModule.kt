@@ -70,6 +70,43 @@ private fun logToSupabaseDirect(data: Map<String, Any>, onResult: (Boolean, Stri
     })
 }
 
+// This new helper function logs to 'jimikotlinlogs' table
+private fun logToJimiKotlinLogs(messageName: String, data: String, isError: Boolean, isSuccess: Boolean) {
+    try {
+        val logEntry = JSONObject()
+        logEntry.put("message_name", messageName)
+        logEntry.put("data", data)
+        logEntry.put("is_error", isError)
+        logEntry.put("is_success", isSuccess)
+        logEntry.put("timestamp", System.currentTimeMillis())
+
+        val requestBody = RequestBody.create(
+            "application/json; charset=utf-8".toMediaType(),
+            logEntry.toString()
+        )
+
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/jimikotlinlogs")  // REST endpoint for jimikotlinlogs table
+            .addHeader("apikey", SUPABASE_API_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_API_KEY")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        httpClient.newCall(request).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: IOException) {
+                Log.e("JimiBridgeModule", "Failed to log to jimikotlinlogs: ${e.message}")
+            }
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                response.close() // Consume response, no further action needed
+            }
+        })
+
+    } catch (e: Exception) {
+        Log.e("JimiBridgeModule", "Exception in logToJimiKotlinLogs: ${e.message}")
+    }
+}
+
 
 class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     companion object {
@@ -179,6 +216,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         // Register this React context with the event broadcaster
         ELDServiceEventBroadcaster.getInstance().setReactContext(reactContext)
         Log.d(TAG, "JimiBridgeModule initialized and registered with event broadcaster")
+        logToJimiKotlinLogs("Module Initialized", "JimiBridgeModule initialized and registered with event broadcaster", false, true)
         
         // Initialize GATT callback
         initializeGattCallback()
@@ -193,6 +231,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "GATT connection state changed for device: $deviceId, status: $status, newState: $newState")
+                logToJimiKotlinLogs("GATT State Change", "DeviceID=$deviceId, Status=$status, NewState=$newState", false, true)
                 
                 // Log device connection event
                 val error = if (status != BluetoothGatt.GATT_SUCCESS) "GATT error: $status" else null
@@ -201,6 +240,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
                         Log.d(TAG, "Connected to GATT server: $deviceId")
+                        logToJimiKotlinLogs("GATT Connected", "DeviceID=$deviceId", false, true)
                         connectedGattDevices[deviceId] = gatt
                         
                         // Send connection event
@@ -213,6 +253,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.d(TAG, "Disconnected from GATT server: $deviceId")
+                        logToJimiKotlinLogs("GATT Disconnected", "DeviceID=$deviceId", false, true)
                         connectedGattDevices.remove(deviceId)
                         
                         // Send disconnection event
@@ -226,6 +267,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "Services discovered for device: $deviceId, status: $status")
+                logToJimiKotlinLogs("Services Discovered", "DeviceID=$deviceId, Status=$status", false, true)
                 
                 // Log GATT service discovery
                 val error = if (status != BluetoothGatt.GATT_SUCCESS) "Service discovery failed: $status" else null
@@ -241,6 +283,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "Characteristic read for device: $deviceId, characteristic: ${characteristic.uuid}")
+                logToJimiKotlinLogs("Characteristic Read", "DeviceID=$deviceId, CharacteristicUUID=${characteristic.uuid}", false, true)
                 
                 // Log data processing event
                 val error = if (status != BluetoothGatt.GATT_SUCCESS) "Characteristic read failed: $status" else null
@@ -249,6 +292,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     val data = characteristic.value
                     Log.d(TAG, "Read data: ${data.contentToString()}")
+                    logToJimiKotlinLogs("Data Read", "DeviceID=$deviceId, DataSize=${data.size}, DataPreview=${data.take(10).contentToString()}", false, true)
                     processSensorData(deviceId, data, characteristic.uuid.toString())
                 }
             }
@@ -256,9 +300,11 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "Characteristic changed for device: $deviceId, characteristic: ${characteristic.uuid}")
+                logToJimiKotlinLogs("Characteristic Changed", "DeviceID=$deviceId, CharacteristicUUID=${characteristic.uuid}", false, true)
                 
                 val data = characteristic.value
                 Log.d(TAG, "Changed data: ${data.contentToString()}")
+                logToJimiKotlinLogs("Data Changed", "DeviceID=$deviceId, DataSize=${data.size}, DataPreview=${data.take(10).contentToString()}", false, true)
                 
                 // Log data processing event
                 logDataProcessingEvent("characteristic_changed", deviceId, data, characteristic.uuid.toString(), true)
@@ -269,6 +315,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "Characteristic write for device: $deviceId, characteristic: ${characteristic.uuid}, status: $status")
+                logToJimiKotlinLogs("Characteristic Write", "DeviceID=$deviceId, CharacteristicUUID=${characteristic.uuid}, Status=$status", false, true)
             }
         }
     }
@@ -280,6 +327,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
     fun startUniversalScan(options: ReadableMap, promise: Promise) {
         try {
             Log.d(TAG, "Starting universal scan with options: $options")
+        logToJimiKotlinLogs("Scan Started", "Options=$options", false, true)
             
             val scanFilter = options.getString("scanFilter") ?: "all"
             val scanDuration = options.getInt("scanDuration").toLong()
@@ -297,6 +345,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             val enableLegacyScan = try { options.getBoolean("enableLegacyScan") } catch (e: Exception) { false }
             
             Log.d(TAG, "Scan parameters: filter=$scanFilter, duration=$scanDuration, BLE=$enableBluetoothLE, Classic=$enableBluetoothClassic, Scan=$enableBluetoothScan")
+        logToJimiKotlinLogs("Scan Parameters", "Filter=$scanFilter, Duration=$scanDuration, BLE=$enableBluetoothLE, Classic=$enableBluetoothClassic, Scan=$enableBluetoothScan", false, true)
             
             // Validate enableBluetoothScan parameter
             if (!enableBluetoothScan) {
@@ -352,6 +401,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
     fun stopUniversalScan(promise: Promise) {
         try {
             Log.d(TAG, "Stopping universal scan")
+        logToJimiKotlinLogs("Scan Stopped", "Universal scan stopped", false, true)
             stopScanning()
             promise.resolve(true)
         } catch (error: Exception) {
@@ -865,6 +915,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
 
         isScanning = true
         Log.d(TAG, "Starting enhanced scanning with mode: $scanMode, maxResults: $maxResults")
+        logToJimiKotlinLogs("Enhanced Scan Started", "ScanMode=$scanMode, MaxResults=$maxResults", false, true)
         
         // Create enhanced scan settings
         val scanSettingsBuilder = ScanSettings.Builder()
@@ -905,6 +956,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 // Limit results if maxResults is set
                 if (maxResults > 0 && resultCount >= maxResults) {
                     Log.d(TAG, "Reached max results limit: $maxResults")
+        logToJimiKotlinLogs("Max Results Reached", "MaxResults=$maxResults", false, true)
                     return
                 }
                 
@@ -915,6 +967,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onScanFailed(errorCode: Int) {
                 super.onScanFailed(errorCode)
                 Log.e(TAG, "Enhanced scan failed with error code: $errorCode")
+                logToJimiKotlinLogs("Scan Failed", "ErrorCode=$errorCode", true, false)
                 sendEvent("onScanError", createErrorInfo("Enhanced scan failed with error code: $errorCode"))
             }
         }
@@ -923,9 +976,11 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         try {
             bluetoothAdapter?.bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
             Log.d(TAG, "BLE scanner started successfully")
+        logToJimiKotlinLogs("BLE Scanner Started", "BLE scanner started successfully", false, true)
         } catch (exception: Exception) {
             Log.e(TAG, "Failed to start BLE scan: ${exception.message}")
             Log.e(TAG, "Exception stack trace: ${exception.stackTrace.joinToString("\n")}")
+            logToJimiKotlinLogs("BLE Scan Start Error", "Error=${exception.message}, StackTrace=${exception.stackTrace.joinToString("\n")}", true, false)
             isScanning = false
             sendEvent("onScanError", createErrorInfo("Failed to start BLE scan: ${exception.message}"))
             return
@@ -940,11 +995,14 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 }
             }, scanDuration)
             Log.d(TAG, "Scan timer set for ${scanDuration}ms")
+        logToJimiKotlinLogs("Scan Timer Set", "ScanDuration=${scanDuration}ms", false, true)
         } catch (exception: Exception) {
             Log.e(TAG, "Failed to set scan timer: ${exception.message}")
+            logToJimiKotlinLogs("Scan Timer Error", "Error=${exception.message}", true, false)
         }
 
         Log.d(TAG, "Started enhanced universal scanning successfully")
+        logToJimiKotlinLogs("Enhanced Universal Scan Started", "Enhanced universal scanning started successfully", false, true)
     }
 
     private fun stopScanning() {
@@ -960,6 +1018,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         scanCallback = null
 
         Log.d(TAG, "Stopped universal scanning")
+        logToJimiKotlinLogs("Universal Scan Stopped", "Universal scanning stopped", false, true)
     }
 
     private fun createEnhancedScanFilters(scanFilter: String, enableBluetoothLE: Boolean, enableBluetoothClassic: Boolean): List<ScanFilter> {
@@ -1030,6 +1089,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         val storedPlatformInfo = getPlatformInfo(device.address)
         if (storedPlatformInfo != null) {
             Log.d(TAG, "Using stored platform info for device: ${device.address}")
+        logToJimiKotlinLogs("Stored Platform Info Used", "DeviceAddress=${device.address}", false, true)
             val (protocol, platformId) = storedPlatformInfo
             deviceInfo.putString("protocol", protocol?.toString() ?: "UNKNOWN")
             deviceInfo.putString("deviceType", "UNKNOWN") // We don't store deviceType in Pair
@@ -1059,6 +1119,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             // CRITICAL FIX: Ensure protocol matches device type
             if (deviceType == DEVICE_TYPE_ELD && protocol == DeviceProtocol.UNKNOWN) {
                 Log.d(TAG, "🔧 CRITICAL FIX: Device type is ELD but protocol is UNKNOWN, forcing protocol to ELD_DEVICE")
+        logToJimiKotlinLogs("Protocol Fix Applied", "DeviceAddress=${device.address}, ForcedProtocol=ELD_DEVICE", false, true)
                 deviceProtocols[device.address] = DeviceProtocol.ELD_DEVICE
                 deviceInfo.putString("protocol", DeviceProtocol.ELD_DEVICE.name)
             }
@@ -1067,8 +1128,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             if (device.name?.contains("KD032") == true || 
                 device.address.contains("C4:A8:28:43:14") ||
                 device.address.contains("43:15:81")) {  // Include KD032-431581
-                Log.d(TAG, "🔍 KD032 device detected during scan - initiating quick platformId detection")
-                Log.d(TAG, "🔍 Device: ${device.name} (${device.address})")
+                        Log.d(TAG, "🔍 KD032 device detected during scan - initiating quick platformId detection")
+        Log.d(TAG, "🔍 Device: ${device.name} (${device.address})")
+        logToJimiKotlinLogs("KD032 Device Detected", "DeviceName=${device.name}, DeviceAddress=${device.address}", false, true)
                 // Start quick connection in background
                 Handler().postDelayed({
                     quickConnectForPlatformId(device.address)
@@ -1090,12 +1152,14 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         logDeviceDiscovery(device, result.scanRecord?.bytes, detectedProtocol)
         
         Log.d(TAG, "Enhanced device discovered: ${device.name} (${device.address}) - Protocol: ${deviceProtocols[device.address] ?: DeviceProtocol.UNKNOWN}")
+        logToJimiKotlinLogs("Device Discovered", "DeviceName=${device.name}, DeviceAddress=${device.address}, Protocol=${deviceProtocols[device.address] ?: DeviceProtocol.UNKNOWN}", false, true)
         sendEvent("onDeviceDiscovered", deviceInfo)
     }
 
     // Enhanced protocol detection during scan phase with platformId detection
     private fun detectProtocolFromScanData(device: BluetoothDevice, scanRecord: ByteArray?): DeviceProtocol {
         Log.d(TAG, "🔍 Protocol Detection for device: ${device.name} (${device.address})")
+        logToJimiKotlinLogs("Protocol Detection Started", "DeviceName=${device.name}, DeviceAddress=${device.address}", false, true)
         
         // Enhanced logging for specific device debugging - including KD032-431581
         if (device.address.contains("C4:A8:28:43:14:8B") || 
@@ -1135,6 +1199,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 nameUpper.contains("431581") ||  // Specific to your device
                 nameUpper.contains("43148B")) {  // Known working device
                 Log.d(TAG, "✅ Detected ELD device by name pattern: $deviceName")
+        logToJimiKotlinLogs("ELD Device by Name", "DeviceName=$deviceName", false, true)
                 logProtocolDetectionEvent(device, DeviceProtocol.ELD_DEVICE, "name_pattern", scanRecord, true)
                 logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "name_pattern", scanRecord)
                 return DeviceProtocol.ELD_DEVICE
@@ -1145,6 +1210,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 nameUpper.contains("CAM") || 
                 nameUpper.contains("DOORBELL")) {
                 Log.d(TAG, "📷 Detected camera device by name pattern: $deviceName")
+        logToJimiKotlinLogs("Camera Device by Name", "DeviceName=$deviceName", false, true)
                 logProtocolDetection(device, DeviceProtocol.CAMERA_DEVICE, "name_pattern", scanRecord)
                 return DeviceProtocol.CAMERA_DEVICE
             }
@@ -1154,6 +1220,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 nameUpper.contains("GPS") || 
                 nameUpper.contains("LOCATION")) {
                 Log.d(TAG, "📍 Detected tracking device by name pattern: $deviceName")
+        logToJimiKotlinLogs("Tracking Device by Name", "DeviceName=$deviceName", false, true)
                 logProtocolDetection(device, DeviceProtocol.TRACKING_DEVICE, "name_pattern", scanRecord)
                 return DeviceProtocol.TRACKING_DEVICE
             }
@@ -1163,6 +1230,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         scanRecord?.let { record ->
             val serviceUuids = parseServiceUuidsFromScanRecord(record)
             Log.d(TAG, "🔍 Service UUIDs found: $serviceUuids")
+            logToJimiKotlinLogs("Service UUIDs Found", "ServiceUUIDs=$serviceUuids", false, true)
             
             // Enhanced ELD service detection
             if (serviceUuids.contains("FFE0") || 
@@ -1170,6 +1238,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 serviceUuids.contains("181") ||
                 serviceUuids.contains("0000181-0000-1000-8000-00805F9B34FB")) {
                 Log.d(TAG, "✅ Detected ELD device by service UUID: $serviceUuids")
+                logToJimiKotlinLogs("ELD Device by Service UUID", "ServiceUUIDs=$serviceUuids", false, true)
                 logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "service_uuids", scanRecord)
                 return DeviceProtocol.ELD_DEVICE
             }
@@ -1698,6 +1767,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             Log.d(TAG, "💾 Stored platform info for device $deviceId: ${protocol.name}")
         } catch (e: Exception) {
             Log.e(TAG, "Error storing platform info: ${e.message}")
+            logToJimiKotlinLogs("Platform Info Storage Error", "DeviceID=$deviceId, Error=${e.message}", true, false)
         }
     }
     
@@ -1728,6 +1798,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             return Pair(protocol, if (platformId != -1) platformId else null)
         } catch (e: Exception) {
             Log.e(TAG, "Error retrieving platform info: ${e.message}")
+            logToJimiKotlinLogs("Platform Info Retrieval Error", "DeviceID=$deviceId, Error=${e.message}", true, false)
             return Pair(null, null)
         }
     }
@@ -1745,6 +1816,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             Log.d(TAG, "🗑️ Cleared platform info for device $deviceId")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing platform info: ${e.message}")
+            logToJimiKotlinLogs("Platform Info Clear Error", "DeviceID=$deviceId, Error=${e.message}", true, false)
         }
     }
     
@@ -1895,6 +1967,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         Log.d(TAG, "📊 Data size: ${data.size} bytes")
         Log.d(TAG, "⏰ Timestamp: ${System.currentTimeMillis()}")
         
+        // Log to remote database for debugging
+        logToJimiKotlinLogs("Data Processing Started", "DeviceID=$deviceId, DataSize=${data.size}, CharacteristicUUID=$characteristicUuid", false, true)
+        
         // Comprehensive debugging
         debugIncomingData(deviceId, data, characteristicUuid)
         
@@ -1907,6 +1982,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         // Try to detect data format
         val dataFormat = detectDataFormat(data)
         Log.d(TAG, "🎯 Detected data format: $dataFormat")
+        
+        // Log data format detection
+        logToJimiKotlinLogs("Data Format Detection", "DeviceID=$deviceId, DataFormat=$dataFormat, DataSize=${data.size}", false, true)
         
         // Log device protocol
         val deviceProtocol = getDeviceProtocol(deviceId)
@@ -2444,6 +2522,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             Log.d(TAG, "📄 JSON string starts with: ${jsonString.take(50)}...")
             Log.d(TAG, "📄 JSON string ends with: ...${jsonString.takeLast(50)}")
             
+            // Log JSON processing
+            logToJimiKotlinLogs("JSON Processing", "DeviceID=$deviceId, JSONLength=${jsonString.length}, JSONStart=${jsonString.take(50)}", false, true)
+            
             // Parse JSON data with null check
             Log.d(TAG, "🔍 === PARSING JSON OBJECT ===")
             val jsonObject = try {
@@ -2499,6 +2580,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             Log.d(TAG, "✅ Sending structured ELD data to React Native")
             Log.d(TAG, "📋 Data map created successfully")
             Log.d(TAG, "📊 Data map size: ${eldDataMap.toString().length} characters")
+            
+            // Log data sending
+            logToJimiKotlinLogs("Data Sent to React Native", "DeviceID=$deviceId, DataMapSize=${eldDataMap.toString().length}", false, true)
             sendEvent("onDataReceived", eldDataMap)
             Log.d(TAG, "✅ Event sent successfully")
             
@@ -2571,6 +2655,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                             Log.d(TAG, "✅ Setting device category to: eld")
                             Log.d(TAG, "✅ Setting protocol to: ELD_DEVICE")
                             Log.d(TAG, "✅ Setting platform name to: PLATFORM_IH009")
+                            
+                            // Log ELD device detection
+                            logToJimiKotlinLogs("ELD Device Detected", "PlatformID=$PLATFORM_IH009, DeviceType=$DEVICE_TYPE_ELD", false, true)
                             
                             eldMap.putString("deviceType", DEVICE_TYPE_ELD)
                             eldMap.putString("deviceCategory", "eld")
@@ -3972,6 +4059,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
         Log.d(TAG, "📊 Data size: ${data.size} bytes")
         
+        // Log debug start
+        logToJimiKotlinLogs("Debug Started", "DeviceID=$deviceId, DataSize=${data.size}, CharacteristicUUID=$characteristicUuid", false, true)
+        
         // Hex dump
         val hexDump = data.joinToString(" ") { "%02X".format(it) }
         Log.d(TAG, "🔢 Hex dump: $hexDump")
@@ -3995,6 +4085,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 val jsonObject = JSONObject(jsonString)
                 Log.d(TAG, "✅ Valid JSON detected!")
                 Log.d(TAG, "📋 JSON keys: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
+                
+                // Log JSON detection
+                logToJimiKotlinLogs("JSON Detected", "DeviceID=$deviceId, JSONKeys=${jsonObject.keys().asSequence().toList().joinToString(", ")}", false, true)
             }
         } catch (e: Exception) {
             Log.d(TAG, "❌ Not valid JSON: ${e.message}")
@@ -4004,11 +4097,17 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         if (data.size >= 2 && data[0] == 0x41.toByte()) {
             val pid = data[1].toInt() and 0xFF
             Log.d(TAG, "🚗 OBD-II response detected! PID: 0x${String.format("%02X", pid)}")
+            
+            // Log OBD-II detection
+            logToJimiKotlinLogs("OBD-II Detected", "DeviceID=$deviceId, PID=0x${String.format("%02X", pid)}", false, true)
         }
         
         // Try to parse as J1939
         if (data.size >= 3 && (data[0] == 0x0C.toByte() || data[0] == 0x0D.toByte())) {
             Log.d(TAG, "🚛 J1939 message detected!")
+            
+            // Log J1939 detection
+            logToJimiKotlinLogs("J1939 Detected", "DeviceID=$deviceId, DataSize=${data.size}", false, true)
         }
         
         Log.d(TAG, "🔍 === END DEBUG ===")
