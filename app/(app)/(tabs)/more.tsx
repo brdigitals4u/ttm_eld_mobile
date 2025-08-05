@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Building, CheckSquare, FileText, Settings, Truck, Users, Zap } from 'lucide-react-native';
+import { Building, CheckSquare, FileText, Settings, Truck, Users, Zap, Bluetooth, Wrench } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Card from '@/components/Card';
@@ -85,11 +85,29 @@ export default function MoreScreen() {
       icon: <Settings size={24} color={colors.primary} />,
       onPress: () => router.push('/select-vehicle'),
     },
-     {
+    {
       title: 'Universal Pairing (New)',
       subtitle: 'Universal device pairing with Protocol',
       icon: <Zap size={24} color={colors.primary} />,
       onPress: () => router.push('/(app)/universal-pairing-protocol'),
+    },
+    {
+      title: 'OBD2',
+      subtitle: 'Mockup mode for end-to-end testing',
+      icon: <Zap size={24} color={colors.primary} />,
+      onPress: () => router.push('/(app)/obd2'),
+    },
+    {
+      title: 'OBD Manager',
+      subtitle: 'Manage Bluetooth OBD connections',
+      icon: <Bluetooth size={24} color={colors.primary} />,
+      onPress: () => router.push('/(app)/obd-manager'),
+    },
+    {
+      title: 'OBD Tools',
+      subtitle: 'Tools for OBD operations',
+      icon: <Wrench size={24} color={colors.primary} />,
+      onPress: () => router.push('/(app)/obd-tools'),
     },
   ];
 

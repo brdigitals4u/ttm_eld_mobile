@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothClass
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
@@ -24,7 +25,51 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import okhttp3.MediaType.Companion.toMediaType
 import java.util.*
+import okhttp3.*
+import java.io.IOException
+
+private const val SUPABASE_URL = "https://ddvndgjotlsihkeluxpf.supabase.co"
+private const val SUPABASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkdm5kZ2pvdGxzaWhrZWx1eHBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwNjI3ODYsImV4cCI6MjA2OTYzODc4Nn0.pWapShT_bcl-fU9B345yXZmnJ3KA_VttS-GDjkPcCjs"
+
+private val httpClient = OkHttpClient()
+
+private fun logToSupabaseDirect(data: Map<String, Any>, onResult: (Boolean, String) -> Unit) {
+    val json = JSONObject(data).toString()
+    val requestBody = RequestBody.create(
+        "application/json; charset=utf-8".toMediaType(),
+        json
+    )
+
+    val request = Request.Builder()
+        .url(SUPABASE_URL)
+        .addHeader("apikey", SUPABASE_API_KEY)
+        .addHeader("Authorization", "Bearer $SUPABASE_API_KEY")
+        .addHeader("Content-Type", "application/json")
+        .post(requestBody)
+        .build()
+    
+    httpClient.newCall(request).enqueue(object : okhttp3.Callback {
+        override fun onFailure(call: okhttp3.Call, e: IOException) {
+            // On failure
+            Log.e("Supabase", "HTTP POST failed: ${e.message}")
+            onResult(false, "Failed: ${e.message}")
+        }
+
+        override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+            if (response.isSuccessful) {
+                Log.d("Supabase", "Log successful: ${response.body?.string()}")
+                onResult(true, "Success: ${response.code}")
+            } else {
+                Log.e("Supabase", "HTTP error: ${response.code}")
+                onResult(false, "HTTP error: ${response.code}")
+            }
+            response.close()
+        }
+    })
+}
+
 
 class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     companion object {
@@ -137,6 +182,9 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         
         // Initialize GATT callback
         initializeGattCallback()
+        
+        // Log native module initialization
+        logNativeModuleInit(true)
     }
     
     // Initialize GATT callback for real Bluetooth communication
@@ -145,6 +193,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "GATT connection state changed for device: $deviceId, status: $status, newState: $newState")
+                
+                // Log device connection event
+                val error = if (status != BluetoothGatt.GATT_SUCCESS) "GATT error: $status" else null
+                logDeviceConnectionEvent("state_change", deviceId, gatt.device.name, status, error)
                 
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
@@ -175,6 +227,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 val deviceId = gatt.device.address
                 Log.d(TAG, "Services discovered for device: $deviceId, status: $status")
                 
+                // Log GATT service discovery
+                val error = if (status != BluetoothGatt.GATT_SUCCESS) "Service discovery failed: $status" else null
+                logGattServiceDiscovery(deviceId, gatt.services, status, error)
+                
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     discoverServices(gatt)
                 } else {
@@ -185,6 +241,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
                 val deviceId = gatt.device.address
                 Log.d(TAG, "Characteristic read for device: $deviceId, characteristic: ${characteristic.uuid}")
+                
+                // Log data processing event
+                val error = if (status != BluetoothGatt.GATT_SUCCESS) "Characteristic read failed: $status" else null
+                logDataProcessingEvent("characteristic_read", deviceId, characteristic.value, characteristic.uuid.toString(), status == BluetoothGatt.GATT_SUCCESS, error)
                 
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     val data = characteristic.value
@@ -199,6 +259,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 
                 val data = characteristic.value
                 Log.d(TAG, "Changed data: ${data.contentToString()}")
+                
+                // Log data processing event
+                logDataProcessingEvent("characteristic_changed", deviceId, data, characteristic.uuid.toString(), true)
+                
                 processSensorData(deviceId, data, characteristic.uuid.toString())
             }
             
@@ -402,7 +466,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 
                 // Get device type
                 val protocol = getDeviceProtocol(deviceId)
-                putString("protocol", protocol.name)
+                putString("protocol", protocol.toString())
             }
             
             promise.resolve(deviceInfo)
@@ -716,7 +780,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             putString("deviceId", deviceId)
             putString("timestamp", Date().toString())
             putString("dataType", dataType)
-            putString("protocol", getDeviceProtocol(deviceId).name)
+            putString("protocol", getDeviceProtocol(deviceId).toString())
             putDouble("value", value)
             putString("description", description)
             putBoolean("isRealData", true)
@@ -845,7 +909,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 }
                 
                 resultCount++
-                handleEnhancedScanResult(result, enableRSSI, enableDeviceTypeDetection)
+                handleEnhancedScanResult(result)
             }
 
             override fun onScanFailed(errorCode: Int) {
@@ -955,56 +1019,60 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         return filters
     }
 
-    private fun handleEnhancedScanResult(result: ScanResult, enableRSSI: Boolean, enableDeviceTypeDetection: Boolean) {
+    private fun handleEnhancedScanResult(result: ScanResult) {
         val device = result.device
         val deviceInfo = createDeviceInfo(device, device.address)
         
-        // Add RSSI if enabled
-        if (enableRSSI) {
-            deviceInfo.putInt("rssi", result.rssi)
-        }
+        // Log Bluetooth scan event
+        logBluetoothScanEvent("device_discovered", device, result.scanRecord?.bytes)
         
-        // Add device type detection if enabled
-        if (enableDeviceTypeDetection) {
-            // Check for stored platform information first
-            val (storedProtocol, storedPlatformId) = getPlatformInfo(device.address)
+        // Check if we have stored platform information for this device
+        val storedPlatformInfo = getPlatformInfo(device.address)
+        if (storedPlatformInfo != null) {
+            Log.d(TAG, "Using stored platform info for device: ${device.address}")
+            val (protocol, platformId) = storedPlatformInfo
+            deviceInfo.putString("protocol", protocol?.toString() ?: "UNKNOWN")
+            deviceInfo.putString("deviceType", "UNKNOWN") // We don't store deviceType in Pair
+            deviceInfo.putString("deviceCategory", "UNKNOWN") // We don't store deviceCategory in Pair
             
-            if (storedProtocol != null) {
-                Log.d(TAG, "💾 Using stored platform info for device ${device.address}: ${storedProtocol.name}")
-                deviceInfo.putString("deviceType", if (storedProtocol == DeviceProtocol.ELD_DEVICE) DEVICE_TYPE_ELD else "0")
-                deviceInfo.putString("deviceCategory", if (storedProtocol == DeviceProtocol.ELD_DEVICE) "eld" else "camera")
-                deviceInfo.putString("protocol", storedProtocol.name)
-                deviceProtocols[device.address] = storedProtocol
-                
-                // Add platform information to device info
-                storedPlatformId?.let { platformId ->
-                    deviceInfo.putInt("platformId", platformId)
-                    deviceInfo.putString("platformName", when (platformId) {
-                        PLATFORM_IH009 -> "PLATFORM_IH009"
-                        else -> "UNKNOWN"
-                    })
-                }
-            } else {
-                // Fallback to scan-based detection
-                val deviceType = detectDeviceType(device.address, device.name, result.scanRecord?.bytes)
-                deviceInfo.putString("deviceType", deviceType)
-                deviceInfo.putString("deviceCategory", getDeviceCategory(deviceType))
-                
-                // Enhanced protocol detection during scan phase
-                val protocol = detectProtocolFromScanData(device, result.scanRecord?.bytes)
-                deviceInfo.putString("protocol", protocol.name)
-                
-                // Store the detected protocol for later use
-                deviceProtocols[device.address] = protocol
-                
-                // For KD032 devices, attempt quick platformId detection
-                if (device.name?.contains("KD032") == true || device.address.contains("C4:A8:28:43:14")) {
-                    Log.d(TAG, "🔍 KD032 device detected during scan - initiating quick platformId detection")
-                    // Start quick connection in background
-                    Handler().postDelayed({
-                        quickConnectForPlatformId(device.address)
-                    }, 1000) // Delay to avoid interfering with scan
-                }
+            // Add platform information to device info
+            platformId?.let { pid ->
+                deviceInfo.putInt("platformId", pid)
+                deviceInfo.putString("platformName", when (pid) {
+                    PLATFORM_IH009 -> "PLATFORM_IH009"
+                    else -> "UNKNOWN"
+                })
+            }
+        } else {
+            // Fallback to scan-based detection
+            val deviceType = detectDeviceType(device.address, device.name, result.scanRecord?.bytes)
+            deviceInfo.putString("deviceType", deviceType)
+            deviceInfo.putString("deviceCategory", getDeviceCategory(deviceType))
+            
+            // Enhanced protocol detection during scan phase
+            val protocol = detectProtocolFromScanData(device, result.scanRecord?.bytes)
+            deviceInfo.putString("protocol", protocol.name)
+            
+            // Store the detected protocol for later use
+            deviceProtocols[device.address] = protocol
+            
+            // CRITICAL FIX: Ensure protocol matches device type
+            if (deviceType == DEVICE_TYPE_ELD && protocol == DeviceProtocol.UNKNOWN) {
+                Log.d(TAG, "🔧 CRITICAL FIX: Device type is ELD but protocol is UNKNOWN, forcing protocol to ELD_DEVICE")
+                deviceProtocols[device.address] = DeviceProtocol.ELD_DEVICE
+                deviceInfo.putString("protocol", DeviceProtocol.ELD_DEVICE.name)
+            }
+            
+            // For KD032 devices, attempt quick platformId detection
+            if (device.name?.contains("KD032") == true || 
+                device.address.contains("C4:A8:28:43:14") ||
+                device.address.contains("43:15:81")) {  // Include KD032-431581
+                Log.d(TAG, "🔍 KD032 device detected during scan - initiating quick platformId detection")
+                Log.d(TAG, "🔍 Device: ${device.name} (${device.address})")
+                // Start quick connection in background
+                Handler().postDelayed({
+                    quickConnectForPlatformId(device.address)
+                }, 1000) // Delay to avoid interfering with scan
             }
         }
         
@@ -1017,6 +1085,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         // Add timestamp
         deviceInfo.putString("scanTimestamp", Date().toString())
         
+        // Log device discovery to Supabase
+        val detectedProtocol = deviceProtocols[device.address] ?: DeviceProtocol.UNKNOWN
+        logDeviceDiscovery(device, result.scanRecord?.bytes, detectedProtocol)
+        
         Log.d(TAG, "Enhanced device discovered: ${device.name} (${device.address}) - Protocol: ${deviceProtocols[device.address] ?: DeviceProtocol.UNKNOWN}")
         sendEvent("onDeviceDiscovered", deviceInfo)
     }
@@ -1025,14 +1097,21 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
     private fun detectProtocolFromScanData(device: BluetoothDevice, scanRecord: ByteArray?): DeviceProtocol {
         Log.d(TAG, "🔍 Protocol Detection for device: ${device.name} (${device.address})")
         
-        // Enhanced logging for specific device debugging
-        if (device.address.contains("C4:A8:28:43:14:8B") || device.name?.contains("KD032") == true) {
-            Log.d(TAG, "🎯 SPECIAL DEBUG: Analyzing KD032-43148B device")
+        // Enhanced logging for specific device debugging - including KD032-431581
+        if (device.address.contains("C4:A8:28:43:14:8B") || 
+            device.address.contains("43:15:81") ||
+            device.name?.contains("KD032") == true) {
+            Log.d(TAG, "🎯 SPECIAL DEBUG: Analyzing KD032 device")
             Log.d(TAG, "🎯 Device name: ${device.name}")
             Log.d(TAG, "🎯 Device address: ${device.address}")
+            Log.d(TAG, "🎯 Device class: ${device.bluetoothClass}")
+            Log.d(TAG, "🎯 Device type: ${device.type}")
             scanRecord?.let { record ->
                 Log.d(TAG, "🎯 Raw scan record length: ${record.size}")
                 Log.d(TAG, "🎯 Raw scan record bytes: ${record.contentToString()}")
+                Log.d(TAG, "🎯 Raw scan record hex: ${record.joinToString("") { "%02X".format(it) }}")
+            } ?: run {
+                Log.d(TAG, "🎯 No scan record available")
             }
             
             // For KD032 devices, attempt quick platformId detection
@@ -1042,18 +1121,22 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             }
         }
         
-        // Check device name patterns first
+        // Check device name patterns first - ENHANCED for KD032 variants
         device.name?.let { deviceName ->
             val nameUpper = deviceName.uppercase()
             Log.d(TAG, "🔍 Device name: $deviceName (uppercase: $nameUpper)")
             
-            // ELD device name patterns
+            // Enhanced ELD device name patterns - including KD032 variants
             if (nameUpper.contains("KD032") || 
                 nameUpper.contains("ELD") || 
                 nameUpper.contains("JIMI") ||
                 nameUpper.contains("TRUCK") ||
-                nameUpper.contains("LOG")) {
+                nameUpper.contains("LOG") ||
+                nameUpper.contains("431581") ||  // Specific to your device
+                nameUpper.contains("43148B")) {  // Known working device
                 Log.d(TAG, "✅ Detected ELD device by name pattern: $deviceName")
+                logProtocolDetectionEvent(device, DeviceProtocol.ELD_DEVICE, "name_pattern", scanRecord, true)
+                logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "name_pattern", scanRecord)
                 return DeviceProtocol.ELD_DEVICE
             }
             
@@ -1062,6 +1145,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 nameUpper.contains("CAM") || 
                 nameUpper.contains("DOORBELL")) {
                 Log.d(TAG, "📷 Detected camera device by name pattern: $deviceName")
+                logProtocolDetection(device, DeviceProtocol.CAMERA_DEVICE, "name_pattern", scanRecord)
                 return DeviceProtocol.CAMERA_DEVICE
             }
             
@@ -1070,20 +1154,23 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 nameUpper.contains("GPS") || 
                 nameUpper.contains("LOCATION")) {
                 Log.d(TAG, "📍 Detected tracking device by name pattern: $deviceName")
+                logProtocolDetection(device, DeviceProtocol.TRACKING_DEVICE, "name_pattern", scanRecord)
                 return DeviceProtocol.TRACKING_DEVICE
             }
         }
         
-        // Check scan record for service UUIDs
+        // Check scan record for service UUIDs - ENHANCED parsing
         scanRecord?.let { record ->
             val serviceUuids = parseServiceUuidsFromScanRecord(record)
             Log.d(TAG, "🔍 Service UUIDs found: $serviceUuids")
             
-            // Check for ELD-specific services
+            // Enhanced ELD service detection
             if (serviceUuids.contains("FFE0") || 
                 serviceUuids.contains("0000FFE0-0000-1000-8000-00805F9B34FB") ||
-                serviceUuids.contains("181")) {
+                serviceUuids.contains("181") ||
+                serviceUuids.contains("0000181-0000-1000-8000-00805F9B34FB")) {
                 Log.d(TAG, "✅ Detected ELD device by service UUID: $serviceUuids")
+                logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "service_uuids", scanRecord)
                 return DeviceProtocol.ELD_DEVICE
             }
             
@@ -1092,6 +1179,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 serviceUuids.contains("0000FEE7-0000-1000-8000-00805F9B34FB") ||
                 serviceUuids.contains("168")) {
                 Log.d(TAG, "📷 Detected camera device by service UUID: $serviceUuids")
+                logProtocolDetection(device, DeviceProtocol.CAMERA_DEVICE, "service_uuids", scanRecord)
                 return DeviceProtocol.CAMERA_DEVICE
             }
             
@@ -1100,13 +1188,15 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 serviceUuids.contains("00001819-0000-1000-8000-00805F9B34FB") ||
                 serviceUuids.contains("165")) {
                 Log.d(TAG, "📍 Detected tracking device by service UUID: $serviceUuids")
+                logProtocolDetection(device, DeviceProtocol.TRACKING_DEVICE, "service_uuids", scanRecord)
                 return DeviceProtocol.TRACKING_DEVICE
             }
             
-            // Parse manufacturer data for device identification
+            // Enhanced manufacturer data parsing for device identification
             val manufacturerData = parseManufacturerDataFromScanRecord(record)
             manufacturerData?.let { data ->
                 Log.d(TAG, "🔍 Manufacturer data found: ${data.contentToString()}")
+                Log.d(TAG, "🔍 Manufacturer data hex: ${data.joinToString("") { "%02X".format(it) }}")
                 // Check for Jimi IoT manufacturer ID or specific patterns
                 if (data.size >= 2) {
                     val manufacturerId = (data[1].toInt() shl 8) or data[0].toInt()
@@ -1114,10 +1204,12 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                     when (manufacturerId) {
                         0x004C -> {
                             Log.d(TAG, "📷 Detected Apple device by manufacturer ID")
+                            logProtocolDetection(device, DeviceProtocol.CAMERA_DEVICE, "manufacturer_id", scanRecord)
                             return DeviceProtocol.CAMERA_DEVICE
                         }
                         0x0075 -> {
                             Log.d(TAG, "✅ Detected Samsung device by manufacturer ID")
+                            logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "manufacturer_id", scanRecord)
                             return DeviceProtocol.ELD_DEVICE
                         }
                         // Add more manufacturer IDs as needed
@@ -1126,12 +1218,85 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             }
         }
         
-        // Check device address patterns (some devices have recognizable MAC patterns)
+        // Enhanced device address patterns - including KD032 variants
         val address = device.address.uppercase()
         Log.d(TAG, "🔍 Device address: $address")
-        if (address.contains("43:14") || address.contains("C4:A8")) {
+        if (address.contains("43:14") || 
+            address.contains("43:15") ||  // Include your specific device
+            address.contains("C4:A8") ||
+            address.contains("KD032") ||
+            address.contains("431581") ||  // Your specific device
+            address.contains("43148B")) {  // Known working device
             Log.d(TAG, "✅ Detected ELD device by address pattern: $address")
+            logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "address_pattern", scanRecord)
             return DeviceProtocol.ELD_DEVICE
+        }
+        
+        // Additional fallback for KD032 devices based on device class
+        device.bluetoothClass?.let { deviceClass ->
+            Log.d(TAG, "🔍 Device class: ${deviceClass.majorDeviceClass}")
+            // Some ELD devices might be classified as "Computer" or "Phone"
+            if (deviceClass.majorDeviceClass == BluetoothClass.Device.Major.COMPUTER ||
+                deviceClass.majorDeviceClass == BluetoothClass.Device.Major.PHONE) {
+                if (device.name?.contains("KD032") == true || 
+                    device.address.contains("43:15") ||
+                    device.address.contains("C4:A8")) {
+                    Log.d(TAG, "✅ Detected ELD device by device class + name/address pattern")
+                    logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "device_class_pattern", scanRecord)
+                    return DeviceProtocol.ELD_DEVICE
+                }
+            }
+        }
+        
+        // CRITICAL FIX: If device type was detected as ELD, ensure protocol is also ELD
+        // This prevents the mismatch between deviceType "181" and protocol "UNKNOWN"
+        val detectedDeviceType = detectDeviceType(device.address, device.name, scanRecord)
+        if (detectedDeviceType == DEVICE_TYPE_ELD) {
+            Log.d(TAG, "🔧 CRITICAL FIX: Device type is ELD (181), forcing protocol to ELD_DEVICE")
+            logProtocolDetection(device, DeviceProtocol.ELD_DEVICE, "device_type_fallback", scanRecord)
+            return DeviceProtocol.ELD_DEVICE
+        }
+        
+        // Log protocol unknown for debugging
+        logProtocolUnknown(device, scanRecord)
+        
+        // Enhanced debugging for protocol detection failure
+        Log.d(TAG, "❌ PROTOCOL DETECTION FAILED - Detailed Analysis:")
+        Log.d(TAG, "❌ Device name: ${device.name}")
+        Log.d(TAG, "❌ Device address: ${device.address}")
+        Log.d(TAG, "❌ Device class: ${device.bluetoothClass}")
+        Log.d(TAG, "❌ Device type: ${device.type}")
+        
+        // Check what patterns were tested
+        device.name?.let { deviceName ->
+            val nameUpper = deviceName.uppercase()
+            Log.d(TAG, "❌ Name pattern tests:")
+            Log.d(TAG, "❌   Contains KD032: ${nameUpper.contains("KD032")}")
+            Log.d(TAG, "❌   Contains ELD: ${nameUpper.contains("ELD")}")
+            Log.d(TAG, "❌   Contains JIMI: ${nameUpper.contains("JIMI")}")
+            Log.d(TAG, "❌   Contains TRUCK: ${nameUpper.contains("TRUCK")}")
+            Log.d(TAG, "❌   Contains LOG: ${nameUpper.contains("LOG")}")
+            Log.d(TAG, "❌   Contains 431581: ${nameUpper.contains("431581")}")
+            Log.d(TAG, "❌   Contains 43148B: ${nameUpper.contains("43148B")}")
+        }
+        
+        // Check address patterns
+        val addressUpper = device.address.uppercase()
+        Log.d(TAG, "❌ Address pattern tests:")
+        Log.d(TAG, "❌   Contains 43:14: ${addressUpper.contains("43:14")}")
+        Log.d(TAG, "❌   Contains 43:15: ${addressUpper.contains("43:15")}")
+        Log.d(TAG, "❌   Contains C4:A8: ${addressUpper.contains("C4:A8")}")
+        Log.d(TAG, "❌   Contains KD032: ${addressUpper.contains("KD032")}")
+        Log.d(TAG, "❌   Contains 431581: ${addressUpper.contains("431581")}")
+        Log.d(TAG, "❌   Contains 43148B: ${addressUpper.contains("43148B")}")
+        
+        // Check service UUIDs
+        scanRecord?.let { record ->
+            val serviceUuids = parseServiceUuidsFromScanRecord(record)
+            Log.d(TAG, "❌ Service UUID tests:")
+            Log.d(TAG, "❌   Contains FFE0: ${serviceUuids.contains("FFE0")}")
+            Log.d(TAG, "❌   Contains 181: ${serviceUuids.contains("181")}")
+            Log.d(TAG, "❌   All service UUIDs: $serviceUuids")
         }
         
         Log.d(TAG, "❌ Could not determine protocol from scan data, will detect after connection")
@@ -1206,16 +1371,16 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         
             // Enhanced device name/address pattern detection for ELD devices
     // Following Jimi APK DeviceTypeUtils.java patterns
-    val addressUpper = address.uppercase()
-    Log.d(TAG, "🔍 Checking address patterns: $addressUpper")
+    val addressUpperCheck = address.uppercase()
+    Log.d(TAG, "🔍 Checking address patterns: $addressUpperCheck")
     
     // Check for ELD device patterns in address or name
     // Pattern matching from Jimi APK DeviceTypeUtils.java
-    if (addressUpper.contains("KD032") || 
-        addressUpper.contains("ELD") || 
-        addressUpper.contains("JIMI") ||
-        addressUpper.contains("C4:A8") ||
-        addressUpper.contains("43:14")) {
+    if (addressUpperCheck.contains("KD032") || 
+        addressUpperCheck.contains("ELD") || 
+        addressUpperCheck.contains("JIMI") ||
+        addressUpperCheck.contains("C4:A8") ||
+        addressUpperCheck.contains("43:14")) {
         Log.d(TAG, "✅ Detected ELD device by address/name pattern: $address")
         return DEVICE_TYPE_ELD
     }
@@ -1346,6 +1511,17 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
             return
         }
         
+        // Enhanced logging for KD032 devices
+        if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+            Log.d(TAG, "🎯 KD032-431581 DEBUG: Starting quick connection")
+            Log.d(TAG, "🎯 Device name: ${device.name}")
+            Log.d(TAG, "🎯 Device address: ${device.address}")
+            Log.d(TAG, "🎯 Device class: ${device.bluetoothClass}")
+        }
+        
+        // Log quick connection start to Supabase
+        logQuickConnection(deviceId, device.name)
+        
         // Create a temporary GATT connection for platformId detection
         val tempGatt = device.connectGatt(
             reactApplicationContext,
@@ -1368,6 +1544,17 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                     if (status == BluetoothGatt.GATT_SUCCESS) {
                         Log.d(TAG, "🔍 Services discovered for platformId detection")
+                        
+                        // Enhanced service discovery for KD032 devices
+                        if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+                            Log.d(TAG, "🎯 KD032-431581: Services discovered, analyzing...")
+                            val services = gatt.services
+                            Log.d(TAG, "🎯 Available services: ${services.map { it.uuid }}")
+                            
+                            // Log service discovery to Supabase
+                            logServiceDiscovery(deviceId, services, true, null)
+                        }
+                        
                         // Look for ELD service and read platformId
                         val eldService = gatt.getService(ELD_SERVICE)
                         if (eldService != null) {
@@ -1394,8 +1581,24 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                             }
                         } else {
                             Log.d(TAG, "🔍 ELD service not found")
+                            // For KD032 devices, still assume ELD even without ELD service
+                            if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+                                Log.d(TAG, "🎯 KD032-431581: No ELD service found, but assuming ELD device based on name/address")
+                                updateDeviceProtocol(deviceId, DeviceProtocol.ELD_DEVICE)
+                            }
                             gatt.disconnect()
                         }
+                    } else {
+                        Log.d(TAG, "🔍 Service discovery failed: $status")
+                        // For KD032 devices, still assume ELD even if service discovery fails
+                        if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+                            Log.d(TAG, "🎯 KD032-431581: Service discovery failed, but assuming ELD device")
+                            updateDeviceProtocol(deviceId, DeviceProtocol.ELD_DEVICE)
+                        }
+                        
+                        // Log service discovery failure to Supabase
+                        logServiceDiscovery(deviceId, emptyList(), false, "Service discovery failed with status: $status")
+                        gatt.disconnect()
                     }
                 }
                 
@@ -1416,17 +1619,35 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                         gatt.disconnect()
                     } else {
                         Log.d(TAG, "🔍 Characteristic read failed: $status")
+                        // For KD032 devices, still assume ELD even if characteristic read fails
+                        if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+                            Log.d(TAG, "🎯 KD032-431581: Characteristic read failed, but assuming ELD device")
+                            updateDeviceProtocol(deviceId, DeviceProtocol.ELD_DEVICE)
+                        }
                         gatt.disconnect()
                     }
                 }
             }
         )
         
-        // Set a timeout to disconnect if no response
+        // Set a timeout to disconnect if no response - INCREASED for KD032 devices
+        val timeout = if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+            10000L // 10 seconds for KD032 devices
+        } else {
+            5000L // 5 seconds for other devices
+        }
+        
         Handler().postDelayed({
+            Log.d(TAG, "🔍 Quick connection timeout after ${timeout}ms")
             tempGatt?.disconnect()
             tempGatt?.close()
-        }, 5000) // 5 second timeout
+            
+            // For KD032 devices, assume ELD device even after timeout
+            if (deviceId.contains("43:15:81") || device.name?.contains("KD032") == true) {
+                Log.d(TAG, "🎯 KD032-431581: Timeout occurred, but assuming ELD device")
+                updateDeviceProtocol(deviceId, DeviceProtocol.ELD_DEVICE)
+            }
+        }, timeout)
     }
     
     // Update device protocol and notify React Native
@@ -1668,18 +1889,330 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
 
     // Process real sensor data with device-specific protocols
     private fun processSensorData(deviceId: String, data: ByteArray, characteristicUuid: String) {
-        Log.d(TAG, "Processing real sensor data from device: $deviceId, characteristic: $characteristicUuid")
-        Log.d(TAG, "Raw data: ${data.contentToString()}")
+        Log.d(TAG, "🚀 === STARTING DATA PROCESSING ===")
+        Log.d(TAG, "📱 Device ID: $deviceId")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        Log.d(TAG, "⏰ Timestamp: ${System.currentTimeMillis()}")
         
-        val protocol = getDeviceProtocol(deviceId)
+        // Comprehensive debugging
+        debugIncomingData(deviceId, data, characteristicUuid)
         
-        // Check if this is ELD JSON data
-        if (protocol == DeviceProtocol.ELD_DEVICE) {
-            processELDJsonData(deviceId, data, characteristicUuid)
-            return
+        Log.d(TAG, "🔍 Processing sensor data for device: $deviceId")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📋 Raw data (hex): ${data.joinToString("") { "%02X".format(it) }}")
+        Log.d(TAG, "📋 Raw data (decimal): ${data.contentToString()}")
+        
+        // Try to detect data format
+        val dataFormat = detectDataFormat(data)
+        Log.d(TAG, "🎯 Detected data format: $dataFormat")
+        
+        // Log device protocol
+        val deviceProtocol = getDeviceProtocol(deviceId)
+        Log.d(TAG, "🔧 Device protocol: $deviceProtocol")
+        
+        // Log connection status
+        val isConnected = connectedGattDevices.containsKey(deviceId)
+        Log.d(TAG, "🔗 Device connected: $isConnected")
+        
+        // Log device info from stored data
+        val deviceInfo = deviceProtocols[deviceId]
+        Log.d(TAG, "📋 Stored device protocol: $deviceInfo")
+        
+        // Log all stored device protocols for debugging
+        Log.d(TAG, "📋 All stored device protocols: $deviceProtocols")
+        
+        // Log connected devices
+        Log.d(TAG, "📋 Connected devices: ${connectedGattDevices.keys}")
+        
+        // Log scanning status
+        Log.d(TAG, "🔍 Currently scanning: $isScanning")
+        
+        // Log device discovery history
+        Log.d(TAG, "📋 Device discovery logging completed")
+        
+        when (dataFormat) {
+            "JSON" -> {
+                Log.d(TAG, "📄 Processing as JSON data")
+                processELDJsonData(deviceId, data, characteristicUuid)
+            }
+            "OBD_PID" -> {
+                Log.d(TAG, "🚗 Processing as OBD-II PID data")
+                processOBDProtocolData(deviceId, data, characteristicUuid)
+            }
+            "J1939" -> {
+                Log.d(TAG, "🚛 Processing as J1939 data")
+                processJ1939Data(deviceId, data, characteristicUuid)
+            }
+            "BINARY" -> {
+                Log.d(TAG, "🔢 Processing as binary sensor data")
+                processBinarySensorData(deviceId, data, characteristicUuid)
+            }
+            else -> {
+                Log.d(TAG, "❓ Unknown data format, trying all parsers")
+                // Try all parsing methods
+                processELDJsonData(deviceId, data, characteristicUuid)
+                processOBDProtocolData(deviceId, data, characteristicUuid)
+                processJ1939Data(deviceId, data, characteristicUuid)
+                processBinarySensorData(deviceId, data, characteristicUuid)
+            }
+        }
+    }
+    
+    // Detect data format from byte array
+    private fun detectDataFormat(data: ByteArray): String {
+        Log.d(TAG, "🔍 === DATA FORMAT DETECTION ===")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        
+        if (data.isEmpty()) {
+            Log.d(TAG, "❌ Data is empty")
+            return "EMPTY"
         }
         
-        // Process as regular sensor data
+        // Log first few bytes for analysis
+        val firstBytes = data.take(8).joinToString(" ") { "%02X".format(it) }
+        Log.d(TAG, "🔢 First 8 bytes (hex): $firstBytes")
+        
+        // Check if it's JSON
+        try {
+            val jsonString = String(data, Charsets.UTF_8)
+            Log.d(TAG, "📄 JSON attempt: ${jsonString.take(100)}...")
+            
+            if (jsonString.trim().startsWith("{") || jsonString.trim().startsWith("[")) {
+                Log.d(TAG, "✅ Detected JSON format")
+                return "JSON"
+            } else {
+                Log.d(TAG, "❌ Not JSON format (doesn't start with { or [)")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "❌ JSON parsing failed: ${e.message}")
+        }
+        
+        // Check if it's OBD-II PID format (starts with 0x41 for response)
+        if (data.size >= 2 && data[0] == 0x41.toByte()) {
+            val pid = data[1].toInt() and 0xFF
+            Log.d(TAG, "🚗 Detected OBD-II PID format, PID: 0x${String.format("%02X", pid)}")
+            return "OBD_PID"
+        } else {
+            Log.d(TAG, "❌ Not OBD-II format (doesn't start with 0x41)")
+        }
+        
+        // Check if it's J1939 format (PGN format)
+        if (data.size >= 3 && (data[0] == 0x0C.toByte() || data[0] == 0x0D.toByte())) {
+            Log.d(TAG, "🚛 Detected J1939 format")
+            return "J1939"
+        } else {
+            Log.d(TAG, "❌ Not J1939 format (doesn't start with 0x0C or 0x0D)")
+        }
+        
+        // Check if it's binary sensor data (temperature, humidity, etc.)
+        if (data.size <= 8) {
+            Log.d(TAG, "🔢 Detected binary sensor format (size <= 8 bytes)")
+            return "BINARY"
+        } else {
+            Log.d(TAG, "❌ Not binary format (size > 8 bytes)")
+        }
+        
+        Log.d(TAG, "❓ Unknown data format")
+        return "UNKNOWN"
+    }
+    
+    // Process J1939 data (heavy truck protocol)
+    private fun processJ1939Data(deviceId: String, data: ByteArray, characteristicUuid: String) {
+        Log.d(TAG, "🚀 === PROCESSING J1939 DATA ===")
+        Log.d(TAG, "📱 Device ID: $deviceId")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        Log.d(TAG, "⏰ Timestamp: ${System.currentTimeMillis()}")
+        
+        try {
+            Log.d(TAG, "🔍 === PARSING J1939 DATA ===")
+            val j1939Data = parseJ1939Data(data)
+            
+            if (j1939Data.isNotEmpty()) {
+                Log.d(TAG, "✅ J1939 data parsed successfully")
+                Log.d(TAG, "📋 J1939 data keys: ${j1939Data.keys.joinToString(", ")}")
+                Log.d(TAG, "📊 J1939 data size: ${j1939Data.size} entries")
+                
+                val j1939DataMap = Arguments.createMap().apply {
+                    putString("deviceId", deviceId)
+                    putString("timestamp", Date().toString())
+                    putString("dataType", "J1939_DATA")
+                    putString("protocol", "ELD_DEVICE")
+                    putString("characteristicUuid", characteristicUuid)
+                    putBoolean("isRealData", true)
+                    putString("rawData", data.contentToString())
+                    
+                    // Add J1939 data
+                    val j1939Map = Arguments.createMap()
+                    j1939Data.forEach { (key, value) ->
+                        when (value) {
+                            is String -> j1939Map.putString(key, value)
+                            is Double -> j1939Map.putDouble(key, value)
+                            is Int -> j1939Map.putInt(key, value)
+                            is Boolean -> j1939Map.putBoolean(key, value)
+                            else -> j1939Map.putString(key, value.toString())
+                        }
+                    }
+                    putMap("j1939Data", j1939Map)
+                }
+                
+                sendEvent("onDataReceived", j1939DataMap)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing J1939 data: ${e.message}")
+        }
+    }
+    
+    // Parse J1939 data (heavy truck protocol)
+    private fun parseJ1939Data(data: ByteArray): Map<String, Any> {
+        val j1939Data = mutableMapOf<String, Any>()
+        
+        try {
+            Log.d(TAG, "🔍 Parsing J1939 data: ${data.joinToString("") { "%02X".format(it) }}")
+            
+            if (data.size >= 3) {
+                // PGN 0x0CF00400 - Engine Speed (RPM)
+                if (data.size >= 8 && data[0] == 0x0C.toByte() && data[1] == 0xF0.toByte() && data[2] == 0x04.toByte()) {
+                    val rpm = ((data[3].toInt() and 0xFF) shl 8) or (data[4].toInt() and 0xFF)
+                    j1939Data["engineRPM"] = rpm / 4.0
+                    Log.d(TAG, "🚗 Engine RPM: ${rpm / 4.0}")
+                }
+                
+                // PGN 0x0CF00401 - Vehicle Speed (km/h)
+                if (data.size >= 8 && data[0] == 0x0C.toByte() && data[1] == 0xF0.toByte() && data[2] == 0x04.toByte() && data[3] == 0x01.toByte()) {
+                    val speed = ((data[4].toInt() and 0xFF) shl 8) or (data[5].toInt() and 0xFF)
+                    j1939Data["vehicleSpeed"] = speed / 100.0 // Convert to km/h
+                    Log.d(TAG, "🚗 Vehicle Speed: ${speed / 100.0} km/h")
+                }
+                
+                // PGN 0x0CF00402 - Engine Hours
+                if (data.size >= 8 && data[0] == 0x0C.toByte() && data[1] == 0xF0.toByte() && data[2] == 0x04.toByte() && data[3] == 0x02.toByte()) {
+                    val hours = ((data[4].toInt() and 0xFF) shl 24) or 
+                               ((data[5].toInt() and 0xFF) shl 16) or 
+                               ((data[6].toInt() and 0xFF) shl 8) or 
+                               (data[7].toInt() and 0xFF)
+                    j1939Data["engineHours"] = hours / 100.0
+                    Log.d(TAG, "🚗 Engine Hours: ${hours / 100.0}")
+                }
+                
+                // PGN 0x0CF00403 - Fuel Consumption
+                if (data.size >= 8 && data[0] == 0x0C.toByte() && data[1] == 0xF0.toByte() && data[2] == 0x04.toByte() && data[3] == 0x03.toByte()) {
+                    val fuelConsumption = ((data[4].toInt() and 0xFF) shl 8) or (data[5].toInt() and 0xFF)
+                    j1939Data["fuelConsumption"] = fuelConsumption / 100.0
+                    Log.d(TAG, "🚗 Fuel Consumption: ${fuelConsumption / 100.0} L/100km")
+                }
+            }
+            
+            // Add timestamp
+            j1939Data["timestamp"] = System.currentTimeMillis()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing J1939 data: ${e.message}")
+        }
+        
+        return j1939Data
+    }
+    
+    // Process binary sensor data
+    private fun processBinarySensorData(deviceId: String, data: ByteArray, characteristicUuid: String) {
+        Log.d(TAG, "🚀 === PROCESSING BINARY SENSOR DATA ===")
+        Log.d(TAG, "📱 Device ID: $deviceId")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        Log.d(TAG, "⏰ Timestamp: ${System.currentTimeMillis()}")
+        
+        try {
+            Log.d(TAG, "🔍 === PARSING BINARY SENSOR DATA ===")
+            val sensorData = parseBinarySensorData(data)
+            
+            if (sensorData.isNotEmpty()) {
+                Log.d(TAG, "✅ Binary sensor data parsed successfully")
+                Log.d(TAG, "📋 Sensor data keys: ${sensorData.keys.joinToString(", ")}")
+                Log.d(TAG, "📊 Sensor data size: ${sensorData.size} entries")
+                
+                val sensorDataMap = Arguments.createMap().apply {
+                    putString("deviceId", deviceId)
+                    putString("timestamp", Date().toString())
+                    putString("dataType", "BINARY_SENSOR")
+                    putString("protocol", "ELD_DEVICE")
+                    putString("characteristicUuid", characteristicUuid)
+                    putBoolean("isRealData", true)
+                    putString("rawData", data.contentToString())
+                    
+                    // Add sensor data
+                    val sensorMap = Arguments.createMap()
+                    sensorData.forEach { (key, value) ->
+                        when (value) {
+                            is String -> sensorMap.putString(key, value)
+                            is Double -> sensorMap.putDouble(key, value)
+                            is Int -> sensorMap.putInt(key, value)
+                            is Boolean -> sensorMap.putBoolean(key, value)
+                            else -> sensorMap.putString(key, value.toString())
+                        }
+                    }
+                    putMap("sensorData", sensorMap)
+                }
+                
+                sendEvent("onDataReceived", sensorDataMap)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing binary sensor data: ${e.message}")
+        }
+    }
+    
+    // Parse binary sensor data
+    private fun parseBinarySensorData(data: ByteArray): Map<String, Any> {
+        val sensorData = mutableMapOf<String, Any>()
+        
+        try {
+            Log.d(TAG, "🔍 Parsing binary sensor data: ${data.joinToString("") { "%02X".format(it) }}")
+            
+            when (data.size) {
+                1 -> {
+                    // Single byte sensor (temperature, humidity, etc.)
+                    val value = data[0].toInt() and 0xFF
+                    sensorData["value"] = value
+                    sensorData["type"] = "single_byte"
+                    Log.d(TAG, "📊 Single byte sensor value: $value")
+                }
+                2 -> {
+                    // Two byte sensor (temperature with decimal, etc.)
+                    val value = ((data[0].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF)
+                    sensorData["value"] = value / 10.0
+                    sensorData["type"] = "two_byte"
+                    Log.d(TAG, "📊 Two byte sensor value: ${value / 10.0}")
+                }
+                4 -> {
+                    // Four byte sensor (float value)
+                    val value = ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN).float
+                    sensorData["value"] = value.toDouble()
+                    sensorData["type"] = "four_byte_float"
+                    Log.d(TAG, "📊 Four byte float sensor value: $value")
+                }
+                else -> {
+                    // Unknown format, try to interpret as multiple values
+                    sensorData["rawBytes"] = data.contentToString()
+                    sensorData["type"] = "unknown_format"
+                    Log.d(TAG, "📊 Unknown binary format: ${data.contentToString()}")
+                }
+            }
+            
+            // Add timestamp
+            sensorData["timestamp"] = System.currentTimeMillis()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing binary sensor data: ${e.message}")
+        }
+        
+        return sensorData
+    }
+    
+    // Process regular sensor data (non-ELD JSON)
+    private fun processRegularSensorData(deviceId: String, data: ByteArray, characteristicUuid: String, protocol: DeviceProtocol) {
+        Log.d(TAG, "Processing regular sensor data from device: $deviceId, protocol: $protocol")
+        
         val sensorValue = parseSensorData(deviceId, data, characteristicUuid)
         
         Log.d(TAG, "Parsed sensor value: $sensorValue, protocol: $protocol")
@@ -1698,64 +2231,252 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         sendEvent("onDataReceived", realData)
     }
     
+    // Process OBD protocol data for ELD devices
+    private fun processOBDProtocolData(deviceId: String, data: ByteArray, characteristicUuid: String) {
+        Log.d(TAG, "🚀 === PROCESSING OBD PROTOCOL DATA ===")
+        Log.d(TAG, "📱 Device ID: $deviceId")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        Log.d(TAG, "⏰ Timestamp: ${System.currentTimeMillis()}")
+        
+        try {
+            // Parse OBD-II PIDs from the data
+            Log.d(TAG, "🔍 === PARSING OBD-II DATA ===")
+            val obdData = parseOBDProtocolData(data)
+            
+            if (obdData.isNotEmpty()) {
+                Log.d(TAG, "✅ OBD data parsed successfully")
+                Log.d(TAG, "📋 OBD data keys: ${obdData.keys.joinToString(", ")}")
+                Log.d(TAG, "📊 OBD data size: ${obdData.size} entries")
+                
+                // Send OBD data to React Native
+                val obdDataMap = Arguments.createMap().apply {
+                    putString("deviceId", deviceId)
+                    putString("timestamp", Date().toString())
+                    putString("dataType", "OBD_PROTOCOL")
+                    putString("protocol", "ELD_DEVICE")
+                    putString("characteristicUuid", characteristicUuid)
+                    putBoolean("isRealData", true)
+                    putString("rawData", data.contentToString())
+                    
+                    // Add OBD data
+                    val obdMap = Arguments.createMap()
+                    obdData.forEach { (key, value) ->
+                        when (value) {
+                            is String -> obdMap.putString(key, value)
+                            is Double -> obdMap.putDouble(key, value)
+                            is Int -> obdMap.putInt(key, value)
+                            is Boolean -> obdMap.putBoolean(key, value)
+                            else -> obdMap.putString(key, value.toString())
+                        }
+                    }
+                    putMap("obdData", obdMap)
+                }
+                
+                sendEvent("onDataReceived", obdDataMap)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing OBD protocol data: ${e.message}")
+        }
+    }
+    
+    // Parse OBD-II protocol data from byte array with enhanced PID support
+    private fun parseOBDProtocolData(data: ByteArray): Map<String, Any> {
+        val obdData = mutableMapOf<String, Any>()
+        
+        try {
+            Log.d(TAG, "🔍 Parsing OBD-II data: ${data.joinToString("") { "%02X".format(it) }}")
+            
+            if (data.size >= 2) {
+                // Check if it's a valid OBD-II response (starts with 0x41)
+                if (data[0] == 0x41.toByte()) {
+                    val pid = data[1].toInt() and 0xFF
+                    Log.d(TAG, "🚗 OBD-II PID: 0x${String.format("%02X", pid)}")
+                    
+                    when (pid) {
+                        0x0C -> { // Engine RPM
+                            if (data.size >= 4) {
+                                val rpm = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
+                                obdData["rpm"] = rpm / 4.0
+                                Log.d(TAG, "🚗 Engine RPM: ${rpm / 4.0}")
+                            }
+                        }
+                        0x0D -> { // Vehicle Speed
+                            if (data.size >= 3) {
+                                val speed = data[2].toInt() and 0xFF
+                                obdData["speed"] = speed.toDouble()
+                                Log.d(TAG, "🚗 Vehicle Speed: $speed km/h")
+                            }
+                        }
+                        0x05 -> { // Engine Coolant Temperature
+                            if (data.size >= 3) {
+                                val temp = data[2].toInt() and 0xFF
+                                obdData["engineTemp"] = temp - 40.0
+                                Log.d(TAG, "🚗 Engine Temperature: ${temp - 40.0}°C")
+                            }
+                        }
+                        0x11 -> { // Throttle Position
+                            if (data.size >= 3) {
+                                val throttle = data[2].toInt() and 0xFF
+                                obdData["throttle"] = (throttle * 100.0) / 255.0
+                                Log.d(TAG, "🚗 Throttle Position: ${(throttle * 100.0) / 255.0}%")
+                            }
+                        }
+                        0x2F -> { // Fuel Level
+                            if (data.size >= 3) {
+                                val fuelLevel = data[2].toInt() and 0xFF
+                                obdData["fuelLevel"] = (fuelLevel * 100.0) / 255.0
+                                Log.d(TAG, "🚗 Fuel Level: ${(fuelLevel * 100.0) / 255.0}%")
+                            }
+                        }
+                        0x42 -> { // Battery Voltage
+                            if (data.size >= 4) {
+                                val voltage = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
+                                obdData["voltage"] = voltage / 1000.0
+                                Log.d(TAG, "🚗 Battery Voltage: ${voltage / 1000.0}V")
+                            }
+                        }
+                        0x0F -> { // Intake Air Temperature
+                            if (data.size >= 3) {
+                                val temp = data[2].toInt() and 0xFF
+                                obdData["intakeTemp"] = temp - 40.0
+                                Log.d(TAG, "🚗 Intake Air Temperature: ${temp - 40.0}°C")
+                            }
+                        }
+                        0x10 -> { // Mass Air Flow
+                            if (data.size >= 4) {
+                                val maf = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
+                                obdData["maf"] = maf / 100.0
+                                Log.d(TAG, "🚗 Mass Air Flow: ${maf / 100.0} g/s")
+                            }
+                        }
+                        0x0B -> { // Intake Manifold Pressure
+                            if (data.size >= 3) {
+                                val pressure = data[2].toInt() and 0xFF
+                                obdData["manifoldPressure"] = pressure.toDouble()
+                                Log.d(TAG, "🚗 Intake Manifold Pressure: $pressure kPa")
+                            }
+                        }
+                        0x0E -> { // Timing Advance
+                            if (data.size >= 3) {
+                                val timing = data[2].toInt() and 0xFF
+                                obdData["timingAdvance"] = (timing - 128) / 2.0
+                                Log.d(TAG, "🚗 Timing Advance: ${(timing - 128) / 2.0}°")
+                            }
+                        }
+                        0x04 -> { // Calculated Engine Load
+                            if (data.size >= 3) {
+                                val load = data[2].toInt() and 0xFF
+                                obdData["engineLoad"] = (load * 100.0) / 255.0
+                                Log.d(TAG, "🚗 Engine Load: ${(load * 100.0) / 255.0}%")
+                            }
+                        }
+                        0x0A -> { // Fuel Pressure
+                            if (data.size >= 3) {
+                                val pressure = data[2].toInt() and 0xFF
+                                obdData["fuelPressure"] = pressure * 3.0
+                                Log.d(TAG, "🚗 Fuel Pressure: ${pressure * 3.0} kPa")
+                            }
+                        }
+                        else -> {
+                            Log.d(TAG, "🚗 Unknown OBD-II PID: 0x${String.format("%02X", pid)}")
+                            obdData["unknownPid"] = pid
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "🚗 Not a valid OBD-II response (doesn't start with 0x41)")
+                }
+            }
+            
+            // Add timestamp
+            obdData["timestamp"] = System.currentTimeMillis()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing OBD protocol data: ${e.message}")
+        }
+        
+        return obdData
+    }
+    
     // Process ELD JSON data specifically
     private fun processELDJsonData(deviceId: String, data: ByteArray, characteristicUuid: String) {
-        Log.d(TAG, "Processing ELD JSON data from device: $deviceId")
+        Log.d(TAG, "🚀 === PROCESSING ELD JSON DATA ===")
+        Log.d(TAG, "📱 Device ID: $deviceId")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        Log.d(TAG, "⏰ Timestamp: ${System.currentTimeMillis()}")
         
         try {
             // Null checks and validation
             if (deviceId.isNullOrEmpty()) {
-                Log.e(TAG, "Device ID is null or empty")
+                Log.e(TAG, "❌ Device ID is null or empty")
                 sendErrorEvent(deviceId, "Device ID is null or empty", data)
                 return
             }
             
             if (data.isEmpty()) {
-                Log.e(TAG, "Data is empty for device: $deviceId")
+                Log.e(TAG, "❌ Data is empty for device: $deviceId")
                 sendErrorEvent(deviceId, "Data is empty", data)
                 return
             }
             
             if (characteristicUuid.isNullOrEmpty()) {
-                Log.w(TAG, "Characteristic UUID is null or empty, using default")
+                Log.w(TAG, "⚠️ Characteristic UUID is null or empty, using default")
             }
             
             // Convert byte array to string with null check
             val jsonString = try {
                 String(data, Charsets.UTF_8)
             } catch (e: Exception) {
-                Log.e(TAG, "Error converting byte array to string: ${e.message}")
+                Log.e(TAG, "❌ Error converting byte array to string: ${e.message}")
                 sendErrorEvent(deviceId, "Byte array conversion failed: ${e.message}", data)
                 return
             }
             
             if (jsonString.isNullOrEmpty()) {
-                Log.e(TAG, "JSON string is null or empty for device: $deviceId")
+                Log.e(TAG, "❌ JSON string is null or empty for device: $deviceId")
                 sendErrorEvent(deviceId, "JSON string is null or empty", data)
                 return
             }
             
-            Log.d(TAG, "ELD JSON string: $jsonString")
+            Log.d(TAG, "📄 ELD JSON string: $jsonString")
+            Log.d(TAG, "📄 JSON string length: ${jsonString.length}")
+            Log.d(TAG, "📄 JSON string starts with: ${jsonString.take(50)}...")
+            Log.d(TAG, "📄 JSON string ends with: ...${jsonString.takeLast(50)}")
             
             // Parse JSON data with null check
+            Log.d(TAG, "🔍 === PARSING JSON OBJECT ===")
             val jsonObject = try {
                 JSONObject(jsonString)
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing JSON object: ${e.message}")
+                Log.e(TAG, "❌ Error parsing JSON object: ${e.message}")
+                Log.e(TAG, "❌ JSON string that failed: $jsonString")
                 sendErrorEvent(deviceId, "JSON parsing failed: ${e.message}", data)
                 return
             }
             
+            Log.d(TAG, "✅ JSON object parsed successfully")
+            Log.d(TAG, "📋 JSON object parsed successfully")
+            
             // Extract ELD data components with null check
+            Log.d(TAG, "🔍 === EXTRACTING ELD DATA ===")
             val eldData = try {
                 parseELDJsonObject(jsonObject)
+                Log.d(TAG, "✅ ELD data extracted successfully")
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing ELD JSON object: ${e.message}")
+                Log.e(TAG, "❌ Error parsing ELD JSON object: ${e.message}")
+                Log.e(TAG, "❌ JSON string that failed: $jsonString")
                 sendErrorEvent(deviceId, "ELD JSON parsing failed: ${e.message}", data)
                 return
             }
             
             // Send structured ELD data to React Native with null check
+            Log.d(TAG, "🚀 === SENDING ELD DATA TO REACT NATIVE ===")
+            Log.d(TAG, "📱 Device ID: $deviceId")
+            Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+            Log.d(TAG, "📊 JSON string length: ${jsonString.length}")
+            Log.d(TAG, "⏰ Timestamp: ${Date()}")
+            
             val eldDataMap = Arguments.createMap().apply {
                 putString("deviceId", deviceId)
                 putString("timestamp", Date().toString())
@@ -1767,18 +2488,29 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 
                 // Add structured ELD data with null check
                 eldData?.let { eld ->
-                    putMap("eldData", eld)
+                    Log.d(TAG, "✅ ELD data is not null, adding to map")
+                    Log.d(TAG, "📋 ELD data added successfully")
+                    putMap("eldData", eld as ReadableMap)
                 } ?: run {
-                    Log.w(TAG, "ELD data is null, sending without structured data")
+                    Log.w(TAG, "⚠️ ELD data is null, sending without structured data")
                 }
             }
             
-            Log.d(TAG, "Sending structured ELD data to React Native")
+            Log.d(TAG, "✅ Sending structured ELD data to React Native")
+            Log.d(TAG, "📋 Data map created successfully")
+            Log.d(TAG, "📊 Data map size: ${eldDataMap.toString().length} characters")
             sendEvent("onDataReceived", eldDataMap)
+            Log.d(TAG, "✅ Event sent successfully")
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing ELD JSON data: ${e.message}")
+            Log.e(TAG, "❌ === ELD JSON PROCESSING FAILED ===")
+            Log.e(TAG, "❌ Error processing ELD JSON data: ${e.message}")
+            Log.e(TAG, "❌ Stack trace: ${e.stackTrace.joinToString("\n")}")
+            Log.e(TAG, "❌ Device ID: $deviceId")
+            Log.e(TAG, "❌ Characteristic UUID: $characteristicUuid")
+            Log.e(TAG, "❌ Data size: ${data.size} bytes")
             sendErrorEvent(deviceId, "ELD processing failed: ${e.message}", data)
+            Log.d(TAG, "❌ Error event sent")
         }
     }
     
@@ -1806,27 +2538,40 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
     
     // Parse ELD JSON object into structured data
     private fun parseELDJsonObject(jsonObject: JSONObject): WritableMap? {
+        Log.d(TAG, "🚀 === PARSING ELD JSON OBJECT ===")
+                        Log.d(TAG, "📋 Input JSON object keys: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
+        
         try {
             // Null check for input
             if (jsonObject == null) {
-                Log.e(TAG, "JSON object is null")
+                Log.e(TAG, "❌ JSON object is null")
                 return null
             }
             
             val eldMap = Arguments.createMap()
+            Log.d(TAG, "✅ Created empty ELD map")
             
             // Parse platformId from hardware - following Jimi APK PlatFormType.java patterns
+            Log.d(TAG, "🔍 === PLATFORM ID DETECTION ===")
             if (jsonObject.has("platformId")) {
+                Log.d(TAG, "✅ Found platformId field in JSON")
                 try {
                     val platformId = jsonObject.getInt("platformId")
                     eldMap.putInt("platformId", platformId)
                     Log.d(TAG, "🔍 Platform ID detected: $platformId")
+                    Log.d(TAG, "🔍 Platform ID hex: 0x${String.format("%02X", platformId)}")
                     
                     // Platform-based device detection (following Jimi APK patterns)
+                    Log.d(TAG, "🔍 === PLATFORM ID ANALYSIS ===")
                     when (platformId) {
                         PLATFORM_IH009 -> {
                             // ELD Device (KD032 devices) - Platform ID 108
                             Log.d(TAG, "✅ Platform ID $PLATFORM_IH009 (PLATFORM_IH009) detected - ELD Device!")
+                            Log.d(TAG, "✅ Setting device type to: $DEVICE_TYPE_ELD")
+                            Log.d(TAG, "✅ Setting device category to: eld")
+                            Log.d(TAG, "✅ Setting protocol to: ELD_DEVICE")
+                            Log.d(TAG, "✅ Setting platform name to: PLATFORM_IH009")
+                            
                             eldMap.putString("deviceType", DEVICE_TYPE_ELD)
                             eldMap.putString("deviceCategory", "eld")
                             eldMap.putString("protocol", "ELD_DEVICE")
@@ -1835,10 +2580,15 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                             // Enable ELD-specific features (following Jimi APK pattern)
                             eldMap.putBoolean("isELDDevice", true)
                             eldMap.putBoolean("enableELDFeatures", true)
+                            
+                            Log.d(TAG, "✅ ELD device configuration complete")
                         }
                         in 0..7 -> {
                             // Camera devices (IH008C, IH008E, IH010, IH018)
                             Log.d(TAG, "📷 Platform ID $platformId detected - Camera device")
+                            Log.d(TAG, "📷 Setting device category to: camera")
+                            Log.d(TAG, "📷 Setting protocol to: CAMERA_DEVICE")
+                            
                             eldMap.putString("deviceCategory", "camera")
                             eldMap.putString("protocol", "CAMERA_DEVICE")
                             eldMap.putBoolean("isCameraDevice", true)
@@ -1846,6 +2596,10 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                         in 100..107 -> {
                             // Camera devices with IRCUT filter
                             Log.d(TAG, "📷 Platform ID $platformId detected - Camera device with IRCUT")
+                            Log.d(TAG, "📷 Setting device category to: camera")
+                            Log.d(TAG, "📷 Setting protocol to: CAMERA_DEVICE")
+                            Log.d(TAG, "📷 Setting hasIRCUT to: true")
+                            
                             eldMap.putString("deviceCategory", "camera")
                             eldMap.putString("protocol", "CAMERA_DEVICE")
                             eldMap.putBoolean("isCameraDevice", true)
@@ -1854,58 +2608,102 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                         else -> {
                             // Unknown platform type
                             Log.d(TAG, "❓ Platform ID $platformId detected - Unknown platform type")
+                            Log.d(TAG, "❓ Setting device category to: unknown")
+                            Log.d(TAG, "❓ Setting protocol to: UNKNOWN")
+                            
                             eldMap.putString("deviceCategory", "unknown")
                             eldMap.putString("protocol", "UNKNOWN")
                         }
                     }
+                    Log.d(TAG, "✅ Platform ID analysis complete")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing platformId: ${e.message}")
+                    Log.e(TAG, "❌ Error parsing platformId: ${e.message}")
+                    Log.e(TAG, "❌ JSON object: ${jsonObject.toString()}")
                 }
+            } else {
+                Log.d(TAG, "❌ No platformId field found in JSON")
+                Log.d(TAG, "📋 Available fields: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
             }
             
             // Parse FMCSA ELD Compliance Data with null check
+            Log.d(TAG, "🔍 === ELD COMPLIANCE DATA PARSING ===")
             if (jsonObject.has("eldData")) {
+                Log.d(TAG, "✅ Found eldData field in JSON")
                 try {
                     val eldDataObject = jsonObject.getJSONObject("eldData")
                     if (eldDataObject != null) {
+                        Log.d(TAG, "✅ ELD data object is not null")
+                        Log.d(TAG, "📋 ELD data object keys: ${eldDataObject.keys().asSequence().toList().joinToString(", ")}")
                         val eldDataMap = parseELDComplianceData(eldDataObject)
                         eldMap.putMap("eldData", eldDataMap)
+                        Log.d(TAG, "✅ ELD compliance data parsed and added to map")
                     } else {
-                        Log.w(TAG, "ELD data object is null")
+                        Log.w(TAG, "⚠️ ELD data object is null")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing ELD compliance data: ${e.message}")
+                    Log.e(TAG, "❌ Error parsing ELD compliance data: ${e.message}")
+                    Log.e(TAG, "❌ JSON object: ${jsonObject.toString()}")
                 }
+            } else {
+                Log.d(TAG, "❌ No eldData field found in JSON")
+                Log.d(TAG, "📋 Available fields: ${jsonObject.keys().asSequence().joinToString(", ")}")
             }
             
             // Parse VIN data with null check
+            Log.d(TAG, "🔍 === VIN DATA PARSING ===")
             if (jsonObject.has("vin")) {
+                Log.d(TAG, "✅ Found vin field in JSON")
                 try {
-                    val vinData = parseVINData(jsonObject.getJSONObject("vin"))
+                    val vinObject = jsonObject.getJSONObject("vin")
+                    Log.d(TAG, "📋 VIN object keys: ${vinObject.keys().asSequence().joinToString(", ")}")
+                    val vinData = parseVINData(vinObject)
                     eldMap.putMap("vin", vinData)
+                    Log.d(TAG, "✅ VIN data parsed and added to map")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing VIN data: ${e.message}")
+                    Log.e(TAG, "❌ Error parsing VIN data: ${e.message}")
+                    Log.e(TAG, "❌ JSON object: ${jsonObject.toString()}")
                 }
+            } else {
+                Log.d(TAG, "❌ No vin field found in JSON")
+                Log.d(TAG, "📋 Available fields: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
             }
             
             // Parse CAN data (engine metrics) with null check
+            Log.d(TAG, "🔍 === CAN DATA PARSING ===")
             if (jsonObject.has("can")) {
+                Log.d(TAG, "✅ Found can field in JSON")
                 try {
-                    val canData = parseCANData(jsonObject.getJSONObject("can"))
+                    val canObject = jsonObject.getJSONObject("can")
+                    Log.d(TAG, "📋 CAN object keys: ${canObject.keys().asSequence().joinToString(", ")}")
+                    val canData = parseCANData(canObject)
                     eldMap.putMap("can", canData)
+                    Log.d(TAG, "✅ CAN data parsed and added to map")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing CAN data: ${e.message}")
+                    Log.e(TAG, "❌ Error parsing CAN data: ${e.message}")
+                    Log.e(TAG, "❌ JSON object: ${jsonObject.toString()}")
                 }
+            } else {
+                Log.d(TAG, "❌ No can field found in JSON")
+                Log.d(TAG, "📋 Available fields: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
             }
             
             // Parse GPS data with null check
+            Log.d(TAG, "🔍 === GPS DATA PARSING ===")
             if (jsonObject.has("gps")) {
+                Log.d(TAG, "✅ Found gps field in JSON")
                 try {
-                    val gpsData = parseGPSData(jsonObject.getJSONObject("gps"))
+                    val gpsObject = jsonObject.getJSONObject("gps")
+                    Log.d(TAG, "📋 GPS object keys: ${gpsObject.keys().asSequence().joinToString(", ")}")
+                    val gpsData = parseGPSData(gpsObject)
                     eldMap.putMap("gps", gpsData)
+                    Log.d(TAG, "✅ GPS data parsed and added to map")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing GPS data: ${e.message}")
+                    Log.e(TAG, "❌ Error parsing GPS data: ${e.message}")
+                    Log.e(TAG, "❌ JSON object: ${jsonObject.toString()}")
                 }
+            } else {
+                Log.d(TAG, "❌ No gps field found in JSON")
+                Log.d(TAG, "📋 Available fields: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
             }
             
             // Parse event data with null check
@@ -1928,10 +2726,18 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 }
             }
             
+            Log.d(TAG, "✅ === ELD JSON PARSING COMPLETE ===")
+            Log.d(TAG, "📋 Final ELD map created successfully")
+            Log.d(TAG, "📊 ELD map size: ${eldMap.toString().length} characters")
+            Log.d(TAG, "⏰ Timestamp: ${Date()}")
+            Log.d(TAG, "✅ ELD data parsed from actual hardware")
+            
             return eldMap
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error in parseELDJsonObject: ${e.message}")
+            Log.e(TAG, "❌ === ELD JSON PARSING FAILED ===")
+            Log.e(TAG, "❌ Error in parseELDJsonObject: ${e.message}")
+            Log.e(TAG, "❌ Stack trace: ${e.stackTrace.joinToString("\n")}")
             return null
         }
     }
@@ -2170,7 +2976,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         return statusMap
     }
     
-    // Get device protocol
+    // Get device protocol (first implementation)
     private fun getDeviceProtocol(deviceId: String): DeviceProtocol {
         return deviceProtocols[deviceId] ?: DeviceProtocol.UNKNOWN
     }
@@ -2201,6 +3007,7 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
                 DeviceProtocol.PANORAMIC_DEVICE -> parsePanoramicData(data)
                 DeviceProtocol.CUSTOM_SENSOR -> parseCustomSensorData(data)
                 DeviceProtocol.UNKNOWN -> parseGenericData(data)
+                else -> parseGenericData(data)
             }
         }
     }
@@ -2788,5 +3595,422 @@ class JimiBridgeModule(reactContext: ReactApplicationContext) : ReactContextBase
         }
         
         return eldComplianceMap
+    }
+
+    // Supabase Logging Methods
+    private fun logToSupabase(eventType: String, data: Map<String, Any>) {
+        try {
+            val logData = JSONObject().apply {
+                put("event_type", eventType)
+                put("timestamp", System.currentTimeMillis())
+                put("device_id", data["deviceId"] ?: "unknown")
+                put("device_name", data["deviceName"] ?: "unknown")
+                put("device_address", data["deviceAddress"] ?: "unknown")
+                put("protocol", data["protocol"] ?: "unknown")
+                put("platform_id", data["platformId"] ?: -1)
+                put("detection_method", data["detectionMethod"] ?: "unknown")
+                put("scan_record", data["scanRecord"] ?: "")
+                put("service_uuids", data["serviceUuids"] ?: "")
+                put("manufacturer_data", data["manufacturerData"] ?: "")
+                put("device_class", data["deviceClass"] ?: "")
+                put("device_type", data["deviceType"] ?: "")
+                put("error", data["error"] ?: "")
+                put("metadata", JSONObject(data["metadata"] as? Map<String, Any> ?: emptyMap<String, Any>()))
+            }
+            
+            // Send to React Native for Supabase logging
+            val logEvent = Arguments.createMap().apply {
+                putString("eventType", "supabase_log")
+                putString("logData", logData.toString())
+            }
+            sendEvent("onSupabaseLog", logEvent)
+            
+            Log.d(TAG, "📊 Supabase Log: $eventType - ${logData.toString()}")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Supabase logging failed: ${e.message}")
+        }
+    }
+    
+    private fun logDeviceDiscovery(device: BluetoothDevice, scanRecord: ByteArray?, protocol: DeviceProtocol) {
+        val logData = mapOf(
+            "deviceId" to device.address,
+            "deviceName" to (device.name ?: "Unknown"),
+            "deviceAddress" to device.address,
+            "protocol" to protocol.name,
+            "detectionMethod" to "scan_discovery",
+            "scanRecord" to (scanRecord?.contentToString() ?: ""),
+            "deviceClass" to (device.bluetoothClass?.toString() ?: ""),
+            "deviceType" to device.type.toString(),
+            "metadata" to mapOf(
+                "rssi" to "unknown",
+                "scanTimestamp" to System.currentTimeMillis(),
+                "isKD032" to (device.name?.contains("KD032") == true || device.address.contains("43:15:81"))
+            )
+        )
+        logToSupabase("device_discovered", logData)
+    }
+    
+    private fun logProtocolDetection(device: BluetoothDevice, protocol: DeviceProtocol, detectionMethod: String, scanRecord: ByteArray?) {
+        val serviceUuids = scanRecord?.let { parseServiceUuidsFromScanRecord(it) } ?: emptyList()
+        val manufacturerData = scanRecord?.let { parseManufacturerDataFromScanRecord(it) }
+        
+        val logData = mapOf(
+            "deviceId" to device.address,
+            "deviceName" to (device.name ?: "Unknown"),
+            "deviceAddress" to device.address,
+            "protocol" to protocol.name,
+            "detectionMethod" to detectionMethod,
+            "scanRecord" to (scanRecord?.contentToString() ?: ""),
+            "serviceUuids" to serviceUuids.joinToString(","),
+            "manufacturerData" to (manufacturerData?.contentToString() ?: ""),
+            "deviceClass" to (device.bluetoothClass?.toString() ?: ""),
+            "deviceType" to device.type.toString(),
+            "metadata" to mapOf(
+                "scanTimestamp" to System.currentTimeMillis(),
+                "isKD032" to (device.name?.contains("KD032") == true || device.address.contains("43:15:81")),
+                "namePattern" to (device.name?.uppercase() ?: ""),
+                "addressPattern" to device.address.uppercase()
+            )
+        )
+        logToSupabase("protocol_detection", logData)
+    }
+    
+    private fun logQuickConnection(deviceId: String, deviceName: String?) {
+        val logData = mapOf(
+            "deviceId" to deviceId,
+            "deviceName" to (deviceName ?: "Unknown"),
+            "deviceAddress" to deviceId,
+            "protocol" to "quick_connection",
+            "detectionMethod" to "platform_id_detection",
+            "metadata" to mapOf(
+                "connectionType" to "quick_platform_detection",
+                "timestamp" to System.currentTimeMillis(),
+                "isKD032" to (deviceId.contains("43:15:81") || deviceName?.contains("KD032") == true)
+            )
+        )
+        logToSupabase("quick_connection_started", logData)
+    }
+    
+    private fun logServiceDiscovery(deviceId: String, services: List<BluetoothGattService>, success: Boolean, error: String?) {
+        val logData = mapOf(
+            "deviceId" to deviceId,
+            "deviceAddress" to deviceId,
+            "protocol" to if (success) "service_discovery_success" else "service_discovery_failed",
+            "detectionMethod" to "gatt_service_discovery",
+            "error" to (error ?: ""),
+            "metadata" to mapOf(
+                "serviceCount" to services.size,
+                "services" to services.map { it.uuid.toString() },
+                "success" to success,
+                "timestamp" to System.currentTimeMillis(),
+                "isKD032" to deviceId.contains("43:15:81")
+            )
+        )
+        logToSupabase("service_discovery", logData)
+    }
+    
+    private fun logProtocolUnknown(device: BluetoothDevice, scanRecord: ByteArray?) {
+        val serviceUuids = scanRecord?.let { parseServiceUuidsFromScanRecord(it) } ?: emptyList()
+        val manufacturerData = scanRecord?.let { parseManufacturerDataFromScanRecord(it) }
+        
+        val logData = mapOf(
+            "deviceId" to device.address,
+            "deviceName" to (device.name ?: "Unknown"),
+            "deviceAddress" to device.address,
+            "protocol" to "UNKNOWN",
+            "detectionMethod" to "all_methods_exhausted",
+            "scanRecord" to (scanRecord?.contentToString() ?: ""),
+            "serviceUuids" to serviceUuids.joinToString(","),
+            "manufacturerData" to (manufacturerData?.contentToString() ?: ""),
+            "deviceClass" to (device.bluetoothClass?.toString() ?: ""),
+            "deviceType" to device.type.toString(),
+            "error" to "Protocol detection failed - all detection methods exhausted",
+            "metadata" to mapOf(
+                "detectionAttempts" to listOf("name_pattern", "service_uuids", "manufacturer_data", "address_pattern", "device_class"),
+                "scanTimestamp" to System.currentTimeMillis(),
+                "isKD032" to (device.name?.contains("KD032") == true || device.address.contains("43:15:81")),
+                "namePattern" to (device.name?.uppercase() ?: ""),
+                "addressPattern" to device.address.uppercase()
+            )
+        )
+        logToSupabase("protocol_unknown", logData)
+    }
+
+    // Helper function to get device protocol with fallback (enhanced version)
+    private fun getDeviceProtocolWithFallback(deviceId: String): DeviceProtocol {
+        // First check if we have a stored protocol
+        val storedProtocol = deviceProtocols[deviceId]
+        if (storedProtocol != null && storedProtocol != DeviceProtocol.UNKNOWN) {
+            Log.d(TAG, "🔍 Using stored protocol for device $deviceId: $storedProtocol")
+            return storedProtocol
+        }
+        
+        // If no stored protocol, try to detect from device type
+        val device = bluetoothAdapter?.getRemoteDevice(deviceId)
+        if (device != null) {
+            val deviceType = detectDeviceType(deviceId, device.name, null)
+            if (deviceType == DEVICE_TYPE_ELD) {
+                Log.d(TAG, "🔧 FALLBACK: Device type is ELD, setting protocol to ELD_DEVICE")
+                deviceProtocols[deviceId] = DeviceProtocol.ELD_DEVICE
+                return DeviceProtocol.ELD_DEVICE
+            }
+        }
+        
+        Log.d(TAG, "❌ No protocol found for device $deviceId, returning UNKNOWN")
+        return DeviceProtocol.UNKNOWN
+    }
+
+    // Remote Logger for JimiBridgeModule.kt - Supabase Integration
+    private fun logToSupabaseRemote(eventType: String, data: Map<String, Any>) {
+        try {
+            val logData = JSONObject().apply {
+                put("event_type", eventType)
+                put("timestamp", System.currentTimeMillis())
+                put("module", "JimiBridgeModule")
+                put("platform", "android")
+                put("device_id", data["deviceId"] ?: "unknown")
+                put("device_name", data["deviceName"] ?: "unknown")
+                put("device_address", data["deviceAddress"] ?: "unknown")
+                put("protocol", data["protocol"] ?: "unknown")
+                put("platform_id", data["platformId"] ?: -1)
+                put("detection_method", data["detectionMethod"] ?: "unknown")
+                put("scan_record", data["scanRecord"] ?: "")
+                put("service_uuids", data["serviceUuids"] ?: "")
+                put("manufacturer_data", data["manufacturerData"] ?: "")
+                put("device_class", data["deviceClass"] ?: "")
+                put("device_type", data["deviceType"] ?: "")
+                put("error", data["error"] ?: "")
+                put("error_code", data["errorCode"] ?: "")
+                put("error_stack", data["errorStack"] ?: "")
+                put("success", data["success"] ?: false)
+                put("duration_ms", data["durationMs"] ?: 0)
+                put("data_size", data["dataSize"] ?: 0)
+                put("connection_state", data["connectionState"] ?: "unknown")
+                put("scan_result", data["scanResult"] ?: "")
+                put("gatt_status", data["gattStatus"] ?: "")
+                put("characteristic_uuid", data["characteristicUuid"] ?: "")
+                put("raw_data", data["rawData"] ?: "")
+                put("parsed_data", data["parsedData"] ?: "")
+                put("metadata", JSONObject(data["metadata"] as? Map<String, Any> ?: emptyMap<String, Any>()))
+            }
+            
+            // Send to React Native for Supabase logging
+            val logEvent = Arguments.createMap().apply {
+                putString("eventType", "jimi_bridge_remote_log")
+                putString("logData", logData.toString())
+            }
+            sendEvent("onJimiBridgeRemoteLog", logEvent)
+            
+            Log.d(TAG, "📊 Remote Log: $eventType - ${logData.toString()}")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Remote logging failed: ${e.message}")
+        }
+    }
+    
+    // Log native module initialization
+    private fun logNativeModuleInit(success: Boolean, error: String? = null) {
+        val logData = mapOf(
+            "success" to success,
+            "error" to (error ?: ""),
+            "errorCode" to if (error != null) "INIT_ERROR" else "",
+            "metadata" to mapOf(
+                "module" to "JimiBridgeModule",
+                "platform" to "android",
+                "version" to "1.0.0"
+            )
+        )
+        logToSupabaseRemote("native_module_init", logData)
+    }
+    
+    // Log Bluetooth scan events
+    private fun logBluetoothScanEvent(eventType: String, device: BluetoothDevice? = null, scanRecord: ByteArray? = null, error: String? = null) {
+        val logData = mapOf(
+            "deviceId" to (device?.address ?: "unknown"),
+            "deviceName" to (device?.name ?: "unknown"),
+            "deviceAddress" to (device?.address ?: "unknown"),
+            "deviceClass" to (device?.bluetoothClass?.toString() ?: ""),
+            "deviceType" to (device?.type?.toString() ?: ""),
+            "scanRecord" to (scanRecord?.contentToString() ?: ""),
+            "error" to (error ?: ""),
+            "success" to (error == null),
+            "metadata" to mapOf(
+                "eventType" to eventType,
+                "scanTimestamp" to System.currentTimeMillis()
+            )
+        )
+        logToSupabaseRemote("bluetooth_scan_$eventType", logData)
+    }
+    
+    // Log device connection events
+    private fun logDeviceConnectionEvent(eventType: String, deviceId: String, deviceName: String?, status: Int, error: String? = null) {
+        val logData = mapOf(
+            "deviceId" to deviceId,
+            "deviceName" to (deviceName ?: "unknown"),
+            "deviceAddress" to deviceId,
+            "connectionState" to when (status) {
+                BluetoothProfile.STATE_CONNECTED -> "connected"
+                BluetoothProfile.STATE_DISCONNECTED -> "disconnected"
+                BluetoothProfile.STATE_CONNECTING -> "connecting"
+                BluetoothProfile.STATE_DISCONNECTING -> "disconnecting"
+                else -> "unknown"
+            },
+            "gattStatus" to status.toString(),
+            "error" to (error ?: ""),
+            "success" to (error == null),
+            "metadata" to mapOf(
+                "eventType" to eventType,
+                "connectionTimestamp" to System.currentTimeMillis()
+            )
+        )
+        logToSupabaseRemote("device_connection_$eventType", logData)
+    }
+    
+    // Log GATT service discovery
+    private fun logGattServiceDiscovery(deviceId: String, services: List<BluetoothGattService>, status: Int, error: String? = null) {
+        val logData = mapOf(
+            "deviceId" to deviceId,
+            "deviceAddress" to deviceId,
+            "gattStatus" to status.toString(),
+            "serviceCount" to services.size,
+            "services" to services.map { it.uuid.toString() },
+            "error" to (error ?: ""),
+            "success" to (error == null),
+            "metadata" to mapOf(
+                "discoveryTimestamp" to System.currentTimeMillis(),
+                "serviceUuids" to services.map { it.uuid.toString() }
+            )
+        )
+        logToSupabaseRemote("gatt_service_discovery", logData)
+    }
+    
+    // Log data processing events
+    private fun logDataProcessingEvent(eventType: String, deviceId: String, data: ByteArray, characteristicUuid: String, success: Boolean, error: String? = null) {
+        val logData = mapOf(
+            "deviceId" to deviceId,
+            "deviceAddress" to deviceId,
+            "characteristicUuid" to characteristicUuid,
+            "rawData" to data.contentToString(),
+            "dataSize" to data.size,
+            "error" to (error ?: ""),
+            "success" to success,
+            "metadata" to mapOf(
+                "eventType" to eventType,
+                "processingTimestamp" to System.currentTimeMillis(),
+                "dataHex" to data.joinToString("") { "%02X".format(it) }
+            )
+        )
+        logToSupabaseRemote("data_processing_$eventType", logData)
+    }
+    
+    // Log protocol detection events
+    private fun logProtocolDetectionEvent(device: BluetoothDevice, protocol: DeviceProtocol, detectionMethod: String, scanRecord: ByteArray?, success: Boolean, error: String? = null) {
+        val serviceUuids = scanRecord?.let { parseServiceUuidsFromScanRecord(it) } ?: emptyList()
+        val manufacturerData = scanRecord?.let { parseManufacturerDataFromScanRecord(it) }
+        
+        val logData = mapOf(
+            "deviceId" to device.address,
+            "deviceName" to (device.name ?: "Unknown"),
+            "deviceAddress" to device.address,
+            "protocol" to protocol.name,
+            "detectionMethod" to detectionMethod,
+            "scanRecord" to (scanRecord?.contentToString() ?: ""),
+            "serviceUuids" to serviceUuids.joinToString(","),
+            "manufacturerData" to (manufacturerData?.contentToString() ?: ""),
+            "deviceClass" to (device.bluetoothClass?.toString() ?: ""),
+            "deviceType" to device.type.toString(),
+            "error" to (error ?: ""),
+            "success" to success,
+            "metadata" to mapOf(
+                "detectionTimestamp" to System.currentTimeMillis(),
+                "isKD032" to (device.name?.contains("KD032") == true || device.address.contains("43:15:81")),
+                "namePattern" to (device.name?.uppercase() ?: ""),
+                "addressPattern" to device.address.uppercase()
+            )
+        )
+        logToSupabaseRemote("protocol_detection", logData)
+    }
+    
+    // Log error events
+    private fun logErrorEvent(errorType: String, errorMessage: String, deviceId: String? = null, stackTrace: String? = null) {
+        val logData = mapOf(
+            "deviceId" to (deviceId ?: "unknown"),
+            "deviceAddress" to (deviceId ?: "unknown"),
+            "error" to errorMessage,
+            "errorCode" to errorType,
+            "errorStack" to (stackTrace ?: ""),
+            "success" to false,
+            "metadata" to mapOf(
+                "errorType" to errorType,
+                "errorTimestamp" to System.currentTimeMillis(),
+                "module" to "JimiBridgeModule"
+            )
+        )
+        logToSupabaseRemote("error_$errorType", logData)
+    }
+    
+    // Log performance metrics
+    private fun logPerformanceMetric(metricName: String, value: Long, deviceId: String? = null, additionalData: Map<String, Any>? = null) {
+        val logData = mapOf(
+            "deviceId" to (deviceId ?: "unknown"),
+            "deviceAddress" to (deviceId ?: "unknown"),
+            "durationMs" to value,
+            "success" to true,
+            "metadata" to mapOf(
+                "metricName" to metricName,
+                "metricValue" to value,
+                "metricTimestamp" to System.currentTimeMillis(),
+                "additionalData" to (additionalData ?: emptyMap<String, Any>())
+            )
+        )
+        logToSupabaseRemote("performance_$metricName", logData)
+    }
+
+    // Comprehensive data debugging function
+    private fun debugIncomingData(deviceId: String, data: ByteArray, characteristicUuid: String) {
+        Log.d(TAG, "🔍 === INCOMING DATA DEBUG ===")
+        Log.d(TAG, "📱 Device ID: $deviceId")
+        Log.d(TAG, "🔧 Characteristic UUID: $characteristicUuid")
+        Log.d(TAG, "📊 Data size: ${data.size} bytes")
+        
+        // Hex dump
+        val hexDump = data.joinToString(" ") { "%02X".format(it) }
+        Log.d(TAG, "🔢 Hex dump: $hexDump")
+        
+        // Decimal dump
+        val decimalDump = data.joinToString(", ") { it.toString() }
+        Log.d(TAG, "🔢 Decimal dump: [$decimalDump]")
+        
+        // ASCII representation
+        val asciiDump = data.joinToString("") { 
+            if (it in 32..126) it.toChar().toString() else "."
+        }
+        Log.d(TAG, "🔤 ASCII dump: $asciiDump")
+        
+        // Try to parse as JSON
+        try {
+            val jsonString = String(data, Charsets.UTF_8)
+            Log.d(TAG, "📄 JSON attempt: $jsonString")
+            
+            if (jsonString.trim().startsWith("{") || jsonString.trim().startsWith("[")) {
+                val jsonObject = JSONObject(jsonString)
+                Log.d(TAG, "✅ Valid JSON detected!")
+                Log.d(TAG, "📋 JSON keys: ${jsonObject.keys().asSequence().toList().joinToString(", ")}")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "❌ Not valid JSON: ${e.message}")
+        }
+        
+        // Try to parse as OBD-II
+        if (data.size >= 2 && data[0] == 0x41.toByte()) {
+            val pid = data[1].toInt() and 0xFF
+            Log.d(TAG, "🚗 OBD-II response detected! PID: 0x${String.format("%02X", pid)}")
+        }
+        
+        // Try to parse as J1939
+        if (data.size >= 3 && (data[0] == 0x0C.toByte() || data[0] == 0x0D.toByte())) {
+            Log.d(TAG, "🚛 J1939 message detected!")
+        }
+        
+        Log.d(TAG, "🔍 === END DEBUG ===")
     }
 } 

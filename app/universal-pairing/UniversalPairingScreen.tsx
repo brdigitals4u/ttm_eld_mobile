@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, View, NativeModules, NativeEventEmitter, PermissionsAndroid, Platform } from 'react-native';
 import { useTheme } from '@/context/theme-context';
 import DeviceListView from './components/DeviceListView';
@@ -19,6 +19,7 @@ import { PairingState, UniversalDevice } from './types';
 import { FirebaseLogger } from '../../src/utils/FirebaseLogger';
 import { SentryLogger } from '../../src/utils/SentryLogger';
 import { SupabaseLogger } from '@/src/services/ELDDeviceService';
+import { jimiBridgeRemoteLogger } from '../../src/services/JimiBridgeRemoteLogger';
 
 
 const UniversalPairingContent: React.FC = () => {
@@ -98,75 +99,66 @@ const UniversalPairingContent: React.FC = () => {
           module: 'JimiBridge',
           platform: Platform.OS
         });
-        
+
         if (NativeModules.JimiBridge) {
           jimiBridgeRef.current = NativeModules.JimiBridge;
-          console.log('📱 JimiBridge methods:', Object.getOwnPropertyNames(jimiBridgeRef.current));
-          console.log('📱 getRealDeviceData exists:', typeof jimiBridgeRef.current.getRealDeviceData);
-          console.log('📱 getRealDeviceData function:', jimiBridgeRef.current.getRealDeviceData);
+          eventEmitterRef.current = new NativeEventEmitter(NativeModules.JimiBridge);
           
-          eventEmitterRef.current = new NativeEventEmitter(jimiBridgeRef.current);
-          if (Platform.OS === 'android') {
-            const granted = await PermissionsAndroid.requestMultiple([
-              PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-              PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-              PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-            ]);
-            console.log('🔐 Permissions:', granted);
-            
-            // Log permission status
-            FirebaseLogger.logELDEvent('permissions_requested', { permissions: granted });
-            SentryLogger.logELDEvent('permissions_requested', { permissions: granted });
-            SupabaseLogger.logPermissionRequest('bluetooth', Object.values(granted).every(p => p === 'granted'), 
-              Object.entries(granted).filter(([_, status]) => status !== 'granted').map(([perm]) => perm));
-          } else {
-            console.log('🔐 Using default permissions for iOS');
-          }
-          console.log('Jimi IoT Bridge initialized successfully');
+          // Setup event listeners
+          setupJimiBridgeListeners(eventEmitterRef.current, {
+            onDeviceDiscovered: handleDeviceDiscovered,
+            onDeviceConnected: handleDeviceConnected,
+            onDeviceDisconnected: handleDeviceDisconnected,
+            onDataReceived: handleDataReceived,
+            onProtocolUpdated: handleProtocolUpdated,
+            onSupabaseLog: handleSupabaseLog, // Add Supabase log handler
+            onJimiBridgeRemoteLog: handleJimiBridgeRemoteLog, // Add remote log handler
+          });
+          
+          // Add event listeners
+          eventEmitterRef.current?.addListener('onDeviceDiscovered', handleDeviceDiscovered);
+          eventEmitterRef.current?.addListener('onDeviceConnected', handleDeviceConnected);
+          eventEmitterRef.current?.addListener('onDeviceDisconnected', handleDeviceDisconnected);
+          eventEmitterRef.current?.addListener('onDataReceived', handleDataReceived);
+          eventEmitterRef.current?.addListener('onProtocolUpdated', handleProtocolUpdated);
+          eventEmitterRef.current?.addListener('onSupabaseLog', handleSupabaseLog);
+          eventEmitterRef.current?.addListener('onJimiBridgeRemoteLog', handleJimiBridgeRemoteLog);
+          
+          console.log('✅ JimiBridge listeners setup completed');
           
           // Log successful initialization
-          FirebaseLogger.logELDEvent('jimi_bridge_initialization_success');
-          SentryLogger.logELDEvent('jimi_bridge_initialization_success');
-          SupabaseLogger.logSDKEvent('jimi_bridge_initialization_success', undefined, {
+          FirebaseLogger.logELDEvent('jimi_bridge_initialization_completed');
+          SentryLogger.logELDEvent('jimi_bridge_initialization_completed');
+          SupabaseLogger.logSDKEvent('jimi_bridge_initialization_completed', undefined, {
             module: 'JimiBridge',
             platform: Platform.OS
           });
         } else {
-          console.log('Jimi IoT Bridge not available, using fallback');
-          
-          // Log fallback scenario
-          FirebaseLogger.logELDEvent('jimi_bridge_not_available');
-          SentryLogger.logELDEvent('jimi_bridge_not_available');
-          SupabaseLogger.logSDKEvent('jimi_bridge_not_available', undefined, {
-            module: 'JimiBridge',
-            platform: Platform.OS
-          });
+          console.error('❌ JimiBridge module not found');
+         
         }
       } catch (error: any) {
-        console.error('Failed to initialize Jimi Bridge:', error);
+        console.error('❌ Failed to initialize JimiBridge:', error);
         
         // Log initialization error
-        FirebaseLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message || 'Unknown error' });
-        SentryLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message || 'Unknown error' });
-        SupabaseLogger.logError(error, {
+        FirebaseLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message });
+        SentryLogger.logELDEvent('jimi_bridge_initialization_error', { error: error?.message });
+        SupabaseLogger.logError(error?.message || 'Unknown error', {
           eventType: 'jimi_bridge_initialization_error',
-          additionalData: { platform: Platform.OS }
+          additionalData: { module: 'JimiBridge', platform: Platform.OS }
         });
+        
+        setState(prev => ({ ...prev, error: error?.message || 'Failed to initialize Bluetooth module' }));
       }
     };
 
     initializeJimiBridge();
 
-    setupJimiBridgeListeners(
-      handleDeviceDiscovered,
-      handleDeviceConnected,
-      handleDeviceDisconnected,
-      handleDataReceived,
-      handleConnectionError,
-      handlePermissionError,
-      handleProtocolUpdated
-    );
-    return () => removeJimiBridgeListeners();
+    return () => {
+      if (eventEmitterRef.current) {
+        removeJimiBridgeListeners(eventEmitterRef.current);
+      }
+    };
   }, []);
 
   const handleDeviceDiscovered = (device: UniversalDevice) => {
@@ -424,6 +416,7 @@ const UniversalPairingContent: React.FC = () => {
       const signalStrength = data?.signalStrength || -1;
       const isRealData = data?.isRealData || false;
       const hasEldData = !!data?.eldData;
+      const characteristicUuid = data?.characteristicUuid || 'unknown';
       
       const logData = {
         timestamp,
@@ -525,6 +518,105 @@ const UniversalPairingContent: React.FC = () => {
           hasGpsData: !!gps,
           hasEventData: !!events,
           hasStatus: !!status,
+        });
+      }
+      
+      // Handle OBD protocol data for ELD devices
+      if (dataType === 'OBD_PROTOCOL' && data?.obdData) {
+        console.log('📊 OBD Protocol Data Received:', data.obdData);
+        
+        // Extract OBD data with null checks
+        const obdDataObj = data.obdData || {};
+        const rpm = obdDataObj?.rpm || null;
+        const speed = obdDataObj?.speed || null;
+        const engineTemp = obdDataObj?.engineTemp || null;
+        const throttle = obdDataObj?.throttle || null;
+        const fuelLevel = obdDataObj?.fuelLevel || null;
+        const voltage = obdDataObj?.voltage || null;
+        
+        // Store OBD data in device data for sensor cards
+        const obdSensorData = {
+          deviceId,
+          timestamp,
+          dataType: 'OBD_PROTOCOL',
+          protocol: 'ELD_DEVICE',
+          characteristicUuid,
+          isRealData: true,
+          rawData,
+          // OBD specific values
+          rpm,
+          speed,
+          engineTemp,
+          throttle,
+          fuelLevel,
+          voltage,
+        };
+        
+        // Add to device data for sensor cards
+        setState((prevState) => ({
+          ...prevState,
+          deviceData: [...prevState.deviceData, obdSensorData],
+        }));
+        
+        // Log OBD data to analytics
+        FirebaseLogger.logELDEvent('obd_data_processed', {
+          deviceId,
+          hasRpm: !!rpm,
+          hasSpeed: !!speed,
+          hasEngineTemp: !!engineTemp,
+          hasThrottle: !!throttle,
+          hasFuelLevel: !!fuelLevel,
+          hasVoltage: !!voltage,
+        });
+        SentryLogger.logELDEvent('obd_data_processed', {
+          deviceId,
+          hasRpm: !!rpm,
+          hasSpeed: !!speed,
+          hasEngineTemp: !!engineTemp,
+          hasThrottle: !!throttle,
+          hasFuelLevel: !!fuelLevel,
+          hasVoltage: !!voltage,
+        });
+      }
+      
+      // Handle regular sensor data (for both ELD and non-ELD devices)
+      if (dataType === 'sensor') {
+        console.log('📊 Regular Sensor Data Received:', data);
+        
+        // Extract sensor data with null checks
+        const sensorValue = data?.value || 0;
+        const sensorProtocol = data?.protocol || 'unknown';
+        
+        // Create sensor data object
+        const sensorData = {
+          deviceId,
+          timestamp,
+          dataType: 'sensor',
+          protocol: sensorProtocol,
+          characteristicUuid,
+          value: sensorValue,
+          isRealData: true,
+          rawData,
+        };
+        
+        // Add to device data for sensor cards
+        setState((prevState) => ({
+          ...prevState,
+          deviceData: [...prevState.deviceData, sensorData],
+        }));
+        
+        // Log sensor data to analytics
+        FirebaseLogger.logELDEvent('sensor_data_processed', {
+          deviceId,
+          sensorValue,
+          sensorProtocol,
+          characteristicUuid,
+        });
+        SentryLogger.logELDEvent('sensor_data_processed', {
+          deviceId,
+          sensorValue,
+          sensorProtocol,
+          characteristicUuid,
         });
       }
       
@@ -663,68 +755,184 @@ const UniversalPairingContent: React.FC = () => {
     }
   };
 
+  // Handle remote logging from JimiBridgeModule.kt
+  const handleJimiBridgeRemoteLog = useCallback((event: any) => {
+      try {
+          const { eventType, logData } = event;
+          
+          if (eventType === 'jimi_bridge_remote_log') {
+              const parsedLogData = JSON.parse(logData);
+              console.log('📊 JimiBridge Remote Log received:', parsedLogData);
+              
+              // Log to Supabase
+              jimiBridgeRemoteLogger.logEvent(parsedLogData);
+              
+              // Log to Firebase and Sentry for critical errors
+              if (!parsedLogData.success && parsedLogData.error) {
+                  console.log('📊 JimiBridge Error:', {
+                      event_type: parsedLogData.event_type,
+                      device_id: parsedLogData.device_id,
+                      error: parsedLogData.error,
+                      error_code: parsedLogData.error_code
+                  });
+                  
+                  console.error('❌ JimiBridge Native Error:', parsedLogData.error);
+              }
+              
+              // Show toast for critical errors
+              if (parsedLogData.error_code === 'PROTOCOL_DETECTION_FAILED' || 
+                  parsedLogData.error_code === 'CONNECTION_FAILED') {
+                  showToast('error', parsedLogData.error || 'Unknown error occurred');
+              }
+          }
+      } catch (error: any) {
+          console.error('❌ Error handling JimiBridge remote log:', error);
+      }
+  }, []);
+
+  // Helper functions for device type and category mapping
+  const getDeviceTypeFromProtocol = (protocol: string): string => {
+    switch (protocol) {
+      case 'ELD_DEVICE':
+        return '181';
+      case 'CAMERA_DEVICE':
+        return '168';
+      case 'TRACKING_DEVICE':
+        return '165';
+      case 'DOORBELL_DEVICE':
+        return '106';
+      case 'PANORAMIC_DEVICE':
+        return '360';
+      default:
+        return 'unknown';
+    }
+  };
+
+  const getDeviceCategory = (deviceType: string): string => {
+    switch (deviceType) {
+      case '181':
+        return 'eld';
+      case '168':
+        return 'camera';
+      case '165':
+        return 'tracking';
+      case '106':
+        return 'doorbell';
+      case '360':
+        return 'panoramic';
+      default:
+        return 'unknown';
+    }
+  };
+
   const handleProtocolUpdated = (protocolData: any) => {
     try {
-      // Null checks and fallbacks
-      const deviceId = protocolData?.deviceId || 'unknown';
-      const previousProtocol = protocolData?.previousProtocol || 'UNKNOWN';
-      const newProtocol = protocolData?.newProtocol || 'UNKNOWN';
-      const timestamp = new Date().toISOString();
+      console.log('🔄 Protocol updated:', protocolData);
       
-      console.log('🔄 Protocol Updated:', {
+      const { deviceId, protocol, timestamp } = protocolData;
+      
+      // Update device list with new protocol
+      setState(prev => ({
+        ...prev,
+        devices: prev.devices.map(device => 
+          device.id === deviceId 
+            ? { ...device, protocol, deviceType: getDeviceTypeFromProtocol(protocol), deviceCategory: getDeviceCategory(getDeviceTypeFromProtocol(protocol)) }
+            : device
+        )
+      }));
+      
+      // Log protocol update
+      FirebaseLogger.logELDEvent('protocol_updated', { deviceId, protocol, timestamp });
+      SentryLogger.logELDEvent('protocol_updated', { deviceId, protocol, timestamp });
+      SupabaseLogger.logEvent('protocol_updated', {
         deviceId,
-        previousProtocol,
-        newProtocol,
-        timestamp,
+        deviceAddress: deviceId,
+        status: 'connected',
+        dataType: 'protocol_detection',
+        rawData: protocolData,
+        eventData: { protocol, timestamp }
+      });
+      
+      showToast(`Protocol updated: ${protocol}`, 'success');
+    } catch (error: any) {
+      console.error('❌ Error handling protocol update:', error);
+      FirebaseLogger.logELDEvent('protocol_update_error', { error: error?.message });
+      SentryLogger.logELDEvent('protocol_update_error', { error: error?.message });
+    }
+  };
+
+  const handleSupabaseLog = (logData: any) => {
+    try {
+      console.log('📊 Supabase Log from Native Module:', logData);
+      
+      // Parse the log data from the native module
+      const { eventType, logData: logDataString } = logData;
+      const parsedLogData = JSON.parse(logDataString);
+      
+      console.log('📊 Parsed Supabase Log:', {
+        eventType: parsedLogData.event_type,
+        deviceId: parsedLogData.device_id,
+        deviceName: parsedLogData.device_name,
+        protocol: parsedLogData.protocol,
+        detectionMethod: parsedLogData.detection_method,
+        isKD032: parsedLogData.device_id?.includes('43:15:81') || parsedLogData.device_name?.includes('KD032')
       });
       
       // Log to analytics
-      FirebaseLogger.logELDEvent('protocol_updated', {
-        deviceId,
-        previousProtocol,
-        newProtocol,
-      });
-      SentryLogger.logELDEvent('protocol_updated', {
-        deviceId,
-        previousProtocol,
-        newProtocol,
+      FirebaseLogger.logELDEvent('supabase_log_from_native', { 
+        eventType: parsedLogData.event_type,
+        deviceId: parsedLogData.device_id,
+        protocol: parsedLogData.protocol,
+        detectionMethod: parsedLogData.detection_method
       });
       
-      // Update the connected device with the new protocol
-      setState((prevState) => ({
-        ...prevState,
-        connectedDevice: prevState.connectedDevice ? {
-          ...prevState.connectedDevice,
-          protocol: newProtocol,
-        } : null,
-        // Also update the device in the devices list
-        devices: prevState.devices.map((device) => {
-          if (device.id === deviceId || device.address === deviceId) {
-            console.log('🔄 Updating device protocol in list:', device.name, '->', newProtocol);
-            return {
-              ...device,
-              protocol: newProtocol,
-              deviceType: newProtocol === 'ELD_DEVICE' ? '181' : device.deviceType,
-              deviceCategory: newProtocol === 'ELD_DEVICE' ? 'eld' : device.deviceCategory,
-            };
-          }
-          return device;
-        }),
-      }));
+      SentryLogger.logELDEvent('supabase_log_from_native', { 
+        eventType: parsedLogData.event_type,
+        deviceId: parsedLogData.device_id,
+        protocol: parsedLogData.protocol
+      });
       
-      // Show toast notification for protocol update
-      if (newProtocol === 'ELD_DEVICE') {
-        showToast(`Device identified as ELD! Protocol: ${newProtocol}`, 'success');
-      } else if (previousProtocol === 'UNKNOWN' && newProtocol !== 'UNKNOWN') {
-        showToast(`Device protocol detected: ${newProtocol}`, 'info');
+      // Specific handling for KD032-431581 protocol detection issue
+      if (parsedLogData.device_id?.includes('43:15:81') || parsedLogData.device_name?.includes('KD032')) {
+        console.warn('⚠️ KD032 device detected in Supabase logs:', {
+          deviceId: parsedLogData.device_id,
+          deviceName: parsedLogData.device_name,
+          protocol: parsedLogData.protocol,
+          detectionMethod: parsedLogData.detection_method,
+          eventType: parsedLogData.event_type
+        });
+        
+        // Show toast for protocol unknown issues
+        if (parsedLogData.protocol === 'UNKNOWN' && parsedLogData.event_type === 'protocol_unknown') {
+          showToast('KD032 device protocol detection failed. Check logs for details.', 'warning');
+        }
       }
       
-    } catch (error: any) {
-      console.error('Error in handleProtocolUpdated:', error);
+      // Log to Supabase for persistence
+      SupabaseLogger.logEvent('native_module_log', {
+        deviceId: parsedLogData.device_id,
+        deviceName: parsedLogData.device_name,
+        deviceAddress: parsedLogData.device_address,
+        status: 'connected',
+        dataType: parsedLogData.data_type,
+        rawData: parsedLogData,
+        eventData: {
+          protocol: parsedLogData.protocol,
+          detectionMethod: parsedLogData.detection_method,
+          platformId: parsedLogData.platform_id,
+          serviceUuids: parsedLogData.service_uuids,
+          manufacturerData: parsedLogData.manufacturer_data,
+          deviceClass: parsedLogData.device_class,
+          deviceType: parsedLogData.device_type,
+          error: parsedLogData.error,
+          metadata: parsedLogData.metadata
+        }
+      });
       
-      // Log error to analytics
-      FirebaseLogger.logELDEvent('protocol_update_error', { error: error?.message || 'Unknown error' });
-      SentryLogger.logELDEvent('protocol_update_error', { error: error?.message || 'Unknown error' });
+    } catch (error: any) {
+      console.error('❌ Error handling Supabase log from native module:', error);
+      FirebaseLogger.logELDEvent('supabase_log_parsing_error', { error: error?.message });
+      SentryLogger.logELDEvent('supabase_log_parsing_error', { error: error?.message });
     }
   };
 

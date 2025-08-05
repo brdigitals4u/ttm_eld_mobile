@@ -1,30 +1,49 @@
 import { NativeModules, NativeEventEmitter } from 'react-native';
 
 const { JimiBridge } = NativeModules;
-const EventEmitter = new NativeEventEmitter(JimiBridge);
 
-export function setupJimiBridgeListeners(onDeviceDiscovered, onDeviceConnected, onDeviceDisconnected, onDataReceived, onConnectionError, onPermissionError, onProtocolUpdated) {
-  EventEmitter.addListener('onDeviceDiscovered', onDeviceDiscovered);
-  EventEmitter.addListener('onDeviceConnected', onDeviceConnected);
-  EventEmitter.addListener('onDeviceDisconnected', onDeviceDisconnected);
-  EventEmitter.addListener('onDataReceived', onDataReceived);
-  EventEmitter.addListener('onConnectionError', onConnectionError);
-  if (onPermissionError) {
-    EventEmitter.addListener('onPermissionError', onPermissionError);
+export function setupJimiBridgeListeners(eventEmitter, handlers) {
+  if (handlers.onDeviceDiscovered) {
+    eventEmitter.addListener('onDeviceDiscovered', handlers.onDeviceDiscovered);
   }
-  if (onProtocolUpdated) {
-    EventEmitter.addListener('onProtocolUpdated', onProtocolUpdated);
+  if (handlers.onDeviceConnected) {
+    eventEmitter.addListener('onDeviceConnected', handlers.onDeviceConnected);
+  }
+  if (handlers.onDeviceDisconnected) {
+    eventEmitter.addListener('onDeviceDisconnected', handlers.onDeviceDisconnected);
+  }
+  if (handlers.onDataReceived) {
+    eventEmitter.addListener('onDataReceived', handlers.onDataReceived);
+  }
+  if (handlers.onConnectionError) {
+    eventEmitter.addListener('onConnectionError', handlers.onConnectionError);
+  }
+  if (handlers.onPermissionError) {
+    eventEmitter.addListener('onPermissionError', handlers.onPermissionError);
+  }
+  if (handlers.onProtocolUpdated) {
+    eventEmitter.addListener('onProtocolUpdated', handlers.onProtocolUpdated);
+  }
+  if (handlers.onSupabaseLog) {
+    eventEmitter.addListener('onSupabaseLog', handlers.onSupabaseLog);
+  }
+  if (handlers.onJimiBridgeRemoteLog) {
+    eventEmitter.addListener('onJimiBridgeRemoteLog', handlers.onJimiBridgeRemoteLog);
   }
 }
 
-export function removeJimiBridgeListeners() {
-  EventEmitter.removeAllListeners('onDeviceDiscovered');
-  EventEmitter.removeAllListeners('onDeviceConnected');
-  EventEmitter.removeAllListeners('onDeviceDisconnected');
-  EventEmitter.removeAllListeners('onDataReceived');
-  EventEmitter.removeAllListeners('onConnectionError');
-  EventEmitter.removeAllListeners('onPermissionError');
-  EventEmitter.removeAllListeners('onProtocolUpdated');
+export function removeJimiBridgeListeners(eventEmitter) {
+  if (eventEmitter) {
+    eventEmitter.removeAllListeners('onDeviceDiscovered');
+    eventEmitter.removeAllListeners('onDeviceConnected');
+    eventEmitter.removeAllListeners('onDeviceDisconnected');
+    eventEmitter.removeAllListeners('onDataReceived');
+    eventEmitter.removeAllListeners('onConnectionError');
+    eventEmitter.removeAllListeners('onPermissionError');
+    eventEmitter.removeAllListeners('onProtocolUpdated');
+    eventEmitter.removeAllListeners('onSupabaseLog');
+    eventEmitter.removeAllListeners('onJimiBridgeRemoteLog');
+  }
 }
 
 export async function startDeviceScan(scanOptions) {

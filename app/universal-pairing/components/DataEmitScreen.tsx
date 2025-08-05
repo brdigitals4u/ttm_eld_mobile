@@ -919,10 +919,7 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
         </View>
       </View>
 
-      {/* Conditional Rendering based on Device Type */}
-      {isELDDevice ? (
-        // ELD Device View
-        <View style={styles.eldSection}>
+      <View style={styles.eldSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             ELD Dashboard
           </Text>
@@ -1111,131 +1108,45 @@ const DataEmitScreen: React.FC<DataEmitScreenProps> = ({
                 <Text style={[styles.obdDataSource, { color: colors.inactive }]}>OBD PID 0x11</Text>
               </View>
             </View>
-            
-            {/* Data Source Comparison */}
-            <View style={styles.comparisonInfo}>
-              <Text style={[styles.comparisonInfoText, { color: colors.text }]}>
-                📊 Data Source: Both ELD and OBD data come from actual hardware
-              </Text>
-              <Text style={[styles.comparisonInfoText, { color: colors.inactive }]}>
-                🔧 OBD Protocol: Standard OBD-II PIDs from vehicle diagnostics
-              </Text>
-              <Text style={[styles.comparisonInfoText, { color: colors.inactive }]}>
-                📱 ELD Protocol: FMCSA-compliant Electronic Logging Device data
-              </Text>
-            </View>
           </View>
+          
+          {/* Regular Sensor Data for ELD Devices */}
+          {isELDDevice && deviceData.length > 0 && (
+            <View style={styles.regularSensorSection}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                📊 Regular Sensor Data (ELD Device)
+              </Text>
+              <Text style={[styles.specificDataTitle, { color: colors.inactive }]}>
+                Raw sensor data from ELD device - shows both ELD and sensor views
+              </Text>
+              
+              <View style={styles.sensorGrid}>
+                {deviceData.slice(-6).map((data, index) => (
+                  <View key={index} style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Text style={styles.sensorIcon}>
+                      {data.dataType === 'OBD_PROTOCOL' ? '🔧' : '📊'}
+                    </Text>
+                    <Text style={[styles.sensorLabel, { color: colors.text }]}>
+                      {data.dataType === 'OBD_PROTOCOL' ? 'OBD Data' : 'Sensor Data'}
+                    </Text>
+                    <Text style={[styles.sensorValue, { color: colors.primary }]}>
+                      {data.dataType === 'OBD_PROTOCOL' 
+                        ? `${data.value || '--'}`
+                        : `${data.value || '--'}`
+                      }
+                    </Text>
+                    <Text style={[styles.sensorTime, { color: colors.inactive }]}>
+                      {formatTimestamp(data.timestamp)}
+                    </Text>
+                    <Text style={[styles.sensorTime, { color: colors.inactive, fontSize: 10, fontFamily: "monospace" }]}>
+                      {data.protocol}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
-      ) : (
-        // Default Device View (Non-ELD Devices)
-        <>
-          {/* Sensor Cards */}
-          <View style={styles.sensorSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Sensor Data
-            </Text>
-            <View style={styles.sensorGrid}>
-              {/* Battery Card */}
-              <TouchableOpacity 
-                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => requestSpecificData('battery')}
-              >
-                <Text style={styles.sensorIcon}>🔋</Text>
-                <Text style={[styles.sensorLabel, { color: colors.text }]}>Battery</Text>
-                <Text style={[styles.sensorValue, { color: colors.primary }]}>
-                  {sensorData?.battery ? `${sensorData?.battery.value}%` : '--'}
-                </Text>
-                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-                  {sensorData?.battery ? formatTimestamp(sensorData?.battery.timestamp) : 'No data'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Speed Card */}
-              <TouchableOpacity 
-                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => requestSpecificData('speed')}
-              >
-                <Text style={styles.sensorIcon}>🚗</Text>
-                <Text style={[styles.sensorLabel, { color: colors.text }]}>Speed</Text>
-                <Text style={[styles.sensorValue, { color: colors.primary }]}>
-                  {sensorData?.speed ? `${sensorData?.speed.value} mph` : '--'}
-                </Text>
-                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-                  {sensorData?.speed ? formatTimestamp(sensorData?.speed.timestamp) : 'No data'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Temperature Card */}
-              <TouchableOpacity 
-                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => requestSpecificData('temperature')}
-              >
-                <Text style={styles.sensorIcon}>🌡️</Text>
-                <Text style={[styles.sensorLabel, { color: colors.text }]}>Temperature</Text>
-                <Text style={[styles.sensorValue, { color: colors.primary }]}>
-                  {sensorData?.temperature ? `${sensorData?.temperature.value}°C` : '--'}
-                </Text>
-                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-                  {sensorData?.temperature ? formatTimestamp(sensorData?.temperature.timestamp) : 'No data'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* OBD Data Card */}
-              <TouchableOpacity 
-                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => requestSpecificData('obd_data')}
-              >
-                <Text style={styles.sensorIcon}>🔧</Text>
-                <Text style={[styles.sensorLabel, { color: colors.text }]}>OBD Data</Text>
-                <Text style={[styles.sensorValue, { color: colors.primary }]}>
-                  {sensorData?.obd_data ? `${sensorData?.obd_data.value} RPM` : '--'}
-                </Text>
-                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-                  {sensorData?.obd_data ? formatTimestamp(sensorData?.obd_data.timestamp) : 'No data'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Engine Data Card */}
-              <TouchableOpacity 
-                style={[styles.sensorCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => requestSpecificData('engine_data')}
-              >
-                <Text style={styles.sensorIcon}>🏭</Text>
-                <Text style={[styles.sensorLabel, { color: colors.text }]}>Engine Data</Text>
-                <Text style={[styles.sensorValue, { color: colors.primary }]}>
-                  {sensorData?.engine_data ? `${sensorData?.engine_data.value}°F` : '--'}
-                </Text>
-                <Text style={[styles.sensorTime, { color: colors.inactive }]}>
-                  {sensorData?.engine_data ? formatTimestamp(sensorData?.engine_data.timestamp) : 'No data'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Data Stream */}
-          <View style={styles.dataSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Data Stream ({deviceData.length} messages)
-            </Text>
-
-            <FlatList
-              style={styles.dataList}
-              data={reversedDeviceData}
-              keyExtractor={keyExtractor}
-              renderItem={renderDataItem}
-              ListEmptyComponent={renderEmptyComponent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={colors.primary}
-                />
-              }
-            />
-          </View>
-        </>
-      )}
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
@@ -1733,6 +1644,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     lineHeight: 14,
+  },
+  regularSensorSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
 });
 
