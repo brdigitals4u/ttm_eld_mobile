@@ -8,6 +8,9 @@ import { initI18n } from "@/i18n"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
+import { QueryProvider } from "@/providers/QueryProvider"
+import { AuthProvider } from "@/contexts/AuthContext"
+import { ToastProvider } from "@/providers/ToastProvider"
 
 SplashScreen.preventAutoHideAsync()
 
@@ -48,11 +51,17 @@ export default function Root() {
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <ThemeProvider>
-        <KeyboardProvider>
-          <Slot />
-        </KeyboardProvider>
-      </ThemeProvider>
+      <QueryProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <KeyboardProvider>
+                <Slot />
+              </KeyboardProvider>
+            </ToastProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </QueryProvider>
     </SafeAreaProvider>
   )
 }

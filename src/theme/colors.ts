@@ -1,38 +1,79 @@
 const palette = {
-  neutral100: "#FFFFFF",
-  neutral200: "#F4F2F1",
-  neutral300: "#D7CEC9",
-  neutral400: "#B6ACA6",
-  neutral500: "#978F8A",
-  neutral600: "#564E4A",
-  neutral700: "#3C3836",
-  neutral800: "#191015",
-  neutral900: "#000000",
+  // Corporate Command Theme - Primary Colors
+  neutral100: "#FFFFFF", // Pure White - main content backgrounds
+  neutral200: "#F0F2F5", // Light Gray - cards, dividers, background elements
+  neutral300: "#E0E4E7", // Light border gray
+  neutral400: "#B8BCC8", // Medium gray
+  neutral500: "#6C7293", // Text gray
+  neutral600: "#4A5568", // Dark gray
+  neutral700: "#2D3748", // Darker gray
+  neutral800: "#1A202C", // Very dark gray
+  neutral900: "#0A2A4E", // Deep Navy Blue - headers, sidebars
 
-  primary100: "#F4E0D9",
-  primary200: "#E8C1B4",
-  primary300: "#DDA28E",
-  primary400: "#D28468",
-  primary500: "#C76542",
-  primary600: "#A54F31",
+  // Corporate Command Theme - Action Colors
+  primary100: "#E3F2FD", // Light blue
+  primary200: "#BBDEFB", // Lighter blue
+  primary300: "#90CAF9", // Medium light blue
+  primary400: "#64B5F6", // Medium blue
+  primary500: "#007BFF", // Action Blue - buttons, links, selected states
+  primary600: "#0056B3", // Darker blue
+  primary700: "#004085", // Dark blue
+  primary800: "#003366", // Very dark blue
+  primary900: "#0A2A4E", // Deep Navy Blue
 
-  secondary100: "#DCDDE9",
-  secondary200: "#BCC0D6",
-  secondary300: "#9196B9",
-  secondary400: "#626894",
-  secondary500: "#41476E",
+  // Corporate Command Theme - Status Colors
+  success100: "#D4EDDA", // Light green
+  success200: "#C3E6CB", // Lighter green
+  success300: "#B1DFBB", // Medium light green
+  success400: "#9FD9AB", // Medium green
+  success500: "#28A745", // Success Green - On Time, Active, Completed
+  success600: "#1E7E34", // Darker green
+  success700: "#155724", // Dark green
+  success800: "#0C4A1E", // Very dark green
+  success900: "#032017", // Deep green
 
-  accent100: "#FFEED4",
-  accent200: "#FFE1B2",
-  accent300: "#FDD495",
-  accent400: "#FBC878",
-  accent500: "#FFBB50",
+  warning100: "#FFF3CD", // Light yellow
+  warning200: "#FFECB5", // Lighter yellow
+  warning300: "#FFE082", // Medium light yellow
+  warning400: "#FFD54F", // Medium yellow
+  warning500: "#FFC107", // Warning Orange - Delayed, Maintenance Due
+  warning600: "#E0A800", // Darker yellow
+  warning700: "#B8860B", // Dark yellow
+  warning800: "#856404", // Very dark yellow
+  warning900: "#6B4C00", // Deep yellow
 
-  angry100: "#F2D6CD",
-  angry500: "#C03403",
+  error100: "#F8D7DA", // Light red
+  error200: "#F1B0B7", // Lighter red
+  error300: "#EAA0A8", // Medium light red
+  error400: "#E3737E", // Medium red
+  error500: "#DC3545", // Alert Red - Stopped, SOS, Overdue
+  error600: "#C82333", // Darker red
+  error700: "#A71E2A", // Dark red
+  error800: "#7F1A23", // Very dark red
+  error900: "#58151C", // Deep red
 
-  overlay20: "rgba(25, 16, 21, 0.2)",
-  overlay50: "rgba(25, 16, 21, 0.5)",
+  // Legacy support (keeping for compatibility)
+  secondary100: "#F0F2F5", // Light Gray
+  secondary200: "#E0E4E7", // Light border gray
+  secondary300: "#B8BCC8", // Medium gray
+  secondary400: "#6C7293", // Text gray
+  secondary500: "#4A5568", // Dark gray
+
+  accent100: "#E3F2FD", // Light blue
+  accent200: "#BBDEFB", // Lighter blue
+  accent300: "#90CAF9", // Medium light blue
+  accent400: "#64B5F6", // Medium blue
+  accent500: "#007BFF", // Action Blue
+  accent600: "#0056B3", // Darker blue
+  accent700: "#004085", // Dark blue
+  accent800: "#003366", // Very dark blue
+  accent900: "#0A2A4E", // Deep Navy Blue
+
+  angry100: "#F8D7DA", // Light red
+  angry500: "#DC3545", // Alert Red
+
+  overlay20: "rgba(10, 42, 78, 0.2)", // Deep Navy Blue with opacity
+  overlay50: "rgba(10, 42, 78, 0.5)", // Deep Navy Blue with opacity
 } as const
 
 export const colors = {
@@ -49,37 +90,115 @@ export const colors = {
   /**
    * The default text color in many components.
    */
-  text: palette.neutral800,
+  // Corporate Command Theme - Semantic Colors
+  /**
+   * The default text color in many components.
+   */
+  text: palette.neutral800, // Dark gray for primary text
   /**
    * Secondary text information.
    */
-  textDim: palette.neutral600,
+  textDim: palette.neutral500, // Medium gray for secondary text
   /**
    * The default color of the screen background.
    */
-  background: palette.neutral200,
+  background: palette.neutral100, // Pure White
   /**
    * The default border color.
    */
-  border: palette.neutral400,
+  border: palette.neutral300, // Light border gray
   /**
    * The main tinting color.
    */
-  tint: palette.primary500,
+  tint: palette.primary500, // Action Blue
   /**
    * The inactive tinting color.
    */
-  tintInactive: palette.neutral300,
+  tintInactive: palette.neutral400, // Medium gray for inactive states
   /**
-   * A subtle color used for lines.
+   * A subtle color used for lines and separators.
    */
-  separator: palette.neutral300,
+  separator: palette.neutral200, // Light Gray for dividers
+  
+  // Corporate Command Theme - Status Colors
   /**
-   * Error messages.
+   * Error messages and alerts.
    */
-  error: palette.angry500,
+  error: palette.error500, // Alert Red
   /**
    * Error Background.
    */
-  errorBackground: palette.angry100,
+  errorBackground: palette.error100, // Light red background
+  
+  /**
+   * Success messages and positive states.
+   */
+  success: palette.success500, // Success Green
+  successBackground: palette.success100, // Light green background
+  
+  /**
+   * Warning messages and caution states.
+   */
+  warning: palette.warning500, // Warning Orange
+  warningBackground: palette.warning100, // Light yellow background
+  
+  /**
+   * Info messages and neutral states.
+   */
+  info: palette.primary500, // Action Blue
+  infoBackground: palette.primary100, // Light blue background
+  
+  // Corporate Command Theme - UI Element Colors
+  /**
+   * Header and navigation background.
+   */
+  headerBackground: palette.neutral900, // Deep Navy Blue
+  /**
+   * Card and surface background.
+   */
+  surface: palette.neutral100, // Pure White
+  /**
+   * Card background with subtle elevation.
+   */
+  cardBackground: palette.neutral100, // Pure White
+  /**
+   * Subtle background for sections.
+   */
+  sectionBackground: palette.neutral200, // Light Gray
+  
+  // Corporate Command Theme - Interactive States
+  /**
+   * Primary button background.
+   */
+  buttonPrimary: palette.primary500, // Action Blue
+  /**
+   * Primary button text.
+   */
+  buttonPrimaryText: palette.neutral100, // Pure White
+  /**
+   * Secondary button background.
+   */
+  buttonSecondary: palette.neutral200, // Light Gray
+  /**
+   * Secondary button text.
+   */
+  buttonSecondaryText: palette.neutral800, // Dark gray
+  
+  // Corporate Command Theme - Input States
+  /**
+   * Input field background.
+   */
+  inputBackground: palette.neutral100, // Pure White
+  /**
+   * Input field border.
+   */
+  inputBorder: palette.neutral300, // Light border gray
+  /**
+   * Input field border when focused.
+   */
+  inputBorderFocused: palette.primary500, // Action Blue
+  /**
+   * Input field border when error.
+   */
+  inputBorderError: palette.error500, // Alert Red
 } as const

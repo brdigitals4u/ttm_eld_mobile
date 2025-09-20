@@ -1,6 +1,17 @@
 import { MMKV } from "react-native-mmkv"
 
-export const storage = new MMKV()
+// Create MMKV instance with proper error handling
+let storage: MMKV | null = null
+
+try {
+  storage = new MMKV()
+} catch (error) {
+  console.warn('MMKV initialization failed, using fallback:', error)
+  storage = null
+}
+
+// Export a safe storage wrapper
+export { storage }
 
 /**
  * Loads a string from storage.
@@ -9,6 +20,7 @@ export const storage = new MMKV()
  */
 export function loadString(key: string): string | null {
   try {
+    if (!storage) return null
     return storage.getString(key) ?? null
   } catch {
     // not sure why this would fail... even reading the RN docs I'm unclear
@@ -24,6 +36,7 @@ export function loadString(key: string): string | null {
  */
 export function saveString(key: string, value: string): boolean {
   try {
+    if (!storage) return false
     storage.set(key, value)
     return true
   } catch {
@@ -68,6 +81,7 @@ export function save(key: string, value: unknown): boolean {
  */
 export function remove(key: string): void {
   try {
+    if (!storage) return
     storage.delete(key)
   } catch {}
 }
@@ -77,6 +91,7 @@ export function remove(key: string): void {
  */
 export function clear(): void {
   try {
+    if (!storage) return
     storage.clearAll()
   } catch {}
 }

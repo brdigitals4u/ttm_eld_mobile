@@ -21,7 +21,10 @@ const reactotron = Reactotron.configure({
   },
 })
 
-reactotron.use(mmkvPlugin<ReactotronReactNative>({ storage }))
+// Only use MMKV plugin if storage is available
+if (storage) {
+  reactotron.use(mmkvPlugin<ReactotronReactNative>({ storage }))
+}
 
 if (Platform.OS !== "web") {
   reactotron.useReactNative({
