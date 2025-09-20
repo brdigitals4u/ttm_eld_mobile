@@ -74,6 +74,55 @@ const palette = {
 
   overlay20: "rgba(10, 42, 78, 0.2)", // Deep Navy Blue with opacity
   overlay50: "rgba(10, 42, 78, 0.5)", // Deep Navy Blue with opacity
+
+  light: {
+    primary: "#1E3A8A", // Navy blue
+    secondary: "#3B82F6", // Bright blue
+    background: "#FFFFFF",
+    card: "#F9FAFB",
+    surface: "#F3F4F6",
+    text: "#111827",
+    textSecondary: "#6B7280",
+    border: "#E5E7EB",
+    notification: "#EF4444",
+    success: "#10B981",
+    warning: "#F59E0B",
+    danger: "#EF4444",
+    error: "#EF4444",
+    inactive: "#9CA3AF",
+    driving: "#10B981", // Green
+    onDuty: "#F59E0B", // Amber
+    offDuty: "#3B82F6", // Blue
+    sleeping: "#6366F1", // Indigo
+    white: "#FFFFFF",
+    black: "#000000",
+    overlay: "rgba(0, 0, 0, 0.5)",
+    shadowColor: "#000000",
+  },
+  dark: {
+    primary: "#3B82F6", // Bright blue
+    secondary: "#60A5FA", // Lighter blue
+    background: "#0F172A",
+    card: "#1E293B",
+    surface: "#334155",
+    text: "#F8FAFC",
+    textSecondary: "#CBD5E1",
+    border: "#475569",
+    notification: "#EF4444",
+    success: "#10B981",
+    warning: "#F59E0B",
+    danger: "#EF4444",
+    error: "#EF4444",
+    inactive: "#64748B",
+    driving: "#10B981", // Green
+    onDuty: "#F59E0B", // Amber
+    offDuty: "#3B82F6", // Blue
+    sleeping: "#6366F1", // Indigo
+    white: "#FFFFFF",
+    black: "#000000",
+    overlay: "rgba(0, 0, 0, 0.7)",
+    shadowColor: "#000000",
+  }
 } as const
 
 export const colors = {
@@ -201,4 +250,8 @@ export const colors = {
    * Input field border when error.
    */
   inputBorderError: palette.error500, // Alert Red
+
+  light: palette.light,
+  dark: palette.dark,
+  
 } as const

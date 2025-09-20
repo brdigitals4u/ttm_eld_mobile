@@ -1,315 +1,246 @@
 import React, { useState, useEffect } from 'react'
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Dimensions } from 'react-native'
+import { View, StyleSheet, ScrollView, Dimensions, Animated, TouchableOpacity } from 'react-native'
 import { Text } from '@/components/Text'
-import { Button } from '@/components/Button'
-import { Card } from '@/components/Card'
 import { Screen } from '@/components/Screen'
-import { useDashboardStats, useRecentActivity, useNotifications } from '@/api/dashboard'
-import { useAuth } from '@/contexts/AuthContext'
-import { useLogout } from '@/api/auth'
-import { useDriverLogout } from '@/api/organization'
 import { useAppTheme } from '@/theme/context'
-import { useToast } from '@/providers/ToastProvider'
-import { format } from 'date-fns'
-import { router } from 'expo-router'
+import { RealmService } from '@/database/realm'
+import { Icon } from '@/components/Icon'
 
 const { width } = Dimensions.get('window')
 
-export const DashboardScreen: React.FC = () => {
-  const { theme } = useAppTheme()
-  const { user, logout: authLogout } = useAuth()
-  const toast = useToast()
-  const logoutMutation = useLogout()
-  const driverLogoutMutation = useDriverLogout()
-  
-  // Mock ELD data - in real app this would come from API
-  const [eldData, setEldData] = useState({
-    isConnected: true,
-    dutyStatus: 'DRIVING', // DRIVING, ON_DUTY, OFF_DUTY, SLEEPER_BERTH
-    driveTimeLeft: '05:52',
-    stopInTime: '03:52',
-    shiftTimeLeft: '09:23',
-    cycleTimeLeft: '45:01',
-    cycleDays: 6,
-    currentLocation: 'Reno, NV 84012',
-    vehicle: 'Truck: 174',
-    trailer: 'Trailer: 015',
-    coDriver: 'Felipe Hernandez'
-  })
+// Enhanced Progress Bar Component
+const ProgressBar = ({ percentage, color = '#10B981', backgroundColor = '#6B7280', height = 4 }: any) => {
+  return (
+    <View style={[styles.progressContainer, { height, backgroundColor }]}>
+      <View style={[styles.progressBar, { 
+        width: `${Math.min(percentage, 100)}%`, 
+        backgroundColor: color,
+        height 
+      }]} />
+    </View>
+  )
+}
 
-  const [refreshing, setRefreshing] = useState(false)
-
-  const onRefresh = async () => {
-    setRefreshing(true)
-    // Simulate API call
-    setTimeout(() => {
-      setRefreshing(false)
-    }, 1000)
-  }
-
-  const handleLogout = async () => {
-    try {
-      // Use driver logout (handles missing API gracefully)
-      await driverLogoutMutation.mutateAsync()
-      
-      // Clear auth state
-      authLogout()
-      
-      // Navigate to login screen
-      router.replace('/login')
-      
-      toast.success('Logged out successfully', 2000)
-    } catch (error) {
-      console.error('Logout error:', error)
-      
-      // Even if logout fails, clear auth state and redirect to login
-      authLogout()
-      router.replace('/login')
-      
-      toast.success('Logged out successfully', 2000)
-    }
-  }
-
-  const toggleDutyStatus = () => {
-    const statuses = ['DRIVING', 'ON_DUTY', 'OFF_DUTY', 'SLEEPER_BERTH']
-    const currentIndex = statuses.indexOf(eldData.dutyStatus)
-    const nextIndex = (currentIndex + 1) % statuses.length
-    setEldData(prev => ({ ...prev, dutyStatus: statuses[nextIndex] }))
-    toast.info(`Status changed to ${statuses[nextIndex]}`, 2000)
-  }
-
-  const getDutyStatusColor = () => {
-    switch (eldData.dutyStatus) {
-      case 'DRIVING': return '#FF6B35'
-      case 'ON_DUTY': return '#28A745'
-      case 'OFF_DUTY': return '#6C757D'
-      case 'SLEEPER_BERTH': return '#17A2B8'
-      default: return '#6C757D'
-    }
-  }
-
-  const getDutyStatusText = () => {
-    switch (eldData.dutyStatus) {
-      case 'DRIVING': return 'DRIVING'
-      case 'ON_DUTY': return 'ON DUTY'
-      case 'OFF_DUTY': return 'OFF DUTY'
-      case 'SLEEPER_BERTH': return 'SLEEPER BERTH'
-      default: return 'OFF DUTY'
-    }
-  }
-
-  const renderCircularProgress = (value: string, label: string, progress: number, color: string) => {
-    return (
-      <View style={styles.circularProgressContainer}>
-        <View style={[styles.circularProgress, { borderColor: color }]}>
-          <View style={[styles.progressFill, { 
-            borderColor: color,
-            transform: [{ rotate: `${progress * 3.6}deg` }]
-          }]} />
-          <View style={styles.circularProgressInner}>
-            <Text style={[styles.progressValue, { color }]}>{value}</Text>
-            <Text style={[styles.progressLabel, { color: theme.colors.textDim }]}>{label}</Text>
-          </View>
-        </View>
-      </View>
-    )
-  }
-
-  const renderLogbookGraph = () => {
-    // Mock logbook data for the graph
-    const logbookData = [
-      { time: '00:00', status: 'OFF' },
-      { time: '06:00', status: 'ON' },
-      { time: '06:30', status: 'D' },
-      { time: '10:00', status: 'ON' },
-      { time: '10:30', status: 'OFF' },
-      { time: '14:00', status: 'ON' },
-      { time: '14:30', status: 'D' },
-      { time: '18:00', status: 'ON' },
-      { time: '18:30', status: 'OFF' }
-    ]
-
-    return (
-      <View style={styles.logbookGraphContainer}>
-        <View style={styles.graphHeader}>
-          <Text style={[styles.graphTitle, { color: theme.colors.text }]}>
-            Today | {format(new Date(), 'MMM dd (EEE)')}
-          </Text>
-          <TouchableOpacity style={styles.signButton}>
-            <Text style={styles.signButtonText}>Sign</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.graphContainer}>
-          <View style={styles.graphYAxis}>
-            <Text style={styles.graphYLabel}>OFF</Text>
-            <Text style={styles.graphYLabel}>SB</Text>
-            <Text style={styles.graphYLabel}>D</Text>
-            <Text style={styles.graphYLabel}>ON</Text>
-          </View>
-          
-          <View style={styles.graphContent}>
-            <View style={styles.graphBars}>
-              {logbookData.map((entry, index) => (
-                <View key={index} style={styles.graphBar}>
-                  <View style={[
-                    styles.graphBarFill,
-                    { 
-                      backgroundColor: entry.status === 'D' ? '#FF6B35' : 
-                                     entry.status === 'ON' ? '#28A745' :
-                                     entry.status === 'SB' ? '#17A2B8' : '#6C757D'
-                    }
-                  ]} />
-                </View>
-              ))}
-            </View>
-            
-            <View style={styles.graphXAxis}>
-              {['M', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'N', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'M'].map((label, index) => (
-                <Text key={index} style={styles.graphXLabel}>{label}</Text>
-              ))}
-            </View>
-          </View>
-        </View>
-      </View>
-    )
-  }
+// Circular Progress Component matching the image
+const CircularProgress = ({ percentage, time, label, size = 120, strokeWidth = 8 }: any) => {
+  const rotation = (percentage / 100) * 360
 
   return (
-    <Screen style={[styles.container, { backgroundColor: theme.colors.background }]} preset="scroll">
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={[styles.appTitle, { color: theme.colors.text }]}>TTMKonnect ELD</Text>
-            <TouchableOpacity style={styles.infoButton}>
-              <Text style={[styles.infoIcon, { color: theme.colors.textDim }]}>ℹ</Text>
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      {/* Background circle */}
+      <View style={[styles.circularBackground, {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: strokeWidth,
+        borderColor: '#6B7280',
+      }]} />
+      
+      {/* Progress arc */}
+      <View style={[styles.circularProgress, {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: strokeWidth,
+        borderColor: 'transparent',
+        borderTopColor: '#10B981',
+        borderRightColor: percentage > 25 ? '#10B981' : 'transparent',
+        borderBottomColor: percentage > 50 ? '#10B981' : 'transparent',
+        borderLeftColor: percentage > 75 ? '#10B981' : 'transparent',
+        transform: [{ rotate: `${rotation}deg` }],
+      }]} />
+      
+      <View style={styles.circularContent}>
+        <Text style={styles.circularTime}>{time}</Text>
+        <Text style={styles.circularLabel}>{label}</Text>
+      </View>
+    </View>
+  )
+}
+
+export const DashboardScreen: React.FC = () => {
+  const { theme } = useAppTheme()
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Get data from Realm
+  const driverProfile = RealmService.getDriverProfile() as any
+  const hosStatus = RealmService.getHOSStatus() as any
+  const vehicleAssignment = RealmService.getVehicleAssignment() as any
+
+  const currentUser = driverProfile || {}
+  const currentHOS = hosStatus || {}
+  const currentVehicle = vehicleAssignment?.vehicle_info || {}
+
+  // Real-time calculations
+  const driveTimeRemaining = currentHOS.driving_time_remaining || 352 // Default to 05:52
+  const onDutyTimeRemaining = currentHOS.on_duty_time_remaining || 563 // Default to 09:23
+  const cycleTimeRemaining = currentHOS.cycle_time_remaining || 2701 // Default to 45:01
+
+  // Calculate percentages for progress bars
+  const driveProgress = Math.max(0, Math.min(100, ((660 - driveTimeRemaining) / 660) * 100))
+  const shiftProgress = Math.max(0, Math.min(100, ((840 - onDutyTimeRemaining) / 840) * 100))
+  const cycleProgress = Math.max(0, Math.min(100, ((4200 - cycleTimeRemaining) / 4200) * 100))
+
+  // Format time display
+  const formatTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+  }
+
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <Screen 
+      preset="scroll"
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
+      <View style={styles.screenContent}>
+        {/* Compact Header - Exact Match */}
+        <View style={styles.compactHeader}>
+          <View style={styles.headerRow}>
+            <Text style={styles.appTitle}>TruckX ELD One</Text>
+            <TouchableOpacity style={styles.infoIcon}>
+              <View style={styles.infoCircle}>
+                <Text style={styles.infoText}>!</Text>
+              </View>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={[styles.logoutText, { color: theme.colors.textDim }]}>Logout</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Connection Status */}
-        <View style={styles.connectionStatus}>
-          <TouchableOpacity style={[styles.connectedButton, { backgroundColor: '#28A745' }]}>
-            <Text style={styles.connectedIcon}>🔗</Text>
+          {/* Connected Banner - Exact Match */}
+          <View style={styles.connectedBanner}>
+            <View style={styles.connectionIcon} />
             <Text style={styles.connectedText}>CONNECTED</Text>
-          </TouchableOpacity>
+          </View>
+
+          {/* Driver Info - Exact Match */}
+          <Text style={styles.driverName}>
+            {currentUser.firstName || 'Dan'} {currentUser.lastName || 'Smith'}
+          </Text>
+          <Text style={styles.coDriverText}>Co-Driver: Felipe Hernandez</Text>
+          <Text style={styles.vehicleText}>
+            Truck: {currentVehicle.vehicle_unit || '174'}  |  Trailer: {currentVehicle.trailer_unit || '015'}
+          </Text>
         </View>
 
-        {/* Driver Information */}
-        <Card style={[styles.card, { backgroundColor: theme.colors.background }]}>
-          <View style={styles.driverInfo}>
-            <View style={styles.driverLeft}>
-              <View style={styles.truckIcon}>
-                <Text style={styles.truckIconText}>🚛</Text>
+        {/* Status Section - Exact Match */}
+        <View style={styles.statusSection}>
+          <View style={styles.statusRow}>
+            <Text style={styles.statusLabel}>Duty Status</Text>
+            <TouchableOpacity style={styles.changeButton}>
+              <Icon icon="check" color="#FFFFFF" size={16} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.drivingStatusContainer}>
+            <Text style={styles.drivingText}>
+              {currentHOS.current_status || 'DRIVING'}
+            </Text>
+          </View>
+        </View>
+
+        {/* USA Flag - Exact Match */}
+        <View style={styles.flagSection}>
+          <Text style={styles.flagEmoji}>🇺🇸</Text>
+          <Text style={styles.usaText}>USA</Text>
+        </View>
+
+        {/* Main Timer Layout - Exact Match */}
+        <View style={styles.mainTimerSection}>
+          <View style={styles.timerRow}>
+            {/* Left Timer */}
+            <View style={styles.sideTimer}>
+              <Text style={styles.timerValue}>{formatTime(driveTimeRemaining)}</Text>
+              <Text style={styles.timerLabel}>Drive Left</Text>
+              <View style={styles.progressBarContainer}>
+                <ProgressBar percentage={driveProgress} />
               </View>
-              <View>
-                <Text style={[styles.driverName, { color: theme.colors.text }]}>{user?.firstName} {user?.lastName}</Text>
-                <Text style={[styles.driverDetails, { color: theme.colors.textDim }]}>
-                  Co-Driver: {eldData.coDriver}
-                </Text>
-                <Text style={[styles.vehicleInfo, { color: theme.colors.textDim }]}>
-                  {eldData.vehicle} | {eldData.trailer}
-                </Text>
+            </View>
+
+            {/* Center Circular Timer */}
+            <View style={styles.centerTimerContainer}>
+              <CircularProgress 
+                percentage={driveProgress} 
+                time={formatTime(driveTimeRemaining)} 
+                label="Stop In" 
+                size={120}
+                strokeWidth={8}
+              />
+            </View>
+
+            {/* Right Timer */}
+            <View style={styles.sideTimer}>
+              <Text style={styles.timerValue}>{formatTime(onDutyTimeRemaining)}</Text>
+              <Text style={styles.timerLabel}>Shift Left</Text>
+              <View style={styles.progressBarContainer}>
+                <ProgressBar percentage={shiftProgress} />
               </View>
             </View>
           </View>
-        </Card>
 
-        {/* Duty Status */}
-        <Card style={[styles.card, { backgroundColor: theme.colors.background }]}>
-          <View style={styles.dutyStatusContainer}>
-            <Text style={[styles.dutyStatusLabel, { color: theme.colors.text }]}>Duty Status</Text>
-            <View style={styles.dutyStatusRow}>
-              <TouchableOpacity onPress={toggleDutyStatus}>
-                <Text style={[styles.dutyStatusValue, { color: getDutyStatusColor() }]}>
-                  {getDutyStatusText()}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.refreshButton}>
-                <Text style={styles.refreshIcon}>🔄</Text>
-              </TouchableOpacity>
+          {/* Cycle Timer - Below */}
+          <View style={styles.cycleSection}>
+            <Text style={styles.cycleLabel}>Cycle Left</Text>
+            <Text style={styles.cycleValue}>
+              {formatTime(cycleTimeRemaining)} <Text style={styles.cycleDays}>({Math.ceil(cycleTimeRemaining / 1440)} Days)</Text>
+            </Text>
+            <View style={styles.cycleProgressContainer}>
+              <ProgressBar percentage={cycleProgress} height={6} />
             </View>
           </View>
-        </Card>
+        </View>
 
-        {/* HOS Timers */}
-        <Card style={[styles.card, { backgroundColor: theme.colors.background }]}>
-          <View style={styles.hosContainer}>
-            <View style={styles.hosHeader}>
-              <Text style={styles.usaFlag}>🇺🇸</Text>
-              <Text style={[styles.usaText, { color: theme.colors.text }]}>USA 70 hours / 8 days</Text>
+        {/* Timeline Section - Exact Match */}
+        <View style={styles.timelineSection}>
+          <View style={styles.timelineHeader}>
+            <Text style={styles.timelineTitle}>
+              Today | {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ({currentTime.toLocaleDateString('en-US', { weekday: 'short' })})
+            </Text>
+            <TouchableOpacity style={styles.signButton}>
+              <Text style={styles.signButtonText}>Sign</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Hour Markers */}
+          <View style={styles.hourMarkers}>
+            {['M', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'N', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'M'].map((hour, index) => (
+              <Text key={index} style={styles.hourMarker}>{hour}</Text>
+            ))}
+          </View>
+
+          {/* Timeline Chart */}
+          <View style={styles.chartContainer}>
+            <View style={styles.yAxisLabels}>
+              <Text style={styles.yLabel}>OFF</Text>
+              <Text style={styles.yLabel}>SB</Text>
+              <Text style={styles.yLabel}>D</Text>
+              <Text style={styles.yLabel}>ON</Text>
             </View>
             
-            <View style={styles.timersContainer}>
-              {/* Main Circular Timer */}
-              <View style={styles.mainTimer}>
-                {renderCircularProgress(eldData.stopInTime, 'Stop In', 0.7, '#FF6B35')}
-              </View>
-              
-              {/* Side Timers */}
-              <View style={styles.sideTimers}>
-                <View style={styles.sideTimer}>
-                  <Text style={[styles.sideTimerValue, { color: '#28A745' }]}>{eldData.driveTimeLeft}</Text>
-                  <Text style={[styles.sideTimerLabel, { color: theme.colors.textDim }]}>Drive Left</Text>
-                  <View style={[styles.sideProgressBar, { backgroundColor: '#E9ECEF' }]}>
-                    <View style={[styles.sideProgressFill, { backgroundColor: '#28A745', width: '60%' }]} />
-                  </View>
-                </View>
-                
-                <View style={styles.sideTimer}>
-                  <Text style={[styles.sideTimerValue, { color: '#28A745' }]}>{eldData.shiftTimeLeft}</Text>
-                  <Text style={[styles.sideTimerLabel, { color: theme.colors.textDim }]}>Shift Left</Text>
-                  <View style={[styles.sideProgressBar, { backgroundColor: '#E9ECEF' }]}>
-                    <View style={[styles.sideProgressFill, { backgroundColor: '#28A745', width: '80%' }]} />
-                  </View>
-                </View>
+            <View style={styles.chartArea}>
+              <View style={styles.timelineBars}>
+                <View style={[styles.timelineBar, styles.dBar, { flex: 2 }]} />
+                <View style={[styles.timelineBar, styles.offBar, { flex: 1 }]} />
+                <View style={[styles.timelineBar, styles.dBar, { flex: 3 }]} />
+                <View style={[styles.timelineBar, styles.offBar, { flex: 1 }]} />
               </View>
             </View>
-          </View>
-        </Card>
 
-        {/* Cycle Left */}
-        <Card style={[styles.card, { backgroundColor: theme.colors.background }]}>
-          <View style={styles.cycleContainer}>
-            <Text style={[styles.cycleLabel, { color: theme.colors.text }]}>Cycle Left</Text>
-            <View style={styles.cycleRow}>
-              <Text style={[styles.cycleValue, { color: '#28A745' }]}>
-                {eldData.cycleTimeLeft}
-              </Text>
-              <Text style={[styles.cycleDays, { color: theme.colors.textDim }]}>
-                ({eldData.cycleDays} Days)
-              </Text>
-            </View>
-            <View style={[styles.cycleProgressBar, { backgroundColor: '#E9ECEF' }]}>
-              <View style={[styles.cycleProgressFill, { backgroundColor: '#28A745', width: '85%' }]} />
+            <View style={styles.timeStamps}>
+              <Text style={styles.timeStamp}>10:04</Text>
+              <Text style={styles.timeStamp}>00:00</Text>
+              <Text style={styles.timeStamp}>07:48</Text>
+              <Text style={styles.timeStamp}>00:00</Text>
             </View>
           </View>
-        </Card>
-
-        {/* Logbook Graph */}
-        <Card style={[styles.card, { backgroundColor: theme.colors.background }]}>
-          {renderLogbookGraph()}
-        </Card>
-
-        {/* Current Status Footer */}
-        <View style={styles.statusFooter}>
-          <Text style={[styles.currentStatus, { color: getDutyStatusColor() }]}>
-            {getDutyStatusText()}
-          </Text>
-          <TouchableOpacity style={styles.locationButton}>
-            <Text style={styles.locationIcon}>📍</Text>
-          </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </Screen>
   )
 }
@@ -317,340 +248,329 @@ export const DashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1F2937',
   },
-  scrollView: {
+  content: {
+    paddingBottom: 100,
+  },
+  screenContent: {
     flex: 1,
   },
-  header: {
+
+  // Compact Header - Exact Match
+  compactHeader: {
+    backgroundColor: '#1F2937',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 16,
   },
   appTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginRight: 8,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
-  infoButton: {
+  infoIcon: {
+    width: 24,
+    height: 24,
+  },
+  infoCircle: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#E9ECEF',
-    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
-  },
-  infoIcon: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  logoutText: {
-    fontSize: 16,
-  },
-  connectionStatus: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  connectedButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
   },
-  connectedIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  connectedText: {
+  infoText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
-  card: {
-    marginHorizontal: 20,
+  connectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    borderRadius: 8,
     marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
+    gap: 8,
   },
-  driverInfo: {
+  connectionIcon: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  connectedText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  driverName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  coDriverText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#D1D5DB',
+    marginBottom: 4,
+  },
+  vehicleText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#D1D5DB',
+  },
+
+  // Status Section - Exact Match
+  statusSection: {
+    backgroundColor: '#1F2937',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  statusRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  driverLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  statusLabel: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#9CA3AF',
   },
-  truckIcon: {
+  changeButton: {
     width: 40,
     height: 40,
     borderRadius: 8,
-    backgroundColor: '#E9ECEF',
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  drivingStatusContainer: {
+    backgroundColor: '#F59E0B',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  drivingText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#000000',
+    letterSpacing: 2,
+  },
+
+  // Flag Section - Exact Match
+  flagSection: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    backgroundColor: '#1F2937',
+    paddingVertical: 12,
+    gap: 8,
   },
-  truckIconText: {
+  flagEmoji: {
     fontSize: 20,
   },
-  driverName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  driverDetails: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  vehicleInfo: {
-    fontSize: 14,
-  },
-  dutyStatusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dutyStatusLabel: {
+  usaText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
-  dutyStatusRow: {
+
+  // Main Timer Section - Exact Match
+  mainTimerSection: {
+    backgroundColor: '#374151',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+  },
+  timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  dutyStatusValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginRight: 12,
-  },
-  refreshButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E9ECEF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  refreshIcon: {
-    fontSize: 16,
-  },
-  hosContainer: {
-    alignItems: 'center',
-  },
-  hosHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  usaFlag: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  usaText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  timersContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-  },
-  mainTimer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  circularProgressContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circularProgress: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  progressFill: {
-    position: 'absolute',
-    top: -8,
-    left: -8,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 8,
-    borderTopColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'transparent',
-  },
-  circularProgressInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  progressLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  sideTimers: {
-    flex: 1,
-    paddingLeft: 20,
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
   sideTimer: {
-    marginBottom: 16,
+    flex: 1,
+    alignItems: 'center',
   },
-  sideTimerValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  timerValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
-  sideTimerLabel: {
+  timerLabel: {
     fontSize: 12,
+    fontWeight: '500',
+    color: '#D1D5DB',
     marginBottom: 8,
   },
-  sideProgressBar: {
-    height: 4,
+  progressBarContainer: {
+    width: '80%',
+  },
+
+  // Progress Bar Components
+  progressContainer: {
+    width: '100%',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
     borderRadius: 2,
   },
-  sideProgressFill: {
-    height: 4,
-    borderRadius: 2,
+
+  // Center Circular Timer - Exact Match
+  centerTimerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 20,
   },
-  cycleContainer: {
+  circularBackground: {
+    position: 'absolute',
+  },
+  circularProgress: {
+    position: 'absolute',
+  },
+  circularContent: {
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  circularTime: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  circularLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#D1D5DB',
+    marginTop: 2,
+  },
+
+  // Cycle Section - Exact Match
+  cycleSection: {
     alignItems: 'center',
   },
   cycleLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  cycleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#D1D5DB',
+    marginBottom: 4,
   },
   cycleValue: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginRight: 8,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 12,
   },
   cycleDays: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#9CA3AF',
   },
-  cycleProgressBar: {
-    width: '100%',
-    height: 8,
-    borderRadius: 4,
-  },
-  cycleProgressFill: {
-    height: 8,
-    borderRadius: 4,
-  },
-  logbookGraphContainer: {
+  cycleProgressContainer: {
     width: '100%',
   },
-  graphHeader: {
+
+  // Timeline Section - Exact Match
+  timelineSection: {
+    backgroundColor: '#FFFFFF',
+    margin: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  timelineHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  graphTitle: {
+  timelineTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#111827',
   },
   signButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#3B82F6',
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 4,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   signButtonText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
-  graphContainer: {
+
+  // Timeline Chart - Exact Match
+  hourMarkers: {
     flexDirection: 'row',
-  },
-  graphYAxis: {
-    width: 30,
     justifyContent: 'space-between',
-    height: 120,
-    paddingVertical: 8,
+    marginBottom: 8,
+    paddingHorizontal: 32,
   },
-  graphYLabel: {
-    fontSize: 12,
-    color: '#6C757D',
-    textAlign: 'center',
+  hourMarker: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#6B7280',
   },
-  graphContent: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  graphBars: {
+  chartContainer: {
     flexDirection: 'row',
     height: 80,
-    alignItems: 'flex-end',
-    marginBottom: 8,
+    alignItems: 'stretch',
   },
-  graphBar: {
-    flex: 1,
-    height: '100%',
-    justifyContent: 'flex-end',
-    marginHorizontal: 1,
-  },
-  graphBarFill: {
-    height: '60%',
-    borderRadius: 1,
-  },
-  graphXAxis: {
-    flexDirection: 'row',
+  yAxisLabels: {
     justifyContent: 'space-between',
-    paddingHorizontal: 2,
+    paddingRight: 8,
+    width: 24,
   },
-  graphXLabel: {
+  yLabel: {
     fontSize: 10,
-    color: '#6C757D',
+    fontWeight: '600',
+    color: '#6B7280',
     textAlign: 'center',
+  },
+  chartArea: {
     flex: 1,
+    position: 'relative',
   },
-  statusFooter: {
+  timelineBars: {
+    flex: 1,
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 2,
+  },
+  timelineBar: {
+    height: 16,
+  },
+  dBar: {
+    backgroundColor: '#3B82F6',
+  },
+  offBar: {
+    backgroundColor: '#E5E7EB',
+  },
+  timeStamps: {
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 20,
+    paddingLeft: 8,
+    width: 32,
   },
-  currentStatus: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  locationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationIcon: {
-    fontSize: 18,
-    color: '#FFFFFF',
+  timeStamp: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'right',
   },
 })

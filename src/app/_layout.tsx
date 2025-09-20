@@ -9,7 +9,7 @@ import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
 import { QueryProvider } from "@/providers/QueryProvider"
-import { AuthProvider } from "@/contexts/AuthContext"
+import { AllContextsProvider } from "@/contexts"
 import { ToastProvider } from "@/providers/ToastProvider"
 
 SplashScreen.preventAutoHideAsync()
@@ -52,7 +52,7 @@ export default function Root() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryProvider>
-        <AuthProvider>
+        <AllContextsProvider>
           <ThemeProvider>
             <ToastProvider>
               <KeyboardProvider>
@@ -60,7 +60,7 @@ export default function Root() {
               </KeyboardProvider>
             </ToastProvider>
           </ThemeProvider>
-        </AuthProvider>
+        </AllContextsProvider>
       </QueryProvider>
     </SafeAreaProvider>
   )

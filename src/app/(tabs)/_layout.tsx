@@ -2,9 +2,7 @@ import React from 'react'
 import { Tabs } from 'expo-router'
 import { Platform } from 'react-native'
 import { useAppTheme } from '@/theme/context'
-
-// Import icons (you can use any icon library)
-// For now, we'll use text-based tabs
+import { Icon } from '@/components/Icon'
 export default function TabLayout() {
   const { theme } = useAppTheme()
 
@@ -33,18 +31,61 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarLabel: 'Dashboard',
+          tabBarLabel: 'Home',
           headerTitle: 'Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <Icon icon="menu" color={color} size={size} />
+          ),
         }}
       />
+      <Tabs.Screen
+        name="logs"
+        options={{
+          title: 'Logs',
+          tabBarLabel: 'Logs',
+          headerTitle: 'Logs',
+          tabBarIcon: ({ color, size }) => (
+            <Icon icon="view" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="hos"
+        options={{
+          title: 'HOS',
+          tabBarLabel: 'HOS',
+          headerTitle: 'Hours of Service',
+          tabBarIcon: ({ color, size }) => (
+            <Icon icon="check" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="fuel"
+        options={{
+          title: 'Fuel',
+          tabBarLabel: 'Fuel',
+          headerTitle: 'Fuel Receipts',
+          tabBarIcon: ({ color, size }) => (
+            <Icon icon="bell" color={color} size={size} />
+          ),
+        }}
+      />
+
+  
+
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarLabel: 'Profile',
           headerTitle: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Icon icon="user" color={color} size={size} />
+          ),
         }}
       />
+      
     </Tabs>
   )
 }

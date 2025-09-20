@@ -1,18 +1,28 @@
 import React, { useState } from 'react'
-import { View, StyleSheet, KeyboardAvoidingView, Platform, StatusBar, TextInput, TouchableOpacity } from 'react-native'
+import { View, StyleSheet, KeyboardAvoidingView, Platform, TextInput } from 'react-native'
 import { Text } from '@/components/Text'
 import { useDriverLogin } from '@/api/organization'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/contexts'
+import TTMKonnectLogo from '@/components/TTMKonnectLogo';
 import { useAppTheme } from '@/theme/context'
 import { useToast } from '@/providers/ToastProvider'
 import { LoginCredentials } from '@/database/schemas'
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/api/constants'
-import { tokenStorage, userStorage } from '@/utils/storage'
-import { RealmService } from '@/database/realm'
-import { BSON } from 'realm'
+import Button from '@/components/LoadingButton';
+import { ERROR_MESSAGES } from '@/api/constants'
 import { router } from 'expo-router'
 
 export const LoginScreen: React.FC = () => {
+
+  const colors = {
+    background: '#FFFFFF',
+    text: '#000000',
+    inactive: '#666666',
+    card: '#F5F5F5',
+  };
+
+  const isDark = false;
+  const insets = { top: 44, bottom: 34, left: 0, right: 0 };
+
   const { theme } = useAppTheme()
   const { login } = useAuth()
   const toast = useToast()
@@ -65,12 +75,6 @@ export const LoginScreen: React.FC = () => {
 
   const handleLogin = async () => {
     if (!validateForm()) return
-
-    console.log('Starting login process...')
-    console.log('API Base URL:', 'http://10.0.2.2:8000/api')
-    console.log('Login endpoint:', '/organisation_users/login/')
-    console.log('Full URL:', 'http://10.0.2.2:8000/api/organisation_users/login/')
-
     try {
       // Use mutation approach since it's working now
       console.log('Using driver login mutation...')
@@ -122,226 +126,114 @@ export const LoginScreen: React.FC = () => {
   }
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
-          <View style={styles.headerContent}>
-            <View style={styles.logoContainer}>
-              <View style={[styles.logoIcon, { backgroundColor: theme.colors.tint }]}>
-                <Text style={styles.logoText}>TT</Text>
-              </View>
-              <Text style={[styles.appTitle, { color: theme.colors.text }]}>TTMKonnect</Text>
-            </View>
-          </View>
-        </View>
+    <KeyboardAvoidingView
+    style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  >
+    <View style={styles.logoContainer}>
+      <TTMKonnectLogo size={80} showText={true} />
+      <Text style={[styles.title, { color: colors.text }]}>TTM Konnect</Text>
+      <Text style={[styles.subtitle, { color: colors.inactive }]}>
+        Transform your operations with TTMKonnect intelligence
+      </Text>
+    </View>
 
-        {/* Main Content */}
-        <View style={[styles.content, { backgroundColor: theme.colors.background }]}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardView}
-          >
-            {/* Login Card */}
-            <View style={[styles.loginCard, { backgroundColor: theme.colors.background, borderColor: theme.colors.border }]}>
-              <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Driver Login</Text>
-                <Text style={[styles.cardSubtitle, { color: theme.colors.textDim }]}>Sign in to your account</Text>
-              </View>
-
-              <View style={styles.form}>
-                {/* Email Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Email Address</Text>
-                  <TextInput
-                    style={[
-                      styles.input, 
-                      { 
-                        backgroundColor: theme.colors.background, 
-                        borderColor: errors.email ? theme.colors.error : theme.colors.border,
-                        color: theme.colors.text 
-                      }
-                    ]}
-                    placeholder="Enter your email"
-                    placeholderTextColor={theme.colors.textDim}
-                    value={credentials.email}
-                    onChangeText={handleEmailChange}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                  {errors.email && (
-                    <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.email}</Text>
-                  )}
-                </View>
-
-                {/* Password Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Password</Text>
-                  <TextInput
-                    style={[
-                      styles.input, 
-                      { 
-                        backgroundColor: theme.colors.background, 
-                        borderColor: errors.password ? theme.colors.error : theme.colors.border,
-                        color: theme.colors.text 
-                      }
-                    ]}
-                    placeholder="Enter your password"
-                    placeholderTextColor={theme.colors.textDim}
-                    value={credentials.password}
-                    onChangeText={handlePasswordChange}
-                    secureTextEntry
-                    autoComplete="password"
-                  />
-                  {errors.password && (
-                    <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.password}</Text>
-                  )}
-                </View>
-
-                {/* Login Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.loginButton, 
-                    { 
-                      backgroundColor: theme.colors.tint,
-                      opacity: driverLoginMutation.isPending ? 0.6 : 1
-                    }
-                  ]}
-                  onPress={handleLogin}
-                  disabled={driverLoginMutation.isPending}
-                >
-                  <Text style={[styles.loginButtonText, { color: theme.colors.palette.neutral100 }]}>
-                    {driverLoginMutation.isPending ? "Signing In..." : "Sign In"}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Forgot Password */}
-                <TouchableOpacity style={styles.forgotPasswordContainer}>
-                  <Text style={[styles.forgotPasswordText, { color: theme.colors.tint }]}>Forgot Password?</Text>
-                </TouchableOpacity>
-
-                {/* Test API Connection Button */}
-
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
+    <View style={styles.formContainer}>
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: isDark ? colors.card : '#F3F4F6',
+              color: colors.text,
+              borderColor: isDark ? 'transparent' : '#E5E7EB',
+            },
+          ]}
+          placeholder="Enter your email"
+          placeholderTextColor={colors.inactive}
+          value={credentials.email}
+          onChangeText={handleEmailChange}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
       </View>
-    </>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: isDark ? colors.card : '#F3F4F6',
+              color: colors.text,
+              borderColor: isDark ? 'transparent' : '#E5E7EB',
+            },
+          ]}
+          placeholder="Enter your password"
+          placeholderTextColor={colors.inactive}
+          value={credentials.password}
+          onChangeText={handlePasswordChange}
+          secureTextEntry
+        />
+      </View>
+
+      <Button
+        title="Log In"
+        onPress={handleLogin}
+        loading={driverLoginMutation.isPending}
+        fullWidth
+      />
+    </View>
+  
+  </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    paddingTop: StatusBar.currentHeight || 44,
-    paddingBottom: 16,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 20,
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   logoContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 40,
   },
-  logoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  appTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  loginCard: {
-    borderRadius: 8,
-    padding: 32,
-    borderWidth: 1,
-  },
-  cardHeader: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  cardTitle: {
+  title: {
     fontSize: 28,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: '700' as const,
+    marginTop: 16,
   },
-  cardSubtitle: {
+  subtitle: {
     fontSize: 16,
-  },
-  form: {
-    gap: 24,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  input: {
-    borderRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    borderWidth: 1,
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  loginButton: {
-    borderRadius: 6,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    textAlign: 'center',
     marginTop: 8,
   },
-  loginButtonText: {
+  formContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
+    marginBottom: 8,
   },
-  forgotPasswordContainer: {
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  testButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  input: {
+    height: 50,
+    borderWidth: 1,
     borderRadius: 8,
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    fontSize: 16,
   },
-  testButtonText: {
+  helpText: {
+    textAlign: 'center',
+    marginTop: 20,
     fontSize: 14,
-    fontWeight: '600',
   },
-})
+});

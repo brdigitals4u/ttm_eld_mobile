@@ -77,4 +77,76 @@ export const colors = {
   separator: palette.neutral300,
   error: palette.angry500,
   errorBackground: palette.angry100,
+  
+  /**
+   * Success messages and positive states.
+   */
+  success: palette.success500,
+  successBackground: palette.success900,
+  
+  /**
+   * Warning messages and caution states.
+   */
+  warning: palette.warning500,
+  warningBackground: palette.warning900,
+  
+  /**
+   * Info messages and neutral states.
+   */
+  info: palette.info500,
+  infoBackground: palette.info900,
+  
+  // Corporate Command Theme - UI Element Colors
+  /**
+   * Header and navigation background.
+   */
+  headerBackground: palette.neutral100,
+  /**
+   * Card and surface background.
+   */
+  surface: palette.neutral200,
+  /**
+   * Card background with subtle elevation.
+   */
+  cardBackground: palette.neutral200,
+  /**
+   * Subtle background for sections.
+   */
+  sectionBackground: palette.neutral300,
+  
+  // Corporate Command Theme - Interactive States
+  /**
+   * Primary button background.
+   */
+  buttonPrimary: palette.primary500,
+  /**
+   * Primary button text.
+   */
+  buttonPrimaryText: palette.neutral100,
+  /**
+   * Secondary button background.
+   */
+  buttonSecondary: palette.neutral300,
+  /**
+   * Secondary button text.
+   */
+  buttonSecondaryText: palette.neutral800,
+  
+  // Corporate Command Theme - Input States
+  /**
+   * Input field background.
+   */
+  inputBackground: palette.neutral200,
+  /**
+   * Input field border.
+   */
+  inputBorder: palette.neutral400,
+  /**
+   * Input field border when focused.
+   */
+  inputBorderFocused: palette.primary500,
+  /**
+   * Input field border when error.
+   */
+  inputBorderError: palette.angry500,
 } as const

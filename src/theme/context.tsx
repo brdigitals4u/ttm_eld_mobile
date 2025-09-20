@@ -14,8 +14,7 @@ import {
   DefaultTheme as NavDefaultTheme,
   Theme as NavTheme,
 } from "@react-navigation/native"
-import { useMMKVString } from "react-native-mmkv"
-import { storage } from "@/utils/storage"
+import { secureStorage as storage } from "@/utils/storage"
 
 import { setImperativeTheming } from "./context.utils"
 import { darkTheme, lightTheme } from "./theme"
@@ -58,15 +57,35 @@ export const ThemeProvider: FC<PropsWithChildren<ThemeProviderProps>> = ({
   // The operating system theme:
   const systemColorScheme = useColorScheme()
   // Our saved theme context: can be "light", "dark", or undefined (system theme)
-  // Use MMKV if available, otherwise fallback to state
-  const [mmkvThemeScheme, setMmkvThemeScheme] = useMMKVString("ignite.themeScheme", storage)
-  const [fallbackThemeScheme, setFallbackThemeScheme] = useState<ThemeContextModeT>(undefined)
+  const [themeScheme, setThemeSchemeState] = useState<ThemeContextModeT>(undefined)
   
-  const themeScheme = mmkvThemeScheme ?? fallbackThemeScheme
-  const setThemeScheme = (value: ThemeContextModeT) => {
-    setMmkvThemeScheme(value)
-    setFallbackThemeScheme(value)
-  }
+  // Load theme from storage on mount
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await storage.getItem("ignite.themeScheme")
+        if (savedTheme === "light" || savedTheme === "dark") {
+          setThemeSchemeState(savedTheme)
+        }
+      } catch (error) {
+        console.error("Failed to load theme from storage:", error)
+      }
+    }
+    loadTheme()
+  }, [])
+  
+  const setThemeScheme = useCallback(async (value: ThemeContextModeT) => {
+    try {
+      setThemeSchemeState(value)
+      if (value) {
+        await storage.setItem("ignite.themeScheme", value)
+      } else {
+        await storage.removeItem("ignite.themeScheme")
+      }
+    } catch (error) {
+      console.error("Failed to save theme to storage:", error)
+    }
+  }, [])
 
   /**
    * This function is used to set the theme context and is exported from the useAppTheme() hook.
