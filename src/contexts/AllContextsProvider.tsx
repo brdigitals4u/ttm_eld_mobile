@@ -1,0 +1,26 @@
+import React from 'react';
+import { AssetsProvider } from './assets-context';
+import { CarrierProvider } from './carrier-context';
+import { CoDriverProvider } from './codriver-context';
+import { FuelProvider } from './fuel-context';
+import { InspectionProvider } from './inspection-context';
+import { StatusProvider } from './status-context';
+
+// Main Context Provider that wraps all contexts (except auth which is now handled by Zustand)
+export const AllContextsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <AssetsProvider>
+      <CarrierProvider>
+        <CoDriverProvider>
+          <FuelProvider>
+            <InspectionProvider>
+              <StatusProvider>
+                {children}
+              </StatusProvider>
+            </InspectionProvider>
+          </FuelProvider>
+        </CoDriverProvider>
+      </CarrierProvider>
+    </AssetsProvider>
+  );
+};

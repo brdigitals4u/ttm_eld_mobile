@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { FuelReceipt, FuelState } from '@/types/fuel';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/stores/authStore';
 
 interface FuelContextType extends FuelState {
   addFuelReceipt: (receipt: Omit<FuelReceipt, 'id' | 'createdAt'>) => Promise<void>;

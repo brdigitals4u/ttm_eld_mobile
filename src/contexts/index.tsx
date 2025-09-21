@@ -133,21 +133,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }));
 
       // Create user object directly from profile data
-      const user: any = {
-        id: profile.user_id || profile.id || '1',
-        email: profile.email || '',
-        firstName: profile.firstName || profile.first_name || '',
-        lastName: profile.lastName || profile.last_name || '',
-        name: profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Driver',
-        role: profile.role || 'driver',
-        organizationId: profile.organizationId || profile.organization_id || '',
-        organizationName: profile.organizationName || profile.organization_name || 'Organization',
-        licenseNumber: profile.licenseNumber || profile.license_number || '',
-        phoneNumber: profile.phoneNumber || profile.phone || '',
-        isEmailVerified: profile.isEmailVerified || true,
-        onboardingCompleted: profile.onboardingCompleted || true,
-        onboardingStep: profile.onboardingStep || 'completed',
-      };
+      const user: any = profile
 
       // Set driver profile data from profile
       setDriverProfile(profile.driver_profile || null);
@@ -435,23 +421,21 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
 export const StatusProvider = FullStatusProvider;
 export const useStatus = useFullStatus;
 
-// Main Context Provider that wraps all contexts
+// Main Context Provider that wraps all contexts (except auth which is now handled by Zustand)
 export const AllContextsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <AuthProvider>
-      <AssetsProvider>
-        <CarrierProvider>
-          <CoDriverProvider>
-            <FuelProvider>
-              <InspectionProvider>
-                <StatusProvider>
-                  {children}
-                </StatusProvider>
-              </InspectionProvider>
-            </FuelProvider>
-          </CoDriverProvider>
-        </CarrierProvider>
-      </AssetsProvider>
-    </AuthProvider>
+    <AssetsProvider>
+      <CarrierProvider>
+        <CoDriverProvider>
+          <FuelProvider>
+            <InspectionProvider>
+              <StatusProvider>
+                {children}
+              </StatusProvider>
+            </InspectionProvider>
+          </FuelProvider>
+        </CoDriverProvider>
+      </CarrierProvider>
+    </AssetsProvider>
   );
 };

@@ -1,71 +1,33 @@
-import { router } from 'expo-router';
-import { ArrowLeft, Building, Edit, Mail, MapPin, Phone } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import LoadingButton from '@/components/LoadingButton';
-import ElevatedCard from '@/components/EvevatedCard';
-import { useCarrier } from '@/contexts';
-import { useAppTheme } from '@/theme/context';
-import { CarrierInfo } from '@/types/carrier';
+import React from "react"
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { router } from "expo-router"
+import { ArrowLeft, Building, Calendar, Globe, Mail, MapPin, Phone, Settings, Shield, Clock } from "lucide-react-native"
+
+import ElevatedCard from "@/components/EvevatedCard"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 export default function CarrierScreen() {
-  const { theme } = useAppTheme();
-  const { colors, isDark } = theme;
-  const { carrierInfo, updateCarrierInfo, isLoading } = useCarrier();
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<CarrierInfo | null>(carrierInfo);
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+  const { organizationSettings, driverProfile, user } = useAuth()
 
-  const handleEdit = () => {
-    setFormData(carrierInfo);
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setFormData(carrierInfo);
-    setIsEditing(false);
-  };
-
-  const handleSave = async () => {
-    if (!formData) return;
-    
-    await updateCarrierInfo(formData);
-    setIsEditing(false);
-  };
-
-  const updateFormData = (field: keyof CarrierInfo, value: any) => {
-    if (!formData) return;
-    
-    if (field === 'address') {
-      setFormData({
-        ...formData,
-        address: { ...formData.address, ...value },
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [field]: value,
-      });
-    }
-  };
-
-  if (!carrierInfo || !formData) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>Carrier Info</Text>
-          <View style={styles.placeholder} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textDim }]}>
-            Loading carrier information...
-          </Text>
-        </View>
+  // Helper function to render info rows with fallback text
+  const renderInfoRow = (label: string, value: string | undefined | null, icon: React.ReactNode) => (
+    <View style={styles.infoRow}>
+      <View style={styles.infoIcon}>
+        {icon}
       </View>
-    );
-  }
+      <View style={styles.infoContent}>
+        <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+          {label}
+        </Text>
+        <Text style={[styles.infoValue, { color: value ? colors.text : colors.textDim }]}>
+          {value || "Contact organization to update"}
+        </Text>
+      </View>
+    </View>
+  )
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -74,479 +36,445 @@ export default function CarrierScreen() {
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
         <Text style={[styles.title, { color: colors.text }]}>Carrier Info</Text>
-        {!isEditing ? (
-          <LoadingButton
-            title="Edit"
-            onPress={handleEdit}
-            icon={<Edit size={16} color={isDark ? colors.text : '#fff'} />}
-          />
-        ) : (
-          <View style={styles.placeholder} />
-        )}
+        <View style={styles.placeholder} />
       </View>
 
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
-        <ElevatedCard style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Building size={24} color={colors.tint} />
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Company Information
-            </Text>
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Company Name</Text>
-            {isEditing ? (
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                    color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
-                  },
-                ]}
-                value={formData.name}
-                onChangeText={(text) => updateFormData('name', text)}
-                placeholder="Company name"
-                placeholderTextColor={colors.textDim}
-              />
-            ) : (
-              <Text style={[styles.value, { color: colors.text }]}>
-                {(carrierInfo as any)?.name || 'Not provided'}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.inputRow}>
-            <View style={[styles.infoGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>DOT Number</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                      color: colors.text,
-                      borderColor: isDark ? 'transparent' : '#E5E7EB',
-                    },
-                  ]}
-                  value={formData.dotNumber}
-                  onChangeText={(text) => updateFormData('dotNumber', text)}
-                  placeholder="DOT number"
-                  placeholderTextColor={colors.textDim}
-                />
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.dotNumber || 'Not provided'}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.infoGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>MC Number</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                      color: colors.text,
-                      borderColor: isDark ? 'transparent' : '#E5E7EB',
-                    },
-                  ]}
-                  value={formData.mcNumber || ''}
-                  onChangeText={(text) => updateFormData('mcNumber', text)}
-                  placeholder="MC number"
-                  placeholderTextColor={colors.textDim}
-                />
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.mcNumber || 'N/A'}
-                </Text>
-              )}
-            </View>
-          </View>
-        </ElevatedCard>
-
-        <ElevatedCard style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MapPin size={24} color={colors.tint} />
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Address
-            </Text>
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Street Address</Text>
-            {isEditing ? (
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                    color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
-                  },
-                ]}
-                value={formData.address.street}
-                onChangeText={(text) => updateFormData('address', { street: text })}
-                placeholder="Street address"
-                placeholderTextColor={colors.textDim}
-              />
-            ) : (
-              <Text style={[styles.value, { color: colors.text }]}>
-                {(carrierInfo as any)?.address?.street || 'Not provided'}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.inputRow}>
-            <View style={[styles.infoGroup, { flex: 2, marginRight: 8 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>City</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                      color: colors.text,
-                      borderColor: isDark ? 'transparent' : '#E5E7EB',
-                    },
-                  ]}
-                  value={formData.address.city}
-                  onChangeText={(text) => updateFormData('address', { city: text })}
-                  placeholder="City"
-                  placeholderTextColor={colors.textDim}
-                />
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.address?.city || 'Not provided'}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.infoGroup, { flex: 1, marginHorizontal: 4 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>State</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                      color: colors.text,
-                      borderColor: isDark ? 'transparent' : '#E5E7EB',
-                    },
-                  ]}
-                  value={formData.address.state}
-                  onChangeText={(text) => updateFormData('address', { state: text })}
-                  placeholder="State"
-                  placeholderTextColor={colors.textDim}
-                  autoCapitalize="characters"
-                />
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.address?.state || 'Not provided'}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.infoGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>ZIP</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                      color: colors.text,
-                      borderColor: isDark ? 'transparent' : '#E5E7EB',
-                    },
-                  ]}
-                  value={formData.address.zipCode}
-                  onChangeText={(text) => updateFormData('address', { zipCode: text })}
-                  placeholder="ZIP"
-                  placeholderTextColor={colors.textDim}
-                  keyboardType="numeric"
-                />
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.address?.zipCode || 'Not provided'}
-                </Text>
-              )}
-            </View>
-          </View>
-        </ElevatedCard>
-
-        <ElevatedCard style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Phone size={24} color={colors.tint} />
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Contact Information
-            </Text>
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
-            {isEditing ? (
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                    color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
-                  },
-                ]}
-                value={formData.phone}
-                onChangeText={(text) => updateFormData('phone', text)}
-                placeholder="Phone number"
-                placeholderTextColor={colors.textDim}
-                keyboardType="phone-pad"
-              />
-            ) : (
-              <Text style={[styles.value, { color: colors.text }]}>
-                {(carrierInfo as any)?.phone || 'Not provided'}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
-            {isEditing ? (
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                    color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
-                  },
-                ]}
-                value={formData.email}
-                onChangeText={(text) => updateFormData('email', text)}
-                placeholder="Email address"
-                placeholderTextColor={colors.textDim}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            ) : (
-              <Text style={[styles.value, { color: colors.text }]}>
-                {(carrierInfo as any)?.email || 'Not provided'}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.infoGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Contact Person</Text>
-            {isEditing ? (
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                    color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
-                  },
-                ]}
-                value={formData.contactPerson}
-                onChangeText={(text) => updateFormData('contactPerson', text)}
-                placeholder="Contact person name"
-                placeholderTextColor={colors.textDim}
-              />
-            ) : (
-              <Text style={[styles.value, { color: colors.text }]}>
-                {(carrierInfo as any)?.contactPerson || 'Not provided'}
-              </Text>
-            )}
-          </View>
-        </ElevatedCard>
-
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Organization Information */}
         <ElevatedCard style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            HOS Configuration
+            Organization Details
           </Text>
-
-          <View style={styles.inputRow}>
-            <View style={[styles.infoGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>Cycle Type</Text>
-              {isEditing ? (
-                <View style={styles.cycleSelector}>
-                  {[
-                    { key: '60-7', label: '60-hour/7-day' },
-                    { key: '70-8', label: '70-hour/8-day' },
-                  ].map((cycle) => (
-                    <Pressable
-                      key={cycle.key}
-                      onPress={() => updateFormData('cycleType', cycle.key)}
-                      style={[
-                        styles.cycleButton,
-                        {
-                          backgroundColor: formData.cycleType === cycle.key ? colors.tint : 'transparent',
-                          borderColor: colors.tint,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.cycleButtonText,
-                          {
-                            color: formData.cycleType === cycle.key ? '#fff' : colors.tint,
-                          },
-                        ]}
-                      >
-                        {cycle.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.cycleType === '60-7' ? '60-hour/7-day' : '70-hour/8-day'}
-                </Text>
-              )}
-            </View>
-
-            <View style={[styles.infoGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={[styles.label, { color: colors.text }]}>Restart Hours</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F3F4F6',
-                      color: colors.text,
-                      borderColor: isDark ? 'transparent' : '#E5E7EB',
-                    },
-                  ]}
-                  value={formData.restartHours.toString()}
-                  onChangeText={(text) => updateFormData('restartHours', parseInt(text) || 34)}
-                  placeholder="34"
-                  placeholderTextColor={colors.textDim}
-                  keyboardType="numeric"
-                />
-              ) : (
-                <Text style={[styles.value, { color: colors.text }]}>
-                  {(carrierInfo as any)?.restartHours || 'Not specified'} hours
-                </Text>
-              )}
-            </View>
-          </View>
+          
+          {renderInfoRow(
+            "Organization Name",
+            organizationSettings?.organization_name || user?.organizationName,
+            <Building size={20} color={colors.tint} />
+          )}
+                    
+          {renderInfoRow(
+            "Timezone",
+            organizationSettings?.timezone,
+            <Globe size={20} color={colors.tint} />
+          )}
+          
+          {renderInfoRow(
+            "Locale",
+            organizationSettings?.locale,
+            <Globe size={20} color={colors.tint} />
+          )}
         </ElevatedCard>
 
-        {isEditing && (
-          <View style={styles.editButtons}>
-            <LoadingButton
-              title="Cancel"
-              onPress={handleCancel}
-              variant="outline"
-              style={{ flex: 1, marginRight: 8 }}
-            />
-            <LoadingButton
-              title="Save Changes"
-              onPress={handleSave}
-              loading={isLoading}
-              style={{ flex: 1, marginLeft: 8 }}
-            />
-          </View>
+        {/* HOS Settings */}
+        {organizationSettings?.hos_settings && (
+          <ElevatedCard style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Hours of Service Settings
+            </Text>
+            
+            {renderInfoRow(
+              "Cycle Type",
+              organizationSettings.hos_settings.cycle_type,
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Restart Type",
+              organizationSettings.hos_settings.restart_type,
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Max Driving Hours",
+              organizationSettings.hos_settings.max_driving_hours?.toString(),
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Max On-Duty Hours",
+              organizationSettings.hos_settings.max_on_duty_hours?.toString(),
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Required Break Minutes",
+              organizationSettings.hos_settings.required_break_minutes?.toString(),
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Max Cycle Hours",
+              organizationSettings.hos_settings.max_cycle_hours?.toString(),
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Cycle Days",
+              organizationSettings.hos_settings.cycle_days?.toString(),
+              <Calendar size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "ELD Day Start Hour",
+              organizationSettings.hos_settings.eld_day_start_hour?.toString(),
+              <Clock size={20} color={colors.tint} />
+            )}
+            
+            <View style={styles.settingsContainer}>
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Sleeper Berth Required
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.hos_settings.sleeper_berth_required ? colors.success : colors.textDim }]}>
+                  {organizationSettings.hos_settings.sleeper_berth_required ? 'Yes' : 'No'}
+                </Text>
+              </View>
+              
+              {organizationSettings.hos_settings.sleeper_berth_required && (
+                <View style={styles.settingItem}>
+                  <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                    Sleeper Berth Hours
+                  </Text>
+                  <Text style={[styles.settingValue, { color: colors.text }]}>
+                    {organizationSettings.hos_settings.sleeper_berth_hours}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Personal Use Allowed
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.hos_settings.allow_personal_use ? colors.success : colors.textDim }]}>
+                  {organizationSettings.hos_settings.allow_personal_use ? 'Yes' : 'No'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Yard Moves Allowed
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.hos_settings.allow_yard_moves ? colors.success : colors.textDim }]}>
+                  {organizationSettings.hos_settings.allow_yard_moves ? 'Yes' : 'No'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Break Required After Hours
+                </Text>
+                <Text style={[styles.settingValue, { color: colors.text }]}>
+                  {organizationSettings.hos_settings.require_break_after_hours}
+                </Text>
+              </View>
+            </View>
+          </ElevatedCard>
+        )}
+
+        {/* Compliance Settings */}
+        {organizationSettings?.compliance_settings && (
+          <ElevatedCard style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Compliance Settings
+            </Text>
+            
+            <View style={styles.settingsContainer}>
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Auto Certify Logs
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.auto_certify_logs ? colors.success : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.auto_certify_logs ? 'Enabled' : 'Disabled'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Driver Acknowledgment Required
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.require_driver_acknowledgment ? colors.warning : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.require_driver_acknowledgment ? 'Required' : 'Optional'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Violation Notifications
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.violation_notification_enabled ? colors.success : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.violation_notification_enabled ? 'Enabled' : 'Disabled'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Manual Log Edits
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.allow_manual_log_edits ? colors.success : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.allow_manual_log_edits ? 'Allowed' : 'Restricted'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Compliance Reporting
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.compliance_reporting_enabled ? colors.success : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.compliance_reporting_enabled ? 
+                    `${organizationSettings.compliance_settings.compliance_report_frequency}` : 
+                    'Disabled'
+                  }
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Data Retention
+                </Text>
+                <Text style={[styles.settingValue, { color: colors.text }]}>
+                  {organizationSettings.compliance_settings.data_retention_days} days
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Audit Trail Retention
+                </Text>
+                <Text style={[styles.settingValue, { color: colors.text }]}>
+                  {organizationSettings.compliance_settings.audit_trail_retention_days} days
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  ELD Device Certification Required
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.require_eld_device_certification ? colors.warning : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.require_eld_device_certification ? 'Required' : 'Optional'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Supervisor Approval for Edits
+                </Text>
+                <Text style={[styles.settingValue, { color: organizationSettings.compliance_settings.require_supervisor_approval_for_edits ? colors.warning : colors.textDim }]}>
+                  {organizationSettings.compliance_settings.require_supervisor_approval_for_edits ? 'Required' : 'Not Required'}
+                </Text>
+              </View>
+              
+              {organizationSettings.compliance_settings.violation_escalation_enabled && (
+                <View style={styles.settingItem}>
+                  <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                    Violation Escalation
+                  </Text>
+                  <Text style={[styles.settingValue, { color: colors.warning }]}>
+                    After {organizationSettings.compliance_settings.violation_escalation_hours} hours
+                  </Text>
+                </View>
+              )}
+              
+              {organizationSettings.compliance_settings.violation_penalty_enabled && (
+                <View style={styles.settingItem}>
+                  <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                    Violation Penalties
+                  </Text>
+                  <Text style={[styles.settingValue, { color: colors.error }]}>
+                    After {organizationSettings.compliance_settings.violation_penalty_threshold} violations
+                  </Text>
+                </View>
+              )}
+            </View>
+          </ElevatedCard>
+        )}
+
+        {/* Driver Organization Info */}
+        {driverProfile && (
+          <ElevatedCard style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Driver Organization Details
+            </Text>
+            
+            {renderInfoRow(
+              "Company Driver ID",
+              driverProfile.company_driver_id,
+              <Building size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Organization Name",
+              driverProfile.organization_name,
+              <Building size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Timezone",
+              driverProfile.timezone,
+              <Globe size={20} color={colors.tint} />
+            )}
+            
+            {renderInfoRow(
+              "Locale",
+              driverProfile.locale,
+              <Globe size={20} color={colors.tint} />
+            )}
+            
+            <View style={styles.settingsContainer}>
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  ELD Exempt
+                </Text>
+                <Text style={[styles.settingValue, { color: driverProfile.eld_exempt ? colors.warning : colors.success }]}>
+                  {driverProfile.eld_exempt ? 'Yes' : 'No'}
+                </Text>
+              </View>
+              
+              {driverProfile.eld_exempt && driverProfile.eld_exempt_reason && (
+                <View style={styles.settingItem}>
+                  <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                    ELD Exempt Reason
+                  </Text>
+                  <Text style={[styles.settingValue, { color: colors.text }]}>
+                    {driverProfile.eld_exempt_reason}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Account Status
+                </Text>
+                <Text style={[styles.settingValue, { color: driverProfile.is_active ? colors.success : colors.error }]}>
+                  {driverProfile.is_active ? 'Active' : 'Inactive'}
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={[styles.settingLabel, { color: colors.textDim }]}>
+                  Violations Count
+                </Text>
+                <Text style={[styles.settingValue, { color: driverProfile.violations_count > 0 ? colors.warning : colors.success }]}>
+                  {driverProfile.violations_count}
+                </Text>
+              </View>
+            </View>
+          </ElevatedCard>
+        )}
+
+        {/* Empty state message */}
+        {!organizationSettings && !driverProfile && (
+          <ElevatedCard style={styles.section}>
+            <View style={styles.emptyState}>
+              <Building size={48} color={colors.textDim} />
+              <Text style={[styles.emptyText, { color: colors.textDim }]}>
+                No organization information available
+              </Text>
+              <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+                Contact your organization administrator to update carrier details
+              </Text>
+            </View>
+          </ElevatedCard>
         )}
       </ScrollView>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 45,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
   backButton: {
     padding: 8,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700' as const,
+    fontSize: 18,
+    fontWeight: "600",
   },
   placeholder: {
-    width: 60,
+    width: 40,
   },
   content: {
     flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
   },
   section: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 16,
+    padding: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600' as const,
-    marginLeft: 12,
-  },
-  infoGroup: {
+    fontWeight: "600",
     marginBottom: 16,
   },
-  inputRow: {
-    flexDirection: 'row',
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: 16,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    marginBottom: 6,
+  infoIcon: {
+    marginRight: 12,
+    marginTop: 2,
   },
-  value: {
-    fontSize: 16,
-    fontWeight: '500' as const,
-  },
-  input: {
-    height: 44,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-  },
-  cycleSelector: {
-    gap: 8,
-  },
-  cycleButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  cycleButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    textAlign: 'center',
-  },
-  editButtons: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  loadingContainer: {
+  infoContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  loadingText: {
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  infoValue: {
     fontSize: 16,
+    lineHeight: 22,
   },
-});
+  settingsContainer: {
+    marginTop: 8,
+  },
+  settingItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  settingLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 1,
+  },
+  settingValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "right",
+    marginLeft: 16,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+})

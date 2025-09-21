@@ -1,9 +1,10 @@
-import { Bell, Moon, Smartphone, Sun } from 'lucide-react-native';
+import { ArrowLeft, Bell, Moon, Smartphone, Sun } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useAppTheme } from '@/theme/context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 export default function SettingsScreen() {
   const { theme, setThemeContextOverride } = useAppTheme();
@@ -23,17 +24,17 @@ export default function SettingsScreen() {
   return (
     <ScrollView 
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
+      contentContainerStyle={[styles.contentContainer]}
     >
-      <Text style={[styles.title, { color: colors.text }]}>
-        Settings
-      </Text>
 
-      <ElevatedCard style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Appearance
-        </Text>
-        
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: colors.text }]}>App Settings</Text>
+      </View>
+
+      <ElevatedCard style={styles.section}>        
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
             <View style={styles.settingIconContainer}>
@@ -128,6 +129,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700' as const,
     marginBottom: 24,
+    marginTop: 12,
   },
   section: {
     marginBottom: 20,
@@ -183,5 +185,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     fontSize: 14,
+  },
+  backButton: {
+    padding: 8,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingBottom: 20,
+    paddingHorizontal: 0,
+    paddingTop: 40,
   },
 });

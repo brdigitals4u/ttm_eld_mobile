@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router';
-import { Plus, X } from 'lucide-react-native';
+import { ArrowLeft, Plus, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
@@ -117,31 +117,23 @@ export default function AssignmentsScreen() {
           )
         }} 
       />
+        <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: colors.text }]}>My Assets</Text>
+        <LoadingButton
+          loading={vehiclesLoading}
+          title= {selectedVehicle ? `Vehicle ${selectedVehicle}` : 'Select Vehicle'}
+          onPress={()  => toast.warning('Vehicle selection functionality would be implemented here')}
+          icon={<Plus size={16} color={isDark ? colors.text : '#fff'} />}
+        />
+      </View>
       
       <ScrollView 
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Vehicle Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Vehicle</Text>
-          
-          {vehiclesLoading ? (
-            <Text style={[styles.loadingText, { color: colors.textDim }]}>Loading vehicles...</Text>
-          ) : (
-            <TouchableOpacity 
-              style={[styles.selectButton, { borderColor: colors.tint }]}
-              onPress={() => {
-                // In a real app, this would open a vehicle selection modal
-                toast.warning('Vehicle selection functionality would be implemented here');
-              }}
-            >
-              <Text style={[styles.selectButtonText, { color: colors.tint }]}>
-                {selectedVehicle ? `Vehicle ${selectedVehicle}` : 'Select Vehicle'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
 
         {/* Trailers Section */}
         <View style={styles.section}>
@@ -433,5 +425,20 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  backButton: {
+    padding: 8,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700" as const,
   },
 });

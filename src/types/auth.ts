@@ -21,4 +21,5 @@ export interface VehicleInfo {
   make?: string;
   model?: string;
   year?: string;
+  vehicle_unit?: any
 }

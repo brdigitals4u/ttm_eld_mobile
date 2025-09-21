@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { CoDriver, CoDriverState } from '@/types/codriver';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/stores/authStore';
 
 interface CoDriverContextType extends CoDriverState {
   addCoDriver: (coDriver: Omit<CoDriver, 'id' | 'addedAt'>) => Promise<void>;

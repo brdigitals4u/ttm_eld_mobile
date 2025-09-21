@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { View, StyleSheet, KeyboardAvoidingView, Platform, TextInput } from 'react-native'
 import { Text } from '@/components/Text'
 import { useDriverLogin } from '@/api/organization'
-import { useAuth } from '@/contexts'
+import { useAuth } from '@/stores/authStore'
 import TTMKonnectLogo from '@/components/TTMKonnectLogo';
 import { useAppTheme } from '@/theme/context'
 import { useToast } from '@/providers/ToastProvider'
@@ -82,31 +82,17 @@ export const LoginScreen: React.FC = () => {
       
       console.log('Driver login result:', driverResult)
       
-      if (driverResult && driverResult.token) {
-        console.log('Login successful, user already stored by mutation')
-        
-        // Convert driver profile to user format for auth context
-        const userProfile = {
-          _id: driverResult.user.id,
-          email: driverResult.user.email,
-          firstName: driverResult.user.firstName,
-          lastName: driverResult.user.lastName,
-          avatar: undefined,
-          phoneNumber: driverResult.user.driver_profile.phone,
-          dateOfBirth: undefined,
-          isEmailVerified: true,
-          createdAt: new Date(driverResult.user.driver_profile.created_at),
-          updatedAt: new Date(driverResult.user.driver_profile.updated_at),
-        }
-        
-        console.log('Calling login function with user profile:', userProfile)
-        login(userProfile)
-        toast.success(`Welcome back, ${userProfile.firstName}!`, 3000)
-        
-        // Manual navigation to dashboard
-        console.log('Manually navigating to dashboard...')
-        router.replace('/(tabs)/dashboard')
-        return
+        if (driverResult && driverResult.token) {
+          console.log('✅ LoginScreen: Login successful, storing complete API response')
+          
+          // Pass the complete API response to Zustand auth store
+          await login(driverResult)
+          toast.success(`Welcome back, ${driverResult.user.firstName}!`, 3000)
+          
+          // Navigate to dashboard
+          console.log('🧭 LoginScreen: Navigating to dashboard...')
+          router.replace('/(tabs)/dashboard')
+          return
       } else {
         throw new Error('Login failed - no token received')
       }

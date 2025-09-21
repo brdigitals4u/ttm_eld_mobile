@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { Inspection, InspectionItem, InspectionState } from '@/types/inspection';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/stores/authStore';
 
 interface InspectionContextType extends InspectionState {
   startInspection: (type: 'pre-trip' | 'post-trip' | 'dot') => Promise<void>;
@@ -87,7 +87,7 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
       const newInspection: Inspection = {
         id: Date.now().toString(),
         type,
-        vehicleId: vehicleInfo?.vehicleNumber || 'unknown',
+        vehicleId: vehicleInfo?.vehicle_unit || 'unknown',
         driverId: user?.id || 'unknown',
         startTime: Date.now(),
         items: getInspectionTemplate(type),

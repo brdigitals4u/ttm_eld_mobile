@@ -85,7 +85,7 @@ export default function InspectorModeScreen() {
       // Format logs for sharing
       const today = new Date().toLocaleDateString();
       const driverName = driverProfile?.name || user?.name || 'Driver';
-      const vehicleId = vehicleAssignment?.vehicle_info?.vehicle_unit || vehicleInfo?.vehicleNumber || 'Unknown';
+      const vehicleId = vehicleAssignment?.vehicle_info?.vehicle_unit || vehicleInfo?.vehicle_unit || 'Unknown';
       const companyName = organizationSettings?.organization_name || user?.organizationName || 'Unknown Company';
       const driverId = driverProfile?.company_driver_id || 'Unknown ID';
       const licenseNumber = driverProfile?.license_number || user?.licenseNumber || 'Unknown License';
@@ -153,7 +153,7 @@ ${logsText}`;
           </View>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: colors.textDim }]}>Vehicle:</Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>{vehicleAssignment?.vehicle_info?.vehicle_unit || vehicleInfo?.vehicleNumber || 'N/A'}</Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>{vehicleAssignment?.vehicle_info?.vehicle_unit || vehicleInfo?.vehicle_unit || 'N/A'}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: colors.textDim }]}>Company:</Text>

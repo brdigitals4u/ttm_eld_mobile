@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { CarrierInfo, CarrierState } from '@/types/carrier';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/stores/authStore';
 
 interface CarrierContextType extends CarrierState {
   updateCarrierInfo: (info: CarrierInfo) => Promise<void>;

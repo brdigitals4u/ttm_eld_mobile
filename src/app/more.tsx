@@ -1,9 +1,10 @@
 import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Pressable } from 'react-native'
 import { router } from 'expo-router'
 import { useAppTheme } from '@/theme/context'
 import { Icon } from '@/components/Icon'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ArrowLeft } from 'lucide-react-native'
 
 export default function MoreScreen() {
   const { theme } = useAppTheme()
@@ -66,12 +67,18 @@ export default function MoreScreen() {
     style={[styles.container, { backgroundColor: colors.background }]}
     contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
   >
-    <Text style={[styles.title, { color: colors.text }]}>
+
+
+    <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: colors.text }]}>
       Settings
     </Text>
+      </View>
+
       <View style={styles.content}>
-
-
         <View style={styles.menuContainer}>
           {menuItems.map((item, index) => (
             <TouchableOpacity
@@ -86,7 +93,7 @@ export default function MoreScreen() {
               onPress={item.onPress}
             >
               <View style={styles.menuIcon}>
-                <Icon icon={item.icon} color={colors.tint} size={24} />
+                <Icon icon={item.icon as any} color={colors.tint} size={24} />
               </View>
               <View style={styles.menuContent}>
                 <Text style={[styles.menuTitle, { color: colors.text }]}>
@@ -160,5 +167,16 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
+  },
+  backButton: {
+    padding: 8,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingBottom: 20,
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
 })

@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
-import { useAuth } from '@/contexts';
+import { useAuth } from '@/stores/authStore';
 import { useAppTheme } from '@/theme/context';
 
 interface MenuItemProps {
@@ -47,8 +47,15 @@ export default function ProfileScreen() {
   const { colors, isDark } = theme;
   const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings } = useAuth();
   
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      console.log('🚪 ProfileScreen: Starting logout...');
+      await logout();
+      console.log('🎯 ProfileScreen: Navigating to login...');
+      router.replace('/login');
+    } catch (error) {
+      console.error('❌ ProfileScreen: Logout failed:', error);
+    }
   };
 
   // Displaying complete user data from login response
@@ -88,7 +95,7 @@ export default function ProfileScreen() {
         </View>
         
         <Text style={[styles.name, { color: colors.text }]}>
-          {driverProfile?.name || user?.name || 'Driver Name'}
+          {driverProfile?.name || `${user?.firstName} ${user?.lastName}` || 'Driver Name'}
         </Text>
         
         <Text style={[styles.role, { color: colors.textDim }]}>
@@ -743,6 +750,125 @@ export default function ProfileScreen() {
         </ElevatedCard>
       )}
 
+      {/* Compliance Settings Section */}
+      {organizationSettings?.compliance_settings && (
+        <ElevatedCard style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Compliance Settings
+          </Text>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Shield size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Compliance Configuration
+              </Text>
+              <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
+                Organization compliance policies and settings
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.eldSettingsGrid}>
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Auto Certify Logs
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: organizationSettings.compliance_settings.auto_certify_logs ? colors.success : colors.textDim }]}>
+                {organizationSettings.compliance_settings.auto_certify_logs ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Driver Acknowledgment Required
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: organizationSettings.compliance_settings.require_driver_acknowledgment ? colors.warning : colors.textDim }]}>
+                {organizationSettings.compliance_settings.require_driver_acknowledgment ? 'Required' : 'Optional'}
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Violation Notifications
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: organizationSettings.compliance_settings.violation_notification_enabled ? colors.success : colors.textDim }]}>
+                {organizationSettings.compliance_settings.violation_notification_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Manual Log Edits
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: organizationSettings.compliance_settings.allow_manual_log_edits ? colors.success : colors.textDim }]}>
+                {organizationSettings.compliance_settings.allow_manual_log_edits ? 'Allowed' : 'Restricted'}
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Supervisor Approval Required
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: organizationSettings.compliance_settings.require_supervisor_approval_for_edits ? colors.warning : colors.textDim }]}>
+                {organizationSettings.compliance_settings.require_supervisor_approval_for_edits ? 'Required' : 'Not Required'}
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Compliance Reporting
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: organizationSettings.compliance_settings.compliance_reporting_enabled ? colors.success : colors.textDim }]}>
+                {organizationSettings.compliance_settings.compliance_reporting_enabled ? `${organizationSettings.compliance_settings.compliance_report_frequency}` : 'Disabled'}
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Data Retention
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: colors.text }]}>
+                {organizationSettings.compliance_settings.data_retention_days} days
+              </Text>
+            </View>
+
+            <View style={styles.eldSettingItem}>
+              <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                Audit Trail Retention
+              </Text>
+              <Text style={[styles.eldSettingValue, { color: colors.text }]}>
+                {organizationSettings.compliance_settings.audit_trail_retention_days} days
+              </Text>
+            </View>
+
+            {organizationSettings.compliance_settings.violation_escalation_enabled && (
+              <View style={styles.eldSettingItem}>
+                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                  Violation Escalation
+                </Text>
+                <Text style={[styles.eldSettingValue, { color: colors.warning }]}>
+                  After {organizationSettings.compliance_settings.violation_escalation_hours} hours
+                </Text>
+              </View>
+            )}
+
+            {organizationSettings.compliance_settings.violation_penalty_enabled && (
+              <View style={styles.eldSettingItem}>
+                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
+                  Violation Penalties
+                </Text>
+                <Text style={[styles.eldSettingValue, { color: colors.error }]}>
+                  After {organizationSettings.compliance_settings.violation_penalty_threshold} violations
+                </Text>
+              </View>
+            )}
+          </View>
+        </ElevatedCard>
+      )}
+
       {menuItems.map((item, index) => (
           <MenuItem
             key={index}
@@ -766,6 +892,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 45,
   },
   contentContainer: {
     padding: 20,

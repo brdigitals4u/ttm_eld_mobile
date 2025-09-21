@@ -53,13 +53,17 @@ export default function ProfileScreen() {
     organizationSettings, 
     logout 
   } = useAuth();
+
+  console.log('driver profile:', driverProfile);
   
   const handleLogout = async () => {
     try {
+      console.log('🚪 Profile.tsx: Starting logout...');
       await logout();
+      console.log('🎯 Profile.tsx: Navigating to login...');
       router.replace('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Profile.tsx: Logout failed:', error);
     }
   };
 

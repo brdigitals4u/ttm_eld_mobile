@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { Asset, AssetDocument, AssetsState } from '@/types/assets';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/stores/authStore';
 
 interface AssetsContextType extends AssetsState {
   addAsset: (asset: Omit<Asset, 'id' | 'documents'>) => Promise<void>;

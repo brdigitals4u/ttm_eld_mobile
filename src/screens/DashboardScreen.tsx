@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Alert, SafeAreaView } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { useAuth } from '@/contexts';
+import { useAuth } from '@/stores/authStore';
 import { useStatus } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 
@@ -277,6 +277,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+    marginTop: 30,
   },
   contentContainer: {
     padding: 20,

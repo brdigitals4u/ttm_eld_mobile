@@ -1,4 +1,4 @@
-import { Camera, Fuel, Plus } from 'lucide-react-native';
+import { ArrowLeft, Camera, Edit, Fuel, Plus } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { FlatList, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
@@ -8,6 +8,7 @@ import ElevatedCard from '@/components/EvevatedCard';
 import { useFuel, useAuth } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { FuelReceipt } from '@/types/fuel';
+import { router } from 'expo-router';
 
 export default function EnhancedFuelScreen() {
   const { theme } = useAppTheme();
@@ -109,7 +110,7 @@ export default function EnhancedFuelScreen() {
       totalAmount: gallons * pricePerGallon,
       receiptImage: formData.receiptImage || undefined,
       odometer: formData.odometer ? parseInt(formData.odometer) : undefined,
-      vehicleId: vehicleInfo?.vehicleNumber || 'unknown',
+      vehicleId: vehicleInfo?.vehicle_unit || 'unknown',
       driverId: user?.id || 'unknown',
     };
 
@@ -186,9 +187,19 @@ export default function EnhancedFuelScreen() {
   if (showAddForm) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Add Fuel Receipt</Text>
-        </View>
+
+
+<View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: colors.text }]}>Fuel Receipt</Text>
+        <LoadingButton
+            title="Add"
+            onPress={handleAddReceipt}
+            icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
+          />
+      </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
@@ -321,13 +332,18 @@ export default function EnhancedFuelScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
+    <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </Pressable>
+        <Text style={[styles.title, { color: colors.text }]}>Fuel Receipts</Text>
         <LoadingButton
-          title="Add Receipt"
-          onPress={handleAddReceipt}
-          icon={<Plus size={18} color={isDark ? colors.text : '#fff'} />}
-        />
+            title="Add"
+            onPress={handleAddReceipt}
+            icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
+          />
       </View>
+
 
       {receipts.length === 0 ? (
         <ElevatedCard style={styles.emptyContainer}>
@@ -355,10 +371,11 @@ export default function EnhancedFuelScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 30,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     paddingBottom: 0,
@@ -499,5 +516,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
+  },
+  backButton: {
+    padding: 8,
   },
 });
