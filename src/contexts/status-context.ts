@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { DriverStatus, HoursOfService, LogCertification, LogEntry, SplitSleepSettings, StatusReason, StatusState, StatusUpdate } from '@/types/status';
-import { useAuth } from './auth-context';
+// Import useAuth from index to match what's provided by AllContextsProvider
+// Note: We can't import from index directly due to circular dependency,
+// so we'll need to inject the auth data differently
 
 interface StatusContextType extends StatusState {
   updateStatus: (status: DriverStatus, reason: string) => Promise<void>;
@@ -69,11 +71,11 @@ const STATUS_REASONS: StatusReason[] = [
 
 export const [StatusProvider, useStatus] = createContextHook(() => {
   const [state, setState] = useState<StatusState>(initialState);
-  const { isAuthenticated, user } = useAuth();
+  // Remove auth dependency for now to avoid circular import issues
+  // TODO: Find a better way to handle auth integration
 
   // Load status data on mount
   useEffect(() => {
-    if (!isAuthenticated) return;
 
     const loadStatusData = async () => {
       try {
@@ -131,11 +133,10 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
     };
 
     loadStatusData();
-  }, [isAuthenticated]);
+  }, []);
 
   // Update HOS calculations periodically
   useEffect(() => {
-    if (!isAuthenticated) return;
 
     const updateHoursOfService = () => {
       setState(prev => {
@@ -190,7 +191,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
     updateHoursOfService();
     
     return () => clearInterval(interval);
-  }, [isAuthenticated, state.currentStatus]);
+  }, [state.currentStatus]);
 
   const canUpdateStatus = () => {
     return !state.certification.isCertified;
@@ -300,7 +301,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       const certification: LogCertification = {
         isCertified: true,
         certifiedAt: Date.now(),
-        certifiedBy: user?.name || 'Driver',
+        certifiedBy: 'Driver', // TODO: Get driver name from context
         certificationSignature: signature,
       };
 

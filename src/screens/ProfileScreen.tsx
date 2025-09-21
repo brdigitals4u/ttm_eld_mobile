@@ -1,4 +1,4 @@
-import { Briefcase, Mail, Phone, Truck, User, Settings, MapPin, Calendar, Clock, Shield, AlertTriangle } from 'lucide-react-native';
+import { Briefcase, Mail, Phone, Truck, User, Settings, MapPin, Calendar, Clock, Shield, AlertTriangle, Bluetooth } from 'lucide-react-native';
 import React from 'react';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -169,6 +169,43 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
+        
+        {driverProfile?.license_expiry && (
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Calendar size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                License Expiry
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {new Date(driverProfile.license_expiry).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+        )}
+        
+        {driverProfile?.current_location && (
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <MapPin size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Current Location
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {driverProfile.current_location?.address || 'Location unavailable'}
+              </Text>
+              {driverProfile.current_location?.coordinates && (
+                <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
+                  Lat: {driverProfile.current_location.coordinates.lat}, Lng: {driverProfile.current_location.coordinates.lng}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
       </ElevatedCard>
 
       <ElevatedCard style={styles.section}>
@@ -288,7 +325,66 @@ export default function ProfileScreen() {
                 {new Date(vehicleAssignment.vehicle_info.assigned_at).toLocaleDateString()}
               </Text>
             </View>
-        </View>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Truck size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Vehicle Status
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {vehicleAssignment.vehicle_info.status || 'Active'}
+              </Text>
+              <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
+                Assignment Status: {vehicleAssignment.assignment_status || 'Assigned'}
+              </Text>
+            </View>
+          </View>
+          
+          {vehicleAssignment.vehicle_info.current_location && (
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <MapPin size={20} color={colors.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                  Vehicle Location
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {vehicleAssignment.vehicle_info.current_location?.address || 'Location unavailable'}
+                </Text>
+                {vehicleAssignment.vehicle_info.current_location?.coordinates && (
+                  <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
+                    Lat: {vehicleAssignment.vehicle_info.current_location.coordinates.lat}, Lng: {vehicleAssignment.vehicle_info.current_location.coordinates.lng}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+          
+          {vehicleAssignment.vehicle_info.current_odometer && (
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Clock size={20} color={colors.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                  Current Odometer
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {vehicleAssignment.vehicle_info.current_odometer?.value || 0} {vehicleAssignment.vehicle_info.current_odometer?.unit || 'miles'}
+                </Text>
+                {vehicleAssignment.vehicle_info.current_odometer?.last_updated && (
+                  <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
+                    Last updated: {new Date(vehicleAssignment.vehicle_info.current_odometer.last_updated).toLocaleString()}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
         </ElevatedCard>
       )}
 
@@ -324,6 +420,20 @@ export default function ProfileScreen() {
                 </Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>
                   {Math.floor((hosStatus.time_remaining.driving_time_remaining || 0) / 60)}h {((hosStatus.time_remaining.driving_time_remaining || 0) % 60)}m
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Clock size={20} color={colors.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                  Total Driving Time
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {Math.floor((hosStatus.driving_time_remaining || 0) / 60)}h {((hosStatus.driving_time_remaining || 0) % 60)}m
                 </Text>
               </View>
             </View>
@@ -389,6 +499,82 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
+        
+        {/* Current Shift Information */}
+        {driverProfile?.current_shift && (
+          <>
+            <Text style={[styles.sectionSubTitle, { color: colors.text, marginTop: 20 }]}>
+              Current Shift
+            </Text>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Clock size={20} color={colors.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                  Shift Start
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {driverProfile.current_shift.start_time ? new Date(driverProfile.current_shift.start_time).toLocaleString() : 'N/A'}
+                </Text>
+              </View>
+            </View>
+            
+            {driverProfile.current_shift.total_on_duty_time && (
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <Briefcase size={20} color={colors.tint} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                    Total On Duty Time
+                  </Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>
+                    {Math.floor((driverProfile.current_shift.total_on_duty_time || 0) / 60)}h {((driverProfile.current_shift.total_on_duty_time || 0) % 60)}m
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+        
+        {/* Current Cycle Information */}
+        {driverProfile?.current_cycle && (
+          <>
+            <Text style={[styles.sectionSubTitle, { color: colors.text, marginTop: 20 }]}>
+              Current Cycle
+            </Text>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Calendar size={20} color={colors.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                  Cycle Type
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {driverProfile.current_cycle.cycle_type || 'Standard'}
+                </Text>
+              </View>
+            </View>
+            
+            {driverProfile.current_cycle.cycle_start_date && (
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <Calendar size={20} color={colors.tint} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                    Cycle Start Date
+                  </Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>
+                    {new Date(driverProfile.current_cycle.cycle_start_date).toLocaleDateString()}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
+        )}
       </ElevatedCard>
 
       {/* ELD Settings Section */}
@@ -401,7 +587,7 @@ export default function ProfileScreen() {
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
               <Shield size={20} color={colors.tint} />
-                  </View>
+            </View>
             <View style={styles.infoContent}>
               <Text style={[styles.infoLabel, { color: colors.textDim }]}>
                 ELD Exempt
@@ -413,9 +599,95 @@ export default function ProfileScreen() {
                 <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
                   Reason: {driverProfile.eld_exempt_reason}
                 </Text>
-                )}
+              )}
+            </View>
+          </View>
+          
+          {driverProfile.eld_device_id && (
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Bluetooth size={20} color={colors.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                  ELD Device ID
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {driverProfile.eld_device_id}
+                </Text>
               </View>
             </View>
+          )}
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <User size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Personal Conveyance
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {driverProfile.eld_pc_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Truck size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Yard Moves
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {driverProfile.eld_ym_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <AlertTriangle size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Adverse Weather Exemption
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {driverProfile.eld_adverse_weather_exemption_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Calendar size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Big Day Exemption
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {driverProfile.eld_big_day_exemption_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}>
+              <Clock size={20} color={colors.tint} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: colors.textDim }]}>
+                Waiting Time Duty Status
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {driverProfile.waiting_time_duty_status_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
@@ -531,6 +803,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600' as const,
     marginBottom: 16,
+  },
+  sectionSubTitle: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',

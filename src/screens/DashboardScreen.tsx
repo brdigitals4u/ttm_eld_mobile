@@ -1,576 +1,510 @@
-import React, { useState, useEffect } from 'react'
-import { View, StyleSheet, ScrollView, Dimensions, Animated, TouchableOpacity } from 'react-native'
-import { Text } from '@/components/Text'
-import { Screen } from '@/components/Screen'
-import { useAppTheme } from '@/theme/context'
-import { RealmService } from '@/database/realm'
-import { Icon } from '@/components/Icon'
+import { router } from 'expo-router';
+import { AlertTriangle, Bluetooth, Clock, FileText, Lock, Shield, RefreshCw, Link } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Alert, SafeAreaView } from 'react-native';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { useAuth } from '@/contexts';
+import { useStatus } from '@/contexts';
+import { useAppTheme } from '@/theme/context';
 
-const { width } = Dimensions.get('window')
+export const DashboardScreen = () => {
+  const { theme, themeContext } = useAppTheme();
+  const isDark = themeContext === 'dark';
+  const colors = theme.colors;
+  const { user, driverProfile, vehicleAssignment } = useAuth();
+  const { currentStatus, hoursOfService, formatDuration, certification } = useStatus();
+  const [showUncertifiedModal, setShowUncertifiedModal] = useState(false);
+  
+  // Mock dashboard data until we have proper API integration
+  const dashboardData = {
+    driver: { name: driverProfile?.name || user?.name || 'Driver' },
+    connectionStatus: 'connected',
+    cycle: { type: 'USA', hours: 70, days: 8 },
+    timers: {
+      stopIn: 232,
+      driveLeft: 352,
+      shiftLeft: 563,
+      cycleLeft: 2701,
+      cycleDays: 6
+    },
+    uncertifiedLogs: 0,
+    currentStatus: currentStatus
+  };
 
-// Enhanced Progress Bar Component
-const ProgressBar = ({ percentage, color = '#10B981', backgroundColor = '#6B7280', height = 4 }: any) => {
+  // Show uncertified logs modal when data loads
+  React.useEffect(() => {
+    if (dashboardData && dashboardData.uncertifiedLogs > 0) {
+      setShowUncertifiedModal(true);
+    }
+  }, [dashboardData.uncertifiedLogs]);
+
+  const getStatusLabel = () => {
+    const status = dashboardData?.currentStatus || currentStatus;
+    switch (status) {
+      case 'driving':
+        return 'DRIVING';
+      case 'onDuty':
+        return 'ON DUTY';
+      case 'offDuty':
+        return 'OFF DUTY';
+      case 'sleeperBerth':
+        return 'SLEEPER BERTH';
+      case 'personalConveyance':
+        return 'PERSONAL CONVEYANCE';
+      case 'yardMoves':
+        return 'YARD MOVES';
+      default:
+        return status?.toUpperCase() || 'OFF DUTY';
+    }
+  };
+
+  const getStatusColor = () => {
+    const status = dashboardData?.currentStatus || currentStatus;
+    switch (status) {
+      case 'driving':
+        return '#FF9500';
+      case 'onDuty':
+        return '#F59E0B';
+      case 'offDuty':
+        return '#3B82F6';
+      case 'sleeperBerth':
+        return '#6366F1';
+      case 'personalConveyance':
+        return '#9333EA';
+      case 'yardMoves':
+        return '#F59E0B';
+      default:
+        return colors.tint;
+    }
+  };
+
+
+  const handleCertifyLogs = async () => {
+    try {
+      // Navigate to logs screen for certification
+      router.push('/(tabs)/logs');
+      setShowUncertifiedModal(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to navigate to logs. Please try again.');
+    }
+  };
+
+  const formatTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+
+  const formatCycleTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}:${mins.toString().padStart(2, '0')}`;
+  };
+
+  const getProgressPercentage = (remaining: number, total: number): number => {
+    return Math.max(0, Math.min(100, ((total - remaining) / total) * 100));
+  };
+
   return (
-    <View style={[styles.progressContainer, { height, backgroundColor }]}>
-      <View style={[styles.progressBar, { 
-        width: `${Math.min(percentage, 100)}%`, 
-        backgroundColor: color,
-        height 
-      }]} />
-    </View>
-  )
-}
-
-// Circular Progress Component matching the image
-const CircularProgress = ({ percentage, time, label, size = 120, strokeWidth = 8 }: any) => {
-  const rotation = (percentage / 100) * 360
-
-  return (
-    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      {/* Background circle */}
-      <View style={[styles.circularBackground, {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: strokeWidth,
-        borderColor: '#6B7280',
-      }]} />
-      
-      {/* Progress arc */}
-      <View style={[styles.circularProgress, {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: strokeWidth,
-        borderColor: 'transparent',
-        borderTopColor: '#10B981',
-        borderRightColor: percentage > 25 ? '#10B981' : 'transparent',
-        borderBottomColor: percentage > 50 ? '#10B981' : 'transparent',
-        borderLeftColor: percentage > 75 ? '#10B981' : 'transparent',
-        transform: [{ rotate: `${rotation}deg` }],
-      }]} />
-      
-      <View style={styles.circularContent}>
-        <Text style={styles.circularTime}>{time}</Text>
-        <Text style={styles.circularLabel}>{label}</Text>
+    
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+      >
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.push('/assignments')}>
+            <Link size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.driverName, { color: colors.text }]}>
+            {dashboardData?.driver.name || user?.name || 'Dan Smith'}
+          </Text>
+        </View>
+        <View style={styles.headerRight} />
       </View>
-    </View>
-  )
-}
 
-export const DashboardScreen: React.FC = () => {
-  const { theme } = useAppTheme()
-  const [currentTime, setCurrentTime] = useState(new Date())
+      {/* Connection Status */}
+      <View style={[styles.connectionStatus, { 
+        backgroundColor: dashboardData?.connectionStatus === 'connected' ? colors.successBackground : colors.warningBackground 
+      }]}>
+        <Link size={16} color={dashboardData?.connectionStatus === 'connected' ? colors.success : colors.warning} />
+        <Text style={[styles.connectionText, { 
+          color: dashboardData?.connectionStatus === 'connected' ? colors.success : colors.warning 
+        }]}>
+          {dashboardData?.connectionStatus === 'connected' ? 'CONNECTED' : 'DISCONNECTED'}
+        </Text>
+      </View>
 
-  // Get data from Realm
-  const driverProfile = RealmService.getDriverProfile() as any
-  const hosStatus = RealmService.getHOSStatus() as any
-  const vehicleAssignment = RealmService.getVehicleAssignment() as any
+      {/* Cycle Info */}
+      <View style={styles.cycleInfo}>
+        <Text style={[styles.cycleText, { color: colors.textDim }]}>
+          🇺🇸 {dashboardData?.cycle.type || 'USA'} {dashboardData?.cycle.hours || 70} hours / {dashboardData?.cycle.days || 8} days
+        </Text>
+      </View>
 
-  const currentUser = driverProfile || {}
-  const currentHOS = hosStatus || {}
-  const currentVehicle = vehicleAssignment?.vehicle_info || {}
-
-  // Real-time calculations
-  const driveTimeRemaining = currentHOS.driving_time_remaining || 352 // Default to 05:52
-  const onDutyTimeRemaining = currentHOS.on_duty_time_remaining || 563 // Default to 09:23
-  const cycleTimeRemaining = currentHOS.cycle_time_remaining || 2701 // Default to 45:01
-
-  // Calculate percentages for progress bars
-  const driveProgress = Math.max(0, Math.min(100, ((660 - driveTimeRemaining) / 660) * 100))
-  const shiftProgress = Math.max(0, Math.min(100, ((840 - onDutyTimeRemaining) / 840) * 100))
-  const cycleProgress = Math.max(0, Math.min(100, ((4200 - cycleTimeRemaining) / 4200) * 100))
-
-  // Format time display
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
-  }
-
-  // Update time every minute
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 60000)
-    return () => clearInterval(timer)
-  }, [])
-
-  return (
-    <Screen 
-      preset="scroll"
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
-      <View style={styles.screenContent}>
-        {/* Compact Header - Exact Match */}
-        <View style={styles.compactHeader}>
-          <View style={styles.headerRow}>
-            <Text style={styles.appTitle}>TruckX ELD One</Text>
-            <TouchableOpacity style={styles.infoIcon}>
-              <View style={styles.infoCircle}>
-                <Text style={styles.infoText}>!</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Connected Banner - Exact Match */}
-          <View style={styles.connectedBanner}>
-            <View style={styles.connectionIcon} />
-            <Text style={styles.connectedText}>CONNECTED</Text>
-          </View>
-
-          {/* Driver Info - Exact Match */}
-          <Text style={styles.driverName}>
-            {currentUser.firstName || 'Dan'} {currentUser.lastName || 'Smith'}
+      {/* Main Timer Circle */}
+      <View style={styles.mainTimerContainer}>
+        <View style={[styles.timerCircle, { borderColor: colors.success }]}>
+          <Text style={[styles.mainTime, { color: colors.text }]}>
+            {formatTime(dashboardData?.timers.stopIn || 232)}
           </Text>
-          <Text style={styles.coDriverText}>Co-Driver: Felipe Hernandez</Text>
-          <Text style={styles.vehicleText}>
-            Truck: {currentVehicle.vehicle_unit || '174'}  |  Trailer: {currentVehicle.trailer_unit || '015'}
+          <Text style={[styles.mainTimeLabel, { color: colors.textDim }]}>
+            Stop In
           </Text>
         </View>
+      </View>
 
-        {/* Status Section - Exact Match */}
-        <View style={styles.statusSection}>
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Duty Status</Text>
-            <TouchableOpacity style={styles.changeButton}>
-              <Icon icon="check" color="#FFFFFF" size={16} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.drivingStatusContainer}>
-            <Text style={styles.drivingText}>
-              {currentHOS.current_status || 'DRIVING'}
+      {/* Time Bars */}
+      <View style={styles.timeBarsContainer}>
+        <View style={styles.timeBarRow}>
+          <View style={styles.timeBarItem}>
+            <Text style={[styles.timeBarTime, { color: colors.text }]}>
+              {formatTime(dashboardData?.timers.driveLeft || 352)}
             </Text>
-          </View>
-        </View>
-
-        {/* USA Flag - Exact Match */}
-        <View style={styles.flagSection}>
-          <Text style={styles.flagEmoji}>🇺🇸</Text>
-          <Text style={styles.usaText}>USA</Text>
-        </View>
-
-        {/* Main Timer Layout - Exact Match */}
-        <View style={styles.mainTimerSection}>
-          <View style={styles.timerRow}>
-            {/* Left Timer */}
-            <View style={styles.sideTimer}>
-              <Text style={styles.timerValue}>{formatTime(driveTimeRemaining)}</Text>
-              <Text style={styles.timerLabel}>Drive Left</Text>
-              <View style={styles.progressBarContainer}>
-                <ProgressBar percentage={driveProgress} />
-              </View>
-            </View>
-
-            {/* Center Circular Timer */}
-            <View style={styles.centerTimerContainer}>
-              <CircularProgress 
-                percentage={driveProgress} 
-                time={formatTime(driveTimeRemaining)} 
-                label="Stop In" 
-                size={120}
-                strokeWidth={8}
-              />
-            </View>
-
-            {/* Right Timer */}
-            <View style={styles.sideTimer}>
-              <Text style={styles.timerValue}>{formatTime(onDutyTimeRemaining)}</Text>
-              <Text style={styles.timerLabel}>Shift Left</Text>
-              <View style={styles.progressBarContainer}>
-                <ProgressBar percentage={shiftProgress} />
-              </View>
-            </View>
-          </View>
-
-          {/* Cycle Timer - Below */}
-          <View style={styles.cycleSection}>
-            <Text style={styles.cycleLabel}>Cycle Left</Text>
-            <Text style={styles.cycleValue}>
-              {formatTime(cycleTimeRemaining)} <Text style={styles.cycleDays}>({Math.ceil(cycleTimeRemaining / 1440)} Days)</Text>
+            <Text style={[styles.timeBarLabel, { color: colors.textDim }]}>
+              Drive Left
             </Text>
-            <View style={styles.cycleProgressContainer}>
-              <ProgressBar percentage={cycleProgress} height={6} />
+            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { 
+                backgroundColor: colors.success,
+                width: `${getProgressPercentage(dashboardData?.timers.driveLeft || 352, 660)}%`
+              }]} />
+            </View>
+          </View>
+          
+          <View style={styles.timeBarItem}>
+            <Text style={[styles.timeBarTime, { color: colors.text }]}>
+              {formatTime(dashboardData?.timers.shiftLeft || 563)}
+            </Text>
+            <Text style={[styles.timeBarLabel, { color: colors.textDim }]}>
+              Shift Left
+            </Text>
+            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { 
+                backgroundColor: colors.success,
+                width: `${getProgressPercentage(dashboardData?.timers.shiftLeft || 563, 840)}%`
+              }]} />
             </View>
           </View>
         </View>
+        
+        <View style={styles.cycleTimeContainer}>
+          <Text style={[styles.cycleLabel, { color: colors.textDim }]}>
+            Cycle Left
+          </Text>
+          <Text style={[styles.cycleTime, { color: colors.text }]}>
+            {formatCycleTime(dashboardData?.timers.cycleLeft || 2701)} ({dashboardData?.timers.cycleDays || 6} Days)
+          </Text>
+          <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+            <View style={[styles.progressFill, { 
+              backgroundColor: colors.success,
+              width: `${getProgressPercentage(dashboardData?.timers.cycleLeft || 2701, 4200)}%`
+            }]} />
+          </View>
+        </View>
+      </View>
 
-        {/* Timeline Section - Exact Match */}
-        <View style={styles.timelineSection}>
-          <View style={styles.timelineHeader}>
-            <Text style={styles.timelineTitle}>
-              Today | {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ({currentTime.toLocaleDateString('en-US', { weekday: 'short' })})
+      {/* Current Status and Action Button */}
+      <View style={styles.statusActionContainer}>
+        <View style={styles.currentStatusContainer}>
+          <Text style={[styles.currentStatusText, { color: getStatusColor() }]}>
+            {getStatusLabel()}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={[styles.refreshButton, { backgroundColor: colors.tint }]}
+          onPress={() => router.push('/status')}
+        >
+          <RefreshCw size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Uncertified Logs Modal */}
+      <Modal
+        visible={showUncertifiedModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUncertifiedModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              You have {dashboardData?.uncertifiedLogs || 22} uncertified logs!
             </Text>
-            <TouchableOpacity style={styles.signButton}>
-              <Text style={styles.signButtonText}>Sign</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Hour Markers */}
-          <View style={styles.hourMarkers}>
-            {['M', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'N', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'M'].map((hour, index) => (
-              <Text key={index} style={styles.hourMarker}>{hour}</Text>
-            ))}
-          </View>
-
-          {/* Timeline Chart */}
-          <View style={styles.chartContainer}>
-            <View style={styles.yAxisLabels}>
-              <Text style={styles.yLabel}>OFF</Text>
-              <Text style={styles.yLabel}>SB</Text>
-              <Text style={styles.yLabel}>D</Text>
-              <Text style={styles.yLabel}>ON</Text>
-            </View>
             
-            <View style={styles.chartArea}>
-              <View style={styles.timelineBars}>
-                <View style={[styles.timelineBar, styles.dBar, { flex: 2 }]} />
-                <View style={[styles.timelineBar, styles.offBar, { flex: 1 }]} />
-                <View style={[styles.timelineBar, styles.dBar, { flex: 3 }]} />
-                <View style={[styles.timelineBar, styles.offBar, { flex: 1 }]} />
-              </View>
-            </View>
-
-            <View style={styles.timeStamps}>
-              <Text style={styles.timeStamp}>10:04</Text>
-              <Text style={styles.timeStamp}>00:00</Text>
-              <Text style={styles.timeStamp}>07:48</Text>
-              <Text style={styles.timeStamp}>00:00</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.success }]}
+                onPress={handleCertifyLogs}
+              >
+                <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                  REVIEW AND CERTIFY
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: 'transparent' }]}
+                onPress={() => setShowUncertifiedModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.tint }]}>
+                  SKIP
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
+      </Modal>
+
+
+
+      <View style={styles.vehicleInfo}>
+        <Text style={[styles.vehicleInfoTitle, { color: colors.textDim }]}>
+          Vehicle Information
+        </Text>
+        <Text style={[styles.vehicleInfoValue, { color: colors.text }]}>
+          {vehicleAssignment?.vehicle_info?.vehicle_unit || 'No vehicle assigned'}
+        </Text>
       </View>
-    </Screen>
-  )
+      </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1F2937',
+    backgroundColor: 'transparent',
   },
-  content: {
-    paddingBottom: 100,
+  contentContainer: {
+    padding: 20,
   },
-  screenContent: {
-    flex: 1,
-  },
-
-  // Compact Header - Exact Match
-  compactHeader: {
-    backgroundColor: '#1F2937',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingTop: 10,
   },
-  appTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  headerLeft: {
+    width: 40,
   },
-  infoIcon: {
-    width: 24,
-    height: 24,
-  },
-  infoCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
+  headerCenter: {
+    flex: 1,
     alignItems: 'center',
   },
-  infoText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  connectedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#10B981',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
-  },
-  connectionIcon: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  connectedText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 1,
+  headerRight: {
+    width: 40,
   },
   driverName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '600' as const,
   },
-  coDriverText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#D1D5DB',
-    marginBottom: 4,
-  },
-  vehicleText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#D1D5DB',
-  },
-
-  // Status Section - Exact Match
-  statusSection: {
-    backgroundColor: '#1F2937',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusLabel: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#9CA3AF',
-  },
-  changeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  drivingStatusContainer: {
-    backgroundColor: '#F59E0B',
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  drivingText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: 2,
-  },
-
-  // Flag Section - Exact Match
-  flagSection: {
+  connectionStatus: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1F2937',
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginBottom: 16,
   },
-  flagEmoji: {
-    fontSize: 20,
+  connectionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginLeft: 6,
   },
-  usaText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  // Main Timer Section - Exact Match
-  mainTimerSection: {
-    backgroundColor: '#374151',
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-  },
-  timerRow: {
-    flexDirection: 'row',
+  cycleInfo: {
     alignItems: 'center',
+    marginBottom: 24,
+  },
+  cycleText: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+  },
+  mainTimerContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  timerCircle: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 8,
+    borderColor: '#4CAF50',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  mainTime: {
+    fontSize: 48,
+    fontWeight: '700' as const,
+  },
+  mainTimeLabel: {
+    fontSize: 18,
+    fontWeight: '500' as const,
+    marginTop: 4,
+  },
+  timeBarsContainer: {
+    marginBottom: 24,
+  },
+  timeBarRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 24,
   },
-  sideTimer: {
+  timeBarItem: {
     flex: 1,
-    alignItems: 'center',
+    marginHorizontal: 8,
   },
-  timerValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#FFFFFF',
+  timeBarTime: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    textAlign: 'center',
     marginBottom: 4,
   },
-  timerLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#D1D5DB',
+  timeBarLabel: {
+    fontSize: 14,
+    textAlign: 'center',
     marginBottom: 8,
   },
-  progressBarContainer: {
-    width: '80%',
-  },
-
-  // Progress Bar Components
-  progressContainer: {
-    width: '100%',
-    borderRadius: 2,
+  progressBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  progressBar: {
-    borderRadius: 2,
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
-
-  // Center Circular Timer - Exact Match
-  centerTimerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 20,
-  },
-  circularBackground: {
-    position: 'absolute',
-  },
-  circularProgress: {
-    position: 'absolute',
-  },
-  circularContent: {
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  circularTime: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  circularLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#D1D5DB',
-    marginTop: 2,
-  },
-
-  // Cycle Section - Exact Match
-  cycleSection: {
-    alignItems: 'center',
+  cycleTimeContainer: {
+    marginTop: 8,
   },
   cycleLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#D1D5DB',
+    textAlign: 'center',
     marginBottom: 4,
   },
-  cycleValue: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginBottom: 12,
+  cycleTime: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  cycleDays: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  cycleProgressContainer: {
-    width: '100%',
-  },
-
-  // Timeline Section - Exact Match
-  timelineSection: {
-    backgroundColor: '#FFFFFF',
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  timelineHeader: {
+  statusActionContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  currentStatusContainer: {
+    flex: 1,
+  },
+  currentStatusText: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+  },
+  refreshButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    borderRadius: 12,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
+  },
+  vehicleInfo: {
+    marginTop: 8,
+    marginBottom: 40,
+  },
+  vehicleInfoTitle: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  vehicleInfoValue: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  webNoticeCard: {
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  webNoticeTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+  },
+  webNoticeText: {
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 16,
   },
-  timelineTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  signButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  demoButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 8,
-  },
-  signButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  // Timeline Chart - Exact Match
-  hourMarkers: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingHorizontal: 32,
-  },
-  hourMarker: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  chartContainer: {
-    flexDirection: 'row',
-    height: 80,
-    alignItems: 'stretch',
-  },
-  yAxisLabels: {
-    justifyContent: 'space-between',
-    paddingRight: 8,
-    width: 24,
-  },
-  yLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  chartArea: {
-    flex: 1,
-    position: 'relative',
-  },
-  timelineBars: {
-    flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    gap: 2,
+    marginTop: 8,
   },
-  timelineBar: {
-    height: 16,
+  demoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
-  dBar: {
-    backgroundColor: '#3B82F6',
+  demoCard: {
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
   },
-  offBar: {
-    backgroundColor: '#E5E7EB',
+  demoCardTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 8,
   },
-  timeStamps: {
-    justifyContent: 'space-between',
-    paddingLeft: 8,
-    width: 32,
+  demoCardText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
   },
-  timeStamp: {
-    fontSize: 9,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'right',
-  },
-})
+});

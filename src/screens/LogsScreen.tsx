@@ -1,458 +1,704 @@
-import React, { useState } from 'react'
-import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native'
-import { Text } from '@/components/Text'
-import { Button } from '@/components/Button'
-import { Screen } from '@/components/Screen'
-import { Surface } from 'react-native-paper'
-import { useAppTheme } from '@/theme/context'
-import { RealmService } from '@/database/realm'
-import { Icon } from '@/components/Icon'
-import { LinearGradient } from 'expo-linear-gradient'
+import { router } from 'expo-router';
+import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Alert, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import LoadingButton from '@/components/LoadingButton';
+import { Card } from '@/components/Card';
+import ElevatedCard from '@/components/EvevatedCard';
+import LogEntry from '@/components/LogEntry';
+import HOSChart from '@/components/HOSChart';
+import { useAuth } from '@/contexts';
+import { useStatus } from '@/contexts';
+import { useAppTheme } from '@/theme/context';
+import { StatusUpdate } from '@/types/status';
+import { toast } from '@/components/Toast';
 
-const { width } = Dimensions.get('window')
+export const LogsScreen = () => {
+  const { theme, themeContext } = useAppTheme();
+  const isDark = themeContext === 'dark';
+  const colors = theme.colors;
+  const { statusHistory, certification, certifyLogs, canUpdateStatus, uncertifyLogs } = useStatus();
+  const { user, driverProfile, vehicleAssignment } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showCertificationModal, setShowCertificationModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showEldMaterialsModal, setShowEldMaterialsModal] = useState(false);
+  const [signature, setSignature] = useState('');
+  const [transferEmail, setTransferEmail] = useState('');
 
-interface LogEntry {
-  id: string
-  status: 'DRIVING' | 'ON_DUTY' | 'OFF_DUTY' | 'SLEEPER_BERTH'
-  time: string
-  duration: string
-  location: string
-  note?: string
-}
+  const handleTransferLogs = async () => {
+    try {
+      console.log('Transfer logs clicked');
+    } catch (error) {
+      console.error('Transfer logs error:', error);
+    }
+    setShowTransferModal(true);
+  };
 
-export const LogsScreen: React.FC = () => {
-  const { theme } = useAppTheme()
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const handleEldMaterials = async () => {
+    try {
+      console.log('ELD materials clicked');
+    } catch (error) {
+      console.error('ELD materials error:', error);
+    }
+    setShowEldMaterialsModal(true);
+  };
+
+  const handleTransferOption = async (option: 'wireless' | 'email-dot' | 'email-self') => {
+    setShowTransferModal(false);
+    
+    if (option === 'wireless') {
+      Alert.prompt(
+        'Wireless Transfer',
+        'Enter email address for wireless web services transfer:',
+        async (email) => {
+          if (email) {
+            await shareLogsViaEmail(email, 'Wireless Web Services Transfer');
+          }
+        },
+        'plain-text',
+        transferEmail
+      );
+    } else if (option === 'email-dot') {
+      Alert.prompt(
+        'Email to DOT',
+        'Enter DOT email address:',
+        async (email) => {
+          if (email) {
+            await shareLogsViaEmail(email, 'DOT Transfer');
+          }
+        },
+        'plain-text',
+        transferEmail
+      );
+    } else if (option === 'email-self') {
+      await shareLogsViaEmail(user?.email || '', 'Self Transfer');
+    }
+  };
+
+  const shareLogsViaEmail = async (email: string, transferType: string) => {
+    try {
+      const formattedDate = selectedDate.toLocaleDateString();
+      const driverName = driverProfile?.name || user?.name || 'Driver';
+      const vehicleId = vehicleAssignment?.vehicle_info?.vehicle_unit || 'Unknown';
+      
+      const filteredLogs = getFilteredLogs();
+      
+      const logsText = filteredLogs
+        .map(log => {
+          const date = new Date(log.timestamp).toLocaleString();
+          return `${date} - ${log.status.toUpperCase()}: ${log.reason}`;
+        })
+        .join('\n');
+      
+      const certificationText = certification.isCertified 
+        ? `\n\nCERTIFIED by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}\nSignature: ${certification.certificationSignature}`
+        : '\n\nNOT CERTIFIED';
+      
+      const shareText = `${transferType} - Driver Logs\nDate: ${formattedDate}\nDriver: ${driverName}\nVehicle: ${vehicleId}\nEmail: ${email}\n\n${logsText}${certificationText}`;
+      
+      const result = await Share.share({
+        message: shareText,
+        title: `${transferType} - Driver Logs`,
+      });
+      
+      if (result.action === Share.sharedAction) {
+        toast.success(`Logs transferred successfully via ${transferType}`);
+      }
+    } catch (error) {
+      toast.error('Failed to transfer logs');
+      console.error('Transfer error:', error);
+    }
+  };
+
+  const handleInspectorMode = () => {
+    router.push('/inspector-mode');
+  };
+
+  const handleCertifyLogs = () => {
+    if (certification.isCertified) {
+      // Show confirmation dialog for uncertifying
+      Alert.alert(
+        'Logs Already Certified',
+        `Logs were certified by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}`,
+        [
+          { text: 'OK' },
+          { 
+            text: 'Uncertify', 
+            onPress: () => {
+              uncertifyLogs();
+              toast.success('Logs have been uncertified');
+            }, 
+            style: 'destructive' 
+          }
+        ]
+      );
+      return;
+    }
+    setShowCertificationModal(true);
+  };
+
+  const handleSubmitCertification = async () => {
+    if (!signature.trim()) {
+      toast.error('Please enter your signature');
+      return;
+    }
+
+    await certifyLogs(signature.trim());
+    setShowCertificationModal(false);
+    setSignature('');
+  };
+
+  const getFilteredLogs = (): StatusUpdate[] => {
+    // Filter logs for the selected date
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    return statusHistory
+      .filter((log: StatusUpdate) => {
+        const logDate = new Date(log.timestamp);
+        return logDate >= startOfDay && logDate <= endOfDay;
+      })
+      .sort((a: StatusUpdate, b: StatusUpdate) => b.timestamp - a.timestamp);
+  };
+
+  const handlePreviousDay = () => {
+    const prevDay = new Date(selectedDate);
+    prevDay.setDate(prevDay.getDate() - 1);
+    setSelectedDate(prevDay);
+  };
+
+  const handleNextDay = () => {
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    // Don't allow selecting future dates
+    if (nextDay <= new Date()) {
+      setSelectedDate(nextDay);
+    }
+  };
+
+  const handleSelectToday = () => {
+    setSelectedDate(new Date());
+  };
+
+  const filteredLogs = getFilteredLogs();
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
   
-  // Mock log entries - in real app, this would come from Realm
-  const logEntries: LogEntry[] = [
-    {
-      id: '1',
-      status: 'DRIVING',
-      time: '12:32:16 PM (PST)',
-      duration: '5h 42min',
-      location: 'Reno, NV 84012'
-    },
-    {
-      id: '2',
-      status: 'ON_DUTY',
-      time: '12:19:34 PM (PST)',
-      duration: '13min',
-      location: 'Reno, NV 84012',
-      note: 'DVIR'
-    },
-    {
-      id: '3',
-      status: 'OFF_DUTY',
-      time: '01:51:03 PM (PST)',
-      duration: '10h 28min',
-      location: 'Mountain View, CA 94012'
-    },
-    {
-      id: '4',
-      status: 'DRIVING',
-      time: '00:00:00 AM (PST)',
-      duration: '1h 51min',
-      location: 'Oakland, CA 94502'
-    }
-  ]
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'DRIVING':
-        return theme.colors.warning
-      case 'ON_DUTY':
-        return theme.colors.success
-      case 'OFF_DUTY':
-        return theme.colors.error
-      case 'SLEEPER_BERTH':
-        return theme.colors.tint
-      default:
-        return theme.colors.border
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'DRIVING':
-        return 'D'
-      case 'ON_DUTY':
-        return 'ON'
-      case 'OFF_DUTY':
-        return 'OFF'
-      case 'SLEEPER_BERTH':
-        return 'SB'
-      default:
-        return '?'
-    }
-  }
+  // Debug: Log the filtered logs to understand what's happening
+  console.log('Filtered logs for date:', selectedDate.toDateString(), 'Count:', filteredLogs.length);
 
   return (
-    <Screen 
-      preset="scroll"
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
-      {/* Professional Header */}
-      <View style={styles.header}>
-        <Text style={styles.dateTitle}>
-          {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </Text>
-        <View style={styles.signButton}>
-          <Text style={styles.signButtonText}>Sign !</Text>
-        </View>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
 
-      {/* Professional Tab Navigation */}
-      <View style={styles.tabNavigation}>
-        <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-          <Text style={[styles.tabText, styles.activeTabText]}>Logs</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Text style={styles.tabText}>Docs</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Text style={styles.tabText}>DVIR</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Text style={styles.tabText}>Sign !</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Professional Timeline Graph */}
-      <View style={styles.timelineCard}>
-        <View style={styles.timelineContainer}>
-          <View style={styles.timelineYAxis}>
-            <Text style={styles.yAxisLabel}>OFF</Text>
-            <Text style={styles.yAxisLabel}>SB</Text>
-            <Text style={styles.yAxisLabel}>D</Text>
-            <Text style={styles.yAxisLabel}>ON</Text>
-          </View>
           
-          <View style={styles.timelineGraph}>
-            <View style={styles.timelineBars}>
-              <View style={[styles.timelineBar, styles.drivingBar]} />
-              <View style={[styles.timelineBar, styles.offDutyBar]} />
-              <View style={[styles.timelineBar, styles.onDutyBar]} />
-              <View style={[styles.timelineBar, styles.drivingBar]} />
+          {certification.isCertified && (
+            <View style={[styles.certificationBadge, { backgroundColor: colors.success }]}>
+              <Lock size={16} color="#fff" />
+              <Text style={styles.certificationBadgeText}>CERTIFIED</Text>
             </View>
+          )}
+          
+          <View style={styles.dateSelector}>
+            <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
+              <Text style={[styles.dateButtonText, { color: colors.tint }]}>
+                ◀
+              </Text>
+            </TouchableOpacity>
             
-            <View style={styles.timelineXAxis}>
-              <Text style={styles.xAxisLabel}>M</Text>
-              <Text style={styles.xAxisLabel}>1</Text>
-              <Text style={styles.xAxisLabel}>2</Text>
-              <Text style={styles.xAxisLabel}>3</Text>
-              <Text style={styles.xAxisLabel}>4</Text>
-              <Text style={styles.xAxisLabel}>5</Text>
-              <Text style={styles.xAxisLabel}>6</Text>
-              <Text style={styles.xAxisLabel}>7</Text>
-              <Text style={styles.xAxisLabel}>8</Text>
-              <Text style={styles.xAxisLabel}>9</Text>
-              <Text style={styles.xAxisLabel}>10</Text>
-              <Text style={styles.xAxisLabel}>11</Text>
-              <Text style={styles.xAxisLabel}>N</Text>
-              <Text style={styles.xAxisLabel}>1</Text>
-              <Text style={styles.xAxisLabel}>2</Text>
-              <Text style={styles.xAxisLabel}>3</Text>
-              <Text style={styles.xAxisLabel}>4</Text>
-              <Text style={styles.xAxisLabel}>5</Text>
-              <Text style={styles.xAxisLabel}>6</Text>
-              <Text style={styles.xAxisLabel}>7</Text>
-              <Text style={styles.xAxisLabel}>8</Text>
-              <Text style={styles.xAxisLabel}>9</Text>
-              <Text style={styles.xAxisLabel}>10</Text>
-              <Text style={styles.xAxisLabel}>11</Text>
-              <Text style={styles.xAxisLabel}>M</Text>
-            </View>
-          </View>
-          
-          <View style={styles.timelineMarkers}>
-            <Text style={styles.timelineMarker}>10:04</Text>
-            <Text style={styles.timelineMarker}>00:00</Text>
-            <Text style={styles.timelineMarker}>07:48</Text>
-            <Text style={styles.timelineMarker}>00:13</Text>
+            <TouchableOpacity 
+              onPress={handleSelectToday}
+              style={[
+                styles.dateDisplay,
+                { backgroundColor: isDark ? colors.cardBackground : '#F3F4F6' }
+              ]}
+            >
+              <Calendar size={16} color={colors.tint} style={styles.calendarIcon} />
+              <Text style={[styles.dateText, { color: colors.text }]}>
+                {selectedDate.toLocaleDateString(undefined, { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+                {isToday ? ' (Today)' : ''}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              onPress={handleNextDay} 
+              style={styles.dateButton}
+              disabled={isToday}
+            >
+              <Text 
+                style={[
+                  styles.dateButtonText, 
+                  { 
+                    color: isToday ? colors.textDim : colors.tint 
+                  }
+                ]}
+              >
+                ▶
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* Professional Log Entries */}
-      <View style={styles.logEntries}>
-        {logEntries.map((entry) => (
-          <View key={entry.id} style={styles.logEntry}>
-            <View style={styles.logEntryContent}>
-              <View style={[styles.statusIcon, { backgroundColor: getStatusColor(entry.status) }]}>
-                <Text style={styles.statusIconText}>
-                  {getStatusIcon(entry.status)}
-                </Text>
+        <View style={styles.actionsContainer}>
+          <View style={styles.actionButton}>
+            <LoadingButton
+              title="Transfer Logs"
+              onPress={handleTransferLogs}
+              variant="outline"
+              icon={<Share2 size={18} color={colors.tint} />}
+              fullWidth
+            />
+          </View>
+          <View style={styles.actionButton}>
+            <LoadingButton
+              title="ELD Materials"
+              onPress={handleEldMaterials}
+              variant="outline"
+              icon={<FileText size={18} color={colors.tint} />}
+              fullWidth
+            />
+          </View>
+          <View style={styles.actionButton}>
+            <LoadingButton
+              title="Inspector Mode"
+              onPress={handleInspectorMode}
+              icon={<Download size={18} color={isDark ? colors.text : '#fff'} />}
+              fullWidth
+            />
+          </View>
+        </View>
+
+        <View style={styles.certificationContainer}>
+          <LoadingButton
+            title={certification.isCertified ? "View Certification" : "Certify Logs"}
+            onPress={handleCertifyLogs}
+            variant={certification.isCertified ? "secondary" : "primary"}
+            icon={<Lock size={18} color="#fff" />}
+            style={{ marginBottom: 16 }}
+          />
+        </View>
+
+      {/* Certification Modal */}
+      <Modal
+        visible={showCertificationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCertificationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Certify Your Logs
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+              By certifying these logs, you confirm their accuracy. Once certified, no changes can be made.
+            </Text>
+            
+            <TextInput
+              style={[
+                styles.signatureInput,
+                {
+                  backgroundColor: isDark ? colors.cardBackground : '#F3F4F6',
+                  color: colors.text,
+                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                },
+              ]}
+              placeholder="Enter your digital signature"
+              placeholderTextColor={colors.textDim}
+              value={signature}
+              onChangeText={setSignature}
+            />
+            
+            <View style={styles.modalButtons}>
+              <View style={styles.modalButton}>
+                <LoadingButton
+                  title="Cancel"
+                  onPress={() => {
+                    setShowCertificationModal(false);
+                    setSignature('');
+                  }}
+                  variant="outline"
+                  fullWidth
+                />
               </View>
-              
-              <View style={styles.logEntryDetails}>
-                <View style={styles.logEntryHeader}>
-                  <Text style={styles.logTime}>
-                    {entry.time}
+              <View style={styles.modalButton}>
+                <LoadingButton
+                  title="Certify"
+                  onPress={handleSubmitCertification}
+                  fullWidth
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Transfer Logs Modal */}
+      <Modal
+        visible={showTransferModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTransferModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Transfer Logs
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+              Select transfer method as per FMCSA standard:
+            </Text>
+            
+            <View style={styles.transferOptions}>
+              <TouchableOpacity
+                style={[styles.transferOption, styles.preferredOption, { backgroundColor: colors.tint }]}
+                onPress={() => handleTransferOption('wireless')}
+              >
+                <Wifi size={24} color="#fff" />
+                <View style={styles.transferOptionText}>
+                  <Text style={[styles.transferOptionTitle, { color: '#fff' }]}>
+                    Wireless Web Services
                   </Text>
-                  <Text style={styles.logDuration}>
-                    {entry.duration}
+                  <Text style={[styles.transferOptionSubtitle, { color: '#fff' }]}>
+                    Preferred method
                   </Text>
                 </View>
-                
-                {entry.note && (
-                  <Text style={styles.logNote}>
-                    {entry.note}
-                  </Text>
-                )}
-                
-                <TouchableOpacity>
-                  <Text style={styles.logLocation}>
-                    {entry.location}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
               
-              <TouchableOpacity style={styles.editButton}>
-                <Icon icon="more" color="#718096" size={20} />
+              <TouchableOpacity
+                style={[styles.transferOption, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => handleTransferOption('email-dot')}
+              >
+                <Mail size={24} color={colors.text} />
+                <View style={styles.transferOptionText}>
+                  <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
+                    Email to DOT
+                  </Text>
+                  <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
+                    Send to DOT inspector
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.transferOption, { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => handleTransferOption('email-self')}
+              >
+                <Mail size={24} color={colors.text} />
+                <View style={styles.transferOptionText}>
+                  <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
+                    Email to Myself
+                  </Text>
+                  <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
+                    Send to your email
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
+            
+            <LoadingButton
+              title="Cancel"
+              onPress={() => setShowTransferModal(false)}
+              variant="outline"
+            />
           </View>
-        ))}
-      </View>
-    </Screen>
-  )
+        </View>
+      </Modal>
+
+      {/* ELD Materials Modal */}
+      <Modal
+        visible={showEldMaterialsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEldMaterialsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              ELD in Cab Materials
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+              Required documentation and instructions:
+            </Text>
+            
+            <View style={styles.eldMaterials}>
+              <TouchableOpacity
+                style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
+                onPress={() => {
+                  toast.info('This would open the driver manual PDF or documentation.');
+                }}
+              >
+                <FileText size={24} color={colors.tint} />
+                <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                  Driver Manual
+                </Text>
+                <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
+                  Complete ELD operation guide
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
+                onPress={() => {
+                  toast.info('Transfer Instructions, This would open the transfer page instruction sheet.');
+                }}
+              >
+                <Share2 size={24} color={colors.tint} />
+                <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                  Transfer Page Instructions
+                </Text>
+                <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
+                  Step-by-step transfer guide
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <LoadingButton
+              title="Close"
+              onPress={() => setShowEldMaterialsModal(false)}
+              variant="outline"
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {filteredLogs.length === 0 ? (
+        <ElevatedCard style={styles.emptyContainer}>
+          <View style={styles.emptyIconContainer}>
+            <FileText size={48} color={colors.text} />
+          </View>
+          <Text style={[styles.emptyText, { color: colors.text }]}>
+            No logs recorded for this date
+          </Text>
+          <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+            Status changes will appear here
+          </Text>
+        </ElevatedCard>
+      ) : (
+        <>
+          {/* HOS Chart */}
+          <HOSChart
+            logs={filteredLogs}
+            date={selectedDate}
+            driverName={driverProfile?.name || user?.name || 'Driver'}
+            vehicleNumber={vehicleAssignment?.vehicle_info?.vehicle_unit || 'Unknown'}
+          />
+          
+          {/* Log Entries */}
+          <View style={styles.logsContainer}>
+            {filteredLogs.map((item) => (
+              <LogEntry key={item.timestamp.toString()} log={item} />
+            ))}
+          </View>
+        </>
+      )}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
-  content: {
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingBottom: 20,
   },
-  
-  // Professional Header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  dateTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#2D3748',
-  },
-  signButton: {
-    backgroundColor: '#DC3545',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    shadowColor: '#DC3545',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  signButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  
-  // Professional Tab Navigation
-  tabNavigation: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-  },
-  activeTab: {
-    borderBottomColor: '#007BFF',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#718096',
-  },
-  activeTabText: {
-    color: '#007BFF',
-    fontWeight: '700',
-  },
-  
-  // Professional Timeline
-  timelineCard: {
-    margin: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-    overflow: 'hidden',
-  },
-  timelineContainer: {
     padding: 20,
-    position: 'relative',
+    paddingBottom: 0,
+    paddingTop: 0,
   },
-  timelineYAxis: {
-    position: 'absolute',
-    left: 0,
-    top: 20,
-    height: 80,
-    justifyContent: 'space-between',
-    zIndex: 2,
+  title: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    marginBottom: 16,
   },
-  yAxisLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#718096',
-    textAlign: 'center',
-  },
-  timelineGraph: {
-    marginLeft: 30,
-    position: 'relative',
-  },
-  timelineBars: {
-    height: 80,
+  certificationBadge: {
     flexDirection: 'row',
-    gap: 1,
-    marginBottom: 12,
-  },
-  timelineBar: {
-    flex: 1,
-    borderRadius: 2,
-  },
-  drivingBar: {
-    backgroundColor: '#FFC107',
-    height: 20,
-    alignSelf: 'flex-end',
-  },
-  offDutyBar: {
-    backgroundColor: '#DC3545',
-    height: 20,
+    alignItems: 'center',
     alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginBottom: 16,
   },
-  onDutyBar: {
-    backgroundColor: '#28A745',
-    height: 20,
-    alignSelf: 'center',
+  certificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginLeft: 4,
   },
-  timelineXAxis: {
+  dateSelector: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  xAxisLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#A0AEC0',
+  dateButton: {
+    padding: 8,
+  },
+  dateButtonText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+  },
+  dateDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginHorizontal: 8,
+  },
+  calendarIcon: {
+    marginRight: 8,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  certificationContainer: {
+    paddingHorizontal: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    marginBottom: 8,
+  },
+  signatureInput: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  logsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  logsListContent: {
+    paddingBottom: 20,
+  },
+  logsContainer: {
+    paddingHorizontal: 20,
+  },
+  emptyContainer: {
+    margin: 20,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconContainer: {
+    marginBottom: 16,
+    opacity: 0.7,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
     textAlign: 'center',
   },
-  timelineMarkers: {
-    position: 'absolute',
-    right: -40,
-    top: 20,
-    height: 80,
-    justifyContent: 'space-between',
+  emptySubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  timelineMarker: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#718096',
-    textAlign: 'right',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  
-  // Professional Log Entries
-  logEntries: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  logEntry: {
-    backgroundColor: '#FFFFFF',
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 24,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    maxHeight: '80%',
   },
-  logEntryContent: {
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  transferOptions: {
+    marginBottom: 20,
+  },
+  transferOption: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    gap: 16,
-  },
-  statusIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  statusIconText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  logEntryDetails: {
-    flex: 1,
-    gap: 6,
-  },
-  logEntryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  logTime: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#2D3748',
-  },
-  logDuration: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#718096',
-  },
-  logNote: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#A0AEC0',
-    fontStyle: 'italic',
-  },
-  logLocation: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#007BFF',
-    textDecorationLine: 'underline',
-  },
-  editButton: {
-    padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F7FAFC',
+    marginBottom: 12,
   },
-})
+  preferredOption: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  transferOptionText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  transferOptionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  transferOptionSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  eldMaterials: {
+    marginBottom: 20,
+  },
+  eldMaterialItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  eldMaterialTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginLeft: 12,
+    flex: 1,
+  },
+  eldMaterialSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+    marginLeft: 12,
+    flex: 1,
+  },
+});

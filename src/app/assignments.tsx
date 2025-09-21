@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router';
 import { Plus, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
@@ -70,25 +70,39 @@ export default function AssignmentsScreen() {
   };
 
   const handleRemoveTrailer = async (id: string) => {
-    if (confirm('Are you sure you want to remove this trailer?')) {
-      try {
-        await removeTrailer(id);
-        toast.success('Trailer removed successfully');
-      } catch (error) {
-        toast.warning('Failed to remove trailer');
-      }
-    }
+    Alert.alert(
+      'Remove Trailer',
+      'Are you sure you want to remove this trailer?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', onPress: async () => {
+          try {
+            await removeTrailer(id);
+            toast.success('Trailer removed successfully');
+          } catch (error) {
+            toast.warning('Failed to remove trailer');
+          }
+        }, style: 'destructive' }
+      ]
+    );
   };
 
   const handleRemoveShippingID = async (id: string) => {
-    if (confirm('Are you sure you want to remove this shipping ID?')) {
-      try {
-        await removeShippingID(id);
-        toast.success('Shipping ID removed successfully');
-      } catch (error) {
-        toast.warning('Failed to remove shipping ID');
-      }
-    }
+    Alert.alert(
+      'Remove Shipping ID',
+      'Are you sure you want to remove this shipping ID?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', onPress: async () => {
+          try {
+            await removeShippingID(id);
+            toast.success('Shipping ID removed successfully');
+          } catch (error) {
+            toast.warning('Failed to remove shipping ID');
+          }
+        }, style: 'destructive' }
+      ]
+    );
   };
 
   return (

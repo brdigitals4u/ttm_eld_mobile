@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import type { AuthState, User, VehicleInfo } from '@/types/auth';
 import type { Inspection, InspectionItem } from '@/types/inspection';
 import type { StatusUpdate } from '@/types/status';
+import { StatusProvider as FullStatusProvider, useStatus as useFullStatus } from './status-context';
 
 // Enhanced AuthContextType with Realm-based data
 interface AuthContextType extends AuthState {
@@ -430,41 +431,9 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
   };
 });
 
-// Status Context
-export const [StatusProvider, useStatus] = createContextHook(() => {
-  const [statusHistory, setStatusHistory] = useState<StatusUpdate[]>([]);
-  const [currentStatus, setCurrentStatusState] = useState('off_duty');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const setCurrentStatus = async (status: string, location?: string) => {
-    setIsLoading(true);
-    try {
-      const statusEntry = {
-        id: Date.now().toString(),
-        status,
-        location: location || 'Current Location',
-        timestamp: Date.now(),
-      };
-      
-      setStatusHistory((prev: any) => [statusEntry, ...prev]);
-      setCurrentStatusState(status);
-      
-      // Update HOS status in Realm
-      RealmService.updateHOSStatus({
-        current_status: status,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return {
-    statusHistory,
-    currentStatus,
-    setCurrentStatus,
-    isLoading,
-  };
-});
+// Re-export the full StatusProvider and useStatus from status-context
+export const StatusProvider = FullStatusProvider;
+export const useStatus = useFullStatus;
 
 // Main Context Provider that wraps all contexts
 export const AllContextsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { ArrowLeft, FileText, Plus, Truck } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
@@ -62,12 +62,18 @@ export default function AssetsScreen() {
   };
 
   const handleDeleteAsset = (id: string, number: string) => {
-    // Simple confirmation for now - in a real app you'd use a proper modal
-    const confirmed = confirm(`Are you sure you want to delete ${number}?`);
-    if (confirmed) {
-      deleteAsset(id);
-      toast.success('Asset deleted successfully');
-    }
+    // Use Alert.alert for confirmation in React Native
+    Alert.alert(
+      'Delete Asset',
+      `Are you sure you want to delete ${number}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', onPress: () => {
+          deleteAsset(id);
+          toast.success('Asset deleted successfully');
+        }, style: 'destructive' }
+      ]
+    );
   };
 
   const renderAssetItem = ({ item }: { item: Asset }) => (
