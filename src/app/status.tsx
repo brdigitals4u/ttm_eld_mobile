@@ -17,7 +17,6 @@ import {
   Bed,
   Briefcase,
   Coffee,
-  Lock,
   MoreHorizontal,
   Settings,
   Truck,
@@ -84,8 +83,6 @@ export default function StatusScreen() {
     currentStatus,
     hoursOfService,
     formatDuration,
-    certification,
-    canUpdateStatus,
     splitSleepSettings,
     toggleSplitSleep,
     updateStatus,
@@ -94,9 +91,7 @@ export default function StatusScreen() {
   const insets = useSafeAreaInsets()
 
   const handleStatusChange = async (status: DriverStatus) => {
-    if (!canUpdateStatus()) {
-      return
-    }
+    // Status updates are now always allowed regardless of certification
 
     try {
       console.log("Status button clicked:", status)
@@ -151,18 +146,8 @@ export default function StatusScreen() {
         Select your current duty status
       </Text>
 
-      {certification.isCertified && (
-        <ElevatedCard style={[styles.certificationWarning, { backgroundColor: colors.warning }]}>
-          <View style={styles.warningContent}>
-            <Lock size={24} color={isDark ? "#000" : "#fff"} />
-            <Text style={[styles.warningText, { color: isDark ? "#000" : "#fff" }]}>
-              Logs are certified. Status updates are disabled until logs are uncertified.
-            </Text>
-          </View>
-        </ElevatedCard>
-      )}
 
-      <View style={[styles.statusButtons, { opacity: canUpdateStatus() ? 1 : 0.5 }]}>
+      <View style={styles.statusButtons}>
         <StatusButton
           status="driving"
           label="Driving"
@@ -324,9 +309,7 @@ export default function StatusScreen() {
       )}
 
       <Text style={[styles.infoText, { color: colors.textDim }]}>
-        {canUpdateStatus()
-          ? "Remember to update your status whenever your duty status changes to maintain accurate records."
-          : "Status updates are disabled because logs have been certified."}
+        Remember to update your status whenever your duty status changes to maintain accurate records.
       </Text>
 
       {/* Done for the day modal */}

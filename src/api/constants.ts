@@ -40,6 +40,16 @@ export const API_ENDPOINTS = {
     RECENT_ACTIVITY: '/dashboard/activity',
     NOTIFICATIONS: '/dashboard/notifications',
   },
+  
+  // HOS (Hours of Service) APIs
+  HOS: {
+    CREATE_CLOCK: '/hos/clocks/',
+    CREATE_LOG_ENTRY: '/hos/logs/',
+    CREATE_DAILY_LOG: '/hos/daily-logs/',
+    CREATE_ELD_EVENT: '/hos/eld-events/',
+    CERTIFY_LOG: '/hos/logs/{id}/certify/',
+    CHANGE_DUTY_STATUS: '/hos/clocks/{id}/change-duty-status/',
+  },
 }
 
 // HTTP Status Codes

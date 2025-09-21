@@ -14,7 +14,6 @@ import { router } from "expo-router"
 import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from "lucide-react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { Card } from "@/components/Card"
 import ElevatedCard from "@/components/EvevatedCard"
 import HOSChart from "@/components/HOSChart"
 import LoadingButton from "@/components/LoadingButton"
@@ -29,7 +28,7 @@ export const LogsScreen = () => {
   const { theme, themeContext } = useAppTheme()
   const isDark = themeContext === "dark"
   const colors = theme.colors
-  const { statusHistory, certification, certifyLogs, canUpdateStatus, uncertifyLogs } = useStatus()
+  const { statusHistory, certification, certifyLogs, uncertifyLogs } = useStatus()
   const { user, driverProfile, vehicleAssignment } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [showCertificationModal, setShowCertificationModal] = useState(false)

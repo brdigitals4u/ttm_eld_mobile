@@ -8,8 +8,6 @@ import Svg, {
   Defs, 
   LinearGradient, 
   Stop,
-  Filter,
-  FeDropShadow,
   G,
   Text
 } from 'react-native-svg';
@@ -39,13 +37,11 @@ export default function TTMKonnectLogo({
             <Stop offset="0%" stopColor="#10B981" stopOpacity={1} />
             <Stop offset="100%" stopColor="#059669" stopOpacity={1} />
           </LinearGradient>
-          <Filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <FeDropShadow dx={0} dy={4} stdDeviation={8} floodColor="#000000" floodOpacity={0.1} />
-          </Filter>
+          {/* Filter removed to prevent SVG layout errors in React Native */}
         </Defs>
         
         {/* Background circle */}
-        <Circle cx={100} cy={100} r={90} fill="url(#primaryGradient)" filter="url(#shadow)" />
+        <Circle cx={100} cy={100} r={90} fill="url(#primaryGradient)" />
         
         {/* Truck body */}
         <Rect x={40} y={80} width={80} height={40} rx={8} fill="white" opacity={0.95} />

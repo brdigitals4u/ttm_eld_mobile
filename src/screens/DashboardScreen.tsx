@@ -4,6 +4,7 @@ import { router } from "expo-router"
 import { RefreshCw, Link as LinkIcon } from "lucide-react-native"
 
 import { useAuth } from "@/stores/authStore"
+import { useStatus } from "@/contexts"
 
 export const DashboardScreen = () => {
   const {
@@ -15,6 +16,7 @@ export const DashboardScreen = () => {
     isAuthenticated,
     isLoading,
   } = useAuth()
+  const { logEntries, certification } = useStatus()
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -69,6 +71,9 @@ export const DashboardScreen = () => {
     // Get organization name for app title
     const orgName = organizationSettings?.organization_name || "TTM Konnect"
 
+    // Count uncertified logs
+    const uncertifiedLogsCount = logEntries.filter(log => !log.isCertified).length
+
     return {
       appTitle: orgName,
       connected: true, // Assume connected if we have data
@@ -85,8 +90,10 @@ export const DashboardScreen = () => {
       cycleDays: cycleDays,
       dateTitle: dateTitle,
       vehicleUnit: vehicleUnit,
+      uncertifiedLogsCount: uncertifiedLogsCount,
+      isCertified: certification.isCertified,
     }
-  }, [user, driverProfile, hosStatus, vehicleAssignment, organizationSettings, isAuthenticated])
+  }, [user, driverProfile, hosStatus, vehicleAssignment, organizationSettings, isAuthenticated, logEntries, certification])
 
   const time = (m: number) =>
     `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
@@ -187,6 +194,16 @@ export const DashboardScreen = () => {
             ]}
           >
             <Text style={[s.dutyText, { color: dutyStyle.textColor }]}>{data.duty}</Text>
+          </View>
+        </View>
+
+        {/* Certification Status */}
+        <View style={s.certificationRow}>
+          <Text style={s.certificationLabel}>Logs Status</Text>
+          <View style={[s.certificationPill, data.isCertified ? s.certified : s.uncertified]}>
+            <Text style={[s.certificationText, data.isCertified ? s.certifiedText : s.uncertifiedText]}>
+              {data.isCertified ? 'CERTIFIED' : `${data.uncertifiedLogsCount} UNCERTIFIED`}
+            </Text>
           </View>
         </View>
       </View>
@@ -340,8 +357,17 @@ const s = StyleSheet.create({
   dutyLabel: { color: "#6B7280", fontSize: 13 },
   dutyPill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
   dutyRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-
   dutyText: { fontSize: 12, fontWeight: "900" },
+
+  // Certification styles
+  certificationRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
+  certificationLabel: { color: "#6B7280", fontSize: 13 },
+  certificationPill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
+  certificationText: { fontSize: 12, fontWeight: "900" },
+  certified: { backgroundColor: "#DFF6E7", borderColor: "#16A34A" },
+  certifiedText: { color: "#15803D" },
+  uncertified: { backgroundColor: "#FEF3C7", borderColor: "#F59E0B" },
+  uncertifiedText: { color: "#B45309" },
   fillGreen: { backgroundColor: "#16A34A", borderRadius: 5, height: "100%" },
   flag: { fontSize: 16 },
 
