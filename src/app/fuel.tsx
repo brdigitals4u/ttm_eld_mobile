@@ -1,48 +1,57 @@
-import { ArrowLeft, Camera, Edit, Fuel, Plus } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { toast } from '@/components/Toast';
+import React, { useState } from "react"
+import {
+  FlatList,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
+import { router } from "expo-router"
+import { ArrowLeft, Camera, Edit, Fuel, Plus } from "lucide-react-native"
 
-import LoadingButton from '@/components/LoadingButton';
-import ElevatedCard from '@/components/EvevatedCard';
-import { useFuel, useAuth } from '@/contexts';
-import { useAppTheme } from '@/theme/context';
-import { FuelReceipt } from '@/types/fuel';
-import { router } from 'expo-router';
+import ElevatedCard from "@/components/EvevatedCard"
+import LoadingButton from "@/components/LoadingButton"
+import { toast } from "@/components/Toast"
+import { useFuel, useAuth } from "@/contexts"
+import { useAppTheme } from "@/theme/context"
+import { FuelReceipt } from "@/types/fuel"
 
 export default function EnhancedFuelScreen() {
-  const { theme } = useAppTheme();
-  const { colors, isDark } = theme;
-  const { receipts, addFuelReceipt, deleteFuelReceipt, isLoading } = useFuel();
-  const { user, vehicleInfo } = useAuth();
-  const [showAddForm, setShowAddForm] = useState(false);
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+  const { receipts, addFuelReceipt, deleteFuelReceipt, isLoading } = useFuel()
+  const { user, vehicleInfo } = useAuth()
+  const [showAddForm, setShowAddForm] = useState(false)
   const [formData, setFormData] = useState({
-    location: '',
-    gallons: '',
-    pricePerGallon: '',
-    odometer: '',
-    receiptImage: '',
-  });
+    location: "",
+    gallons: "",
+    pricePerGallon: "",
+    odometer: "",
+    receiptImage: "",
+  })
 
   const handleAddReceipt = () => {
-    setShowAddForm(true);
-  };
+    setShowAddForm(true)
+  }
 
   const handleCancelAdd = () => {
-    setShowAddForm(false);
+    setShowAddForm(false)
     setFormData({
-      location: '',
-      gallons: '',
-      pricePerGallon: '',
-      odometer: '',
-      receiptImage: '',
-    });
-  };
+      location: "",
+      gallons: "",
+      pricePerGallon: "",
+      odometer: "",
+      receiptImage: "",
+    })
+  }
 
   const handleTakePhoto = async () => {
-    if (Platform.OS === 'web') {
-      toast.warning('Camera functionality is not available on web.');
-      return;
+    if (Platform.OS === "web") {
+      toast.warning("Camera functionality is not available on web.")
+      return
     }
 
     // const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -64,7 +73,7 @@ export default function EnhancedFuelScreen() {
     //     receiptImage: result.assets[0].uri,
     //   }));
     // }
-  };
+  }
 
   const handleSelectImage = async () => {
     // const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -72,37 +81,35 @@ export default function EnhancedFuelScreen() {
     //   toast.error('Photo library permission is required to select images.');
     //   return;
     // }
-
     // const result = await ImagePicker.launchImageLibraryAsync({
     //   mediaTypes: ImagePicker.MediaTypeOptions.Images,
     //   allowsEditing: true,
     //   aspect: [4, 3],
     //   quality: 0.8,
     // });
-
     // if (!result.canceled && result.assets[0]) {
     //   setFormData(prev => ({
     //     ...prev,
     //     receiptImage: result.assets[0].uri,
     //   }));
     // }
-  };
+  }
 
   const handleSubmit = async () => {
     if (!formData.location || !formData.gallons || !formData.pricePerGallon) {
-      toast.warning('Please fill in all required fields.');
-      return;
+      toast.warning("Please fill in all required fields.")
+      return
     }
 
-    const gallons = parseFloat(formData.gallons);
-    const pricePerGallon = parseFloat(formData.pricePerGallon);
+    const gallons = parseFloat(formData.gallons)
+    const pricePerGallon = parseFloat(formData.pricePerGallon)
 
     if (isNaN(gallons) || isNaN(pricePerGallon)) {
-      toast.error('Please enter valid numbers for gallons and price.');
-      return;
+      toast.error("Please enter valid numbers for gallons and price.")
+      return
     }
 
-    const receipt: Omit<FuelReceipt, 'id' | 'createdAt'> = {
+    const receipt: Omit<FuelReceipt, "id" | "createdAt"> = {
       purchaseDate: Date.now(),
       location: formData.location,
       gallons,
@@ -110,29 +117,23 @@ export default function EnhancedFuelScreen() {
       totalAmount: gallons * pricePerGallon,
       receiptImage: formData.receiptImage || undefined,
       odometer: formData.odometer ? parseInt(formData.odometer) : undefined,
-      vehicleId: vehicleInfo?.vehicle_unit || 'unknown',
-      driverId: user?.id || 'unknown',
-    };
+      vehicleId: vehicleInfo?.vehicle_unit || "unknown",
+      driverId: user?.id || "unknown",
+    }
 
-    await addFuelReceipt(receipt);
-    handleCancelAdd();
-  };
+    await addFuelReceipt(receipt)
+    handleCancelAdd()
+  }
 
   const handleDeleteReceipt = (id: string) => {
-    toast.warning(
-      'Are you sure you want to delete this fuel receipt?',
-     
-    
-    );
-  };
+    toast.warning("Are you sure you want to delete this fuel receipt?")
+  }
 
   const renderReceiptItem = ({ item }: { item: FuelReceipt }) => (
     <ElevatedCard style={styles.receiptCard}>
       <View style={styles.receiptHeader}>
         <View style={styles.receiptInfo}>
-          <Text style={[styles.receiptLocation, { color: colors.text }]}>
-            {item.location}
-          </Text>
+          <Text style={[styles.receiptLocation, { color: colors.text }]}>{item.location}</Text>
           <Text style={[styles.receiptDate, { color: colors.textDim }]}>
             {new Date(item.purchaseDate).toLocaleDateString()}
           </Text>
@@ -144,26 +145,20 @@ export default function EnhancedFuelScreen() {
 
       <View style={styles.receiptDetails}>
         <View style={styles.receiptDetailItem}>
-          <Text style={[styles.receiptDetailLabel, { color: colors.textDim }]}>
-            Gallons:
-          </Text>
+          <Text style={[styles.receiptDetailLabel, { color: colors.textDim }]}>Gallons:</Text>
           <Text style={[styles.receiptDetailValue, { color: colors.text }]}>
             {item.gallons.toFixed(2)}
           </Text>
         </View>
         <View style={styles.receiptDetailItem}>
-          <Text style={[styles.receiptDetailLabel, { color: colors.textDim }]}>
-            Price/Gal:
-          </Text>
+          <Text style={[styles.receiptDetailLabel, { color: colors.textDim }]}>Price/Gal:</Text>
           <Text style={[styles.receiptDetailValue, { color: colors.text }]}>
             ${item.pricePerGallon.toFixed(3)}
           </Text>
         </View>
         {item.odometer && (
           <View style={styles.receiptDetailItem}>
-            <Text style={[styles.receiptDetailLabel, { color: colors.textDim }]}>
-              Odometer:
-            </Text>
+            <Text style={[styles.receiptDetailLabel, { color: colors.textDim }]}>Odometer:</Text>
             <Text style={[styles.receiptDetailValue, { color: colors.text }]}>
               {item.odometer.toLocaleString()} mi
             </Text>
@@ -181,25 +176,23 @@ export default function EnhancedFuelScreen() {
       >
         <Text style={styles.deleteButtonText}>Delete</Text>
       </Pressable>
-      </ElevatedCard>
-  );
+    </ElevatedCard>
+  )
 
   if (showAddForm) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-
-
-<View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Fuel Receipt</Text>
-        <LoadingButton
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={colors.text} />
+          </Pressable>
+          <Text style={[styles.title, { color: colors.text }]}>Fuel Receipt</Text>
+          <LoadingButton
             title="Add"
             onPress={handleAddReceipt}
             icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
           />
-      </View>
+        </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
@@ -208,15 +201,15 @@ export default function EnhancedFuelScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="Gas station name or location"
               placeholderTextColor={colors.textDim}
               value={formData.location}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, location: text }))}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, location: text }))}
             />
           </View>
 
@@ -227,15 +220,15 @@ export default function EnhancedFuelScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                    backgroundColor: isDark ? colors.surface : "#F3F4F6",
                     color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    borderColor: isDark ? "transparent" : "#E5E7EB",
                   },
                 ]}
                 placeholder="0.00"
                 placeholderTextColor={colors.textDim}
                 value={formData.gallons}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, gallons: text }))}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, gallons: text }))}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -246,15 +239,15 @@ export default function EnhancedFuelScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                    backgroundColor: isDark ? colors.surface : "#F3F4F6",
                     color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    borderColor: isDark ? "transparent" : "#E5E7EB",
                   },
                 ]}
                 placeholder="0.000"
                 placeholderTextColor={colors.textDim}
                 value={formData.pricePerGallon}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, pricePerGallon: text }))}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, pricePerGallon: text }))}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -266,27 +259,27 @@ export default function EnhancedFuelScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="Current mileage"
               placeholderTextColor={colors.textDim}
               value={formData.odometer}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, odometer: text }))}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, odometer: text }))}
               keyboardType="numeric"
             />
           </View>
 
           <View style={styles.imageSection}>
             <Text style={[styles.label, { color: colors.text }]}>Receipt Photo (optional)</Text>
-            
+
             {formData.receiptImage ? (
               <View style={styles.imagePreview}>
                 <Image source={{ uri: formData.receiptImage }} style={styles.previewImage} />
                 <Pressable
-                  onPress={() => setFormData(prev => ({ ...prev, receiptImage: '' }))}
+                  onPress={() => setFormData((prev) => ({ ...prev, receiptImage: "" }))}
                   style={[styles.removeImageButton, { backgroundColor: colors.error }]}
                 >
                   <Text style={styles.removeImageText}>Remove</Text>
@@ -327,30 +320,27 @@ export default function EnhancedFuelScreen() {
           </View>
         </View>
       </View>
-    );
+    )
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-    <View style={styles.header}>
+      <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
         <Text style={[styles.title, { color: colors.text }]}>Fuel Receipts</Text>
         <LoadingButton
-            title="Add"
-            onPress={handleAddReceipt}
-            icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
-          />
+          title="Add"
+          onPress={handleAddReceipt}
+          icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
+        />
       </View>
-
 
       {receipts.length === 0 ? (
         <ElevatedCard style={styles.emptyContainer}>
           <Fuel size={48} color={colors.textDim} />
-          <Text style={[styles.emptyText, { color: colors.text }]}>
-            No fuel receipts recorded
-          </Text>
+          <Text style={[styles.emptyText, { color: colors.text }]}>No fuel receipts recorded</Text>
           <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
             Add your first fuel receipt to get started
           </Text>
@@ -365,76 +355,139 @@ export default function EnhancedFuelScreen() {
         />
       )}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    padding: 8,
+  },
   container: {
     flex: 1,
     marginTop: 30,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 0,
+  deleteButton: {
+    alignSelf: "flex-end",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700' as const,
+  deleteButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600" as const,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 20,
+    padding: 40,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+    marginTop: 16,
+    textAlign: "center",
   },
   form: {
     flex: 1,
     padding: 20,
   },
-  inputGroup: {
-    marginBottom: 20,
+  formButtons: {
+    flexDirection: "row",
+    marginTop: 20,
   },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 20,
+    paddingBottom: 0,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 8,
+  imageButtons: {
+    flexDirection: "row",
   },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
+  imagePreview: {
+    alignItems: "center",
   },
   imageSection: {
     marginBottom: 20,
   },
-  imageButtons: {
-    flexDirection: 'row',
+  input: {
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    height: 50,
+    paddingHorizontal: 16,
   },
-  imagePreview: {
-    alignItems: 'center',
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputRow: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    marginBottom: 8,
   },
   previewImage: {
-    width: 200,
-    height: 150,
     borderRadius: 8,
+    height: 150,
+    marginBottom: 12,
+    width: 200,
+  },
+  receiptAmount: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+  },
+  receiptCard: {
+    marginBottom: 16,
+  },
+  receiptDate: {
+    fontSize: 14,
+  },
+  receiptDetailItem: {
+    alignItems: "center",
+  },
+  receiptDetailLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  receiptDetailValue: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+  },
+  receiptDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
-  removeImageButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
+  receiptHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
-  removeImageText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600' as const,
+  receiptImage: {
+    borderRadius: 8,
+    height: 200,
+    marginBottom: 12,
+    width: "100%",
   },
-  formButtons: {
-    flexDirection: 'row',
-    marginTop: 20,
+  receiptInfo: {
+    flex: 1,
+  },
+  receiptLocation: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    marginBottom: 4,
   },
   receiptsList: {
     flex: 1,
@@ -443,81 +496,18 @@ const styles = StyleSheet.create({
   receiptsListContent: {
     paddingBottom: 20,
   },
-  receiptCard: {
-    marginBottom: 16,
-  },
-  receiptHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  receiptInfo: {
-    flex: 1,
-  },
-  receiptLocation: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 4,
-  },
-  receiptDate: {
-    fontSize: 14,
-  },
-  receiptAmount: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-  },
-  receiptDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  receiptDetailItem: {
-    alignItems: 'center',
-  },
-  receiptDetailLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  receiptDetailValue: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-  },
-  receiptImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  deleteButton: {
-    alignSelf: 'flex-end',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+  removeImageButton: {
     borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600' as const,
-  },
-  emptyContainer: {
-    margin: 20,
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  emptySubtext: {
+  removeImageText: {
+    color: "#fff",
     fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
+    fontWeight: "600" as const,
   },
-  backButton: {
-    padding: 8,
+  title: {
+    fontSize: 24,
+    fontWeight: "700" as const,
   },
-});
+})
