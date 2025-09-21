@@ -48,7 +48,7 @@ export const API_ENDPOINTS = {
     CREATE_DAILY_LOG: '/hos/daily-logs/',
     CREATE_ELD_EVENT: '/hos/eld-events/',
     CERTIFY_LOG: '/hos/logs/{id}/certify/',
-    CHANGE_DUTY_STATUS: '/hos/clocks/{id}/change-duty-status/',
+    CHANGE_DUTY_STATUS: '/hos/clocks/{id}/change_duty_status/',
   },
 }
 

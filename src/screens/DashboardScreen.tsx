@@ -73,6 +73,12 @@ export const DashboardScreen = () => {
 
     // Count uncertified logs
     const uncertifiedLogsCount = logEntries.filter(log => !log.isCertified).length
+    
+    // Debug logging
+    console.log("📊 DashboardScreen Debug:")
+    console.log("  📋 Total logEntries:", logEntries.length)
+    console.log("  ❌ Uncertified logs:", uncertifiedLogsCount)
+    console.log("  📝 First few log dates:", logEntries.slice(0, 3).map(log => new Date(log.startTime).toDateString()))
 
     return {
       appTitle: orgName,
@@ -96,8 +102,8 @@ export const DashboardScreen = () => {
   }, [user, driverProfile, hosStatus, vehicleAssignment, organizationSettings, isAuthenticated, logEntries, certification])
 
   const time = (m: number) =>
-    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
-  const cycleTime = (m: number) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`
+    `${String(Math.floor(Math.round(m) / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`
+  const cycleTime = (m: number) => `${Math.floor(Math.round(m) / 60)}:${String(Math.round(m) % 60).padStart(2, "0")}`
   const pct = (remain: number, total: number) =>
     Math.max(0, Math.min(100, ((total - remain) / total) * 100))
 

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { tokenStorage } from '@/utils/storage';
 
 // Types
 export interface User {
@@ -167,6 +168,9 @@ interface AuthState {
   setVehicleInfo: (info: VehicleInfo | null) => void; // For compatibility
   setOrganizationSettings: (settings: OrganizationSettings | null) => void;
   
+  // HOS status updater
+  updateHosStatus: (updates: Partial<HOSStatus>) => void;
+  
   // Utility
   refreshDriverData: () => void;
 }
@@ -206,6 +210,7 @@ export const useAuthStore = create<AuthState>()(
           // Check if this is the complete API response
           if (loginData.user && loginData.token) {
             console.log('📡 AuthStore: Processing complete API response');
+            console.log('🔑 AuthStore: Token received:', loginData.token ? 'Token exists' : 'No token');
             token = loginData.token;
             
             // Extract user data
@@ -239,6 +244,8 @@ export const useAuthStore = create<AuthState>()(
             console.log('🏢 Organization Settings:', organizationSettings ? 'Available' : 'Not available');
           } else {
             console.log('📄 AuthStore: Processing basic user profile');
+            console.log('🔑 AuthStore: No token in loginData, checking for token field directly');
+            token = loginData.token || null;
             // Handle basic user profile (fallback)
             userData = {
               id: loginData.id || loginData._id,
@@ -254,10 +261,11 @@ export const useAuthStore = create<AuthState>()(
             };
           }
 
-          // Store token in AsyncStorage
+          // Store token using proper tokenStorage
           if (token) {
-            await AsyncStorage.setItem('auth-token', token);
-            console.log('💾 AuthStore: Token stored in AsyncStorage');
+            await tokenStorage.setAccessToken(token);
+            console.log('💾 AuthStore: Token stored in SecureStore');
+            console.log('🔄 AuthStore: Token will also be persisted in Zustand state');
           }
 
           // Update state
@@ -294,7 +302,7 @@ export const useAuthStore = create<AuthState>()(
           console.log('🔓 AuthStore: Logging out...');
           
           // Clear stored tokens
-          await AsyncStorage.removeItem('auth-token');
+          await tokenStorage.removeTokens();
           
           // Reset state
           set({
@@ -337,6 +345,13 @@ export const useAuthStore = create<AuthState>()(
       setHosStatus: (status: HOSStatus | null) => {
         console.log('📝 AuthStore: Setting HOS status:', status ? 'Available' : 'Null');
         set({ hosStatus: status });
+      },
+
+      updateHosStatus: (updates: Partial<HOSStatus>) => {
+        console.log('🔄 AuthStore: Updating HOS status with:', updates);
+        set((state) => ({
+          hosStatus: state.hosStatus ? { ...state.hosStatus, ...updates } : updates as HOSStatus,
+        }));
       },
 
       setVehicleAssignment: (assignment: VehicleAssignment | null) => {
@@ -383,6 +398,19 @@ export const useAuthStore = create<AuthState>()(
           console.log('🚛 Restored Vehicle Assignment:', state.vehicleAssignment ? 'Available' : 'None');
           console.log('🚗 Restored Vehicle Info:', state.vehicleInfo ? 'Available' : 'None');
           console.log('🏢 Restored Organization Settings:', state.organizationSettings ? 'Available' : 'None');
+          
+          // Sync token from Zustand state to SecureStore for API client
+          if (state.token) {
+            console.log('🔄 AuthStore: Syncing token from Zustand to SecureStore...');
+            console.log('🔑 AuthStore: Token value:', state.token ? 'Token exists' : 'No token');
+            tokenStorage.setAccessToken(state.token).then(() => {
+              console.log('✅ AuthStore: Token synced to SecureStore successfully');
+            }).catch((error) => {
+              console.error('❌ AuthStore: Failed to sync token to SecureStore:', error);
+            });
+          } else {
+            console.log('⚠️ AuthStore: No token found in rehydrated state');
+          }
         }
       },
     }

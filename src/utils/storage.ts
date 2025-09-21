@@ -84,11 +84,15 @@ export const asyncStorage = {
 // Token management functions
 export const tokenStorage = {
   async setAccessToken(token: string): Promise<void> {
+    console.log('💾 TokenStorage: Setting access token:', token ? 'Token provided' : 'No token')
     await secureStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
+    console.log('✅ TokenStorage: Access token stored successfully')
   },
 
   async getAccessToken(): Promise<string | null> {
-    return await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+    const token = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+    console.log('🔍 TokenStorage: Retrieved access token:', token ? 'Token exists' : 'No token found')
+    return token
   },
 
   async setRefreshToken(token: string): Promise<void> {

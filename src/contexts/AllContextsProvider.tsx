@@ -4,13 +4,13 @@ import { CarrierProvider } from './carrier-context';
 import { CoDriverProvider } from './codriver-context';
 import { FuelProvider } from './fuel-context';
 import { InspectionProvider } from './inspection-context';
-import { LocationProvider } from './location-context';
+// import { LocationProvider } from './location-context'; // Temporarily disabled
 import { StatusProvider } from './status-context';
 
 // Main Context Provider that wraps all contexts (except auth which is now handled by Zustand)
 export const AllContextsProvider = ({ children }: { children: React.ReactNode }) => {
   return (
-    <LocationProvider>
+    // <LocationProvider> // Temporarily disabled
       <AssetsProvider>
         <CarrierProvider>
           <CoDriverProvider>
@@ -24,6 +24,6 @@ export const AllContextsProvider = ({ children }: { children: React.ReactNode })
           </CoDriverProvider>
         </CarrierProvider>
       </AssetsProvider>
-    </LocationProvider>
+    // </LocationProvider> // Temporarily disabled
   );
 };

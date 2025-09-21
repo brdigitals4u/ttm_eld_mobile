@@ -29,13 +29,18 @@ class ApiClient {
   private async getHeaders(): Promise<Record<string, string>> {
     const token = await getStoredToken()
     
+    console.log('🔑 API Client: Retrieved token:', token ? 'Token exists' : 'No token found')
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     }
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+      headers['Authorization'] = `Token ${token}`
+      console.log('✅ API Client: Authorization header added')
+    } else {
+      console.log('❌ API Client: No token available, request will be unauthenticated')
     }
 
     return headers
@@ -160,7 +165,7 @@ class ApiClient {
 
       const token = await getStoredToken()
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`
+        headers['Authorization'] = `Token ${token}`
       }
 
       const response = await fetch(url, {

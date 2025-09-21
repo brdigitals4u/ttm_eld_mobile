@@ -1,6 +1,7 @@
-import { apiClient } from './client'
-import { API_ENDPOINTS } from './constants'
-import { LocationData } from '@/contexts/location-context'
+import { LocationData } from "@/contexts/location-context"
+
+import { apiClient } from "./client"
+import { API_ENDPOINTS } from "./constants"
 
 // HOS API Types
 export interface HOSClock {
@@ -9,6 +10,8 @@ export interface HOSClock {
   start_time: string
   time_remaining: string
   cycle_start: string
+  current_duty_status_start_time: string
+  cycle_start_time: string
 }
 
 export interface HOSLogEntry {
@@ -41,18 +44,18 @@ export interface HOSELDEvent {
     new_duty_status: string
     previous_duty_status?: string
   }
-  timestamp: string
+  event_time: string
   location: string
 }
 
 // Status Remarks mapping
 export const STATUS_REMARKS: Record<string, string> = {
-  'driving': 'Regular driving activity',
-  'on_duty': 'On duty - not driving',
-  'off_duty': 'Off duty - rest break',
-  'sleeper_berth': 'Sleeper berth - rest period',
-  'personal_conveyance': 'Personal conveyance - personal use',
-  'yard_move': 'Yard move - repositioning vehicle',
+  driving: "Regular driving activity",
+  on_duty: "On duty - not driving",
+  off_duty: "Off duty - rest break",
+  sleeper_berth: "Sleeper berth - rest period",
+  personal_conveyance: "Personal conveyance - personal use",
+  yard_move: "Yard move - repositioning vehicle",
 }
 
 // HOS API Service
@@ -83,15 +86,18 @@ export const hosApi = {
 
   // Certify HOS Log
   async certifyHOSLog(logId: string) {
-    const response = await apiClient.patch(API_ENDPOINTS.HOS.CERTIFY_LOG.replace('{id}', logId))
+    const response = await apiClient.patch(API_ENDPOINTS.HOS.CERTIFY_LOG.replace("{id}", logId))
     return response.data
   },
 
   // Change Duty Status
   async changeDutyStatus(clockId: string, newStatus: string) {
-    const response = await apiClient.post(API_ENDPOINTS.HOS.CHANGE_DUTY_STATUS.replace('{id}', clockId), {
-      duty_status: newStatus
-    })
+    const response = await apiClient.post(
+      API_ENDPOINTS.HOS.CHANGE_DUTY_STATUS.replace("{id}", clockId),
+      {
+        duty_status: newStatus,
+      },
+    )
     return response.data
   },
 
@@ -105,7 +111,7 @@ export const hosApi = {
 
   // Helper function to get status remark
   getStatusRemark(status: string): string {
-    return STATUS_REMARKS[status] || 'Status change'
+    return STATUS_REMARKS[status] || "Status change"
   },
 
   // Helper function to convert timestamp to ISO string
@@ -116,13 +122,13 @@ export const hosApi = {
   // Helper function to get duty status for API (convert from app format to API format)
   getAPIDutyStatus(appStatus: string): string {
     const statusMap: Record<string, string> = {
-      'driving': 'driving',
-      'onDuty': 'on_duty',
-      'offDuty': 'off_duty',
-      'sleeperBerth': 'sleeper_berth',
-      'personalConveyance': 'personal_conveyance',
-      'yardMoves': 'yard_move',
+      driving: "driving",
+      onDuty: "on_duty",
+      offDuty: "off_duty",
+      sleeperBerth: "sleeper_berth",
+      personalConveyance: "personal_conveyance",
+      yardMoves: "yard_move",
     }
     return statusMap[appStatus] || appStatus
-  }
+  },
 }

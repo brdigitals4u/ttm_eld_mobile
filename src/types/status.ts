@@ -15,6 +15,8 @@ export interface StatusUpdate {
     longitude: number;
     address?: string;
   };
+  isCertified?: boolean;
+  logId?: string; // ID for HOS API certification
 }
 
 export interface HoursOfService {

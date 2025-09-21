@@ -200,7 +200,7 @@ ${logsText}`;
           <FlatList
             data={todayLogs}
             renderItem={({ item }) => <LogEntry log={item} />}
-            keyExtractor={(item) => item.timestamp.toString()}
+            keyExtractor={(item) => item?.timestamp?.toString()}
             style={styles.logsList}
             contentContainerStyle={styles.logsListContent}
           />

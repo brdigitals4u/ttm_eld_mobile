@@ -18,6 +18,7 @@ import ElevatedCard from "@/components/EvevatedCard"
 import HOSChart from "@/components/HOSChart"
 import LoadingButton from "@/components/LoadingButton"
 import LogEntry from "@/components/LogEntry"
+import { hosApi } from "@/api/hos"
 import { toast } from "@/components/Toast"
 import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
@@ -28,7 +29,7 @@ export const LogsScreen = () => {
   const { theme, themeContext } = useAppTheme()
   const isDark = themeContext === "dark"
   const colors = theme.colors
-  const { statusHistory, certification, certifyLogs, uncertifyLogs } = useStatus()
+  const { logEntries, certification, certifyLogs, uncertifyLogs } = useStatus()
   const { user, driverProfile, vehicleAssignment } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [showCertificationModal, setShowCertificationModal] = useState(false)
@@ -97,7 +98,7 @@ export const LogsScreen = () => {
 
       const logsText = filteredLogs
         .map((log) => {
-          const date = new Date(log.timestamp).toLocaleString()
+          const date = new Date(log.startTime).toLocaleString()
           return `${date} - ${log.status.toUpperCase()}: ${log.reason}`
         })
         .join("\n")
@@ -160,7 +161,22 @@ export const LogsScreen = () => {
     setSignature("")
   }
 
-  const getFilteredLogs = (): StatusUpdate[] => {
+  const handleCertifyIndividualLog = async (logId: string, signature: string) => {
+    try {
+      // Call HOS API to certify the individual log
+      await hosApi.certifyHOSLog(logId)
+      
+      // Update local state to mark log as certified
+      // This would need to be implemented in the status context
+      toast.success("Log entry certified successfully")
+    } catch (error) {
+      console.error("Failed to certify individual log:", error)
+      toast.error("Failed to certify log entry")
+      throw error
+    }
+  }
+
+  const getFilteredLogs = () => {
     // Filter logs for the selected date
     const startOfDay = new Date(selectedDate)
     startOfDay.setHours(0, 0, 0, 0)
@@ -168,12 +184,13 @@ export const LogsScreen = () => {
     const endOfDay = new Date(selectedDate)
     endOfDay.setHours(23, 59, 59, 999)
 
-    return statusHistory
-      .filter((log: StatusUpdate) => {
-        const logDate = new Date(log.timestamp)
+    return logEntries
+      .filter((log) => {
+        // LogEntry has startTime (number) and date (string)
+        const logDate = new Date(log.startTime)
         return logDate >= startOfDay && logDate <= endOfDay
       })
-      .sort((a: StatusUpdate, b: StatusUpdate) => b.timestamp - a.timestamp)
+      .sort((a, b) => b.startTime - a.startTime)
   }
 
   const handlePreviousDay = () => {
@@ -505,7 +522,13 @@ export const LogsScreen = () => {
           <>
             {/* HOS Chart */}
             <HOSChart
-              logs={filteredLogs}
+              logs={filteredLogs.map(log => ({
+                status: log.status,
+                timestamp: log.startTime,
+                reason: log.reason,
+                location: log.location,
+                isCertified: log.isCertified
+              }))}
               date={selectedDate}
               driverName={driverProfile?.name || user?.name || "Driver"}
               vehicleNumber={vehicleAssignment?.vehicle_info?.vehicle_unit || "Unknown"}
@@ -514,7 +537,11 @@ export const LogsScreen = () => {
             {/* Log Entries */}
             <View style={styles.logsContainer}>
               {filteredLogs.map((item) => (
-                <LogEntry key={item.timestamp.toString()} log={item} />
+                <LogEntry 
+                  key={item?.timestamp?.toString()} 
+                  log={item} 
+                  onCertify={handleCertifyIndividualLog}
+                />
               ))}
             </View>
           </>
