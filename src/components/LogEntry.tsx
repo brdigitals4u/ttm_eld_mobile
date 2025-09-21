@@ -52,12 +52,24 @@ function LogEntry({ log, onCertify }: LogEntryProps) {
   };
   
   const formatTime = (timestamp: number) => {
+    if (!timestamp || isNaN(timestamp)) {
+      return '--:--';
+    }
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      return '--:--';
+    }
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
   const formatDate = (timestamp: number) => {
+    if (!timestamp || isNaN(timestamp)) {
+      return 'Invalid Date';
+    }
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 

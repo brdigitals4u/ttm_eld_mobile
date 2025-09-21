@@ -536,7 +536,7 @@ export const LogsScreen = () => {
 
             {/* Log Entries */}
             <View style={styles.logsContainer}>
-              {filteredLogs.map((item) => (
+              {filteredLogs.map((item: any) => (
                 <LogEntry 
                   key={item?.timestamp?.toString()} 
                   log={item} 
