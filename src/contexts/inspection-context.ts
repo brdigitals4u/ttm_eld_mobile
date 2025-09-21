@@ -41,6 +41,9 @@ const initialState: InspectionState = {
 export const [InspectionProvider, useInspection] = createContextHook(() => {
   const [state, setState] = useState<InspectionState>(initialState);
   const { isAuthenticated, user, vehicleInfo } = useAuth();
+  
+  // Debug logging for inspection context
+  console.log('🔍 InspectionContext: isAuthenticated:', isAuthenticated, 'vehicleInfo:', vehicleInfo ? 'Available' : 'Null');
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -113,7 +116,7 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
     if (!state.currentInspection) return;
 
     try {
-      const updatedItems = state.currentInspection.items.map(item =>
+      const updatedItems = (state.currentInspection?.items || []).map(item =>
         item.id === itemId ? { ...item, status, notes } : item
       );
 
@@ -142,8 +145,8 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
       setState(prev => ({ ...prev, isLoading: true }));
 
       // Determine overall status
-      const hasFailures = state.currentInspection.items.some(item => item.status === 'fail');
-      const allCompleted = state.currentInspection.items.every(item => 
+      const hasFailures = (state.currentInspection?.items || []).some(item => item.status === 'fail');
+      const allCompleted = (state.currentInspection?.items || []).every(item => 
         item.status !== 'pending' || !item.isRequired
       );
 

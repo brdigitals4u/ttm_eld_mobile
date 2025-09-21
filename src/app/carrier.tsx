@@ -1,7 +1,7 @@
 import React from "react"
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { router } from "expo-router"
-import { ArrowLeft, Building, Calendar, Globe, Mail, MapPin, Phone, Settings, Shield, Clock } from "lucide-react-native"
+import { ArrowLeft, Building, Calendar, Globe, Clock } from "lucide-react-native"
 
 import ElevatedCard from "@/components/EvevatedCard"
 import { useAuth } from "@/stores/authStore"

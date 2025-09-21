@@ -88,7 +88,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
 
   const updateAsset = async (id: string, updates: Partial<Asset>) => {
     try {
-      const updatedAssets = state.assets.map(asset =>
+      const updatedAssets = (state.assets || []).map(asset =>
         asset.id === id ? { ...asset, ...updates } : asset
       );
       
@@ -109,7 +109,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
 
   const deleteAsset = async (id: string) => {
     try {
-      const updatedAssets = state.assets.filter(asset => asset.id !== id);
+      const updatedAssets = (state.assets || []).filter(asset => asset.id !== id);
       
       await AsyncStorage.setItem('assets', JSON.stringify(updatedAssets));
       
@@ -136,7 +136,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
         uploadedAt: Date.now(),
       };
 
-      const updatedAssets = state.assets.map(asset =>
+      const updatedAssets = (state.assets || []).map(asset =>
         asset.id === assetId
           ? { ...asset, documents: [...asset.documents, newDocument] }
           : asset
@@ -161,7 +161,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
 
   const removeDocument = async (assetId: string, documentId: string) => {
     try {
-      const updatedAssets = state.assets.map(asset =>
+      const updatedAssets = (state.assets || []).map(asset =>
         asset.id === assetId
           ? { ...asset, documents: asset.documents.filter(doc => doc.id !== documentId) }
           : asset
