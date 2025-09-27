@@ -1,5 +1,5 @@
 {
-  "name": "TTMKonnectBind",
+  "name": "TTMKonnect",
   "slug": "TTMKonnectBind",
   "scheme": "ttmkonnectbind",
   "version": "1.0.0",
@@ -22,7 +22,11 @@
       "backgroundImage": "./assets/images/app-icon-android-adaptive-background.png"
     },
     "allowBackup": false,
-    "edgeToEdgeEnabled": true
+    "edgeToEdgeEnabled": true,
+    "permissions": [
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_FINE_LOCATION"
+    ]
   },
   "ios": {
     "icon": "./assets/images/app-icon-ios.png",
@@ -49,7 +53,7 @@
         "image": "./assets/images/app-icon-android-adaptive-foreground.png",
         "imageWidth": 300,
         "resizeMode": "contain",
-        "backgroundColor": "#191015"
+        "backgroundColor": "#FFFFFF"
       }
     ],
     [
@@ -70,6 +74,10 @@
   "extra": {
     "ignite": {
       "version": "11.1.2"
+    },
+    "router": {},
+    "eas": {
+      "projectId": "4e91789b-89ce-4512-acb7-c7f9c86560bf"
     }
   }
 }
