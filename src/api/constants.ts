@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: __DEV__ ? 'http://10.0.2.2:8000/api' : 'https://api.ttmkonnect.com',
+  BASE_URL: 'https://api.ttmkonnect.com/api',
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 3,
 }
