@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>ttmkonnectbind</string>
-          <string>com.ttm.ttmkonnect</string>
+          <string>com.ttm.ttm247KonnectBind</string>
         </array>
       </dict>
       <dict>
