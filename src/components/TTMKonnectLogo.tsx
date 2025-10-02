@@ -29,64 +29,54 @@ export default function TTMKonnectLogo({
     <View style={[styles.container, style]}>
       <Svg width={size} height={size} viewBox="0 0 200 200">
         <Defs>
-          <LinearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#3B82F6" stopOpacity={1} />
-            <Stop offset="100%" stopColor="#1D4ED8" stopOpacity={1} />
+          <LinearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#6366F1" stopOpacity={1} />
+            <Stop offset="50%" stopColor="#4F46E5" stopOpacity={1} />
+            <Stop offset="100%" stopColor="#4338CA" stopOpacity={1} />
           </LinearGradient>
-          <LinearGradient id="secondaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#10B981" stopOpacity={1} />
-            <Stop offset="100%" stopColor="#059669" stopOpacity={1} />
+          <LinearGradient id="indigoLightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#818CF8" stopOpacity={1} />
+            <Stop offset="100%" stopColor="#6366F1" stopOpacity={1} />
           </LinearGradient>
-          {/* Filter removed to prevent SVG layout errors in React Native */}
         </Defs>
         
         {/* Background circle */}
-        <Circle cx={100} cy={100} r={90} fill="url(#primaryGradient)" />
+        <Circle cx={100} cy={100} r={90} fill="url(#indigoGradient)" />
         
-        {/* Truck body */}
-        <Rect x={40} y={80} width={80} height={40} rx={8} fill="white" opacity={0.95} />
-        
-        {/* Truck cabin */}
-        <Rect x={100} y={70} width={30} height={50} rx={6} fill="white" opacity={0.95} />
-        
-        {/* Wheels */}
-        <Circle cx={55} cy={130} r={8} fill="#374151" />
-        <Circle cx={105} cy={130} r={8} fill="#374151" />
-        
-        {/* Connectivity lines */}
-        <G stroke="url(#secondaryGradient)" strokeWidth={3} fill="none" opacity={0.8}>
-          <Path d="M 20 60 Q 40 40 60 60" strokeLinecap="round" />
-          <Path d="M 140 60 Q 160 40 180 60" strokeLinecap="round" />
-          <Path d="M 20 140 Q 40 160 60 140" strokeLinecap="round" />
-          <Path d="M 140 140 Q 160 160 180 140" strokeLinecap="round" />
+        {/* Trident Design */}
+        <G fill="white" opacity={0.95}>
+          {/* Center vertical shaft */}
+          <Rect x={95} y={60} width={10} height={80} rx={5} />
+          
+          {/* Top horizontal bar */}
+          <Rect x={70} y={60} width={60} height={8} rx={4} />
+          
+          {/* Left prong */}
+          <Rect x={70} y={60} width={8} height={35} rx={4} />
+          <Rect x={70} y={88} width={20} height={8} rx={4} />
+          
+          {/* Right prong */}
+          <Rect x={122} y={60} width={8} height={35} rx={4} />
+          <Rect x={110} y={88} width={20} height={8} rx={4} />
+          
+          {/* Bottom handle */}
+          <Rect x={90} y={130} width={20} height={30} rx={10} />
+          
+          {/* Decorative elements */}
+          <Circle cx={100} cy={145} r={3} fill="url(#indigoLightGradient)" />
+          <Circle cx={100} cy={155} r={2} fill="url(#indigoLightGradient)" />
         </G>
         
-        {/* Connection dots */}
-        <Circle cx={60} cy={60} r={3} fill="url(#secondaryGradient)" />
-        <Circle cx={140} cy={60} r={3} fill="url(#secondaryGradient)" />
-        <Circle cx={60} cy={140} r={3} fill="url(#secondaryGradient)" />
-        <Circle cx={140} cy={140} r={3} fill="url(#secondaryGradient)" />
-        
-        {/* Central connection hub */}
-        <Circle cx={100} cy={100} r={6} fill="url(#secondaryGradient)" />
-        
-        {/* Connection lines to hub */}
-        <G stroke="url(#secondaryGradient)" strokeWidth={2} fill="none" opacity={0.6}>
-          <Line x1={60} y1={60} x2={94} y2={94} />
-          <Line x1={140} y1={60} x2={106} y2={94} />
-          <Line x1={60} y1={140} x2={94} y2={106} />
-          <Line x1={140} y1={140} x2={106} y2={106} />
-        </G>
-        
-        {/* TTM Text */}
+        {/* TTM Text - only show if explicitly requested */}
         {showText && (
           <Text 
             x={100} 
-            y={180} 
+            y={185} 
             textAnchor="middle" 
-            fontSize={14} 
+            fontSize={12} 
             fontWeight="bold" 
-            fill="#374151"
+            fill="white"
+            opacity={0.8}
           >
             TTM
           </Text>

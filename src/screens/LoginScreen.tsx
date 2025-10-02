@@ -8,6 +8,7 @@ import { LoginCredentials } from '@/database/schemas'
 import { router } from 'expo-router'
 import { Icon, PressableIcon } from '@/components/Icon'
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Path, G, Rect, Circle } from 'react-native-svg'
+import TTMKonnectLogo from '@/components/TTMKonnectLogo'
 
 const COLORS = {
   indigo: '#5750F1',
