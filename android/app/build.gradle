@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.ttm.ttm247KonnectBind'
+    namespace 'com.ttmkonnect.eld'
     defaultConfig {
-        applicationId 'com.ttm.ttm247KonnectBind'
+        applicationId 'com.ttmkonnect.eld'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

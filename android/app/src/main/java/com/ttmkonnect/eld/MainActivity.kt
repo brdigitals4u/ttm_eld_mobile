@@ -1,4 +1,4 @@
-package com.ttm.ttm247KonnectBind
+package com.ttmkonnect.eld
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

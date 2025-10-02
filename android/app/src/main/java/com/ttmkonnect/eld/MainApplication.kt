@@ -1,4 +1,4 @@
-package com.ttm.ttm247KonnectBind
+package com.ttmkonnect.eld
 
 import android.app.Application
 import android.content.res.Configuration
