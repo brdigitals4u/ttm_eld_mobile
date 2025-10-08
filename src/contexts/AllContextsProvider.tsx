@@ -6,6 +6,7 @@ import { FuelProvider } from './fuel-context';
 import { InspectionProvider } from './inspection-context';
 // import { LocationProvider } from './location-context'; // Temporarily disabled
 import { StatusProvider } from './status-context';
+import { ObdDataProvider } from './obd-data-context';
 
 // Main Context Provider that wraps all contexts (except auth which is now handled by Zustand)
 export const AllContextsProvider = ({ children }: { children: React.ReactNode }) => {
@@ -17,7 +18,9 @@ export const AllContextsProvider = ({ children }: { children: React.ReactNode })
             <FuelProvider>
               <InspectionProvider>
                 <StatusProvider>
-                  {children}
+                  <ObdDataProvider>
+                    {children}
+                  </ObdDataProvider>
                 </StatusProvider>
               </InspectionProvider>
             </FuelProvider>

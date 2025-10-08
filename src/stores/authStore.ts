@@ -301,6 +301,17 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔓 AuthStore: Logging out...');
           
+          // Disconnect ELD device before logout
+          try {
+            console.log('📡 AuthStore: Disconnecting ELD device...');
+            const JMBluetoothService = require('@/services/JMBluetoothService').default;
+            await JMBluetoothService.disconnect();
+            console.log('✅ AuthStore: ELD device disconnected successfully');
+          } catch (eldError) {
+            console.warn('⚠️ AuthStore: Failed to disconnect ELD device:', eldError);
+            // Continue with logout even if ELD disconnect fails
+          }
+          
           // Clear stored tokens
           await tokenStorage.removeTokens();
           

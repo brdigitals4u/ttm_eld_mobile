@@ -61,7 +61,9 @@ export const LoginScreen: React.FC = () => {
       })
       await login(result)
       toast.success('Login successful!', 2000)
-      router.replace('/(tabs)/dashboard')
+      // Navigate to device scan screen to connect ELD before going to dashboard
+      // @ts-ignore - route exists at /src/app/device-scan.tsx
+      router.replace('/device-scan')
     } catch (error: any) {
       let errorMessage = 'An unexpected error occurred'
       if (error?.response?.status === 401) errorMessage = 'Invalid email or password'

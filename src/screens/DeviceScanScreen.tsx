@@ -9,16 +9,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import JMBluetoothService from '../services/JMBluetoothService';
 import { useConnectionState } from '../services/ConnectionStateService';
 import { BleDevice } from '../types/JMBluetooth';
 
 
 interface DeviceScanScreenProps {
-  navigation: any;
+  navigation?: any;
 }
 
-const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation }) => {
+const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _navigation }) => {
   const [devices, setDevices] = useState<BleDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -100,24 +101,24 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation }) => {
       
       // Check if this is a status 8 expected disconnection
       if (data.status8Expected) {
-        console.log('Status 8 expected - device authenticated successfully, proceeding to main menu');
+        console.log('Status 8 expected - device authenticated successfully, proceeding to dashboard');
         setConnecting(false);
-        navigation.navigate('MainMenu');
+        router.replace('/(tabs)/dashboard');
         return;
       }
       
       // Check if authentication is complete (new flag for password-disabled devices)
       if (data.authenticationComplete) {
-        console.log('Authentication complete - proceeding to main menu');
+        console.log('Authentication complete - proceeding to dashboard');
         setConnecting(false);
-        navigation.navigate('MainMenu');
+        router.replace('/(tabs)/dashboard');
         return;
       }
       
       // Fallback: assume authentication is successful and proceed
-      console.log('Authentication passed - proceeding to main menu');
+      console.log('Authentication passed - proceeding to dashboard');
       setConnecting(false);
-      navigation.navigate('MainMenu');
+      router.replace('/(tabs)/dashboard');
     });
 
     JMBluetoothService.addEventListener('onDisconnected', () => {
@@ -235,28 +236,29 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F4F5FF',
   },
   header: {
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#E6E7FB',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: '#1F2430',
   },
   scanButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#5750F1',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
   },
   scanningButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
   },
   scanButtonText: {
     color: '#fff',
@@ -314,7 +316,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   connectButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#5750F1',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
