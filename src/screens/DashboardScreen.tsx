@@ -5,6 +5,7 @@ import { RefreshCw, Link as LinkIcon } from "lucide-react-native"
 
 import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
+import { EldIndicator } from "@/components/EldIndicator"
 
 export const DashboardScreen = () => {
   const {
@@ -166,9 +167,9 @@ export const DashboardScreen = () => {
     <ScrollView style={s.screen} contentContainerStyle={s.cc}>
       <View style={s.headerRow}>
         <Text style={s.appTitle}>{data.appTitle}</Text>
-        <TouchableOpacity onPress={() => router.push("/assignments")}>
-          <LinkIcon size={22} color="#0F172A" />
-        </TouchableOpacity>
+        <View style={s.headerIcons}>
+          <EldIndicator />
+        </View>
       </View>
 
       <View style={s.card}>
@@ -378,6 +379,14 @@ const s = StyleSheet.create({
   flag: { fontSize: 16 },
 
   headerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  headerIcons: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 12,
+  },
+  headerIconButton: {
+    padding: 4,
+  },
   lane: {
     backgroundColor: "#FFFFFF",
     borderColor: "#E5E7EB",

@@ -14,6 +14,7 @@ import JMBluetoothService from '../services/JMBluetoothService';
 import { useConnectionState } from '../services/ConnectionStateService';
 import { BleDevice } from '../types/JMBluetooth';
 
+const __DEV__ = process.env.NODE_ENV === 'development';
 
 interface DeviceScanScreenProps {
   navigation?: any;
@@ -197,6 +198,20 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>ELD Device Scanner</Text>
+        
+        {/* Dev Mode Skip Button */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => {
+              console.log('🔧 DEV: Skipping ELD connection');
+              router.replace('/(tabs)/dashboard');
+            }}
+          >
+            <Text style={styles.skipButtonText}>Skip (Dev Mode)</Text>
+          </TouchableOpacity>
+        )}
+        
         <TouchableOpacity
           style={[styles.scanButton, isScanning && styles.scanningButton]}
           onPress={isScanning ? stopScan : startScan}
@@ -263,6 +278,18 @@ const styles = StyleSheet.create({
   scanButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  skipButton: {
+    backgroundColor: '#9CA3AF',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  skipButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
   deviceList: {
