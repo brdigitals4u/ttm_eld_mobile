@@ -72,27 +72,42 @@ class AwsApiService {
       return { success: false, error: 'AWS sync disabled' }
     }
 
-    // Split into chunks if needed
-    const batchSize = awsConfig.features.batchSize
-    if (payloads.length > batchSize) {
-      console.log(`📦 Splitting ${payloads.length} records into batches of ${batchSize}`)
-      const results = []
-      
-      for (let i = 0; i < payloads.length; i += batchSize) {
-        const chunk = payloads.slice(i, i + batchSize)
-        const result = await this.sendBatchWithRetry(chunk)
+    console.log(`📦 Sending ${payloads.length} records to AWS Lambda individually`)
+
+    // Send each record individually to avoid batch processing issues
+    const results = []
+    let successCount = 0
+    let errorCount = 0
+
+    for (const payload of payloads) {
+      try {
+        const result = await this.sendWithRetry(payload)
         results.push(result)
-      }
-      
-      const allSucceeded = results.every(r => r.success)
-      return {
-        success: allSucceeded,
-        data: results,
-        error: allSucceeded ? undefined : 'Some batches failed'
+        
+        if (result.success) {
+          successCount++
+        } else {
+          errorCount++
+          console.error(`❌ Failed to send individual record:`, result.error)
+        }
+      } catch (error) {
+        errorCount++
+        console.error(`❌ Error sending individual record:`, error)
+        results.push({
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
       }
     }
 
-    return this.sendBatchWithRetry(payloads)
+    const allSucceeded = errorCount === 0
+    console.log(`📊 AWS Batch Results: ${successCount} successful, ${errorCount} failed`)
+
+    return {
+      success: allSucceeded,
+      data: results,
+      error: allSucceeded ? undefined : `${errorCount} records failed to sync`
+    }
   }
 
   /**
@@ -129,6 +144,16 @@ class AwsApiService {
    */
   private async sendWithRetry(payload: AwsObdPayload, attempt = 1): Promise<AwsApiResponse> {
     try {
+      // Validate required fields
+      if (!payload.vehicleId || !payload.timestamp) {
+        const error = `Missing required fields: vehicleId=${!!payload.vehicleId}, timestamp=${!!payload.timestamp}`
+        console.error(`❌ AWS payload validation failed: ${error}`)
+        return {
+          success: false,
+          error: error
+        }
+      }
+
       const response = await this.post(awsConfig.apiGateway.endpoints.saveData, payload)
       
       if (response.success) {
@@ -297,6 +322,44 @@ class AwsApiService {
     } catch {
       return false
     }
+  }
+
+  /**
+   * Test AWS API with sample data
+   */
+  async testAwsApi(): Promise<AwsApiResponse> {
+    const testPayload: AwsObdPayload = {
+      vehicleId: 'TEST_VEHICLE_001',
+      driverId: 'TEST_DRIVER_001',
+      timestamp: Date.now(),
+      dataType: 'engine_data',
+      latitude: 34.381824,
+      longitude: -117.388832,
+      gpsSpeed: 0,
+      gpsTime: new Date().toISOString(),
+      gpsRotation: 0,
+      eventTime: new Date().toISOString(),
+      eventType: 0,
+      eventId: 999,
+      isLiveEvent: 1,
+      engineSpeed: 1200,
+      vehicleSpeed: 0,
+      coolantTemp: 85,
+      fuelLevel: 75,
+      batteryVoltage: 14.2,
+      odometer: 123456,
+      allData: [
+        {
+          id: 'test_pid',
+          name: 'Test Engine Speed',
+          value: '1200',
+          unit: 'rpm'
+        }
+      ]
+    }
+
+    console.log('🧪 Testing AWS API with sample payload:', testPayload)
+    return this.saveObdData(testPayload)
   }
 }
 

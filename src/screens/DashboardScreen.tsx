@@ -4,8 +4,10 @@ import { router } from "expo-router"
 import { RefreshCw, Link as LinkIcon } from "lucide-react-native"
 
 import { useAuth } from "@/stores/authStore"
-import { useStatus } from "@/contexts"
+import { useStatus, useObdData } from "@/contexts"
 import { EldIndicator } from "@/components/EldIndicator"
+
+const __DEV__ = process.env.NODE_ENV === 'development'
 
 export const DashboardScreen = () => {
   const {
@@ -18,6 +20,7 @@ export const DashboardScreen = () => {
     isLoading,
   } = useAuth()
   const { logEntries, certification } = useStatus()
+  const { obdData, isConnected, isSyncing, awsSyncStatus, lastUpdate } = useObdData()
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -282,6 +285,192 @@ export const DashboardScreen = () => {
         <Text style={s.sectionLabel}>Vehicle Information</Text>
         <Text style={s.vehicleValue}>{data.vehicleUnit}</Text>
       </View>
+
+      {/* Debug OBD Data Status */}
+      {__DEV__ && (
+        <View style={s.card}>
+          <Text style={s.sectionLabel}>OBD Data Debug (Dev Mode)</Text>
+          <Text style={s.debugText}>Connected: {isConnected ? 'Yes' : 'No'}</Text>
+          <Text style={s.debugText}>Data Count: {obdData.length}</Text>
+          <Text style={s.debugText}>Syncing: {isSyncing ? 'Yes' : 'No'}</Text>
+          <Text style={s.debugText}>AWS Status: {awsSyncStatus}</Text>
+          <Text style={s.debugText}>Last Update: {lastUpdate?.toLocaleTimeString() || 'Never'}</Text>
+          {obdData.length > 0 && (
+            <View style={s.debugDataContainer}>
+              <Text style={s.debugText}>Recent Data:</Text>
+              {obdData.slice(0, 3).map((item, index) => (
+                <Text key={index} style={s.debugDataText}>
+                  {item.name}: {item.value} {item.unit}
+                </Text>
+              ))}
+            </View>
+          )}
+          
+          {/* Debug Buttons */}
+          <View style={s.debugButtonContainer}>
+            <TouchableOpacity 
+              style={s.debugButton}
+              onPress={async () => {
+                console.log('🧪 Testing AWS API...')
+                try {
+                  const { awsApiService } = await import('@/services/AwsApiService')
+                  const result = await awsApiService.testAwsApi()
+                  console.log('🧪 AWS Test Result:', result)
+                  alert(`AWS Test: ${result.success ? 'SUCCESS' : 'FAILED'}\n${result.error || 'No error'}`)
+                } catch (error) {
+                  console.error('🧪 AWS Test Error:', error)
+                  alert(`AWS Test Error: ${error}`)
+                }
+              }}
+            >
+              <Text style={s.debugButtonText}>Test AWS API</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={s.debugButton}
+              onPress={() => {
+                console.log('🔍 Checking AWS Config...')
+                const { awsConfig } = require('@/config/aws-config')
+                console.log('🔍 AWS Config:', awsConfig)
+                alert(`AWS Sync: ${awsConfig.features.enableAwsSync ? 'ENABLED' : 'DISABLED'}\nLocal Sync: ${awsConfig.features.enableLocalSync ? 'ENABLED' : 'DISABLED'}`)
+              }}
+            >
+              <Text style={s.debugButtonText}>Check Config</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={s.debugButtonContainer}>
+            <TouchableOpacity 
+              style={s.debugButton}
+              onPress={async () => {
+                console.log('🔧 Manually starting OBD reporting...')
+                try {
+                  const JMBluetoothService = (await import('@/services/JMBluetoothService')).default
+                  
+                  console.log('🔧 Starting OBD data reporting...')
+                  const obdResult = await JMBluetoothService.startReportObdData()
+                  console.log('✅ OBD reporting started:', obdResult)
+                  
+                  console.log('🔧 Configuring OBD PIDs...')
+                  const pidResult = await JMBluetoothService.configureAllPIDs()
+                  console.log('✅ OBD PIDs configured:', pidResult)
+                  
+                  alert(`OBD Setup Complete!\nReporting: ${obdResult ? 'SUCCESS' : 'FAILED'}\nPIDs: ${pidResult ? 'SUCCESS' : 'FAILED'}`)
+                } catch (error) {
+                  console.error('❌ Manual OBD setup failed:', error)
+                  alert(`OBD Setup Failed: ${error}`)
+                }
+              }}
+            >
+              <Text style={s.debugButtonText}>Start OBD</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={s.debugButton}
+              onPress={async () => {
+                console.log('🔍 Checking connection status...')
+                try {
+                  const JMBluetoothService = (await import('@/services/JMBluetoothService')).default
+                  const status = await JMBluetoothService.getConnectionStatus()
+                  console.log('🔍 Current status:', status)
+                  alert(`Connection: ${status.isConnected ? 'CONNECTED' : 'DISCONNECTED'}\nDevice: ${status.currentDevice || 'None'}\nBLE: ${status.isBluetoothEnabled ? 'ON' : 'OFF'}`)
+                } catch (error) {
+                  console.error('❌ Status check failed:', error)
+                  alert(`Status Check Failed: ${error}`)
+                }
+              }}
+            >
+              <Text style={s.debugButtonText}>Check Status</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={s.debugButtonContainer}>
+            <TouchableOpacity 
+              style={s.debugButton}
+              onPress={async () => {
+                console.log('🧪 Testing AWS sync with sample data...')
+                try {
+                  const { awsApiService } = await import('@/services/AwsApiService')
+                  
+                  // Create sample OBD data
+                  const sampleData = [
+                    {
+                      vehicleId: 'TEST_VEHICLE_001',
+                      driverId: '75b6071c-e792-4cb5-8c83-1e518464c4d1',
+                      timestamp: Date.now(),
+                      dataType: 'engine_data',
+                      latitude: 34.381824,
+                      longitude: -117.388832,
+                      gpsSpeed: 0,
+                      gpsTime: new Date().toISOString(),
+                      gpsRotation: 0,
+                      eventTime: new Date().toISOString(),
+                      eventType: 0,
+                      eventId: 999,
+                      isLiveEvent: 1,
+                      engineSpeed: 1200,
+                      vehicleSpeed: 0,
+                      coolantTemp: 85,
+                      fuelLevel: 75,
+                      batteryVoltage: 14.2,
+                      odometer: 123456,
+                      allData: [
+                        {
+                          id: 'test_pid',
+                          name: 'Test Engine Speed',
+                          value: '1200',
+                          unit: 'rpm'
+                        }
+                      ]
+                    }
+                  ]
+                  
+                  const result = await awsApiService.saveObdDataBatch(sampleData)
+                  console.log('🧪 AWS Batch Test Result:', result)
+                  alert(`AWS Batch Test: ${result.success ? 'SUCCESS' : 'FAILED'}\n${result.error || 'No error'}`)
+                } catch (error) {
+                  console.error('🧪 AWS Batch Test Error:', error)
+                  alert(`AWS Batch Test Error: ${error}`)
+                }
+              }}
+            >
+              <Text style={s.debugButtonText}>Test AWS Batch</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={s.debugButtonContainer}>
+            <TouchableOpacity 
+              style={s.debugButton}
+              onPress={async () => {
+                console.log('🔍 Checking OBD reporting status...')
+                try {
+                  const JMBluetoothService = (await import('@/services/JMBluetoothService')).default
+                  
+                  // Check if OBD reporting is active
+                  const status = await JMBluetoothService.getConnectionStatus()
+                  console.log('🔍 OBD Status Check:', status)
+                  
+                  // Try to get OBD reporting status (if available)
+                  let obdStatus = 'Unknown'
+                  try {
+                    // This might not be available in all versions
+                    obdStatus = await JMBluetoothService.getObdReportingStatus?.() || 'Method not available'
+                  } catch (e) {
+                    obdStatus = 'Method not available'
+                  }
+                  
+                  alert(`Connection: ${status.isConnected ? 'CONNECTED' : 'DISCONNECTED'}\nDevice: ${status.currentDevice || 'None'}\nOBD Status: ${obdStatus}`)
+                } catch (error) {
+                  console.error('❌ OBD status check failed:', error)
+                  alert(`OBD Status Check Failed: ${error}`)
+                }
+              }}
+            >
+              <Text style={s.debugButtonText}>Check OBD Status</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </ScrollView>
   )
 }
@@ -401,7 +590,7 @@ const s = StyleSheet.create({
   logsTitle: { color: "#0F172A", fontSize: 16, fontWeight: "800" },
   meta: { color: "#6B7280", fontSize: 13, marginTop: 2 },
 
-  screen: { backgroundColor: "#F3F5F9", flex: 1 , marginTop: 45 },
+  screen: { backgroundColor: "#F3F5F9", flex: 1, marginTop: 45, paddingBottom: 20 },
   sectionLabel: { color: "#6B7280", fontSize: 15, fontWeight: "600" },
   signBtn: {
     backgroundColor: "#0A7BFF",
@@ -425,4 +614,27 @@ const s = StyleSheet.create({
 
   timersRow: { alignItems: "center", flexDirection: "row", marginTop: 4 },
   vehicleValue: { color: "#0F172A", fontSize: 18, fontWeight: "900", marginTop: 6 },
+  
+  // Debug styles
+  debugText: { color: "#6B7280", fontSize: 12, marginTop: 2 },
+  debugDataContainer: { marginTop: 8, paddingLeft: 8 },
+  debugDataText: { color: "#374151", fontSize: 11, marginTop: 1 },
+  debugButtonContainer: { 
+    flexDirection: "row", 
+    gap: 8, 
+    marginTop: 12 
+  },
+  debugButton: {
+    backgroundColor: "#5750F1",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    flex: 1,
+  },
+  debugButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 })

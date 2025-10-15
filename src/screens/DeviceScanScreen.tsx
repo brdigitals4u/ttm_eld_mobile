@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,10 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
   const [_selectedDevice, setSelectedDevice] = useState<BleDevice | null>(null);
   const { isConnecting, setConnecting } = useConnectionState();
+  
+  // Timeout ref to prevent getting stuck on connection screen
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showSkipButton, setShowSkipButton] = useState(false);
 
   useEffect(() => {
     initializeBluetooth();
@@ -34,6 +38,10 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
     return () => {
       JMBluetoothService.removeAllEventListeners();
+      // Clear timeout on cleanup
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -88,8 +96,8 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     });
 
     JMBluetoothService.addEventListener('onConnected', () => {
-      setConnecting(false);
-      console.log('Device connected - waiting for authentication');
+      console.log('✅ Device connected - waiting for authentication');
+      // Don't set connecting to false here, wait for authentication
     });
 
     JMBluetoothService.addEventListener('onConnectFailure', (error) => {
@@ -97,29 +105,76 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       Alert.alert('Connection Failed', `Failed to connect: ${error.status}`);
     });
 
-    JMBluetoothService.addEventListener('onAuthenticationPassed', (data: any) => {
-      console.log('Device authentication passed:', data);
+    JMBluetoothService.addEventListener('onAuthenticationPassed', async (data: any) => {
+      console.log('🔐 Device authentication passed:', data);
       
-      // Check if this is a status 8 expected disconnection
-      if (data.status8Expected) {
-        console.log('Status 8 expected - device authenticated successfully, proceeding to dashboard');
-        setConnecting(false);
-        router.replace('/(tabs)/dashboard');
-        return;
+      // Clear the connection timeout since authentication succeeded
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
       }
       
-      // Check if authentication is complete (new flag for password-disabled devices)
-      if (data.authenticationComplete) {
-        console.log('Authentication complete - proceeding to dashboard');
+      try {
+        // Start OBD data reporting after successful authentication
+        console.log('🔧 Starting OBD data reporting...');
+        const obdStartResult = await JMBluetoothService.startReportObdData();
+        console.log('✅ OBD data reporting started:', obdStartResult);
+        
+        // Wait a moment for OBD reporting to initialize
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Configure PIDs for monitoring
+        console.log('🔧 Configuring OBD PIDs...');
+        const pidConfigResult = await JMBluetoothService.configureAllPIDs();
+        console.log('✅ OBD PIDs configured:', pidConfigResult);
+        
+        // Wait another moment for PID configuration to take effect
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check connection status
+        try {
+          const connectionStatus = await JMBluetoothService.getConnectionStatus();
+          console.log('🔍 Current connection status:', connectionStatus);
+        } catch (error) {
+          console.log('⚠️ Could not get connection status:', error);
+        }
+        
+        // Check if this is a status 8 expected disconnection
+        if (data.status8Expected) {
+          console.log('Status 8 expected - device authenticated successfully, proceeding to dashboard');
+          setConnecting(false);
+          router.replace('/(tabs)/dashboard');
+          return;
+        }
+        
+        // Check if authentication is complete (new flag for password-disabled devices)
+        if (data.authenticationComplete) {
+          console.log('Authentication complete - proceeding to dashboard');
+          setConnecting(false);
+          router.replace('/(tabs)/dashboard');
+          return;
+        }
+        
+        // Fallback: assume authentication is successful and proceed
+        console.log('🔐 Authentication passed - proceeding to dashboard');
         setConnecting(false);
         router.replace('/(tabs)/dashboard');
-        return;
+      } catch (error) {
+        console.error('❌ Failed to start OBD reporting:', error);
+        // Still proceed to dashboard even if OBD setup fails
+        console.log('⚠️ Proceeding to dashboard despite OBD setup failure');
+        setConnecting(false);
+        router.replace('/(tabs)/dashboard');
       }
-      
-      // Fallback: assume authentication is successful and proceed
-      console.log('Authentication passed - proceeding to dashboard');
-      setConnecting(false);
-      router.replace('/(tabs)/dashboard');
+    });
+
+    // Add password-related event listeners
+    JMBluetoothService.addEventListener('onPasswordCheckResult', (result: any) => {
+      console.log('🔑 Password check result:', result);
+    });
+
+    JMBluetoothService.addEventListener('onPasswordVerifyResult', (result: any) => {
+      console.log('🔑 Password verify result:', result);
     });
 
     JMBluetoothService.addEventListener('onDisconnected', () => {
@@ -163,10 +218,31 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       setSelectedDevice(device);
       setConnecting(true);
       
+      // Clear any existing timeout
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
+      
+      // Set a timeout to show skip button after 15 seconds
+      connectionTimeoutRef.current = setTimeout(() => {
+        console.log('⏰ Connection taking too long - showing skip button');
+        setShowSkipButton(true);
+        
+        // Auto-proceed after another 15 seconds (30 seconds total)
+        setTimeout(() => {
+          console.log('⏰ Connection timeout - proceeding to dashboard');
+          setConnecting(false);
+          router.replace('/(tabs)/dashboard');
+        }, 15000);
+      }, 15000); // 15 second timeout
+      
       // Use the regular connect method - the native module now handles proper connection
       await JMBluetoothService.connect(device.address);
     } catch (error) {
       setConnecting(false);
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
       Alert.alert('Error', 'Failed to connect: ' + error);
     }
   };
@@ -242,6 +318,29 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
             keyExtractor={(item) => item.address || Math.random().toString()}
             showsVerticalScrollIndicator={false}
           />
+        )}
+        
+        {/* Skip button when connection is taking too long */}
+        {showSkipButton && isConnecting && (
+          <View style={styles.skipConnectionContainer}>
+            <Text style={styles.skipConnectionText}>
+              Connection is taking longer than expected...
+            </Text>
+            <TouchableOpacity
+              style={styles.skipConnectionButton}
+              onPress={() => {
+                console.log('🔧 User skipped connection - proceeding to dashboard');
+                setConnecting(false);
+                setShowSkipButton(false);
+                if (connectionTimeoutRef.current) {
+                  clearTimeout(connectionTimeoutRef.current);
+                }
+                router.replace('/(tabs)/dashboard');
+              }}
+            >
+              <Text style={styles.skipConnectionButtonText}>Skip to Dashboard</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </SafeAreaView>
@@ -349,6 +448,34 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   connectButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Skip connection styles
+  skipConnectionContainer: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 16,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  skipConnectionText: {
+    color: '#B45309',
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  skipConnectionButton: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  skipConnectionButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',

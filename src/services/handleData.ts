@@ -328,7 +328,34 @@
 export const handleData = (data: any) => {
   const displayData: OBDDataItem[] = [];
 
- 
+  console.log('🔧 handleData called with:', {
+    dataType: typeof data,
+    isArray: Array.isArray(data),
+    dataKeys: data ? Object.keys(data) : 'null/undefined',
+    fullData: data
+  });
+
+  // Handle case where data is directly an array of OBD items
+  if (Array.isArray(data)) {
+    console.log('📊 Processing data as array with', data.length, 'items');
+    data.forEach((item: any, index: number) => {
+      console.log(`🔍 Processing array item ${index}:`, item);
+      
+      if (item.pid && item.value !== undefined) {
+        const pidName = getPidName(item.pid);
+        const unit = getPidUnit(item.pid);
+        const formattedValue = formatPidValue(item.pid, item.value);
+
+        displayData.push({
+          id: item.id || `pid_${item.pid}`,
+          name: pidName,
+          value: formattedValue,
+          unit: unit,
+        });
+      }
+    });
+    return displayData;
+  }
 
   // Extract GPS coordinates if available
   if (data.latitude && data.longitude) {

@@ -10,7 +10,7 @@ const COLORS = {
 }
 
 export const EldIndicator: React.FC = () => {
-  const { isConnected, isSyncing, obdData, awsSyncStatus } = useObdData()
+  const { isConnected, isSyncing, obdData, awsSyncStatus, lastUpdate } = useObdData()
   const pulseAnim = useRef(new Animated.Value(1)).current
   const rotateAnim = useRef(new Animated.Value(0)).current
 
@@ -71,18 +71,47 @@ export const EldIndicator: React.FC = () => {
 
   // Determine color based on state (prioritize errors)
   const getColor = () => {
+    const debugInfo = {
+      isConnected,
+      obdDataLength: obdData.length,
+      isSyncing,
+      awsSyncStatus,
+      lastUpdate: lastUpdate?.toISOString(),
+      timestamp: new Date().toISOString()
+    }
+    
+    console.log('🔍 EldIndicator Debug:', debugInfo)
+
     // Error states (highest priority)
-    if (awsSyncStatus === 'error') return COLORS.red
-    if (!isConnected) return COLORS.red
-    if (obdData.length === 0) return COLORS.red // No data received
+    if (awsSyncStatus === 'error') {
+      console.log('🔴 EldIndicator: RED - AWS sync error')
+      return COLORS.red
+    }
+    if (!isConnected) {
+      console.log('🔴 EldIndicator: RED - Not connected')
+      return COLORS.red
+    }
+    
+    // If connected but no data received yet, show blue (syncing/connecting)
+    if (isConnected && obdData.length === 0) {
+      console.log('🔵 EldIndicator: BLUE - Connected but no data')
+      return COLORS.sync
+    }
     
     // Syncing states
-    if (isSyncing || awsSyncStatus === 'syncing') return COLORS.sync
+    if (isSyncing || awsSyncStatus === 'syncing') {
+      console.log('🔵 EldIndicator: BLUE - Syncing in progress')
+      return COLORS.sync
+    }
     
     // Success state
-    if (awsSyncStatus === 'success') return COLORS.green
+    if (awsSyncStatus === 'success') {
+      console.log('🟢 EldIndicator: GREEN - AWS sync success')
+      return COLORS.green
+    }
     
     // Default: connected and idle
+    console.log('🟢 EldIndicator: GREEN - Connected and idle')
     return COLORS.green
   }
 

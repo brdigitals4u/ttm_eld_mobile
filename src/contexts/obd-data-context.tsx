@@ -40,10 +40,12 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const awsBufferRef = useRef<AwsObdPayload[]>([]) // AWS buffer
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const awsSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const debugIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Listen for OBD data updates
   useEffect(() => {
     if (!isAuthenticated) {
+      console.log('📡 OBD Data Context: User not authenticated, skipping setup')
       return
     }
 
@@ -53,8 +55,17 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const obdEldDataListener = JMBluetoothService.addEventListener(
       'onObdEldDataReceived',
       (data: ObdEldData) => {
-        console.log('📊 OBD Data Context: Received ELD data')
+        console.log('📊 OBD Data Context: Received ELD data', { 
+          dataKeys: Object.keys(data),
+          hasDataFlowList: !!data.dataFlowList,
+          dataFlowListLength: data.dataFlowList?.length || 0,
+          fullData: data
+        })
         const displayData = handleData(data)
+        console.log('📊 OBD Data Context: Processed display data', { 
+          displayDataLength: displayData.length,
+          displayDataItems: displayData.map(item => ({ name: item.name, value: item.value }))
+        })
         setObdData(displayData)
         setLastUpdate(new Date())
         setIsConnected(true)
@@ -116,6 +127,16 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dataBufferRef.current.push(localPayload)
           awsBufferRef.current.push(awsPayload)
           console.log(`📦 OBD Data Context: Added to buffers - Local: ${dataBufferRef.current.length}, AWS: ${awsBufferRef.current.length} items`)
+          console.log(`📦 AWS Payload structure:`, {
+            vehicleId: awsPayload.vehicleId,
+            driverId: awsPayload.driverId,
+            timestamp: awsPayload.timestamp,
+            dataType: awsPayload.dataType,
+            hasLatitude: !!awsPayload.latitude,
+            hasLongitude: !!awsPayload.longitude,
+            allDataLength: awsPayload.allData?.length || 0
+          })
+          console.log(`📦 AWS Buffer Status: ${awsBufferRef.current.length} items ready for sync`)
         }
       }
     )
@@ -124,6 +145,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       'onDisconnected',
       () => {
         console.log('❌ OBD Data Context: Device disconnected')
+        console.log('🔄 OBD Data Context: Setting isConnected to false')
         setIsConnected(false)
       }
     )
@@ -132,7 +154,100 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       'onConnected',
       () => {
         console.log('✅ OBD Data Context: Device connected')
+        console.log('🔄 OBD Data Context: Setting isConnected to true')
         setIsConnected(true)
+        
+        // Try to start OBD reporting if not already started
+        JMBluetoothService.startReportObdData().then(() => {
+          console.log('📊 OBD Data Context: OBD reporting started from context')
+        }).catch((error) => {
+          console.log('⚠️ OBD Data Context: Failed to start OBD reporting:', error)
+        })
+      }
+    )
+
+    // Check current connection status on setup
+    const checkConnectionStatus = async () => {
+      try {
+        const status = await JMBluetoothService.getConnectionStatus()
+        console.log('🔍 OBD Data Context: Initial connection check:', status)
+        if (status.isConnected) {
+          console.log('✅ OBD Data Context: Device already connected, setting connected state')
+          setIsConnected(true)
+          
+          // Try to start OBD reporting
+          JMBluetoothService.startReportObdData().then(() => {
+            console.log('📊 OBD Data Context: OBD reporting started from status check')
+          }).catch((error) => {
+            console.log('⚠️ OBD Data Context: Failed to start OBD reporting from status check:', error)
+          })
+        }
+      } catch (error) {
+        console.log('⚠️ OBD Data Context: Failed to check connection status:', error)
+      }
+    }
+
+    // Check connection status immediately
+    checkConnectionStatus()
+
+    // Listen for OBD data collection events
+    const obdCollectStartListener = JMBluetoothService.addEventListener(
+      'onObdCollectStart',
+      () => {
+        console.log('📊 OBD Data Context: OBD data collection started')
+        setIsConnected(true)
+      }
+    )
+
+    const obdCollectFinishListener = JMBluetoothService.addEventListener(
+      'onObdCollectFinish',
+      () => {
+        console.log('📊 OBD Data Context: OBD data collection finished')
+        // Don't set disconnected here as collection can finish and restart
+      }
+    )
+
+    // Listen for other OBD data events for debugging
+    const obdDataListener = JMBluetoothService.addEventListener(
+      'onObdDataReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received OBD data', data)
+      }
+    )
+
+    const obdDataFlowListener = JMBluetoothService.addEventListener(
+      'onObdDataFlowReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received OBD data flow', data)
+      }
+    )
+
+    const obdRawDataListener = JMBluetoothService.addEventListener(
+      'onObdRawDataReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received OBD raw data', data)
+      }
+    )
+
+    const eldDataListener = JMBluetoothService.addEventListener(
+      'onEldDataReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received ELD data (non-OBD)', data)
+      }
+    )
+
+    const obdEldStartListener = JMBluetoothService.addEventListener(
+      'onObdEldStart',
+      () => {
+        console.log('📊 OBD Data Context: OBD ELD started')
+        setIsConnected(true)
+      }
+    )
+
+    const obdEldFinishListener = JMBluetoothService.addEventListener(
+      'onObdEldFinish',
+      () => {
+        console.log('📊 OBD Data Context: OBD ELD finished')
       }
     )
 
@@ -140,8 +255,69 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       JMBluetoothService.removeEventListener(obdEldDataListener)
       JMBluetoothService.removeEventListener(disconnectedListener)
       JMBluetoothService.removeEventListener(connectedListener)
+      JMBluetoothService.removeEventListener(obdCollectStartListener)
+      JMBluetoothService.removeEventListener(obdCollectFinishListener)
+      JMBluetoothService.removeEventListener(obdDataListener)
+      JMBluetoothService.removeEventListener(obdDataFlowListener)
+      JMBluetoothService.removeEventListener(obdRawDataListener)
+      JMBluetoothService.removeEventListener(eldDataListener)
+      JMBluetoothService.removeEventListener(obdEldStartListener)
+      JMBluetoothService.removeEventListener(obdEldFinishListener)
     }
   }, [isAuthenticated, driverProfile?.driver_id])
+
+  // Set up debug interval to monitor OBD data flow
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return
+    }
+
+    console.log('🔍 OBD Data Context: Setting up debug monitoring')
+
+    debugIntervalRef.current = setInterval(async () => {
+      console.log('🔍 OBD Data Context Debug Status:', {
+        isConnected,
+        obdDataLength: obdData.length,
+        lastUpdate: lastUpdate?.toISOString(),
+        dataBufferLength: dataBufferRef.current.length,
+        awsBufferLength: awsBufferRef.current.length,
+        isSyncing,
+        awsSyncStatus
+      })
+
+      // Try to get connection status and sync if needed
+      try {
+        const connectionStatus = await JMBluetoothService.getConnectionStatus()
+        console.log('🔍 Connection Status:', connectionStatus)
+        
+        // Sync connection status if there's a mismatch
+        if (connectionStatus.isConnected && !isConnected) {
+          console.log('🔄 Syncing connection status: Device is connected but context shows disconnected')
+          console.log('🔄 OBD Data Context: Setting isConnected to true (from periodic check)')
+          setIsConnected(true)
+          
+          // Try to start OBD reporting
+          JMBluetoothService.startReportObdData().then(() => {
+            console.log('📊 OBD Data Context: OBD reporting started from periodic check')
+          }).catch((error) => {
+            console.log('⚠️ OBD Data Context: Failed to start OBD reporting from periodic check:', error)
+          })
+        } else if (!connectionStatus.isConnected && isConnected) {
+          console.log('🔄 Syncing connection status: Device is disconnected but context shows connected')
+          console.log('🔄 OBD Data Context: Setting isConnected to false (from periodic check)')
+          setIsConnected(false)
+        }
+      } catch (error) {
+        console.log('⚠️ Could not get connection status:', error)
+      }
+    }, 10000) // Every 10 seconds
+
+    return () => {
+      if (debugIntervalRef.current) {
+        clearInterval(debugIntervalRef.current)
+      }
+    }
+  }, [isAuthenticated, isConnected, obdData.length, lastUpdate, isSyncing, awsSyncStatus])
 
   // Set up periodic Local API sync (every 1 minute)
   useEffect(() => {
@@ -192,7 +368,15 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Set up periodic AWS sync (every 1 minute)
   useEffect(() => {
+    console.log('🔍 AWS Sync Setup Check:', {
+      isAuthenticated,
+      hasDriverId: !!driverProfile?.driver_id,
+      enableAwsSync: awsConfig.features.enableAwsSync,
+      enableLocalSync: awsConfig.features.enableLocalSync
+    })
+
     if (!isAuthenticated || !driverProfile?.driver_id) {
+      console.log('❌ AWS sync not set up: Missing authentication or driver ID')
       return
     }
 
@@ -213,6 +397,16 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setAwsSyncStatus('syncing')
         console.log(`🔄 AWS: Syncing ${awsBufferRef.current.length} records to Lambda...`)
         
+        // Log the first record structure for debugging
+        if (awsBufferRef.current.length > 0) {
+          console.log(`🔍 AWS: First record structure:`, {
+            vehicleId: awsBufferRef.current[0].vehicleId,
+            driverId: awsBufferRef.current[0].driverId,
+            timestamp: awsBufferRef.current[0].timestamp,
+            dataType: awsBufferRef.current[0].dataType
+          })
+        }
+        
         const response = await awsApiService.saveObdDataBatch(awsBufferRef.current)
         
         if (response.success) {
@@ -225,6 +419,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setTimeout(() => setAwsSyncStatus('idle'), 2000)
         } else {
           console.error('❌ AWS: Sync failed:', response.error)
+          console.error('❌ AWS: Response details:', response)
           setAwsSyncStatus('error')
           
           // Keep data in buffer for retry
