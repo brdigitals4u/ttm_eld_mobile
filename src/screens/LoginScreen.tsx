@@ -27,8 +27,8 @@ export const LoginScreen: React.FC = () => {
   const driverLoginMutation = useDriverLogin()
 
   const [credentials, setCredentials] = useState<LoginCredentials>({
-    email: 'driver@example.com',
-    password: 'SecurePass123!',
+    email: 'testdriver.cognito@ttmkonnect.com',
+    password: 'TestDriver@2025!',
   })
   const [errors, setErrors] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)

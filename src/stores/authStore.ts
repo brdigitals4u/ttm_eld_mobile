@@ -20,6 +20,14 @@ export interface User {
   onboardingStep: string | number;
 }
 
+export interface CognitoTokens {
+  access_token: string;
+  id_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
 export interface DriverProfile {
   driver_id: string;
   name: string;
@@ -145,6 +153,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   token: string | null;
+  cognitoTokens: CognitoTokens | null; // ✅ NEW: For AWS sync
   
   // User data
   user: User | null;
@@ -184,6 +193,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       token: null,
+      cognitoTokens: null,
       user: null,
       driverProfile: null,
       hosStatus: null,
@@ -206,12 +216,19 @@ export const useAuthStore = create<AuthState>()(
           let vehicleInfo: VehicleInfo | null = null;
           let organizationSettings: OrganizationSettings | null = null;
           let token: string | null = null;
+          let cognitoTokens: CognitoTokens | null = null;
 
           // Check if this is the complete API response
           if (loginData.user && loginData.token) {
             console.log('📡 AuthStore: Processing complete API response');
             console.log('🔑 AuthStore: Token received:', loginData.token ? 'Token exists' : 'No token');
             token = loginData.token;
+            
+            // Extract Cognito tokens if present (for AWS sync)
+            if (loginData.cognito_tokens) {
+              console.log('🔑 AuthStore: Cognito tokens received (for AWS sync)');
+              cognitoTokens = loginData.cognito_tokens;
+            }
             
             // Extract user data
             userData = {
@@ -274,6 +291,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
             token,
+            cognitoTokens,
             user: userData,
             driverProfile,
             hosStatus,
@@ -321,6 +339,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
             token: null,
+            cognitoTokens: null,
             user: null,
             driverProfile: null,
             hosStatus: null,
@@ -393,6 +412,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         token: state.token,
+        cognitoTokens: state.cognitoTokens,
         user: state.user,
         driverProfile: state.driverProfile,
         hosStatus: state.hosStatus,

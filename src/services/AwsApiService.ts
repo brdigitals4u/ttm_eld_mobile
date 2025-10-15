@@ -6,7 +6,7 @@
  */
 
 import { awsConfig } from '@/config/aws-config'
-import { useAuth } from '@/stores/authStore'
+import { useAuthStore } from '@/stores/authStore'
 
 export interface AwsObdPayload {
   vehicleId: string
@@ -97,13 +97,27 @@ class AwsApiService {
 
   /**
    * Get authentication token from current user
-   * Note: In hybrid mode, we use the existing auth token from Zustand
+   * Note: Uses Cognito JWT token for AWS Lambda authentication
    */
   private getAuthToken(): string | null {
     try {
-      // Get token from Zustand authStore
-      const authState = useAuth.getState()
-      return authState.token
+      // Get Cognito JWT token from Zustand authStore
+      const authState = useAuthStore.getState()
+      
+      // Prefer Cognito access_token for AWS (most secure)
+      if (authState.cognitoTokens?.access_token) {
+        console.log('🔑 Using Cognito JWT token for AWS')
+        return authState.cognitoTokens.access_token
+      }
+      
+      // Fallback to custom token if Cognito not available
+      if (authState.token) {
+        console.log('🔑 Using custom token for AWS (fallback)')
+        return authState.token
+      }
+      
+      console.warn('⚠️  No auth token available')
+      return null
     } catch (error) {
       console.error('❌ Failed to get auth token:', error)
       return null
