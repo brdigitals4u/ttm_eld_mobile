@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#4f46e5",        // or use your theme
+    backgroundColor: "#0071ce",        // or use your theme
     borderRadius: 28,
     padding: 8,
     marginHorizontal: 16,

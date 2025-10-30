@@ -6,7 +6,7 @@ import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useAuth } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
-
+import { useHeader } from "@/utils/useHeader"
 interface MenuItemProps {
   title: string;
   subtitle: string;
@@ -53,6 +53,8 @@ export default function ProfileScreen() {
     organizationSettings, 
     logout 
   } = useAuth();
+
+  
 
   console.log('driver profile:', driverProfile);
   
@@ -368,12 +370,16 @@ export default function ProfileScreen() {
           />
         ))}
 
+      <View>
       <LoadingButton
         title="Log Out"
         onPress={handleLogout}
         variant="danger"
         style={styles.logoutButton}
       />
+
+      </View>
+    
     </ScrollView>
   );
 }
@@ -441,7 +447,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 20,
-    marginBottom: 140,
+    marginBottom: 340,
   },
     menuContainer: {
     gap: 8,

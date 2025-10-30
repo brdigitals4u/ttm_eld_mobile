@@ -18,13 +18,11 @@ import {
   Briefcase,
   Coffee,
   MoreHorizontal,
-  Settings,
   Truck,
   User,
 } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Button } from "@/components/Button"
 import ElevatedCard from "@/components/EvevatedCard"
 import { useStatus } from "@/contexts"
 import { useAppTheme } from "@/theme/context"

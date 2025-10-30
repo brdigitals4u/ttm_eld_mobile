@@ -6,8 +6,8 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect, Circle } fr
 import { settingsStorage } from '@/utils/storage'
 
 const COLORS = {
-  indigo: '#4f46e5',
-  violet: '#4f46e5',
+  indigo: '#0071ce',
+  violet: '#0071ce',
   black: '#000000',
   ink700: '#1F2430',
   ink500: '#4B5563',
@@ -34,8 +34,8 @@ export const WelcomeScreen: React.FC = () => {
     <Svg width="100%" height="100%" viewBox="0 0 400 800" style={StyleSheet.absoluteFillObject}>
       <Defs>
         <SvgLinearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#7C3AED" />
-          <Stop offset="100%" stopColor="#4C1D95" />
+          <Stop offset="20%" stopColor="#3A7BFF" />
+          <Stop offset="100%" stopColor="#0000FE" />
         </SvgLinearGradient>
       </Defs>
 
@@ -64,7 +64,7 @@ export const WelcomeScreen: React.FC = () => {
         <View style={styles.imageContainer}>
           <View style={styles.imagePlaceholder}>
             {/* You can add your own image here */}
-                       <Image
+                  <Image
                     source={require('assets/images/login_header.png')}
                     style={styles.loginHeaderImage}
                     resizeMode="contain"
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   imagePlaceholder: {
-    width: 280,
+    width: 380,
     height: 280,
     borderRadius: 20,
     backgroundColor: 'rgb(255, 255, 255)',

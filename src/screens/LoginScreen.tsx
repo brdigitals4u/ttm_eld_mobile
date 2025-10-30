@@ -9,7 +9,7 @@ import { router } from 'expo-router'
 import { AnimatedButton } from '@/components/AnimatedButton'
 
 const COLORS = {
-  indigo: '#5750F1',
+  indigo: '#0071ce',
   black: '#000000',
   ink700: '#1F2430',
   ink500: '#4B5563',
@@ -89,18 +89,28 @@ export const LoginScreen: React.FC = () => {
   const successAnimation = require('assets/animations/success.json')
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.welcomeTitle}>Welcome</Text>
+
+          <View>
+            {/* You can add your own image here */}
+            <Image
+              source={require('assets/images/trident_logo.png')}
+              style={styles.loginHeaderImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.welcomeTitle}>Welcome to TTM Family</Text>
           <Text style={styles.welcomeSubtitle}>Sign in to continue your journey</Text>
         </View>
 
@@ -162,7 +172,7 @@ export const LoginScreen: React.FC = () => {
             successDuration={1500}
           />
 
-          
+
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -170,9 +180,9 @@ export const LoginScreen: React.FC = () => {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.white 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.white
   },
   scrollContent: {
     flexGrow: 1,
@@ -192,6 +202,7 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     marginBottom: 12,
     textAlign: 'center',
+    lineHeight: 35,
   },
   welcomeSubtitle: {
     fontSize: 16,
@@ -230,7 +241,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.ink700,
   },
-  eyeIcon: { 
+  eyeIcon: {
     padding: 4,
     marginLeft: 8,
   },
@@ -265,10 +276,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  loginButtonText: { 
-    color: COLORS.white, 
-    fontSize: 18, 
-    fontWeight: 'bold' 
+  loginButtonText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: 'bold'
   },
 
   /* Divider */
@@ -312,18 +323,28 @@ const styles = StyleSheet.create({
   },
 
   /* Sign Up */
-  signupContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  signupText: { 
-    fontSize: 14, 
-    color: COLORS.ink500 
+  signupText: {
+    fontSize: 14,
+    color: COLORS.ink500
   },
-  signupLink: { 
-    fontSize: 14, 
-    color: COLORS.black, 
+  signupLink: {
+    fontSize: 14,
+    color: COLORS.black,
     fontWeight: 'bold',
+  },
+  imageContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginHeaderImage: {
+    width: '100%',
+    height: 140,
+    marginBottom: 20,
   },
 })
