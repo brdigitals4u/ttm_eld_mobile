@@ -6,7 +6,7 @@ import { useAuth } from '@/stores/authStore'
 import { useToast } from '@/providers/ToastProvider'
 import { LoginCredentials } from '@/database/schemas'
 import { router } from 'expo-router'
-import { Icon } from '@/components/Icon'
+import { AnimatedButton } from '@/components/AnimatedButton'
 
 const COLORS = {
   indigo: '#5750F1',
@@ -58,7 +58,6 @@ export const LoginScreen: React.FC = () => {
       })
       await login(result)
       toast.success('Login successful!', 2000)
-      router.replace('/device-scan')
     } catch (error: any) {
       let errorMessage = 'An unexpected error occurred'
       if (error?.response?.status === 401) errorMessage = 'Invalid email or password'
@@ -81,9 +80,13 @@ export const LoginScreen: React.FC = () => {
 
   }
 
-  const handleSocialLogin = (provider: string) => {
-    toast.info(`${provider} login coming soon!`, 2000)
+  const handleLoginSuccess = () => {
+    router.replace('/device-scan')
   }
+
+  // Lottie animations (import your own JSON files or use existing ones)
+  const loadingAnimation = require('assets/animations/loading.json')
+  const successAnimation = require('assets/animations/success.json')
 
   return (
     <KeyboardAvoidingView 
@@ -148,15 +151,17 @@ export const LoginScreen: React.FC = () => {
           </TouchableOpacity>
 
           {/* Login Button */}
-          <TouchableOpacity
-            style={styles.loginButton}
+          <AnimatedButton
+            title={driverLoginMutation.isPending ? 'Logging in…' : 'Login now'}
             onPress={handleLogin}
-            disabled={driverLoginMutation.isPending}
-          >
-            <Text style={styles.loginButtonText}>
-              {driverLoginMutation.isPending ? 'Logging in…' : 'Login now'}
-            </Text>
-          </TouchableOpacity>
+            onSuccess={handleLoginSuccess}
+            loadingAnimation={loadingAnimation}
+            successAnimation={successAnimation}
+            style={styles.loginButton}
+            textStyle={styles.loginButtonText}
+            successDuration={1500}
+          />
+
           
         </View>
       </ScrollView>
