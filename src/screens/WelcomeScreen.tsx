@@ -1,82 +1,191 @@
-import { FC } from "react"
-import { Image, ImageStyle, TextStyle, View, ViewStyle } from "react-native"
+import React from 'react'
+import { View, StyleSheet, TouchableOpacity, Image } from 'react-native'
+import { Text } from '@/components/Text'
+import { router } from 'expo-router'
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect, Circle } from 'react-native-svg'
+import { settingsStorage } from '@/utils/storage'
 
-import { Screen } from "@/components/Screen"
-import { Text } from "@/components/Text"
-import { isRTL } from "@/i18n"
-import { useAppTheme } from "@/theme/context"
-import { $styles } from "@/theme/styles"
-import type { ThemedStyle } from "@/theme/types"
-import { useSafeAreaInsetsStyle } from "@/utils/useSafeAreaInsetsStyle"
+const COLORS = {
+  indigo: '#4f46e5',
+  violet: '#4f46e5',
+  black: '#000000',
+  ink700: '#1F2430',
+  ink500: '#4B5563',
+  white: '#FFFFFF',
+}
 
-const welcomeLogo = require("@assets/images/logo.png")
-const welcomeFace = require("@assets/images/welcome-face.png")
+export const WelcomeScreen: React.FC = () => {
+  const handleNext = async () => {
+    // Mark welcome screen as seen
+    await settingsStorage.setHasSeenWelcome(true)
+    // Navigate to login screen
+    router.push('/login')
+  }
 
-export const WelcomeScreen: FC = function WelcomeScreen() {
-  const { themed, theme } = useAppTheme()
+  const handleSkip = async () => {
+    // Mark welcome screen as seen
+    await settingsStorage.setHasSeenWelcome(true)
+    // Navigate to login screen
+    router.push('/login')
+  }
 
-  const $bottomContainerInsets = useSafeAreaInsetsStyle(["bottom"])
+  /** ======= VIOLET BACKGROUND ======= **/
+  const VioletBackground = () => (
+    <Svg width="100%" height="100%" viewBox="0 0 400 800" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <SvgLinearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#7C3AED" />
+          <Stop offset="100%" stopColor="#4C1D95" />
+        </SvgLinearGradient>
+      </Defs>
+
+      {/* violet gradient background */}
+      <Rect x="0" y="0" width="400" height="800" fill="url(#violetGrad)" />
+
+      {/* transparent circles */}
+      <Circle cx="80" cy="100" r="120" fill="#FFFFFF" opacity={0.08} />
+      <Circle cx="320" cy="350" r="150" fill="#FFFFFF" opacity={0.06} />
+    </Svg>
+  )
 
   return (
-    <Screen preset="fixed" contentContainerStyle={$styles.flex1}>
-      <View style={themed($topContainer)}>
-        <Image style={themed($welcomeLogo)} source={welcomeLogo} resizeMode="contain" />
-        <Text
-          testID="welcome-heading"
-          style={themed($welcomeHeading)}
-          tx="welcomeScreen:readyForLaunch"
-          preset="heading"
-        />
-        <Text tx="welcomeScreen:exciting" preset="subheading" />
-        <Image
-          style={$welcomeFace}
-          source={welcomeFace}
-          resizeMode="contain"
-          tintColor={theme.colors.palette.neutral900}
-        />
+    <View style={styles.container}>
+      {/* Background */}
+      <VioletBackground />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.brandText}>TTM247</Text>
       </View>
 
-      <View style={themed([$bottomContainer, $bottomContainerInsets])}>
-        <Text tx="welcomeScreen:postscript" size="md" />
+      {/* Main Content */}
+      <View style={styles.content}>
+        {/* Image placeholder - replace with your truck/logistics image */}
+        <View style={styles.imageContainer}>
+          <View style={styles.imagePlaceholder}>
+            {/* You can add your own image here */}
+                       <Image
+                    source={require('assets/images/login_header.png')}
+                    style={styles.loginHeaderImage}
+                    resizeMode="contain"
+                  />
+          </View>
+        </View>
       </View>
-    </Screen>
+
+      {/* Bottom Card */}
+      <View style={styles.bottomCard}>
+        <Text style={styles.title}>Fleet Management Made Easy</Text>
+        <Text style={styles.subtitle}>
+          Track your hours, manage compliance, and stay connected with your fleet in real-time
+        </Text>
+
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <Text style={styles.nextButtonText}>Next</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   )
 }
 
-const $topContainer: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flexShrink: 1,
-  flexGrow: 1,
-  flexBasis: "57%",
-  justifyContent: "center",
-  paddingHorizontal: spacing.lg,
-})
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.violet,
+  },
 
-const $bottomContainer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
-  flexShrink: 1,
-  flexGrow: 0,
-  flexBasis: "43%",
-  backgroundColor: colors.palette.neutral100,
-  borderTopLeftRadius: 16,
-  borderTopRightRadius: 16,
-  paddingHorizontal: spacing.lg,
-  justifyContent: "space-around",
-})
+  /* Header */
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    zIndex: 10,
+  },
+  brandText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  skipText: {
+    fontSize: 16,
+    color: COLORS.white,
+    opacity: 0.9,
+  },
 
-const $welcomeLogo: ThemedStyle<ImageStyle> = ({ spacing }) => ({
-  height: 88,
-  width: "100%",
-  marginBottom: spacing.xxl,
-})
+  /* Content */
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  imageContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePlaceholder: {
+    width: 280,
+    height: 280,
+    borderRadius: 20,
+    backgroundColor: 'rgb(255, 255, 255)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 120,
+  },
 
-const $welcomeFace: ImageStyle = {
-  height: 169,
-  width: 269,
-  position: "absolute",
-  bottom: -47,
-  right: -80,
-  transform: [{ scaleX: isRTL ? -1 : 1 }],
-}
-
-const $welcomeHeading: ThemedStyle<TextStyle> = ({ spacing }) => ({
-  marginBottom: spacing.md,
+  /* Bottom Card */
+  bottomCard: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 50,
+    borderTopRightRadius: 50,
+    paddingHorizontal: 32,
+    paddingTop: 40,
+    paddingBottom: 48,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.ink700,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: COLORS.ink500,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  nextButton: {
+    backgroundColor: COLORS.indigo,
+    borderRadius: 16,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.indigo,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  nextButtonText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  loginHeaderImage: {
+    width: '100%',
+    height: 100,
+    marginBottom: 24,
+  },
 })

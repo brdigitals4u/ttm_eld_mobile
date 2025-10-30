@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { Slot, SplashScreen } from "expo-router"
+import { Slot } from "expo-router"
+import * as SplashScreen from "expo-splash-screen"
 import { useFonts } from "@expo-google-fonts/space-grotesk"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
@@ -12,7 +13,14 @@ import { QueryProvider } from "@/providers/QueryProvider"
 import { AllContextsProvider } from "@/contexts"
 import { ToastProvider } from "@/providers/ToastProvider"
 
+// Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
+
+// Optional: configure fade-out per Expo docs
+SplashScreen.setOptions({
+  duration: 800,
+  fade: true,
+})
 
 if (__DEV__) {
   // Load Reactotron configuration in development. We don't want to
@@ -26,6 +34,7 @@ export { ErrorBoundary } from "@/components/ErrorBoundary/ErrorBoundary"
 export default function Root() {
   const [fontsLoaded, fontError] = useFonts(customFontsToLoad)
   const [isI18nInitialized, setIsI18nInitialized] = useState(false)
+  const [splashSafeTimeoutDone, setSplashSafeTimeoutDone] = useState(false)
 
   useEffect(() => {
     initI18n()
@@ -44,6 +53,18 @@ export default function Root() {
       SplashScreen.hideAsync()
     }
   }, [loaded])
+
+  // Safety: ensure splash hides even if something hangs in dev
+  useEffect(() => {
+    const t = setTimeout(() => setSplashSafeTimeoutDone(true), 4000)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    if (splashSafeTimeoutDone) {
+      SplashScreen.hideAsync().catch(() => {})
+    }
+  }, [splashSafeTimeoutDone])
 
   if (!loaded) {
     return null

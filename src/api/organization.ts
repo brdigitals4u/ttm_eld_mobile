@@ -15,9 +15,9 @@ export interface DriverProfile {
   driver_id: string
   name: string
   username: string
-  phone: string
+  phone: string | null
   email: string
-  driver_license: string
+  driver_license: string | null
   license_number: string
   license_state: string
   license_expiry: string | null

@@ -8,28 +8,28 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		18089A23D998ADD7E6F33DA5 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD15D3D6A9DB30173A3BF272 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		9D39653CE60A262416FAAD6D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6EB1825DFDEBEFBB973BFC30 /* PrivacyInfo.xcprivacy */; };
-		AD35FD6A63C225D1CD165181 /* libPods-TTMKonnect.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58B9CBF0AA6C52541A755B4C /* libPods-TTMKonnect.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		C2115B8A0452F140AE1E26A1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 55B1E6A1CA466C2B3EA0AABC /* PrivacyInfo.xcprivacy */; };
+		E1BA7FB6EA0FBC1AB604219B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D272414B393C1CF28E536A5A /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F24E846586FCEB7107199E52 /* libPods-TTMKonnect.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD655B6EB60AA44D4A93C7ED /* libPods-TTMKonnect.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* TTMKonnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TTMKonnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = TTMKonnect/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = TTMKonnect/Info.plist; sourceTree = "<group>"; };
-		4BD373806368AC8B324A1FAA /* Pods-TTMKonnect.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TTMKonnect.release.xcconfig"; path = "Target Support Files/Pods-TTMKonnect/Pods-TTMKonnect.release.xcconfig"; sourceTree = "<group>"; };
-		58B9CBF0AA6C52541A755B4C /* libPods-TTMKonnect.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TTMKonnect.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		6EB1825DFDEBEFBB973BFC30 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = TTMKonnect/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		8FBEADB5C78CBDEE482919D7 /* Pods-TTMKonnect.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TTMKonnect.debug.xcconfig"; path = "Target Support Files/Pods-TTMKonnect/Pods-TTMKonnect.debug.xcconfig"; sourceTree = "<group>"; };
+		475C4209125043FF5E5E7788 /* Pods-TTMKonnect.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TTMKonnect.release.xcconfig"; path = "Target Support Files/Pods-TTMKonnect/Pods-TTMKonnect.release.xcconfig"; sourceTree = "<group>"; };
+		55B1E6A1CA466C2B3EA0AABC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = TTMKonnect/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = TTMKonnect/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B9100B42A0E4BD9E7020AA93 /* Pods-TTMKonnect.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TTMKonnect.debug.xcconfig"; path = "Target Support Files/Pods-TTMKonnect/Pods-TTMKonnect.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		DD15D3D6A9DB30173A3BF272 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-TTMKonnect/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		D272414B393C1CF28E536A5A /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-TTMKonnect/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = TTMKonnect/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* TTMKonnect-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "TTMKonnect-Bridging-Header.h"; path = "TTMKonnect/TTMKonnect-Bridging-Header.h"; sourceTree = "<group>"; };
+		FD655B6EB60AA44D4A93C7ED /* libPods-TTMKonnect.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TTMKonnect.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AD35FD6A63C225D1CD165181 /* libPods-TTMKonnect.a in Frameworks */,
+				F24E846586FCEB7107199E52 /* libPods-TTMKonnect.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,24 +53,32 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				6EB1825DFDEBEFBB973BFC30 /* PrivacyInfo.xcprivacy */,
+				55B1E6A1CA466C2B3EA0AABC /* PrivacyInfo.xcprivacy */,
 			);
 			name = TTMKonnect;
+			sourceTree = "<group>";
+		};
+		1C94A6A5830E11BCD0511E32 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				4A3E9662CBA4C52DFF618751 /* TTMKonnect */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				58B9CBF0AA6C52541A755B4C /* libPods-TTMKonnect.a */,
+				FD655B6EB60AA44D4A93C7ED /* libPods-TTMKonnect.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		3B59CA2DBEF60B9A4F6C4C60 /* TTMKonnect */ = {
+		4A3E9662CBA4C52DFF618751 /* TTMKonnect */ = {
 			isa = PBXGroup;
 			children = (
-				DD15D3D6A9DB30173A3BF272 /* ExpoModulesProvider.swift */,
+				D272414B393C1CF28E536A5A /* ExpoModulesProvider.swift */,
 			);
 			name = TTMKonnect;
 			sourceTree = "<group>";
@@ -89,8 +97,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				8CAE614DD6BB67D4ACE41C62 /* Pods */,
-				FEA77B6DD33CC494F0C42411 /* ExpoModulesProviders */,
+				8FE85A7913CFD69380A7D0C6 /* Pods */,
+				1C94A6A5830E11BCD0511E32 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -105,11 +113,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		8CAE614DD6BB67D4ACE41C62 /* Pods */ = {
+		8FE85A7913CFD69380A7D0C6 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				8FBEADB5C78CBDEE482919D7 /* Pods-TTMKonnect.debug.xcconfig */,
-				4BD373806368AC8B324A1FAA /* Pods-TTMKonnect.release.xcconfig */,
+				B9100B42A0E4BD9E7020AA93 /* Pods-TTMKonnect.debug.xcconfig */,
+				475C4209125043FF5E5E7788 /* Pods-TTMKonnect.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
@@ -124,14 +132,6 @@
 			path = TTMKonnect/Supporting;
 			sourceTree = "<group>";
 		};
-		FEA77B6DD33CC494F0C42411 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				3B59CA2DBEF60B9A4F6C4C60 /* TTMKonnect */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "TTMKonnect" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				22EB90E5F4C64D13A5647B5F /* [Expo] Configure project */,
+				0B12345C9B05D071D3D17011 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				85DB0861208F15BBE1DE66B5 /* [CP] Embed Pods Frameworks */,
+				C262248F9BEE0518A534AE69 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				9D39653CE60A262416FAAD6D /* PrivacyInfo.xcprivacy in Resources */,
+				C2115B8A0452F140AE1E26A1 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,7 +240,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		22EB90E5F4C64D13A5647B5F /* [Expo] Configure project */ = {
+		0B12345C9B05D071D3D17011 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -343,7 +343,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-TTMKonnect/Pods-TTMKonnect-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		85DB0861208F15BBE1DE66B5 /* [CP] Embed Pods Frameworks */ = {
+		C262248F9BEE0518A534AE69 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -369,7 +369,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				18089A23D998ADD7E6F33DA5 /* ExpoModulesProvider.swift in Sources */,
+				E1BA7FB6EA0FBC1AB604219B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -378,7 +378,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8FBEADB5C78CBDEE482919D7 /* Pods-TTMKonnect.debug.xcconfig */;
+			baseConfigurationReference = B9100B42A0E4BD9E7020AA93 /* Pods-TTMKonnect.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -414,7 +414,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4BD373806368AC8B324A1FAA /* Pods-TTMKonnect.release.xcconfig */;
+			baseConfigurationReference = 475C4209125043FF5E5E7788 /* Pods-TTMKonnect.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -501,7 +501,7 @@
 					"$(inherited)",
 					" ",
 				);
-				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/.pnpm/react-native@0.79.5_@babel+core@7.28.4_@types+react@19.0.14_react@19.0.0/node_modules/react-native";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/.pnpm/react-native@0.79.6_@babel+core@7.28.4_@types+react@19.0.14_react@19.0.0/node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				USE_HERMES = true;
@@ -559,7 +559,7 @@
 					"$(inherited)",
 					" ",
 				);
-				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/.pnpm/react-native@0.79.5_@babel+core@7.28.4_@types+react@19.0.14_react@19.0.0/node_modules/react-native";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/.pnpm/react-native@0.79.6_@babel+core@7.28.4_@types+react@19.0.14_react@19.0.0/node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;

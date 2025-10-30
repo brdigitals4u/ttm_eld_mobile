@@ -106,9 +106,9 @@ export class DriverProfile extends Realm.Object {
   driver_id!: string
   name!: string
   username!: string
-  phone!: string
+  phone?: string
   email!: string
-  driver_license!: string
+  driver_license?: string
   license_number!: string
   license_state!: string
   license_expiry?: string
@@ -148,9 +148,9 @@ export class DriverProfile extends Realm.Object {
       driver_id: 'string',
       name: 'string',
       username: 'string',
-      phone: 'string',
+      phone: 'string?',
       email: 'string',
-      driver_license: 'string',
+      driver_license: 'string?',
       license_number: 'string',
       license_state: 'string',
       license_expiry: 'string?',

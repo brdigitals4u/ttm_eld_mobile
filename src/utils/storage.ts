@@ -168,6 +168,15 @@ export const settingsStorage = {
     const value = await asyncStorage.getItem(STORAGE_KEYS.REMEMBER_ME)
     return value === 'true'
   },
+
+  async setHasSeenWelcome(hasSeen: boolean): Promise<void> {
+    await asyncStorage.setItem(STORAGE_KEYS.HAS_SEEN_WELCOME, hasSeen.toString())
+  },
+
+  async getHasSeenWelcome(): Promise<boolean> {
+    const value = await asyncStorage.getItem(STORAGE_KEYS.HAS_SEEN_WELCOME)
+    return value === 'true'
+  },
 }
 
 // Helper function to get stored token (for API client)

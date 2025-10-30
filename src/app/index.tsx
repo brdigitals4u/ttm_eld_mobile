@@ -1,17 +1,27 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { View, ActivityIndicator } from "react-native"
 import { Redirect } from "expo-router"
 
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
+import { settingsStorage } from "@/utils/storage"
 
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuth()
   const { theme } = useAppTheme()
+  const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null)
 
-  console.log("🏠 Index component - isAuthenticated:", isAuthenticated, "isLoading:", isLoading)
+  useEffect(() => {
+    const checkWelcomeScreen = async () => {
+      const seen = await settingsStorage.getHasSeenWelcome()
+      setHasSeenWelcome(seen)
+    }
+    checkWelcomeScreen()
+  }, [])
 
-  if (isLoading) {
+  console.log("🏠 Index component - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "hasSeenWelcome:", hasSeenWelcome)
+
+  if (isLoading || hasSeenWelcome === null) {
     return (
       <View
         style={{
@@ -29,6 +39,11 @@ export default function Index() {
   if (isAuthenticated) {
     console.log("🎯 Redirecting to dashboard")
     return <Redirect href="/(tabs)/dashboard" />
+  }
+
+  if (!hasSeenWelcome) {
+    console.log("👋 Redirecting to welcome")
+    return <Redirect href="/welcome" />
   }
 
   console.log("🔑 Redirecting to login")

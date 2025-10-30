@@ -110,6 +110,7 @@ export const STORAGE_KEYS = {
   REMEMBER_ME: 'remember_me',
   THEME_MODE: 'theme_mode',
   LANGUAGE: 'language',
+  HAS_SEEN_WELCOME: 'has_seen_welcome',
 } as const
 
 // App Configuration
