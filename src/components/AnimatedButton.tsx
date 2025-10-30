@@ -7,8 +7,8 @@ interface AnimatedButtonProps {
   title: string
   onPress: () => Promise<void> | void
   onSuccess?: () => void
-  loadingAnimation: any // Lottie JSON for loading
-  successAnimation: any // Lottie JSON for success
+  loadingAnimation: any 
+  successAnimation: any
   disabled?: boolean
   style?: ViewStyle
   textStyle?: TextStyle

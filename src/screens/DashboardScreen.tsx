@@ -319,7 +319,7 @@ const s = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  cc: { gap: 16, padding: 16, paddingTop: 24 },
+  cc: { gap: 16, padding: 16, paddingTop: 24, paddingBottom: 100 },
   centerCircle: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",

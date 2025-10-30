@@ -441,6 +441,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 20,
+    marginBottom: 140,
   },
     menuContainer: {
     gap: 8,
