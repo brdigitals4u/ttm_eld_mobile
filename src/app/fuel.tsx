@@ -18,6 +18,7 @@ import { toast } from "@/components/Toast"
 import { useFuel, useAuth } from "@/contexts"
 import { useAppTheme } from "@/theme/context"
 import { FuelReceipt } from "@/types/fuel"
+import { Header } from "@/components/Header"
 
 export default function EnhancedFuelScreen() {
   const { theme } = useAppTheme()
@@ -126,7 +127,7 @@ export default function EnhancedFuelScreen() {
   }
 
   const handleDeleteReceipt = (id: string) => {
-    toast.warning("Are you sure you want to delete this fuel receipt?")
+    deleteFuelReceipt(id)
   }
 
   const renderReceiptItem = ({ item }: { item: FuelReceipt }) => (
@@ -182,17 +183,36 @@ export default function EnhancedFuelScreen() {
   if (showAddForm) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>Fuel Receipt</Text>
-          <LoadingButton
-            title="Add"
-            onPress={handleAddReceipt}
-            icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
-          />
-        </View>
+        <Header
+          title={"IFTA Fuel Receipt"}
+          titleMode="center"
+          backgroundColor={colors.background}
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+            paddingLeft: 20,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+          containerStyle={{
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            shadowColor: colors.tint,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          style={{
+            paddingHorizontal: 16,
+          }}
+          rightText="Add"
+          onRightPress={handleAddReceipt}
+          safeAreaEdges={["top"]}
+        />
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
@@ -325,17 +345,36 @@ export default function EnhancedFuelScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Fuel Receipts</Text>
-        <LoadingButton
-          title="Add"
-          onPress={handleAddReceipt}
-          icon={<Edit size={16} color={isDark ? colors.text : "#fff"} />}
-        />
-      </View>
+        <Header
+             title={"IFTA Fuel Receipt"}
+             titleMode="center"
+             backgroundColor={colors.background}
+             titleStyle={{
+               fontSize: 22,
+               fontWeight: "800",
+               color: colors.text,
+               letterSpacing: 0.3,
+               paddingLeft: 20
+             }}
+             leftIcon="back"
+             leftIconColor={colors.tint}
+             onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+       containerStyle={{
+               borderBottomWidth: 1,
+               borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+               shadowColor: colors.tint,
+               shadowOffset: { width: 0, height: 4 },
+               shadowOpacity: 0.15,
+               shadowRadius: 8,
+               elevation: 6,
+             }}
+             style={{
+               paddingHorizontal: 16,
+             }}
+             rightText="Add"
+             onRightPress={handleAddReceipt}
+             safeAreaEdges={["top"]}
+           />
 
       {receipts.length === 0 ? (
         <ElevatedCard style={styles.emptyContainer}>
@@ -364,7 +403,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: 30,
   },
   deleteButton: {
     alignSelf: "flex-end",

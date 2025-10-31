@@ -111,6 +111,10 @@ export interface HeaderProps {
    */
   rightTx?: TextProps["tx"]
   /**
+   * Optional style override for the right text.
+   */
+  rightTextStyle?: StyleProp<TextStyle>
+  /**
    * Right action custom ReactElement if the built in action props don't suffice.
    * Overrides `rightIcon`, `rightTx` and `rightText`.
    */
@@ -139,6 +143,7 @@ interface HeaderActionProps {
   txOptions?: TextProps["txOptions"]
   onPress?: TouchableOpacityProps["onPress"]
   ActionComponent?: ReactElement
+  textStyle?: StyleProp<TextStyle>
 }
 
 /**
@@ -169,6 +174,7 @@ export function Header(props: HeaderProps) {
     rightText,
     rightTx,
     rightTxOptions,
+    rightTextStyle,
     safeAreaEdges = ["top"],
     title,
     titleMode = "center",
@@ -225,6 +231,7 @@ export function Header(props: HeaderProps) {
           txOptions={rightTxOptions}
           backgroundColor={backgroundColor}
           ActionComponent={RightActionComponent}
+          textStyle={rightTextStyle}
         />
       </View>
     </View>
@@ -236,7 +243,7 @@ export function Header(props: HeaderProps) {
  * @returns {JSX.Element} The rendered `HeaderAction` component.
  */
 function HeaderAction(props: HeaderActionProps) {
-  const { backgroundColor, icon, text, tx, txOptions, onPress, ActionComponent, iconColor } = props
+  const { backgroundColor, icon, text, tx, txOptions, onPress, ActionComponent, iconColor, textStyle } = props
   const { themed } = useAppTheme()
 
   const content = tx ? translate(tx, txOptions) : text
@@ -251,7 +258,7 @@ function HeaderAction(props: HeaderActionProps) {
         disabled={!onPress}
         activeOpacity={0.8}
       >
-        <Text weight="medium" size="md" text={content} style={themed($actionText)} />
+        <Text weight="medium" size="md" text={content} style={[themed($actionText), textStyle]} />
       </TouchableOpacity>
     )
   }

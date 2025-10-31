@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { Asset, AssetDocument, AssetsState } from '@/types/assets';
 import { useAuth } from '@/stores/authStore';
+import { toast } from '@/components/Toast';
 
 interface AssetsContextType extends AssetsState {
   addAsset: (asset: Omit<Asset, 'id' | 'documents'>) => Promise<void>;
@@ -75,7 +76,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
         isLoading: false,
       }));
       
-      Alert.alert('Success', 'Asset added successfully');
+      toast.success('Asset added successfully');
     } catch (error) {
       console.error('Failed to add asset:', error);
       setState(prev => ({
@@ -118,7 +119,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
         assets: updatedAssets,
       }));
       
-      Alert.alert('Success', 'Asset deleted successfully');
+      toast.success('Asset deleted successfully');
     } catch (error) {
       console.error('Failed to delete asset:', error);
       setState(prev => ({
@@ -148,8 +149,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
         ...prev,
         assets: updatedAssets,
       }));
-
-      Alert.alert('Success', 'Document added successfully');
+      toast.success('Document added successfully');
     } catch (error) {
       console.error('Failed to add document:', error);
       setState(prev => ({
@@ -174,7 +174,7 @@ export const [AssetsProvider, useAssets] = createContextHook(() => {
         assets: updatedAssets,
       }));
 
-      Alert.alert('Success', 'Document removed successfully');
+      toast.success('Document removed successfully');
     } catch (error) {
       console.error('Failed to remove document:', error);
       setState(prev => ({

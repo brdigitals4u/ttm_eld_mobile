@@ -12,7 +12,6 @@ import {
 } from "react-native"
 import { router } from "expo-router"
 import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from "lucide-react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
 
 import ElevatedCard from "@/components/EvevatedCard"
 import HOSChart from "@/components/HOSChart"
@@ -23,7 +22,7 @@ import { toast } from "@/components/Toast"
 import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
 import { useAppTheme } from "@/theme/context"
-import { StatusUpdate } from "@/types/status"
+import { Header } from "@/components/Header"
 
 export const LogsScreen = () => {
   const { theme, themeContext } = useAppTheme()
@@ -165,7 +164,7 @@ export const LogsScreen = () => {
     try {
       // Call HOS API to certify the individual log
       await hosApi.certifyHOSLog(logId)
-      
+
       // Update local state to mark log as certified
       // This would need to be implemented in the status context
       toast.success("Log entry certified successfully")
@@ -220,334 +219,372 @@ export const LogsScreen = () => {
   console.log("Filtered logs for date:", selectedDate.toDateString(), "Count:", filteredLogs.length)
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
+      <Header
+        title={"HOS LOGS"}
+        titleMode="center"
+        backgroundColor={colors.background}
+        titleStyle={{
+          fontSize: 22,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: 0.3,
+          paddingLeft: 20,
+        }}
+        leftIcon="back"
+        leftIconColor={colors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+        containerStyle={{
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 6,
+        }}
+        style={{
+          paddingHorizontal: 16,
+        }}
+        safeAreaEdges={["top"]}
+        rightText={certification.isCertified ? "CERTIFIED" : "" }
+        rightTextStyle={{
+          backgroundColor: colors.success,
+          color: "#fff",
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 16,
+          fontSize: 12,
+          fontWeight: "600",
+          overflow: "hidden",
+        }}
+      />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
-        <View style={styles.header}>
-          {certification.isCertified && (
-            <View style={[styles.certificationBadge, { backgroundColor: colors.success }]}>
-              <Lock size={16} color="#fff" />
-              <Text style={styles.certificationBadgeText}>CERTIFIED</Text>
-            </View>
-          )}
+          <View style={styles.header}>
+            <View style={styles.dateSelector}>
+              <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
+                <Text style={[styles.dateButtonText, { color: colors.tint }]}>◀</Text>
+              </TouchableOpacity>
 
-          <View style={styles.dateSelector}>
-            <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
-              <Text style={[styles.dateButtonText, { color: colors.tint }]}>◀</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleSelectToday}
-              style={[
-                styles.dateDisplay,
-                { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" },
-              ]}
-            >
-              <Calendar size={16} color={colors.tint} style={styles.calendarIcon} />
-              <Text style={[styles.dateText, { color: colors.text }]}>
-                {selectedDate.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-                {isToday ? " (Today)" : ""}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={handleNextDay} style={styles.dateButton} disabled={isToday}>
-              <Text
+              <TouchableOpacity
+                onPress={handleSelectToday}
                 style={[
-                  styles.dateButtonText,
-                  {
-                    color: isToday ? colors.textDim : colors.tint,
-                  },
+                  styles.dateDisplay,
+                  { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" },
                 ]}
               >
-                ▶
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                <Calendar size={16} color={colors.tint} style={styles.calendarIcon} />
+                <Text style={[styles.dateText, { color: colors.text }]}>
+                  {selectedDate.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                  {isToday ? " (Today)" : ""}
+                </Text>
+              </TouchableOpacity>
 
-        <View style={styles.actionsContainer}>
-          <View style={styles.actionButton}>
-            <LoadingButton
-              title="Transfer Logs"
-              onPress={handleTransferLogs}
-              variant="outline"
-              icon={<Share2 size={18} color={colors.tint} />}
-              fullWidth
-            />
-          </View>
-          <View style={styles.actionButton}>
-            <LoadingButton
-              title="ELD Materials"
-              onPress={handleEldMaterials}
-              variant="outline"
-              icon={<FileText size={18} color={colors.tint} />}
-              fullWidth
-            />
-          </View>
-          <View style={styles.actionButton}>
-            <LoadingButton
-              title="Inspector Mode"
-              onPress={handleInspectorMode}
-              icon={<Download size={18} color={isDark ? colors.text : "#fff"} />}
-              fullWidth
-            />
-          </View>
-        </View>
-
-        <View style={styles.certificationContainer}>
-          <LoadingButton
-            title={certification.isCertified ? "View Certification" : "Certify Logs"}
-            onPress={handleCertifyLogs}
-            variant={certification.isCertified ? "secondary" : "primary"}
-            icon={<Lock size={18} color="#fff" />}
-            style={{ marginBottom: 16 }}
-          />
-        </View>
-
-        {/* Certification Modal */}
-        <Modal
-          visible={showCertificationModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowCertificationModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Certify Your Logs</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                By certifying these logs, you confirm their accuracy. Once certified, no changes can
-                be made.
-              </Text>
-
-              <TextInput
-                style={[
-                  styles.signatureInput,
-                  {
-                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                    color: colors.text,
-                    borderColor: isDark ? "transparent" : "#E5E7EB",
-                  },
-                ]}
-                placeholder="Enter your digital signature"
-                placeholderTextColor={colors.textDim}
-                value={signature}
-                onChangeText={setSignature}
-              />
-
-              <View style={styles.modalButtons}>
-                <View style={styles.modalButton}>
-                  <LoadingButton
-                    title="Cancel"
-                    onPress={() => {
-                      setShowCertificationModal(false)
-                      setSignature("")
-                    }}
-                    variant="outline"
-                    fullWidth
-                  />
-                </View>
-                <View style={styles.modalButton}>
-                  <LoadingButton title="Certify" onPress={handleSubmitCertification} fullWidth />
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Transfer Logs Modal */}
-        <Modal
-          visible={showTransferModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowTransferModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Transfer Logs</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                Select transfer method as per FMCSA standard:
-              </Text>
-
-              <View style={styles.transferOptions}>
-                <TouchableOpacity
+              <TouchableOpacity
+                onPress={handleNextDay}
+                style={styles.dateButton}
+                disabled={isToday}
+              >
+                <Text
                   style={[
-                    styles.transferOption,
-                    styles.preferredOption,
-                    { backgroundColor: colors.tint },
-                  ]}
-                  onPress={() => handleTransferOption("wireless")}
-                >
-                  <Wifi size={24} color="#fff" />
-                  <View style={styles.transferOptionText}>
-                    <Text style={[styles.transferOptionTitle, { color: "#fff" }]}>
-                      Wireless Web Services
-                    </Text>
-                    <Text style={[styles.transferOptionSubtitle, { color: "#fff" }]}>
-                      Preferred method
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.transferOption,
+                    styles.dateButtonText,
                     {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                      borderWidth: 1,
+                      color: isToday ? colors.textDim : colors.tint,
                     },
                   ]}
-                  onPress={() => handleTransferOption("email-dot")}
                 >
-                  <Mail size={24} color={colors.text} />
-                  <View style={styles.transferOptionText}>
-                    <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
-                      Email to DOT
-                    </Text>
-                    <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
-                      Send to DOT inspector
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                  ▶
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-                <TouchableOpacity
+          <View style={styles.actionsContainer}>
+            <View style={styles.actionButton}>
+              <LoadingButton
+                title="Transfer Logs"
+                onPress={handleTransferLogs}
+                variant="outline"
+                icon={<Share2 size={18} color={colors.tint} />}
+                fullWidth
+              />
+            </View>
+            <View style={styles.actionButton}>
+              <LoadingButton
+                title="ELD Materials"
+                onPress={handleEldMaterials}
+                variant="outline"
+                icon={<FileText size={18} color={colors.tint} />}
+                fullWidth
+              />
+            </View>
+            <View style={styles.actionButton}>
+              <LoadingButton
+                title="Inspector Mode"
+                onPress={handleInspectorMode}
+                icon={<Download size={18} color={isDark ? colors.text : "#fff"} />}
+                fullWidth
+              />
+            </View>
+          </View>
+
+          <View style={styles.certificationContainer}>
+            <LoadingButton
+              title={certification.isCertified ? "View Certification" : "Certify Logs"}
+              onPress={handleCertifyLogs}
+              variant={certification.isCertified ? "secondary" : "primary"}
+              icon={<Lock size={18} color="#fff" />}
+              style={{ marginBottom: 16 }}
+            />
+          </View>
+
+          {/* Certification Modal */}
+          <Modal
+            visible={showCertificationModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowCertificationModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Certify Your Logs</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+                  By certifying these logs, you confirm their accuracy. Once certified, no changes
+                  can be made.
+                </Text>
+
+                <TextInput
                   style={[
-                    styles.transferOption,
+                    styles.signatureInput,
                     {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                      borderWidth: 1,
+                      backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                      color: colors.text,
+                      borderColor: isDark ? "transparent" : "#E5E7EB",
                     },
                   ]}
-                  onPress={() => handleTransferOption("email-self")}
-                >
-                  <Mail size={24} color={colors.text} />
-                  <View style={styles.transferOptionText}>
-                    <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
-                      Email to Myself
-                    </Text>
-                    <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
-                      Send to your email
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <LoadingButton
-                title="Cancel"
-                onPress={() => setShowTransferModal(false)}
-                variant="outline"
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* ELD Materials Modal */}
-        <Modal
-          visible={showEldMaterialsModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowEldMaterialsModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>ELD in Cab Materials</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                Required documentation and instructions:
-              </Text>
-
-              <View style={styles.eldMaterials}>
-                <TouchableOpacity
-                  style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
-                  onPress={() => {
-                    toast.info("This would open the driver manual PDF or documentation.")
-                  }}
-                >
-                  <FileText size={24} color={colors.tint} />
-                  <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
-                    Driver Manual
-                  </Text>
-                  <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
-                    Complete ELD operation guide
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
-                  onPress={() => {
-                    toast.info(
-                      "Transfer Instructions, This would open the transfer page instruction sheet.",
-                    )
-                  }}
-                >
-                  <Share2 size={24} color={colors.tint} />
-                  <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
-                    Transfer Page Instructions
-                  </Text>
-                  <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
-                    Step-by-step transfer guide
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <LoadingButton
-                title="Close"
-                onPress={() => setShowEldMaterialsModal(false)}
-                variant="outline"
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {filteredLogs.length === 0 ? (
-          <ElevatedCard style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <FileText size={48} color={colors.text} />
-            </View>
-            <Text style={[styles.emptyText, { color: colors.text }]}>
-              No logs recorded for this date
-            </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
-              Status changes will appear here
-            </Text>
-          </ElevatedCard>
-        ) : (
-          <>
-            {/* HOS Chart */}
-            <HOSChart
-              logs={filteredLogs.map(log => ({
-                status: log.status,
-                timestamp: log.startTime,
-                reason: log.reason,
-                location: log.location,
-                isCertified: log.isCertified
-              }))}
-              date={selectedDate}
-              driverName={driverProfile?.name || user?.name || "Driver"}
-              vehicleNumber={vehicleAssignment?.vehicle_info?.vehicle_unit || "Unknown"}
-            />
-
-            {/* Log Entries */}
-            <View style={styles.logsContainer}>
-              {filteredLogs.map((item: any) => (
-                <LogEntry 
-                  key={item?.timestamp?.toString()} 
-                  log={item} 
-                  onCertify={handleCertifyIndividualLog}
+                  placeholder="Enter your digital signature"
+                  placeholderTextColor={colors.textDim}
+                  value={signature}
+                  onChangeText={setSignature}
                 />
-              ))}
+
+                <View style={styles.modalButtons}>
+                  <View style={styles.modalButton}>
+                    <LoadingButton
+                      title="Cancel"
+                      onPress={() => {
+                        setShowCertificationModal(false)
+                        setSignature("")
+                      }}
+                      variant="outline"
+                      fullWidth
+                    />
+                  </View>
+                  <View style={styles.modalButton}>
+                    <LoadingButton title="Certify" onPress={handleSubmitCertification} fullWidth />
+                  </View>
+                </View>
+              </View>
             </View>
-          </>
-        )}
+          </Modal>
+
+          {/* Transfer Logs Modal */}
+          <Modal
+            visible={showTransferModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowTransferModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Transfer Logs</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+                  Select transfer method as per FMCSA standard:
+                </Text>
+
+                <View style={styles.transferOptions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.transferOption,
+                      styles.preferredOption,
+                      { backgroundColor: colors.tint },
+                    ]}
+                    onPress={() => handleTransferOption("wireless")}
+                  >
+                    <Wifi size={24} color="#fff" />
+                    <View style={styles.transferOptionText}>
+                      <Text style={[styles.transferOptionTitle, { color: "#fff" }]}>
+                        Wireless Web Services
+                      </Text>
+                      <Text style={[styles.transferOptionSubtitle, { color: "#fff" }]}>
+                        Preferred method
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.transferOption,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                      },
+                    ]}
+                    onPress={() => handleTransferOption("email-dot")}
+                  >
+                    <Mail size={24} color={colors.text} />
+                    <View style={styles.transferOptionText}>
+                      <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
+                        Email to DOT
+                      </Text>
+                      <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
+                        Send to DOT inspector
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.transferOption,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                      },
+                    ]}
+                    onPress={() => handleTransferOption("email-self")}
+                  >
+                    <Mail size={24} color={colors.text} />
+                    <View style={styles.transferOptionText}>
+                      <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
+                        Email to Myself
+                      </Text>
+                      <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
+                        Send to your email
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                <LoadingButton
+                  title="Cancel"
+                  onPress={() => setShowTransferModal(false)}
+                  variant="outline"
+                />
+              </View>
+            </View>
+          </Modal>
+
+          {/* ELD Materials Modal */}
+          <Modal
+            visible={showEldMaterialsModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowEldMaterialsModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  ELD in Cab Materials
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+                  Required documentation and instructions:
+                </Text>
+
+                <View style={styles.eldMaterials}>
+                  <TouchableOpacity
+                    style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
+                    onPress={() => {
+                      toast.info("This would open the driver manual PDF or documentation.")
+                    }}
+                  >
+                    <FileText size={24} color={colors.tint} />
+                    <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                      Driver Manual
+                    </Text>
+                    <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
+                      Complete ELD operation guide
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
+                    onPress={() => {
+                      toast.info(
+                        "Transfer Instructions, This would open the transfer page instruction sheet.",
+                      )
+                    }}
+                  >
+                    <Share2 size={24} color={colors.tint} />
+                    <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                      Transfer Page Instructions
+                    </Text>
+                    <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
+                      Step-by-step transfer guide
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <LoadingButton
+                  title="Close"
+                  onPress={() => setShowEldMaterialsModal(false)}
+                  variant="outline"
+                />
+              </View>
+            </View>
+          </Modal>
+
+          {filteredLogs.length === 0 ? (
+            <ElevatedCard style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <FileText size={48} color={colors.text} />
+              </View>
+              <Text style={[styles.emptyText, { color: colors.text }]}>
+                No logs recorded for this date
+              </Text>
+              <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+                Status changes will appear here
+              </Text>
+            </ElevatedCard>
+          ) : (
+            <>
+              {/* HOS Chart */}
+              <HOSChart
+                logs={filteredLogs.map((log) => ({
+                  status: log.status,
+                  timestamp: log.startTime,
+                  reason: log.reason,
+                  location: log.location,
+                  isCertified: log.isCertified,
+                }))}
+                date={selectedDate}
+                driverName={driverProfile?.name || user?.name || "Driver"}
+                vehicleNumber={vehicleAssignment?.vehicle_info?.vehicle_unit || "Unknown"}
+              />
+
+              {/* Log Entries */}
+              <View style={styles.logsContainer}>
+                {filteredLogs.map((item: any) => (
+                  <LogEntry
+                    key={item?.timestamp?.toString()}
+                    log={item}
+                    onCertify={handleCertifyIndividualLog}
+                  />
+                ))}
+              </View>
+            </>
+          )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 
@@ -584,7 +621,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: 30,
   },
   dateButton: {
     padding: 8,
@@ -654,10 +690,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   header: {
-    padding: 20,
-    paddingBottom: 0,
-    paddingTop: 0,
-  },
+    paddingTop: 10,
+   },
   logsContainer: {
     paddingHorizontal: 20,
   },

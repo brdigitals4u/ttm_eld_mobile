@@ -4,15 +4,7 @@ import { Text } from '@/components/Text'
 import { router } from 'expo-router'
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect, Circle } from 'react-native-svg'
 import { settingsStorage } from '@/utils/storage'
-
-const COLORS = {
-  indigo: '#0071ce',
-  violet: '#0071ce',
-  black: '#000000',
-  ink700: '#1F2430',
-  ink500: '#4B5563',
-  white: '#FFFFFF',
-}
+import { COLORS } from '@/constants/colors'
 
 export const WelcomeScreen: React.FC = () => {
   const handleNext = async () => {

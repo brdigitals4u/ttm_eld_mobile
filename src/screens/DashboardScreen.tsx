@@ -278,7 +278,7 @@ export const DashboardScreen = () => {
         </View>
       </View>
 
-      <View style={s.card}>
+      <View style={[s.card, { marginBottom: 100 , paddingBottom: 100 }]}>
         <Text style={s.sectionLabel}>Vehicle Information</Text>
         <Text style={s.vehicleValue}>{data.vehicleUnit}</Text>
       </View>

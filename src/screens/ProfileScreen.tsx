@@ -1,1115 +1,968 @@
-import {
-  Briefcase,
-  Mail,
-  Phone,
-  Truck,
-  User,
-  Settings,
-  MapPin,
-  Calendar,
-  Clock,
-  Shield,
-  AlertTriangle,
-  Bluetooth,
-} from "lucide-react-native"
-import React from "react"
-import { router } from "expo-router"
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
-import LoadingButton from "@/components/LoadingButton"
-import ElevatedCard from "@/components/EvevatedCard"
-import { useAuth } from "@/stores/authStore"
-import { useAppTheme } from "@/theme/context"
-import { useHeader } from "@/utils/useHeader"
-import { Header } from "@/components/Header"
+  import {
+    Briefcase,
+    Mail,
+    Phone,
+    Truck,
+    User,
+    Settings,
+    MapPin,
+    Calendar,
+    Clock,
+    Shield,
+    AlertTriangle,
+    Bluetooth,
+    Award,
+    TrendingUp,
+    ChevronRight,
+  } from "lucide-react-native"
+  import React, { useEffect } from "react"
+  import { router } from "expo-router"
+  import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Image } from "react-native"
+  import { LinearGradient } from "expo-linear-gradient"
+  import Animated, {
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withDelay,
+    withSequence,
+    withTiming,
+  } from "react-native-reanimated"
+  import LoadingButton from "@/components/LoadingButton"
+  import ElevatedCard from "@/components/EvevatedCard"
+  import { useAuth } from "@/stores/authStore"
+  import { useAppTheme } from "@/theme/context"
+  import { useHeader } from "@/utils/useHeader"
+  import { Header } from "@/components/Header"
+  import StatCircleCard from "@/components/StatCircleCard"
 
-interface MenuItemProps {
-  title: string
-  subtitle: string
-  icon: React.ReactNode
-  onPress: () => void
-}
+  const { width } = Dimensions.get("window")
 
-function MenuItem({ title, subtitle, icon, onPress }: MenuItemProps) {
-  const { theme } = useAppTheme()
-  const { colors, isDark } = theme
-
-  return (
-    <TouchableOpacity onPress={onPress}>
-      <ElevatedCard style={styles.menuItem}>
-        <View style={styles.menuItemContent}>
-          <View style={styles.menuItemIcon}>{icon}</View>
-          <View style={styles.menuItemText}>
-            <Text style={[styles.menuItemTitle, { color: colors.text }]}>{title}</Text>
-            <Text style={[styles.menuItemSubtitle, { color: colors.textDim }]}>{subtitle}</Text>
-          </View>
-          <Text style={[styles.menuItemArrow, { color: colors.textDim }]}>›</Text>
-        </View>
-      </ElevatedCard>
-    </TouchableOpacity>
-  )
-}
-
-export default function ProfileScreen() {
-  const { theme } = useAppTheme()
-  const { colors, isDark } = theme
-  const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings } =
-    useAuth()
-
-  useHeader({
-    title: "Your Screen Title",
-    leftIcon: "back",
-    onLeftPress: () => router.back(),
-  })
-
-  const handleLogout = async () => {
-    try {
-      console.log("🚪 ProfileScreen: Starting logout...")
-      await logout()
-      console.log("🎯 ProfileScreen: Navigating to login...")
-      router.replace("/login")
-    } catch (error) {
-      console.error("❌ ProfileScreen: Logout failed:", error)
-    }
+  interface MenuItemProps {
+    title: string
+    subtitle: string
+    icon: React.ReactNode
+    onPress: () => void
+    index: number
   }
 
-  // Displaying complete user data from login response
+  function MenuItem({ title, subtitle, icon, onPress, index }: MenuItemProps) {
+    const { theme } = useAppTheme()
+    const { colors, isDark } = theme
+    const scale = useSharedValue(0)
+    const opacity = useSharedValue(0)
 
-  const menuItems = [
-    {
-      title: "Settings",
-      subtitle: "Manage  CoDrivers and  Others",
-      icon: <Settings size={24} color={colors.tint} />,
-      onPress: () => router.navigate("/more"),
-    },
-  ]
+    useEffect(() => {
+      scale.value = withDelay(
+        index * 50,
+        withSpring(1, {
+          damping: 15,
+          stiffness: 90,
+        }),
+      )
+      opacity.value = withDelay(index * 50, withTiming(1, { duration: 400 }))
+    }, [])
 
-  // Debug: Log driver data
-  console.log("Driver Profile:", driverProfile)
-  console.log("HOS Status:", hosStatus)
-  console.log("Vehicle Assignment:", vehicleAssignment)
-  console.log("Organization Settings:", organizationSettings)
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    }))
 
-  return (
-    <View style={{ flex: 1 }}>
-      <Header
-        title={"Profile"}
-        titleMode="center"
-        backgroundColor={colors.background}
-        titleStyle={{
-          fontSize: 22,
-          fontWeight: "800",
-          color: colors.text,
-          letterSpacing: 0.3,
-          paddingLeft: 20
-        }}
-        leftIcon="back"
-        leftIconColor={colors.tint}
-        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
-        containerStyle={{
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-          shadowColor: '#0071ce',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 6,
-        }}
-        style={{
-          paddingHorizontal: 16,
-        }}
-        safeAreaEdges={["top"]}
-      />
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.contentContainer}
-      >
-        <View style={styles.profileHeader}>
-          <View
-            style={[
-              styles.avatarContainer,
-              {
-                backgroundColor: isDark ? colors.surface : "#F3F4F6",
-                borderColor: colors.tint,
-              },
-            ]}
-          >
-            <User size={40} color={colors.tint} />
-          </View>
+    const pressScale = useSharedValue(1)
 
-          <Text style={[styles.name, { color: colors.text }]}>
-            {driverProfile?.name || `${user?.firstName} ${user?.lastName}` || "Driver Name"}
-          </Text>
+    const pressAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: pressScale.value }],
+    }))
 
-          <Text style={[styles.role, { color: colors.textDim }]}>
-            {driverProfile?.employment_status === "active"
-              ? "Active Driver"
-              : driverProfile?.employment_status || "Professional Driver"}
-          </Text>
+    const handlePressIn = () => {
+      pressScale.value = withSpring(0.96, { damping: 10 })
+    }
 
-          {driverProfile?.company_driver_id && (
-            <Text style={[styles.driverId, { color: colors.textDim }]}>
-              ID: {driverProfile.company_driver_id}
-            </Text>
+    const handlePressOut = () => {
+      pressScale.value = withSpring(1, { damping: 10 })
+    }
+
+    return (
+      <Animated.View style={animatedStyle}>
+        <TouchableOpacity
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+        >
+          <Animated.View style={pressAnimatedStyle}>
+            <ElevatedCard style={styles.menuItem}>
+              <View style={styles.menuItemContent}>
+                <View style={[styles.menuItemIcon, { backgroundColor: `${colors.tint}15` }]}>
+                  {icon}
+                </View>
+                <View style={styles.menuItemText}>
+                  <Text style={[styles.menuItemTitle, { color: colors.text }]}>{title}</Text>
+                  <Text style={[styles.menuItemSubtitle, { color: colors.textDim }]}>{subtitle}</Text>
+                </View>
+                <ChevronRight size={24} color={colors.tint} />
+              </View>
+            </ElevatedCard>
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+    )
+  }
+
+  interface InfoCardProps {
+    icon: React.ReactNode
+    label: string
+    value: string
+    subtext?: string
+    color?: string
+    index: number
+  }
+
+  function InfoCard({ icon, label, value, subtext, color, index }: InfoCardProps) {
+    const { theme } = useAppTheme()
+    const { colors } = theme
+    const scale = useSharedValue(0.8)
+    const opacity = useSharedValue(0)
+
+    useEffect(() => {
+      scale.value = withDelay(
+        index * 40,
+        withSpring(1, {
+          damping: 15,
+          stiffness: 100,
+        }),
+      )
+      opacity.value = withDelay(index * 40, withTiming(1, { duration: 400 }))
+    }, [])
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    }))
+
+    return (
+      <Animated.View style={[styles.infoCard, animatedStyle]}>
+        <View style={[styles.infoCardIcon, { backgroundColor: `${color || colors.tint}15` }]}>
+          {icon}
+        </View>
+        <View style={styles.infoCardContent}>
+          <Text style={[styles.infoCardLabel, { color: colors.textDim }]}>{label}</Text>
+          <Text style={[styles.infoCardValue, { color: colors.text }]}>{value}</Text>
+          {subtext && (
+            <Text style={[styles.infoCardSubtext, { color: colors.textDim }]}>{subtext}</Text>
           )}
         </View>
+      </Animated.View>
+    )
+  }
 
-        <ElevatedCard style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Driver Information</Text>
+  export default function ProfileScreen() {
+    const { theme } = useAppTheme()
+    const { colors, isDark } = theme
+    const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings } =
+      useAuth()
 
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Mail size={20} color={colors.tint} />
+    const headerOpacity = useSharedValue(0)
+    const headerTranslateY = useSharedValue(-50)
+    const avatarScale = useSharedValue(0)
+    const avatarRotate = useSharedValue(0)
+
+    useEffect(() => {
+      headerOpacity.value = withTiming(1, { duration: 600 })
+      headerTranslateY.value = withSpring(0, { damping: 15, stiffness: 90 })
+      avatarScale.value = withDelay(200, withSpring(1, { damping: 10, stiffness: 80 }))
+      avatarRotate.value = withDelay(
+        200,
+        withSequence(withSpring(360, { damping: 10 }), withSpring(0, { damping: 10 })),
+      )
+    }, [])
+
+    const headerAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: headerOpacity.value,
+      transform: [{ translateY: headerTranslateY.value }],
+    }))
+
+    const avatarAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: avatarScale.value }, { rotate: `${avatarRotate.value}deg` }],
+    }))
+
+
+    const handleLogout = async () => {
+      try {
+        console.log("🚪 ProfileScreen: Starting logout...")
+        await logout()
+        console.log("🎯 ProfileScreen: Navigating to login...")
+        router.replace("/login")
+      } catch (error) {
+        console.error("❌ ProfileScreen: Logout failed:", error)
+      }
+    }
+
+    const menuItems = [
+      {
+        title: "Settings",
+        subtitle: "Manage CoDrivers and Others",
+        icon: <Settings size={24} color={colors.tint} />,
+        onPress: () => router.navigate("/more"),
+      },
+    ]
+
+    // Calculate driving hours remaining
+    const drivingHoursRemaining = Math.floor(
+      (hosStatus?.time_remaining?.driving_time_remaining || 0) / 60,
+    )
+    const onDutyHoursRemaining = Math.floor(
+      (hosStatus?.time_remaining?.on_duty_time_remaining || 0) / 60,
+    )
+    const cycleHoursRemaining = Math.floor(
+      (hosStatus?.time_remaining?.cycle_time_remaining || 0) / 60,
+    )
+
+    return (
+      <View style={{ flex: 1 }}>
+        <Header
+          title={"Profile"}
+          titleMode="center"
+          backgroundColor={colors.background}
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+          RightActionComponent={
+            <View style={{ paddingRight: 4 }}>
+              <Image
+                source={require('assets/images/ttm-logo.png')}
+                style={{ width: 120, height: 32, resizeMode: 'contain' }}
+              />
             </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textDim }]}>Email</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {driverProfile?.email || user?.email || "email@example.com"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Phone size={20} color={colors.tint} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textDim }]}>Phone</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {driverProfile?.phone || "(555) 123-4567"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <User size={20} color={colors.tint} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textDim }]}>Driver License</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {driverProfile?.license_number || driverProfile?.driver_license || "DL12345678"}
-              </Text>
-              {driverProfile?.license_state && (
-                <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                  State: {driverProfile.license_state}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {driverProfile?.username && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <User size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Username</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.username}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {driverProfile?.license_expiry && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Calendar size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>License Expiry</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {new Date(driverProfile.license_expiry).toLocaleDateString()}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {driverProfile?.current_location && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <MapPin size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Current Location</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.current_location?.address || "Location unavailable"}
-                </Text>
-                {driverProfile.current_location?.coordinates && (
-                  <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                    Lat: {driverProfile.current_location.coordinates.lat}, Lng:{" "}
-                    {driverProfile.current_location.coordinates.lng}
-                  </Text>
-                )}
-              </View>
-            </View>
-          )}
-        </ElevatedCard>
-
-        <ElevatedCard style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Organization</Text>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Briefcase size={20} color={colors.tint} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textDim }]}>Company</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {organizationSettings?.organization_name ||
-                  driverProfile?.organization_name ||
-                  "Trucking Company"}
-              </Text>
-              {organizationSettings?.timezone && (
-                <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                  Timezone: {organizationSettings.timezone}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {driverProfile?.home_terminal_name && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <MapPin size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Home Terminal</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.home_terminal_name}
-                </Text>
-                {driverProfile.home_terminal_address && (
-                  <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                    {driverProfile.home_terminal_address}
-                  </Text>
-                )}
-              </View>
-            </View>
-          )}
-
-          {driverProfile?.hire_date && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Calendar size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Hire Date</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {new Date(driverProfile.hire_date).toLocaleDateString()}
-                </Text>
-              </View>
-            </View>
-          )}
-        </ElevatedCard>
-
-        {/* Vehicle Assignment Section */}
-        {vehicleAssignment?.has_vehicle_assigned && vehicleAssignment?.vehicle_info && (
-          <ElevatedCard style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Vehicle Assignment</Text>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Truck size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Vehicle Unit</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {vehicleAssignment.vehicle_info.vehicle_unit}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Truck size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Vehicle Details</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {vehicleAssignment.vehicle_info.year} {vehicleAssignment.vehicle_info.make}{" "}
-                  {vehicleAssignment.vehicle_info.model}
-                </Text>
-                <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                  License Plate: {vehicleAssignment.vehicle_info.license_plate}
-                </Text>
-                {vehicleAssignment.vehicle_info.vin && (
-                  <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                    VIN: {vehicleAssignment.vehicle_info.vin}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Calendar size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Assigned Date</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {new Date(vehicleAssignment.vehicle_info.assigned_at).toLocaleDateString()}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Truck size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Vehicle Status</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {vehicleAssignment.vehicle_info.status || "Active"}
-                </Text>
-                <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                  Assignment Status: {vehicleAssignment.assignment_status || "Assigned"}
-                </Text>
-              </View>
-            </View>
-
-            {vehicleAssignment.vehicle_info.current_location && (
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <MapPin size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                    Vehicle Location
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {vehicleAssignment.vehicle_info.current_location?.address ||
-                      "Location unavailable"}
-                  </Text>
-                  {vehicleAssignment.vehicle_info.current_location?.coordinates && (
-                    <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                      Lat: {vehicleAssignment.vehicle_info.current_location.coordinates.lat}, Lng:{" "}
-                      {vehicleAssignment.vehicle_info.current_location.coordinates.lng}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {vehicleAssignment.vehicle_info.current_odometer && (
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Clock size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                    Current Odometer
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {vehicleAssignment.vehicle_info.current_odometer?.value || 0}{" "}
-                    {vehicleAssignment.vehicle_info.current_odometer?.unit || "miles"}
-                  </Text>
-                  {vehicleAssignment.vehicle_info.current_odometer?.last_updated && (
-                    <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                      Last updated:{" "}
-                      {new Date(
-                        vehicleAssignment.vehicle_info.current_odometer.last_updated,
-                      ).toLocaleString()}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            )}
-          </ElevatedCard>
-        )}
-
-        {/* HOS Status Section */}
-        <ElevatedCard style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Hours of Service Status</Text>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Clock size={20} color={colors.tint} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textDim }]}>Current Status</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {(
-                  hosStatus?.current_status ||
-                  driverProfile?.current_status ||
-                  "Available"
-                ).toUpperCase()}
-              </Text>
-            </View>
-          </View>
-
-          {hosStatus?.time_remaining && (
-            <>
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Truck size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                    Driving Time Remaining
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {Math.floor((hosStatus.time_remaining.driving_time_remaining || 0) / 60)}h{" "}
-                    {(hosStatus.time_remaining.driving_time_remaining || 0) % 60}m
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Clock size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                    Total Driving Time
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {Math.floor((hosStatus.driving_time_remaining || 0) / 60)}h{" "}
-                    {(hosStatus.driving_time_remaining || 0) % 60}m
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Briefcase size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                    On Duty Time Remaining
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {Math.floor((hosStatus.time_remaining.on_duty_time_remaining || 0) / 60)}h{" "}
-                    {(hosStatus.time_remaining.on_duty_time_remaining || 0) % 60}m
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Calendar size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                    Cycle Time Remaining
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {Math.floor((hosStatus.time_remaining.cycle_time_remaining || 0) / 60)}h{" "}
-                    {(hosStatus.time_remaining.cycle_time_remaining || 0) % 60}m
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
-
-          {hosStatus?.active_violations && hosStatus.active_violations.length > 0 && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <AlertTriangle size={20} color={colors.error} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Active Violations</Text>
-                <Text style={[styles.infoValue, { color: colors.error }]}>
-                  {hosStatus.active_violations.length} violation(s)
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {driverProfile?.violations_count !== undefined && (
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Shield size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Total Violations</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.violations_count}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Current Shift Information */}
-          {driverProfile?.current_shift && (
-            <>
-              <Text style={[styles.sectionSubTitle, { color: colors.text, marginTop: 20 }]}>
-                Current Shift
-              </Text>
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Clock size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>Shift Start</Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {driverProfile.current_shift.start_time
-                      ? new Date(driverProfile.current_shift.start_time).toLocaleString()
-                      : "N/A"}
-                  </Text>
-                </View>
-              </View>
-
-              {driverProfile.current_shift.total_on_duty_time && (
-                <View style={styles.infoRow}>
-                  <View style={styles.infoIcon}>
-                    <Briefcase size={20} color={colors.tint} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                      Total On Duty Time
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      {Math.floor((driverProfile.current_shift.total_on_duty_time || 0) / 60)}h{" "}
-                      {(driverProfile.current_shift.total_on_duty_time || 0) % 60}m
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-
-          {/* Current Cycle Information */}
-          {driverProfile?.current_cycle && (
-            <>
-              <Text style={[styles.sectionSubTitle, { color: colors.text, marginTop: 20 }]}>
-                Current Cycle
-              </Text>
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Calendar size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>Cycle Type</Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {driverProfile.current_cycle.cycle_type || "Standard"}
-                  </Text>
-                </View>
-              </View>
-
-              {driverProfile.current_cycle.cycle_start_date && (
-                <View style={styles.infoRow}>
-                  <View style={styles.infoIcon}>
-                    <Calendar size={20} color={colors.tint} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                      Cycle Start Date
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      {new Date(driverProfile.current_cycle.cycle_start_date).toLocaleDateString()}
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-        </ElevatedCard>
-
-        {/* ELD Settings Section */}
-        {driverProfile && (
-          <ElevatedCard style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>ELD Settings</Text>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Shield size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>ELD Exempt</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.eld_exempt ? "Yes" : "No"}
-                </Text>
-                {driverProfile.eld_exempt && driverProfile.eld_exempt_reason && (
-                  <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                    Reason: {driverProfile.eld_exempt_reason}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {driverProfile.eld_device_id && (
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <Bluetooth size={20} color={colors.tint} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={[styles.infoLabel, { color: colors.textDim }]}>ELD Device ID</Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {driverProfile.eld_device_id}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <User size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                  Personal Conveyance
-                </Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.eld_pc_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Truck size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Yard Moves</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.eld_ym_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <AlertTriangle size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                  Adverse Weather Exemption
-                </Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.eld_adverse_weather_exemption_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Calendar size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Big Day Exemption</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.eld_big_day_exemption_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Clock size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                  Waiting Time Duty Status
-                </Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.waiting_time_duty_status_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Clock size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>Day Start Hour</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {driverProfile.eld_day_start_hour}:00
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.eldSettingsGrid}>
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Personal Conveyance
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    { color: driverProfile.eld_pc_enabled ? colors.success : colors.textDim },
-                  ]}
-                >
-                  {driverProfile.eld_pc_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>Yard Moves</Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    { color: driverProfile.eld_ym_enabled ? colors.success : colors.textDim },
-                  ]}
-                >
-                  {driverProfile.eld_ym_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Adverse Weather
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: driverProfile.eld_adverse_weather_exemption_enabled
-                        ? colors.success
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {driverProfile.eld_adverse_weather_exemption_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  16-Hour Exception
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: driverProfile.eld_big_day_exemption_enabled
-                        ? colors.success
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {driverProfile.eld_big_day_exemption_enabled ? "Enabled" : "Disabled"}
-                </Text>
-              </View>
-            </View>
-          </ElevatedCard>
-        )}
-
-        {/* Compliance Settings Section */}
-        {organizationSettings?.compliance_settings && (
-          <ElevatedCard style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Compliance Settings</Text>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Shield size={20} color={colors.tint} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-                  Compliance Configuration
-                </Text>
-                <Text style={[styles.infoSubtext, { color: colors.textDim }]}>
-                  Organization compliance policies and settings
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.eldSettingsGrid}>
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Auto Certify Logs
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: organizationSettings.compliance_settings.auto_certify_logs
-                        ? colors.success
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {organizationSettings.compliance_settings.auto_certify_logs
-                    ? "Enabled"
-                    : "Disabled"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Driver Acknowledgment Required
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: organizationSettings.compliance_settings.require_driver_acknowledgment
-                        ? colors.warning
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {organizationSettings.compliance_settings.require_driver_acknowledgment
-                    ? "Required"
-                    : "Optional"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Violation Notifications
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: organizationSettings.compliance_settings.violation_notification_enabled
-                        ? colors.success
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {organizationSettings.compliance_settings.violation_notification_enabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Manual Log Edits
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: organizationSettings.compliance_settings.allow_manual_log_edits
-                        ? colors.success
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {organizationSettings.compliance_settings.allow_manual_log_edits
-                    ? "Allowed"
-                    : "Restricted"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Supervisor Approval Required
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: organizationSettings.compliance_settings
-                        .require_supervisor_approval_for_edits
-                        ? colors.warning
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {organizationSettings.compliance_settings.require_supervisor_approval_for_edits
-                    ? "Required"
-                    : "Not Required"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Compliance Reporting
-                </Text>
-                <Text
-                  style={[
-                    styles.eldSettingValue,
-                    {
-                      color: organizationSettings.compliance_settings.compliance_reporting_enabled
-                        ? colors.success
-                        : colors.textDim,
-                    },
-                  ]}
-                >
-                  {organizationSettings.compliance_settings.compliance_reporting_enabled
-                    ? `${organizationSettings.compliance_settings.compliance_report_frequency}`
-                    : "Disabled"}
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Data Retention
-                </Text>
-                <Text style={[styles.eldSettingValue, { color: colors.text }]}>
-                  {organizationSettings.compliance_settings.data_retention_days} days
-                </Text>
-              </View>
-
-              <View style={styles.eldSettingItem}>
-                <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                  Audit Trail Retention
-                </Text>
-                <Text style={[styles.eldSettingValue, { color: colors.text }]}>
-                  {organizationSettings.compliance_settings.audit_trail_retention_days} days
-                </Text>
-              </View>
-
-              {organizationSettings.compliance_settings.violation_escalation_enabled && (
-                <View style={styles.eldSettingItem}>
-                  <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                    Violation Escalation
-                  </Text>
-                  <Text style={[styles.eldSettingValue, { color: colors.warning }]}>
-                    After {organizationSettings.compliance_settings.violation_escalation_hours}{" "}
-                    hours
-                  </Text>
-                </View>
-              )}
-
-              {organizationSettings.compliance_settings.violation_penalty_enabled && (
-                <View style={styles.eldSettingItem}>
-                  <Text style={[styles.eldSettingLabel, { color: colors.textDim }]}>
-                    Violation Penalties
-                  </Text>
-                  <Text style={[styles.eldSettingValue, { color: colors.error }]}>
-                    After {organizationSettings.compliance_settings.violation_penalty_threshold}{" "}
-                    violations
-                  </Text>
-                </View>
-              )}
-            </View>
-          </ElevatedCard>
-        )}
-
-        {menuItems.map((item, index) => (
-          <MenuItem
-            key={index}
-            title={item.title}
-            subtitle={item.subtitle}
-            icon={item.icon}
-            onPress={item.onPress}
-          />
-        ))}
-
-        <LoadingButton
-          title="Log Out"
-          onPress={handleLogout}
-          variant="danger"
-          style={styles.logoutButton}
+          }
+          containerStyle={{
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            shadowColor: colors.tint,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          style={{
+            paddingHorizontal: 16,
+          }}
+          safeAreaEdges={["top"]}
         />
-      </ScrollView>
-    </View>
-  )
-}
+          <ScrollView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Gradient Header Card */}
+          <Animated.View style={headerAnimatedStyle}>
+            <LinearGradient
+              colors={isDark ? [colors.tint, "#1e40af"] : [colors.tint, "#3b82f6"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientHeader}
+            >
+              <Animated.View
+                style={[
+                  styles.avatarContainer,
+                  {
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                    borderColor: "#FFFFFF",
+                  },
+                  avatarAnimatedStyle,
+                ]}
+              >
+                <User size={48} color={colors.tint} />
+              </Animated.View>
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  profileHeader: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    borderWidth: 2,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: "700" as const,
-    marginBottom: 4,
-  },
-  role: {
-    fontSize: 16,
-  },
-  driverId: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600" as const,
-    marginBottom: 16,
-  },
-  sectionSubTitle: {
-    fontSize: 16,
-    fontWeight: "500" as const,
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  infoIcon: {
-    width: 40,
-    alignItems: "center",
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: "500" as const,
-  },
-  infoSubtext: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  logoutButton: {
-    marginTop: 20,
-    marginBottom: 100,
-  },
-  menuContainer: {
-    gap: 8,
-  },
-  menuItem: {
-    marginBottom: 0,
-  },
-  menuItemContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  menuItemIcon: {
-    marginRight: 16,
-  },
-  menuItemText: {
-    flex: 1,
-  },
-  menuItemTitle: {
-    fontSize: 16,
-    fontWeight: "600" as const,
-    marginBottom: 4,
-  },
-  menuItemSubtitle: {
-    fontSize: 14,
-  },
-  menuItemArrow: {
-    fontSize: 20,
-    fontWeight: "300" as const,
-  },
-  eldSettingsGrid: {
-    marginTop: 16,
-  },
-  eldSettingItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
-  },
-  eldSettingLabel: {
-    fontSize: 14,
-    flex: 1,
-  },
-  eldSettingValue: {
-    fontSize: 14,
-    fontWeight: "500" as const,
-  },
-})
+              <Text style={styles.headerName}>
+                {driverProfile?.name || `${user?.firstName} ${user?.lastName}` || "Driver Name"}
+              </Text>
+
+              <View style={styles.headerBadge}>
+                <Award size={16} color="#FFFFFF" />
+                <Text style={styles.headerBadgeText}>
+                  {driverProfile?.employment_status === "active"
+                    ? "Active Driver"
+                    : driverProfile?.employment_status || "Professional Driver"}
+                </Text>
+              </View>
+
+              {driverProfile?.company_driver_id && (
+                <Text style={styles.headerDriverId}>ID: {driverProfile.company_driver_id}</Text>
+              )}
+            </LinearGradient>
+          </Animated.View>
+
+          {/* Quick Stats */}
+          <ElevatedCard style={styles.section}>
+            <StatCircleCard
+            logoSize={64}
+            logo={<Truck size={32} color={colors.tint} />}
+              items={[
+                {
+                  value: drivingHoursRemaining,
+                  topLabel: `${drivingHoursRemaining}h`,
+                  bottomLabel: "Drive Time",
+                  color: colors.tint,
+                },
+                {
+                  value: onDutyHoursRemaining,
+                  topLabel: `${onDutyHoursRemaining}h`,
+                  bottomLabel: "On Duty",
+                  color: "#10b981",
+                },
+                {
+                  value: cycleHoursRemaining,
+                  topLabel: `${cycleHoursRemaining}h`,
+                  bottomLabel: "Cycle Time",
+                  color: "#f59e0b",
+                },
+              ]}
+            />
+          </ElevatedCard>
+
+          {/* Status Badge */}
+          {hosStatus?.current_status && (
+            <Animated.View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: isDark ? colors.surface : "#FFFFFF",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor:
+                      hosStatus.current_status === "driving"
+                        ? "#10b981"
+                        : hosStatus.current_status === "on_duty"
+                          ? "#f59e0b"
+                          : "#6b7280",
+                  },
+                ]}
+              />
+              <Text style={[styles.statusText, { color: colors.text }]}>
+                Current Status:{" "}
+                <Text style={{ fontWeight: "700" }}>
+                  {hosStatus.current_status.replace("_", " ").toUpperCase()}
+                </Text>
+              </Text>
+            </Animated.View>
+          )}
+
+          {/* Contact Information */}
+          <ElevatedCard style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Mail size={20} color={colors.tint} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Information</Text>
+            </View>
+
+            <InfoCard
+              icon={<Mail size={20} color={colors.tint} />}
+              label="Email Address"
+              value={driverProfile?.email || user?.email || "email@example.com"}
+              color={colors.tint}
+              index={0}
+            />
+
+            <InfoCard
+              icon={<Phone size={20} color="#10b981" />}
+              label="Phone Number"
+              value={driverProfile?.phone || "(555) 123-4567"}
+              color="#10b981"
+              index={1}
+            />
+
+            <InfoCard
+              icon={<User size={20} color="#8b5cf6" />}
+              label="Driver License"
+              value={driverProfile?.license_number || driverProfile?.driver_license || "DL12345678"}
+              subtext={
+                driverProfile?.license_state ? `State: ${driverProfile.license_state}` : undefined
+              }
+              color="#8b5cf6"
+              index={2}
+            />
+
+            {driverProfile?.license_expiry && (
+              <InfoCard
+                icon={<Calendar size={20} color="#f59e0b" />}
+                label="License Expiry"
+                value={new Date(driverProfile.license_expiry).toLocaleDateString()}
+                color="#f59e0b"
+                index={3}
+              />
+            )}
+          </ElevatedCard>
+
+          {/* Company Information */}
+          <ElevatedCard style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Briefcase size={20} color={colors.tint} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Company Information</Text>
+            </View>
+
+            <InfoCard
+              icon={<Briefcase size={20} color={colors.tint} />}
+              label="Company Name"
+              value={
+                organizationSettings?.organization_name ||
+                driverProfile?.organization_name ||
+                "Trucking Company"
+              }
+              subtext={
+                organizationSettings?.timezone
+                  ? `Timezone: ${organizationSettings.timezone}`
+                  : undefined
+              }
+              color={colors.tint}
+              index={0}
+            />
+
+            {driverProfile?.home_terminal_name && (
+              <InfoCard
+                icon={<MapPin size={20} color="#ef4444" />}
+                label="Home Terminal"
+                value={driverProfile.home_terminal_name}
+                subtext={driverProfile.home_terminal_address}
+                color="#ef4444"
+                index={1}
+              />
+            )}
+
+            {driverProfile?.hire_date && (
+              <InfoCard
+                icon={<Calendar size={20} color="#10b981" />}
+                label="Hire Date"
+                value={new Date(driverProfile.hire_date).toLocaleDateString()}
+                color="#10b981"
+                index={2}
+              />
+            )}
+          </ElevatedCard>
+
+          {/* Vehicle Assignment */}
+          {vehicleAssignment?.has_vehicle_assigned && vehicleAssignment?.vehicle_info && (
+            <ElevatedCard style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Truck size={20} color={colors.tint} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Vehicle Assignment</Text>
+              </View>
+
+              <InfoCard
+                icon={<Truck size={20} color={colors.tint} />}
+                label="Vehicle Unit"
+                value={vehicleAssignment.vehicle_info.vehicle_unit}
+                color={colors.tint}
+                index={0}
+              />
+
+              <InfoCard
+                icon={<Truck size={20} color="#3b82f6" />}
+                label="Vehicle Details"
+                value={`${vehicleAssignment.vehicle_info.year} ${vehicleAssignment.vehicle_info.make} ${vehicleAssignment.vehicle_info.model}`}
+                subtext={`License Plate: ${vehicleAssignment.vehicle_info.license_plate}`}
+                color="#3b82f6"
+                index={1}
+              />
+
+              <InfoCard
+                icon={<Calendar size={20} color="#10b981" />}
+                label="Assigned Date"
+                value={new Date(vehicleAssignment.vehicle_info.assigned_at).toLocaleDateString()}
+                color="#10b981"
+                index={2}
+              />
+
+              {vehicleAssignment.vehicle_info.current_odometer && (
+                <InfoCard
+                  icon={<TrendingUp size={20} color="#f59e0b" />}
+                  label="Current Odometer"
+                  value={`${vehicleAssignment.vehicle_info.current_odometer.value || 0} ${
+                    vehicleAssignment.vehicle_info.current_odometer.unit || "miles"
+                  }`}
+                  subtext={
+                    vehicleAssignment.vehicle_info.current_odometer.last_updated
+                      ? `Updated: ${new Date(
+                          vehicleAssignment.vehicle_info.current_odometer.last_updated,
+                        ).toLocaleString()}`
+                      : undefined
+                  }
+                  color="#f59e0b"
+                  index={3}
+                />
+              )}
+            </ElevatedCard>
+          )}
+
+          {/* ELD Settings */}
+          {driverProfile && (
+            <ElevatedCard style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Shield size={20} color={colors.tint} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>ELD Configuration</Text>
+              </View>
+
+              <View style={styles.compactEldGrid}>
+                <View style={styles.compactEldRow}>
+                  <View style={styles.compactEldIcon}>
+                    {driverProfile.eld_pc_enabled ? (
+                      <View style={styles.enabledIcon}>
+                        <Shield size={18} color="#10b981" />
+                      </View>
+                    ) : (
+                      <View style={styles.disabledIcon}>
+                        <Shield size={18} color="#9ca3af" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.compactEldText, { color: colors.text }]}>
+                    Personal Conveyance
+                  </Text>
+                </View>
+
+                <View style={styles.compactEldRow}>
+                  <View style={styles.compactEldIcon}>
+                    {driverProfile.eld_ym_enabled ? (
+                      <View style={styles.enabledIcon}>
+                        <Truck size={18} color="#10b981" />
+                      </View>
+                    ) : (
+                      <View style={styles.disabledIcon}>
+                        <Truck size={18} color="#9ca3af" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.compactEldText, { color: colors.text }]}>Yard Moves</Text>
+                </View>
+
+                <View style={styles.compactEldRow}>
+                  <View style={styles.compactEldIcon}>
+                    {driverProfile.eld_adverse_weather_exemption_enabled ? (
+                      <View style={styles.enabledIcon}>
+                        <AlertTriangle size={18} color="#10b981" />
+                      </View>
+                    ) : (
+                      <View style={styles.disabledIcon}>
+                        <AlertTriangle size={18} color="#9ca3af" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.compactEldText, { color: colors.text }]}>
+                    Adverse Weather Exception
+                  </Text>
+                </View>
+
+                <View style={styles.compactEldRow}>
+                  <View style={styles.compactEldIcon}>
+                    {driverProfile.eld_big_day_exemption_enabled ? (
+                      <View style={styles.enabledIcon}>
+                        <Clock size={18} color="#10b981" />
+                      </View>
+                    ) : (
+                      <View style={styles.disabledIcon}>
+                        <Clock size={18} color="#9ca3af" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.compactEldText, { color: colors.text }]}>
+                    16-Hour Exception
+                  </Text>
+                </View>
+
+                <View style={styles.compactEldRow}>
+                  <View style={styles.compactEldIcon}>
+                    {driverProfile.waiting_time_duty_status_enabled ? (
+                      <View style={styles.enabledIcon}>
+                        <Clock size={18} color="#10b981" />
+                      </View>
+                    ) : (
+                      <View style={styles.disabledIcon}>
+                        <Clock size={18} color="#9ca3af" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.compactEldText, { color: colors.text }]}>
+                    Waiting Time Status
+                  </Text>
+                </View>
+
+                <View style={styles.compactEldRow}>
+                  <View style={styles.compactEldIcon}>
+                    {driverProfile.eld_exempt ? (
+                      <View style={styles.enabledIcon}>
+                        <Shield size={18} color="#10b981" />
+                      </View>
+                    ) : (
+                      <View style={styles.disabledIcon}>
+                        <Shield size={18} color="#9ca3af" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.compactEldText, { color: colors.text }]}>ELD Exempt</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <InfoCard
+                icon={<Clock size={20} color={colors.tint} />}
+                label="Day Start Hour"
+                value={`${driverProfile.eld_day_start_hour}:00`}
+                color={colors.tint}
+                index={4}
+              />
+
+              {driverProfile.eld_device_id && (
+                <InfoCard
+                  icon={<Bluetooth size={20} color="#3b82f6" />}
+                  label="ELD Device ID"
+                  value={driverProfile.eld_device_id}
+                  color="#3b82f6"
+                  index={5}
+                />
+              )}
+
+              {driverProfile.eld_exempt && driverProfile.eld_exempt_reason && (
+                <InfoCard
+                  icon={<AlertTriangle size={20} color="#f59e0b" />}
+                  label="Exempt Reason"
+                  value={driverProfile.eld_exempt_reason}
+                  color="#f59e0b"
+                  index={6}
+                />
+              )}
+            </ElevatedCard>
+          )}
+
+          {/* Violations */}
+          {((hosStatus && hosStatus?.active_violations?.length > 0) ||
+            driverProfile?.violations_count !== undefined) && (
+            <ElevatedCard style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <AlertTriangle size={20} color="#ef4444" />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Compliance Status</Text>
+              </View>
+
+              {hosStatus?.active_violations && hosStatus.active_violations.length > 0 && (
+                <View
+                  style={[
+                    styles.violationCard,
+                    {
+                      backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "rgba(239, 68, 68, 0.05)",
+                    },
+                  ]}
+                >
+                  <AlertTriangle size={24} color="#ef4444" />
+                  <View style={styles.violationContent}>
+                    <Text style={[styles.violationTitle, { color: "#ef4444" }]}>
+                      Active Violations
+                    </Text>
+                    <Text style={[styles.violationCount, { color: colors.text }]}>
+                      {hosStatus.active_violations.length} violation(s) require attention
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {driverProfile?.violations_count !== undefined && (
+                <InfoCard
+                  icon={<Shield size={20} color="#f59e0b" />}
+                  label="Total Violations (Historical)"
+                  value={driverProfile.violations_count.toString()}
+                  color="#f59e0b"
+                  index={0}
+                />
+              )}
+            </ElevatedCard>
+          )}
+
+          {/* Menu Items */}
+          {menuItems.map((item, index) => (
+            <MenuItem
+              key={index}
+              title={item.title}
+              subtitle={item.subtitle}
+              icon={item.icon}
+              onPress={item.onPress}
+              index={index}
+            />
+          ))}
+
+          {/* Logout Button */}
+          <LoadingButton
+            title="Log Out"
+            onPress={handleLogout}
+            variant="danger"
+            style={styles.logoutButton}
+          />
+        </ScrollView>
+      </View>
+    )
+  }
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    gradientHeader: {
+      borderRadius: 20,
+      padding: 24,
+      alignItems: "center",
+      marginBottom: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    avatarContainer: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+      borderWidth: 4,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    headerName: {
+      fontSize: 26,
+      fontWeight: "800",
+      color: "#FFFFFF",
+      marginBottom: 8,
+      textAlign: "center",
+    },
+    headerBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(255,255,255,0.25)",
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+      borderRadius: 20,
+      gap: 6,
+      marginBottom: 4,
+    },
+    headerBadgeText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#FFFFFF",
+    },
+    headerDriverId: {
+      fontSize: 13,
+      color: "rgba(255,255,255,0.9)",
+      fontWeight: "500",
+    },
+    statsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 20,
+      gap: 10,
+    },
+    statCard: {
+      flex: 1,
+      padding: 16,
+      borderRadius: 16,
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    statIconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+    statValue: {
+      fontSize: 24,
+      fontWeight: "800",
+      marginBottom: 4,
+    },
+    statLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    statusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 16,
+      borderRadius: 16,
+      marginBottom: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      gap: 12,
+    },
+    statusDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    statusText: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    section: {
+      marginBottom: 20,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 16,
+      gap: 10,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+    },
+    infoCard: {
+      flexDirection: "row",
+      marginBottom: 16,
+      alignItems: "flex-start",
+    },
+    infoCardIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 14,
+    },
+    infoCardContent: {
+      flex: 1,
+    },
+    infoCardLabel: {
+      fontSize: 13,
+      fontWeight: "500",
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    infoCardValue: {
+      fontSize: 16,
+      fontWeight: "600",
+      marginBottom: 2,
+    },
+    infoCardSubtext: {
+      fontSize: 13,
+      marginTop: 4,
+    },
+    compactEldGrid: {
+      gap: 8,
+      marginBottom: 8,
+    },
+    compactEldRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 10,
+      gap: 12,
+    },
+    compactEldIcon: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    enabledIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "rgba(16, 185, 129, 0.12)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    disabledIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "rgba(156, 163, 175, 0.12)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    compactEldText: {
+      fontSize: 15,
+      fontWeight: "500",
+      flex: 1,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: "rgba(0,0,0,0.08)",
+      marginVertical: 16,
+    },
+    violationCard: {
+      flexDirection: "row",
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 16,
+      alignItems: "center",
+      gap: 14,
+    },
+    violationContent: {
+      flex: 1,
+    },
+    violationTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    violationCount: {
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    menuItem: {
+      marginBottom: 12,
+    },
+    menuItemContent: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    menuItemIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 14,
+    },
+    menuItemText: {
+      flex: 1,
+    },
+    menuItemTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    menuItemSubtitle: {
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    logoutButton: {
+      marginTop: 20,
+      marginBottom: 140,
+    },
+  })

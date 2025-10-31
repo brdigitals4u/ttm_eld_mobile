@@ -1,6 +1,7 @@
 import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui'
 import { View, Pressable, Text, StyleSheet, Platform } from 'react-native'
 import { Icon } from '@/components/Icon'
+import { COLORS } from '@/constants/colors'
 
 function CustomTabButton({ isFocused, icon, label, ...props }: any) {
   return (
@@ -11,7 +12,7 @@ function CustomTabButton({ isFocused, icon, label, ...props }: any) {
         isFocused && styles.tabActive,
       ]}
     >
-      <Icon icon={icon} size={22} color={!isFocused ? "#fff" : "#4f46e5"} />
+      <Icon icon={icon} size={22} color={!isFocused ? COLORS.white : COLORS.primary} />
       <Text style={[styles.label, isFocused && styles.labelActive]}>{label}</Text>
     </Pressable>
   )
@@ -43,7 +44,7 @@ const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#0071ce",        // or use your theme
+    backgroundColor: COLORS.primary,
     borderRadius: 28,
     padding: 8,
     marginHorizontal: 16,
@@ -69,11 +70,11 @@ const styles = StyleSheet.create({
     // more style as needed
   },
   tabActive: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
   },
   label: {
     fontSize: 12,
-    color: "#fff",
+    color: COLORS.white,
     marginTop: 4,
   },
   labelActive: {

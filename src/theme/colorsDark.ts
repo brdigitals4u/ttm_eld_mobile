@@ -10,7 +10,7 @@ const palette = {
   neutral100: "#000000",
 
   primary600: "#F4E0D9",
-  primary500: "#E8C1B4",
+  primary500: "#0071ce", // Main brand blue
   primary400: "#DDA28E",
   primary300: "#D28468",
   primary200: "#C76542",
@@ -67,6 +67,10 @@ const palette = {
 
 export const colors = {
   palette,
+  /**
+   * Primary brand color
+   */
+  PRIMARY: "#0071ce",
   transparent: "rgba(0, 0, 0, 0)",
   text: palette.neutral800,
   textDim: palette.neutral600,

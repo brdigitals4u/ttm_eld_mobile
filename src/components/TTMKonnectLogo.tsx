@@ -30,13 +30,13 @@ export default function TTMKonnectLogo({
       <Svg width={size} height={size} viewBox="0 0 200 200">
         <Defs>
           <LinearGradient id="indigoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#6366F1" stopOpacity={1} />
-            <Stop offset="50%" stopColor="#4F46E5" stopOpacity={1} />
-            <Stop offset="100%" stopColor="#4338CA" stopOpacity={1} />
+            <Stop offset="0%" stopColor="#a7d4f8" stopOpacity={1} />
+            <Stop offset="50%" stopColor="#0071ce" stopOpacity={1} />
+            <Stop offset="100%" stopColor="#078bf7" stopOpacity={1} />
           </LinearGradient>
           <LinearGradient id="indigoLightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#818CF8" stopOpacity={1} />
-            <Stop offset="100%" stopColor="#6366F1" stopOpacity={1} />
+            <Stop offset="0%" stopColor="#0071ce" stopOpacity={1} />
+            <Stop offset="100%" stopColor="#078bf7" stopOpacity={1} />
           </LinearGradient>
         </Defs>
         

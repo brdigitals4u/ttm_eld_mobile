@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { FuelReceipt, FuelState } from '@/types/fuel';
 import { useAuth } from '@/stores/authStore';
+import { toast } from '@/components/Toast';
 
 interface FuelContextType extends FuelState {
   addFuelReceipt: (receipt: Omit<FuelReceipt, 'id' | 'createdAt'>) => Promise<void>;
@@ -115,8 +116,7 @@ export const [FuelProvider, useFuel] = createContextHook(() => {
         ...prev,
         receipts: updatedReceipts,
       }));
-      
-      Alert.alert('Success', 'Fuel receipt deleted successfully');
+      toast.success('Fuel receipt deleted successfully');
     } catch (error) {
       console.error('Failed to delete fuel receipt:', error);
       setState(prev => ({

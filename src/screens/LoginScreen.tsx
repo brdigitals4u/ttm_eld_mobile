@@ -7,17 +7,7 @@ import { useToast } from '@/providers/ToastProvider'
 import { LoginCredentials } from '@/database/schemas'
 import { router } from 'expo-router'
 import { AnimatedButton } from '@/components/AnimatedButton'
-
-const COLORS = {
-  indigo: '#0071ce',
-  black: '#000000',
-  ink700: '#1F2430',
-  ink500: '#4B5563',
-  ink300: '#9CA3AF',
-  surface: '#F3F4F6',
-  border: '#E5E7EB',
-  white: '#FFFFFF',
-}
+import { COLORS } from '@/constants/colors'
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth()

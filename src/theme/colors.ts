@@ -15,7 +15,7 @@ const palette = {
   primary200: "#BBDEFB", // Lighter blue
   primary300: "#90CAF9", // Medium light blue
   primary400: "#64B5F6", // Medium blue
-  primary500: "#007BFF", // Action Blue - buttons, links, selected states
+  primary500: "#0071ce", // Main brand blue - buttons, links, selected states
   primary600: "#0056B3", // Darker blue
   primary700: "#004085", // Dark blue
   primary800: "#003366", // Very dark blue
@@ -76,7 +76,7 @@ const palette = {
   overlay50: "rgba(10, 42, 78, 0.5)", // Deep Navy Blue with opacity
 
   light: {
-    primary: "#1E3A8A", // Navy blue
+    primary: "#0071ce", // Main brand blue
     secondary: "#3B82F6", // Bright blue
     background: "#FFFFFF",
     card: "#F9FAFB",
@@ -100,7 +100,7 @@ const palette = {
     shadowColor: "#000000",
   },
   dark: {
-    primary: "#3B82F6", // Bright blue
+    primary: "#0071ce", // Main brand blue
     secondary: "#60A5FA", // Lighter blue
     background: "#0F172A",
     card: "#1E293B",
@@ -132,6 +132,10 @@ export const colors = {
    * semantic names as much as possible.
    */
   palette,
+  /**
+   * Primary brand color
+   */
+  PRIMARY: "#0071ce",
   /**
    * A helper for making something see-thru.
    */
