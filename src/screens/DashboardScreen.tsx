@@ -1,23 +1,39 @@
-import React, { useMemo } from "react"
+import React, { useMemo, useEffect } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native"
 import { router } from "expo-router"
 import {
   MapPin,
-  Bell,
   Truck,
   Clock,
   FileText,
   TrendingUp,
   CheckCircle,
   AlertCircle,
+  FileCheck,
+  Gauge,
+  Shield,
+  BookOpen,
 } from "lucide-react-native"
-import { LinearGradient } from "expo-linear-gradient"
 
+import * as Progress from "react-native-progress"
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+} from "react-native-reanimated"
+
+import { LinearGradient } from "expo-linear-gradient"
 import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
+import { useLocation } from "@/contexts/location-context"
+import HOSCircle from "@/components/HOSSvg"
 import { EldIndicator } from "@/components/EldIndicator"
-import TTMKonnectLogo from "@/components/TTMKonnectLogo"
 import { colors } from "@/theme/colors"
+import { Header } from "@/components/Header"
+import { COLORS } from "@/constants"
 
 export const DashboardScreen = () => {
   const {
@@ -30,6 +46,22 @@ export const DashboardScreen = () => {
     isLoading,
   } = useAuth()
   const { logEntries, certification } = useStatus()
+  const { currentLocation, requestLocation } = useLocation()
+
+  // Shorten location address
+  const shortLocationAddress = useMemo(() => {
+    if (!currentLocation?.address) return "Loading location..."
+
+    const parts = currentLocation.address.split(", ")
+    if (parts.length >= 2) {
+      // Return just city and state/region
+      return parts.slice(-2).join(", ")
+    }
+    // If format is unexpected, return first 30 chars
+    return currentLocation.address.length > 30
+      ? currentLocation.address.substring(0, 30) + "..."
+      : currentLocation.address
+  }, [currentLocation])
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -67,8 +99,11 @@ export const DashboardScreen = () => {
 
     const vehicleInfo = vehicleAssignment?.vehicle_info
     const vehicleUnit = vehicleInfo?.vehicle_unit || "N/A"
-    const truck = vehicleInfo?.make || "N/A"
-    const trailer = vehicleInfo?.model || "N/A"
+    const truckMake = vehicleInfo?.make || "N/A"
+    const truckModel = vehicleInfo?.model || "N/A"
+    const truckYear = vehicleInfo?.year || "N/A"
+    const licensePlate = vehicleInfo?.license_plate || "N/A"
+    const vin = vehicleInfo?.vin || "N/A"
 
     const currentDate = new Date()
     const dateTitle = `Today | ${currentDate.toLocaleDateString("en-US", {
@@ -80,14 +115,6 @@ export const DashboardScreen = () => {
     const orgName = organizationSettings?.organization_name || "TTM Konnect"
 
     const uncertifiedLogsCount = logEntries.filter((log) => !log.isCertified).length
-
-    console.log("📊 DashboardScreen Debug:")
-    console.log("  📋 Total logEntries:", logEntries.length)
-    console.log("  ❌ Uncertified logs:", uncertifiedLogsCount)
-    console.log(
-      "  📝 First few log dates:",
-      logEntries.slice(0, 3).map((log) => new Date(log.startTime).toDateString()),
-    )
 
     return {
       appTitle: orgName,
@@ -105,6 +132,11 @@ export const DashboardScreen = () => {
       cycleDays: cycleDays,
       dateTitle: dateTitle,
       vehicleUnit: vehicleUnit,
+      truckMake: truckMake,
+      truckModel: truckModel,
+      truckYear: truckYear,
+      licensePlate: licensePlate,
+      vin: vin,
       uncertifiedLogsCount: uncertifiedLogsCount,
       isCertified: certification.isCertified,
     }
@@ -121,8 +153,10 @@ export const DashboardScreen = () => {
 
   const time = (m: number) =>
     `${String(Math.floor(Math.round(m) / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`
+
   const cycleTime = (m: number) =>
     `${Math.floor(Math.round(m) / 60)}:${String(Math.round(m) % 60).padStart(2, "0")}`
+
   const pct = (remain: number, total: number) =>
     Math.max(0, Math.min(100, ((total - remain) / total) * 100))
 
@@ -144,32 +178,74 @@ export const DashboardScreen = () => {
     }
   }
 
-  const dutyStyle = getDutyStatusStyle(data.duty)
+  const dutyStyle = getDutyStatusStyle(data?.duty)
+
+  // Animated pulse for vehicle info card icon
+  const vehicleIconScale = useSharedValue(1)
+  const vehicleIconOpacity = useSharedValue(1)
+
+  useEffect(() => {
+    vehicleIconScale.value = withRepeat(
+      withSequence(
+        withTiming(1.15, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true,
+    )
+    vehicleIconOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      true,
+    )
+  }, [])
+
+  // Request location on mount
+  useEffect(() => {
+    requestLocation()
+  }, [])
+
+  const vehicleIconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: vehicleIconScale.value }],
+    opacity: vehicleIconOpacity.value,
+  }))
 
   return (
+    <View style={{ flex: 1 }}>
+
+        <Header
+        leftText="Welcome Back!"
+        titleMode="flex"
+        title=""
+        backgroundColor={colors.background}
+        RightActionComponent={
+          <View style={{ paddingRight: 4 }}>
+            <Image
+              source={require('assets/images/ttm-logo.png')}
+              style={{ width: 120, height: 32, resizeMode: 'contain' }}
+            />
+          </View>
+        }
+        containerStyle={{
+          borderBottomWidth: 1,
+          borderBottomColor: "rgba(0,0,0,0.06)",
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 6,
+        }}
+        style={{
+          paddingHorizontal: 16,
+        }}
+        safeAreaEdges={["top"]}
+      />
+
     <ScrollView style={s.screen} contentContainerStyle={s.cc}>
-      {/* Modern Header */}
-      <View style={s.topHeader}>
-        <View style={s.profileSection}>
-          <View style={s.avatarContainer}>
-            <Text style={s.avatarText}>{data.driver.charAt(0)}</Text>
-          </View>
-          <View style={s.locationInfo}>
-            <View style={s.locationRow}>
-              <MapPin size={16} color="#1F2937" strokeWidth={2.5} />
-              <Text style={s.locationTitle}>Current Location</Text>
-            </View>
-            <Text style={s.locationAddress}>{data.vehicleUnit}</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={s.notificationBtn}>
-          <Image
-            source={require("assets/images/ttm-logo.png")}
-            style={s.loginHeaderImage}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
+    
 
       {/* Hero Card - Are you ready */}
       <LinearGradient
@@ -193,6 +269,40 @@ export const DashboardScreen = () => {
           />
         </View>
       </LinearGradient>
+
+      <View style={s.categoriesSection}>
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Categories</Text>
+          <TouchableOpacity>
+            <Text style={s.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.categoriesScroll}
+        >
+          <TouchableOpacity
+            style={[s.categoryBox, s.categoryBoxActive]}
+            onPress={() => router.push("/status")}
+          >
+            <Gauge size={32} color="#FFF" strokeWidth={2} />
+            <Text style={s.categoryTextActive}>HOS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/(tabs)/logs")}>
+            <FileCheck size={32} color="#0071ce" strokeWidth={2} />
+            <Text style={s.categoryText}>Logs</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/dvir")}>
+            <Shield size={32} color="#0071ce" strokeWidth={2} />
+            <Text style={s.categoryText}>DVIR</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.categoryBox}>
+            <BookOpen size={32} color="#0071ce" strokeWidth={2} />
+            <Text style={s.categoryText}>Reports</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       {/* Quick Status Cards */}
       <View style={s.statusCardsRow}>
@@ -230,7 +340,7 @@ export const DashboardScreen = () => {
 
       {/* Greeting Section */}
       <View style={s.greetingSection}>
-        <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]},</Text>
+        <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]} <EldIndicator /></Text>
         <Text style={s.greetingQuestion}>How's your day going?</Text>
       </View>
 
@@ -244,7 +354,7 @@ export const DashboardScreen = () => {
         {/* Big Timer */}
         <View style={s.bigTimerSection}>
           <Text style={s.bigTimerLabel}>Time Until Rest</Text>
-          <Text style={s.bigTimerValue}>{time(data.stopIn)}</Text>
+          <HOSCircle text={time(data.stopIn)} />
           <Text style={s.bigTimerSubtext}>hours remaining</Text>
         </View>
 
@@ -255,6 +365,15 @@ export const DashboardScreen = () => {
               <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
             </View>
             <Text style={s.statItemLabel}>Drive</Text>
+            <Progress.Circle
+              size={42}
+              progress={pct(data.driveLeft, 840) / 100}
+              color="#3B82F6"
+              thickness={6}
+              showsText={false}
+              strokeCap="round"
+              unfilledColor="#E5E7EB"
+            />
             <Text style={s.statItemValue}>{time(data.driveLeft)}</Text>
             <View style={s.miniBar}>
               <View
@@ -273,6 +392,15 @@ export const DashboardScreen = () => {
               <Clock size={18} color="#3B82F6" strokeWidth={2.5} />
             </View>
             <Text style={s.statItemLabel}>Shift</Text>
+            <Progress.Circle
+              size={42}
+              progress={pct(data.shiftLeft, 840) / 100}
+              color="#3B82F6"
+              thickness={6}
+              showsText={false}
+              strokeCap="round"
+              unfilledColor="#E5E7EB"
+            />
             <Text style={s.statItemValue}>{time(data.shiftLeft)}</Text>
             <View style={s.miniBar}>
               <View
@@ -290,11 +418,8 @@ export const DashboardScreen = () => {
           <View style={s.cycleLabelRow}>
             <Text style={s.cycleLabelText}>Cycle Time</Text>
             <Text style={s.cycleValueText}>
-              {cycleTime(data.cycleLeft)} ({data.cycleDays}d)
+              {cycleTime(data.cycleLeft)} • {data.cycleDays}d
             </Text>
-          </View>
-          <View style={s.cycleProgressBar}>
-            <View style={[s.cycleProgressFill, { width: `${pct(data.cycleLeft, 4200)}%` }]} />
           </View>
         </View>
       </View>
@@ -389,9 +514,74 @@ export const DashboardScreen = () => {
         </View>
       </View>
 
+      {/* Vehicle Information Card */}
+      <View style={s.vehicleInfoCard}>
+        <View style={s.vehicleInfoHeader}>
+          <View style={s.vehicleIconContainer}>
+            <Truck size={28} color="#FFFFFF" strokeWidth={2.5} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.vehicleInfoTitle}>Vehicle Information</Text>
+            <Text style={s.vehicleInfoSubtitle}>{data.vehicleUnit}</Text>
+          </View>
+        </View>
+
+        <View style={s.vehicleDivider} />
+
+        <View style={s.vehicleDetails}>
+          {currentLocation?.address && (
+            <View style={s.vehicleDetailSection}>
+              <View style={s.vehicleDetailHeader}>
+                <MapPin size={16} color="#0071ce" strokeWidth={2.5} />
+                <Text style={s.vehicleSectionTitle}>Current Location</Text>
+              </View>
+              <Text style={s.vehicleAddressText}>{currentLocation.address}</Text>
+            </View>
+          )}
+
+          <View style={s.vehicleDetailSection}>
+            <View style={s.vehicleDetailHeader}>
+              <Gauge size={16} color="#0071ce" strokeWidth={2.5} />
+              <Text style={s.vehicleSectionTitle}>Vehicle Details</Text>
+            </View>
+            
+            <View style={s.vehicleDetailGrid}>
+              <View style={s.vehicleDetailItem}>
+                <Text style={s.vehicleDetailLabel}>Make & Model</Text>
+                <Text style={s.vehicleDetailValue}>
+                  {data.truckMake} {data.truckModel}
+                </Text>
+              </View>
+              
+              <View style={s.vehicleDetailItem}>
+                <Text style={s.vehicleDetailLabel}>Year</Text>
+                <Text style={s.vehicleDetailValue}>{data.truckYear}</Text>
+              </View>
+            </View>
+
+            <View style={s.vehicleDetailGrid}>
+              <View style={s.vehicleDetailItem}>
+                <Text style={s.vehicleDetailLabel}>License Plate</Text>
+                <Text style={s.vehicleDetailValue}>{data.licensePlate}</Text>
+              </View>
+              
+              {data.vin && data.vin !== "N/A" && (
+                <View style={s.vehicleDetailItem}>
+                  <Text style={s.vehicleDetailLabel}>VIN</Text>
+                  <Text style={[s.vehicleDetailValue, s.vehicleVinText]}>
+                    {data.vin.substring(0, 8)}...
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </View>
+
       {/* Bottom Spacer */}
       <View style={{ height: 100 }} />
     </ScrollView>
+        </View>
   )
 }
 
@@ -418,7 +608,7 @@ const s = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#22C55E",
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -656,7 +846,7 @@ const s = StyleSheet.create({
   cycleLabelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 16,
   },
   cycleLabelText: {
     color: "#6B7280",
@@ -667,6 +857,11 @@ const s = StyleSheet.create({
     color: "#1F2937",
     fontSize: 14,
     fontWeight: "800",
+  },
+  cycleProgressWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
   },
   cycleProgressBar: {
     height: 8,
@@ -794,5 +989,370 @@ const s = StyleSheet.create({
   },
   loginHeaderImage: {
     width: "100%",
+  },
+
+  fitnessHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 24,
+    backgroundColor: "#FFFFFF",
+  },
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#0071ce",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: {
+    color: "#FFF",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  greetingBlock: { flex: 1 },
+  hiText: {
+    color: "#9CA3AF",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  motivationText: {
+    color: "#1F2937",
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  redDot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#EF4444",
+  },
+
+  progressCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 24,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#0071ce",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  progressGradient: { padding: 20 },
+  progressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  progressIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  progressTitle: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  progressDate: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  progressStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  progressStatItem: { alignItems: "center" },
+  progressStatValue: {
+    color: "#FFF",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  progressStatLabel: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+
+  categoriesSection: {
+    marginTop: 24,
+    paddingLeft: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingRight: 20,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: "#1F2937",
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  seeAllText: {
+    color: "#0071ce",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  categoriesScroll: {
+    gap: 12,
+    paddingRight: 20,
+  },
+  categoryBox: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  categoryBoxActive: {
+    backgroundColor: "#0071ce",
+  },
+  categoryText: {
+    color: "#6B7280",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  categoryTextActive: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  overviewSection: {
+    marginTop: 24,
+    paddingHorizontal: 20,
+  },
+  circularProgressRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  circularProgressCard: {
+    flex: 1,
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  overviewCardTitle: {
+    color: "#1F2937",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  circularContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  circleValue: {
+    color: "#1F2937",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  circleLabel: {
+    color: "#6B7280",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  statusBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  popularSection: {
+    marginTop: 24,
+    paddingHorizontal: 20,
+  },
+  popularCard: {
+    borderRadius: 24,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#A78BFA",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  popularGradient: {
+    flexDirection: "row",
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  popularContent: { flex: 1 },
+  popularTitle: {
+    color: "#1F2937",
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 28,
+  },
+  popularBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loginButton: {
+    backgroundColor: "#0071ce",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 16,
+    alignSelf: "flex-start",
+  },
+  loginButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  // Vehicle Information Card
+  vehicleInfoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    marginHorizontal: 20,
+    marginTop: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  vehicleInfoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 20,
+  },
+  vehicleIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#0071ce",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0071ce",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  vehicleInfoTitle: {
+    color: "#1F2937",
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  vehicleInfoSubtitle: {
+    color: "#0071ce",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  vehicleDivider: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginBottom: 20,
+  },
+  vehicleDetails: {
+    gap: 24,
+  },
+  vehicleDetailSection: {
+    gap: 12,
+  },
+  vehicleDetailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  vehicleSectionTitle: {
+    color: "#1F2937",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  vehicleAddressText: {
+    color: "#4B5563",
+    fontSize: 14,
+    fontWeight: "500",
+    lineHeight: 20,
+    paddingLeft: 24,
+  },
+  vehicleDetailGrid: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  vehicleDetailItem: {
+    flex: 1,
+    gap: 6,
+  },
+  vehicleDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  vehicleDetailLabel: {
+    color: "#6B7280",
+    fontSize: 13,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  vehicleDetailValue: {
+    color: "#1F2937",
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "left",
+  },
+  vehicleVinText: {
+    fontFamily: "monospace",
   },
 })

@@ -119,14 +119,14 @@ export const EldIndicator: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    width: 16,
-    height: 16,
+    width: 6,
+    height: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
   indicator: {
-    width: 12,
-    height: 12,
+    width: 2,
+    height: 2,
     borderRadius: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },

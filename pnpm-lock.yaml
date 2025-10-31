@@ -125,6 +125,9 @@ importers:
       react-native-paper:
         specifier: ^5.14.5
         version: 5.14.5(react-native-safe-area-context@5.4.0(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react-native-progress:
+        specifier: ^5.0.1
+        version: 5.0.1(react-native-svg@15.13.0(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))
       react-native-reanimated:
         specifier: ~3.17.4
         version: 3.17.5(@babel/core@7.28.4)(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
@@ -4573,6 +4576,11 @@ packages:
       react: '*'
       react-native: '*'
       react-native-safe-area-context: '*'
+
+  react-native-progress@5.0.1:
+    resolution: {integrity: sha512-TYfJ4auAe5vubDma2yfFvt7ktSI+UCfysqJnkdHEcLXqAitRFOozgF/cLgN5VNi/iLdaf3ga1ETi2RF4jVZ/+g==}
+    peerDependencies:
+      react-native-svg: '*'
 
   react-native-reanimated@3.17.5:
     resolution: {integrity: sha512-SxBK7wQfJ4UoWoJqQnmIC7ZjuNgVb9rcY5Xc67upXAFKftWg0rnkknTw6vgwnjRcvYThrjzUVti66XoZdDJGtw==}
@@ -11133,6 +11141,11 @@ snapshots:
       react-native: 0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0)
       react-native-safe-area-context: 5.4.0(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       use-latest-callback: 0.2.4(react@19.0.0)
+
+  react-native-progress@5.0.1(react-native-svg@15.13.0(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)):
+    dependencies:
+      prop-types: 15.8.1
+      react-native-svg: 15.13.0(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
 
   react-native-reanimated@3.17.5(@babel/core@7.28.4)(react-native@0.79.6(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
     dependencies:

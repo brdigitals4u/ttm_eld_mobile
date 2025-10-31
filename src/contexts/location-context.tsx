@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-// import * as Location from 'expo-location' // Temporarily disabled for native module issues
+import * as Location from 'expo-location'
 
 export interface LocationData {
   latitude: number
@@ -38,10 +38,16 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 
   const requestLocationPermission = async () => {
     try {
-      // Mock permission for now - in real app this would use expo-location
-      console.log('Mock location permission granted')
-      setHasPermission(true)
-      setError(null)
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status === 'granted') {
+        console.log('Location permission granted')
+        setHasPermission(true)
+        setError(null)
+      } else {
+        console.warn('Location permission denied')
+        setError('Location permission denied')
+        setHasPermission(false)
+      }
     } catch (err) {
       console.warn('Location permission request failed:', err)
       setError('Failed to request location permission')
@@ -63,20 +69,44 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       setIsLoading(true)
       setError(null)
 
-      // Mock location for now - in real app this would use expo-location
-      const mockLocation: LocationData = {
-        latitude: 37.7749 + (Math.random() - 0.5) * 0.01, // San Francisco area with some randomness
-        longitude: -122.4194 + (Math.random() - 0.5) * 0.01,
-        accuracy: 10,
-        altitude: null,
-        timestamp: Date.now(),
-        address: 'San Francisco, CA (Mock Location)',
+      // Get current location using expo-location
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      })
+
+      // Reverse geocode to get address
+      let address = 'Current Location'
+      try {
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        })
+        if (reverseGeocode && reverseGeocode.length > 0) {
+          const addr = reverseGeocode[0]
+          address = [
+            addr.street,
+            addr.city,
+            addr.region,
+            addr.postalCode,
+          ].filter(Boolean).join(', ')
+        }
+      } catch (geocodeError) {
+        console.warn('Reverse geocoding failed:', geocodeError)
       }
 
-      setCurrentLocation(mockLocation)
+      const locationData: LocationData = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        altitude: location.coords.altitude,
+        timestamp: location.timestamp,
+        address: address,
+      }
+
+      setCurrentLocation(locationData)
       setIsLoading(false)
-      console.log('Mock location data:', mockLocation)
-      return mockLocation
+      console.log('Location data:', locationData)
+      return locationData
     } catch (error: any) {
       console.error('Error getting current location:', error)
       setError(error.message || 'Failed to get current location')
