@@ -27,6 +27,7 @@ import ElevatedCard from "@/components/EvevatedCard"
 import { useStatus } from "@/contexts"
 import { useAppTheme } from "@/theme/context"
 import { DriverStatus } from "@/types/status"
+import { Header } from "@/components/Header"
 
 // Simple StatusButton component replacement
 const StatusButton = ({
@@ -129,16 +130,39 @@ export default function StatusScreen() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
+      <Header
+        title="Update Your Status"
+        titleMode="center"
+        backgroundColor={colors.background}
+        titleStyle={{
+          fontSize: 22,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: 0.3,
+        }}
+        leftIcon="back"
+        leftIconColor={colors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+        containerStyle={{
+          borderBottomWidth: 1,
+          borderBottomColor: "rgba(0,0,0,0.06)",
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 6,
+        }}
+        style={{
+          paddingHorizontal: 16,
+        }}
+        safeAreaEdges={["top"]}
+      />
+
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 20 }]}
+      contentContainerStyle={styles.contentContainer}
     >
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Update Your Status</Text>
-      </View>
 
       <Text style={[styles.subtitle, { color: colors.textDim }]}>
         Select your current duty status
@@ -351,6 +375,7 @@ export default function StatusScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </View>
   )
 }
 
@@ -468,6 +493,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     marginBottom: 24,
+    paddingHorizontal: 16,
   },
   title: {
     fontSize: 24,

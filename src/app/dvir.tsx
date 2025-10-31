@@ -15,6 +15,7 @@ import ElevatedCard from "@/components/EvevatedCard"
 import LoadingButton from "@/components/LoadingButton"
 import { toast } from "@/components/Toast"
 import { useAppTheme } from "@/theme/context"
+import { Header } from "@/components/Header"
 
 type InspectionType = "pre-trip" | "post-trip"
 type SafetyStatus = "safe" | "unsafe" | null
@@ -95,23 +96,39 @@ export default function DVIRScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Create DVIR",
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()}>
+      <View style={{ flex: 1 }}>
+        <Header
+          title="Create DVIR"
+          titleMode="center"
+          backgroundColor={colors.background}
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+          RightActionComponent={
+            <View style={{ paddingRight: 4 }}>
               <X size={24} color={colors.text} />
-            </TouchableOpacity>
-          ),
-        }}
-      />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Create DVIR</Text>
-      </View>
-
+            </View>
+          }
+          containerStyle={{
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            shadowColor: colors.tint,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          style={{
+            paddingHorizontal: 16,
+          }}
+          safeAreaEdges={["top"]}
+        />
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.contentContainer}
@@ -283,6 +300,7 @@ export default function DVIRScreen() {
           </View>
         </View>
       </Modal>
+      </View>
     </>
   )
 }

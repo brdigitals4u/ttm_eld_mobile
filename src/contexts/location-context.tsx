@@ -81,17 +81,33 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         })
+        console.log('Reverse geocode result:', reverseGeocode)
         if (reverseGeocode && reverseGeocode.length > 0) {
           const addr = reverseGeocode[0]
-          address = [
+          const addressParts = [
+            addr.name,
             addr.street,
+            addr.district,
             addr.city,
             addr.region,
             addr.postalCode,
-          ].filter(Boolean).join(', ')
+            addr.country,
+          ].filter(Boolean)
+          
+          if (addressParts.length > 0) {
+            address = addressParts.join(', ')
+          } else {
+            // Fallback to coordinates if no address parts
+            address = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
+          }
+        } else {
+          // Fallback to coordinates if geocoding returns empty
+          address = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
         }
       } catch (geocodeError) {
         console.warn('Reverse geocoding failed:', geocodeError)
+        // Fallback to coordinates on error
+        address = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
       }
 
       const locationData: LocationData = {

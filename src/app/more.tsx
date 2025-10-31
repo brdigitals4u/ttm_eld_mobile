@@ -13,6 +13,9 @@ import { useAppTheme } from "@/theme/context"
 import { Icon } from "@/components/Icon"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { ArrowLeft, User } from "lucide-react-native"
+import { Header } from "@/components/Header"
+import { colors } from "@/theme/colors"
+import { useAuth } from "@/stores/authStore"
 
 /**
  * Modernized More / Settings screen for drivers.
@@ -29,6 +32,7 @@ export default function MoreScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
   const insets = useSafeAreaInsets()
+  const { user, driverProfile, vehicleAssignment } = useAuth()
 
   // Menu items grouped
   const primaryItems = [
@@ -88,136 +92,144 @@ export default function MoreScreen() {
     },
   ]
 
-  // Example driver data — replace with real store values
-  const driverName = "John Doe"
-  const vehicleUnit = "Unit 4321"
-  const company = "TTM Konnect"
-  
+  // Get driver data from auth store
+  const driverName = driverProfile?.name || `${user?.firstName} ${user?.lastName}` || "Driver"
+  const vehicleUnit = vehicleAssignment?.vehicle_info?.vehicle_unit || "No Unit Assigned"
+  const company = driverProfile?.organization_name || "TTM Konnect"
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 12 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={22} color={colors.text} />
-        </Pressable>
+    <View style={{ flex: 1 }}>   <Header
+      title="More"
+      titleMode="center"
+      backgroundColor={colors.background}
+      titleStyle={{
+        fontSize: 22,
+        fontWeight: "800",
+        color: colors.text,
+        letterSpacing: 0.3,
+      }}
+      leftIcon="back"
+      leftIconColor={colors.tint}
+      onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+      containerStyle={{
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(0,0,0,0.06)",
+        shadowColor: colors.tint,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 6,
+      }}
+      style={{
+        paddingHorizontal: 16,
+      }}
+      safeAreaEdges={["top"]}
+    />
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
 
-        <View style={styles.headerCenter}>
-          <Text style={[styles.screenTitle, { color: colors.text }]}>More</Text>
-          <Text style={[styles.screenSubtitle, { color: colors.textDim }]}>Tools & Settings</Text>
-        </View>
 
-        <View style={{ width: 40 }} /> {/* placeholder to balance header */}
-      </View>
+        {/* Driver Card */}
+        <View style={[styles.driverCard, { backgroundColor: colors.surface, shadowColor: colors.tint }]}>
+          <View style={styles.driverLeft}>
+            {/* use Image or SVG avatar; falling back to Icon */}
+            <View style={[styles.avatar, { backgroundColor: colors.tint + "15", borderColor: colors.tint }]}>
+              {/* If you have an avatar url, use <Image /> */}
+              <User size={28} color={colors.tint} />
+            </View>
+          </View>
 
-      {/* Driver Card */}
-      <View style={[styles.driverCard, { backgroundColor: colors.surface, shadowColor: colors.tint }]}>
-        <View style={styles.driverLeft}>
-          {/* use Image or SVG avatar; falling back to Icon */}
-          <View style={[styles.avatar, { backgroundColor: colors.tint + "15", borderColor: colors.tint }]}>
-            {/* If you have an avatar url, use <Image /> */}
-            <User size={28} color={colors.tint} />
+          <View style={styles.driverInfo}>
+            <Text style={[styles.driverName, { color: colors.text }]}>{driverName}</Text>
+            <Text style={[styles.driverMeta, { color: colors.textDim }]}>
+              {company} • {vehicleUnit}
+            </Text>
+
+          </View>
+
+          <View style={styles.driverRight}>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/profile")} style={styles.viewProfileButton}>
+              <Text style={[styles.viewProfileText, { color: colors.tint }]}>View</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.driverInfo}>
-          <Text style={[styles.driverName, { color: colors.text }]}>{driverName}</Text>
-          <Text style={[styles.driverMeta, { color: colors.textDim }]}>
-            {company} • {vehicleUnit}
-          </Text>
+        {/* Primary Tools */}
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Primary Tools</Text>
 
-          <View style={styles.statusPillsRow}>
-            <View style={[styles.pill, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
-              <Text style={[styles.pillText, { color: "#10b981" }]}>On Duty</Text>
-            </View>
-            <View style={[styles.pill, { backgroundColor: "rgba(0,113,206,0.12)" }]}>
-              <Text style={[styles.pillText, { color: "#0071ce" }]}>ELD Connected</Text>
-            </View>
-          </View>
+          {primaryItems.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.menuItem, { backgroundColor: colors.surface }]}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: colors.tint + "15" }]}>
+                <Icon icon={item.icon as any} color={colors.tint} size={18} />
+              </View>
+              <View style={styles.menuTextWrap}>
+                <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
+                <Text style={[styles.menuSubtitle, { color: colors.textDim }]}>{item.subtitle}</Text>
+              </View>
+              <Icon icon="caretRight" color={colors.textDim} size={18} />
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <View style={styles.driverRight}>
-          <TouchableOpacity onPress={() => router.push("/profile")} style={styles.viewProfileButton}>
-            <Text style={[styles.viewProfileText, { color: colors.tint }]}>View</Text>
-          </TouchableOpacity>
+        {/* Fleet Management */}
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Fleet</Text>
+
+          {secondaryItems.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.menuItem, { backgroundColor: colors.surface }]}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: colors.tint + "08" }]}>
+                <Icon icon={item.icon as any} color={colors.tint} size={18} />
+              </View>
+              <View style={styles.menuTextWrap}>
+                <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
+                <Text style={[styles.menuSubtitle, { color: colors.textDim }]}>{item.subtitle}</Text>
+              </View>
+              <Icon icon="caretRight" color={colors.textDim} size={18} />
+            </TouchableOpacity>
+          ))}
         </View>
-      </View>
 
-      {/* Primary Tools */}
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Primary Tools</Text>
+        {/* Settings */}
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Settings</Text>
 
-        {primaryItems.map((item, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={item.onPress}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIcon, { backgroundColor: colors.tint + "15" }]}>
-              <Icon icon={item.icon as any} color={colors.tint} size={18} />
-            </View>
-            <View style={styles.menuTextWrap}>
-              <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
-              <Text style={[styles.menuSubtitle, { color: colors.textDim }]}>{item.subtitle}</Text>
-            </View>
-            <Icon icon="caretRight" color={colors.textDim} size={18} />
-          </TouchableOpacity>
-        ))}
-      </View>
+          {settingsItems.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.menuItem, { backgroundColor: colors.surface }]}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: colors.tint + "12" }]}>
+                <Icon icon={item.icon as any} color={colors.tint} size={18} />
+              </View>
+              <View style={styles.menuTextWrap}>
+                <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
+                <Text style={[styles.menuSubtitle, { color: colors.textDim }]}>{item.subtitle}</Text>
+              </View>
+              <Icon icon="caretRight" color={colors.textDim} size={18} />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Fleet Management */}
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Fleet</Text>
-
-        {secondaryItems.map((item, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={item.onPress}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIcon, { backgroundColor: colors.tint + "08" }]}>
-              <Icon icon={item.icon as any} color={colors.tint} size={18} />
-            </View>
-            <View style={styles.menuTextWrap}>
-              <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
-              <Text style={[styles.menuSubtitle, { color: colors.textDim }]}>{item.subtitle}</Text>
-            </View>
-            <Icon icon="caretRight" color={colors.textDim} size={18} />
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Settings */}
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Settings</Text>
-
-        {settingsItems.map((item, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            onPress={item.onPress}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIcon, { backgroundColor: colors.tint + "12" }]}>
-              <Icon icon={item.icon as any} color={colors.tint} size={18} />
-            </View>
-            <View style={styles.menuTextWrap}>
-              <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
-              <Text style={[styles.menuSubtitle, { color: colors.textDim }]}>{item.subtitle}</Text>
-            </View>
-            <Icon icon="caretRight" color={colors.textDim} size={18} />
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Extra spacing for bottom safe area */}
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        {/* Extra spacing for bottom safe area */}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
   )
 }
 

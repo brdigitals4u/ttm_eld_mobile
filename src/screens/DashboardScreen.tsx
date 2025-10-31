@@ -34,6 +34,9 @@ import { EldIndicator } from "@/components/EldIndicator"
 import { colors } from "@/theme/colors"
 import { Header } from "@/components/Header"
 import { COLORS } from "@/constants"
+import HOSChart from "@/components/VictoryHOS"
+
+
 
 export const DashboardScreen = () => {
   const {
@@ -151,6 +154,54 @@ export const DashboardScreen = () => {
     certification,
   ]) as any
 
+
+  const logs = [
+  // Overnight rest (previous day into morning)
+  { start: '2025-10-31T23:00:00-05:00', end: '2025-11-01T06:00:00-05:00', status: 'offDuty' },
+
+  // Early-morning pre-trip inspection
+  { start: '2025-11-01T06:00:00-05:00', end: '2025-11-01T06:20:00-05:00', status: 'onDuty' },
+
+  // First drive segment
+  { start: '2025-11-01T06:20:00-05:00', end: '2025-11-01T09:15:00-05:00', status: 'driving' },
+
+  // Short on-duty fueling check
+  { start: '2025-11-01T09:15:00-05:00', end: '2025-11-01T09:30:00-05:00', status: 'onDuty' },
+
+  // Continue driving
+  { start: '2025-11-01T09:30:00-05:00', end: '2025-11-01T11:45:00-05:00', status: 'driving' },
+
+  // Lunch break
+  { start: '2025-11-01T11:45:00-05:00', end: '2025-11-01T12:30:00-05:00', status: 'offDuty' },
+
+  // Afternoon drive
+  { start: '2025-11-01T12:30:00-05:00', end: '2025-11-01T15:00:00-05:00', status: 'driving' },
+
+  // Quick on-duty check
+  { start: '2025-11-01T15:00:00-05:00', end: '2025-11-01T15:20:00-05:00', status: 'onDuty' },
+
+  // More driving
+  { start: '2025-11-01T15:20:00-05:00', end: '2025-11-01T17:10:00-05:00', status: 'driving' },
+
+  // Pre-shutdown inspection
+  { start: '2025-11-01T17:10:00-05:00', end: '2025-11-01T17:40:00-05:00', status: 'onDuty' },
+
+  // Early evening meal / break
+  { start: '2025-11-01T17:40:00-05:00', end: '2025-11-01T18:15:00-05:00', status: 'offDuty' },
+
+  // Final short drive to yard
+  { start: '2025-11-01T18:15:00-05:00', end: '2025-11-01T19:00:00-05:00', status: 'driving' },
+
+  // Post-trip paperwork
+  { start: '2025-11-01T19:00:00-05:00', end: '2025-11-01T19:25:00-05:00', status: 'onDuty' },
+
+  // End-of-day rest
+  { start: '2025-11-01T19:25:00-05:00', end: '2025-11-02T05:00:00-05:00', status: 'sleeper' },
+];
+
+  
+
+
   const time = (m: number) =>
     `${String(Math.floor(Math.round(m) / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`
 
@@ -205,8 +256,9 @@ export const DashboardScreen = () => {
 
   // Request location on mount
   useEffect(() => {
+    console.log('📍 DashboardScreen: Requesting location...')
     requestLocation()
-  }, [])
+  }, [requestLocation])
 
   const vehicleIconAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: vehicleIconScale.value }],
@@ -340,7 +392,10 @@ export const DashboardScreen = () => {
 
       {/* Greeting Section */}
       <View style={s.greetingSection}>
-        <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]} <EldIndicator /></Text>
+        <View style={s.greetingRow}>
+          <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]},</Text>
+          <EldIndicator />
+        </View>
         <Text style={s.greetingQuestion}>How's your day going?</Text>
       </View>
 
@@ -471,47 +526,7 @@ export const DashboardScreen = () => {
           <Text style={s.activitySubtitle}>Daily Activity</Text>
         </View>
 
-        <View style={s.simpleChart}>
-          <View style={s.chartRow}>
-            <View
-              style={[s.chartBlock, { backgroundColor: "#94A3B8", left: "6%", width: "42%" }]}
-            />
-          </View>
-          <View style={s.chartRow}>
-            <View
-              style={[s.chartBlock, { backgroundColor: "#F59E0B", left: "48%", width: "30%" }]}
-            />
-          </View>
-          <View style={s.chartRow}>
-            <View
-              style={[s.chartBlock, { backgroundColor: "#22C55E", left: "36%", width: "50%" }]}
-            />
-          </View>
-          <View style={s.chartRow}>
-            <View
-              style={[s.chartBlock, { backgroundColor: "#3B82F6", left: "82%", width: "14%" }]}
-            />
-          </View>
-        </View>
-
-        <View style={s.chartLegend}>
-          <View style={s.legendItem}>
-            <View style={[s.legendDot, { backgroundColor: "#94A3B8" }]} />
-            <Text style={s.legendText}>Off Duty</Text>
-          </View>
-          <View style={s.legendItem}>
-            <View style={[s.legendDot, { backgroundColor: "#F59E0B" }]} />
-            <Text style={s.legendText}>Sleeper</Text>
-          </View>
-          <View style={s.legendItem}>
-            <View style={[s.legendDot, { backgroundColor: "#22C55E" }]} />
-            <Text style={s.legendText}>Driving</Text>
-          </View>
-          <View style={s.legendItem}>
-            <View style={[s.legendDot, { backgroundColor: "#3B82F6" }]} />
-            <Text style={s.legendText}>On Duty</Text>
-          </View>
-        </View>
+        <HOSChart data={logs} dayStartIso="2025-11-01" />
       </View>
 
       {/* Vehicle Information Card */}
@@ -733,6 +748,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 24,
     marginBottom: 16,
+  },
+  greetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   greetingText: {
     color: "#1F2937",
