@@ -1,8 +1,9 @@
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View, Dimensions } from "react-native";
+import { StyleSheet, View, Dimensions } from "react-native";
 import { useAppTheme } from "@/theme/context";
 import { StatusUpdate } from "@/types/status";
 import { Calendar, User, Truck } from "lucide-react-native";
+import { Text } from "@/components/Text";
 
 interface HOSChartProps {
   logs: StatusUpdate[];

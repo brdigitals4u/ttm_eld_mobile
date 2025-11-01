@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useCurrentStatus, useHoursOfService, useStatusActions } from '@/stores/statusStore';
 import { colors } from '@/theme/colors';
+import { Text } from '@/components/Text';
 
 /**
  * Example component showing how to use Zustand store directly for real-time synchronization

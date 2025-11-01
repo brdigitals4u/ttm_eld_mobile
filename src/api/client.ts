@@ -9,10 +9,17 @@ export interface ApiResponse<T = any> {
   errors?: Record<string, string[]>
 }
 
-export interface ApiError {
-  message: string
+// ApiError class - defined at top for proper usage
+export class ApiError extends Error {
   status: number
   errors?: Record<string, string[]>
+
+  constructor({ message, status, errors }: { message: string; status: number; errors?: Record<string, string[]> }) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.errors = errors
+  }
 }
 
 // API Client class
@@ -55,6 +62,12 @@ class ApiClient {
       const url = `${this.baseURL}${endpoint}`
       const headers = await this.getHeaders()
 
+      console.log('🌐 API Request:', {
+        method: options.method || 'GET',
+        url,
+        timeout: `${this.timeout}ms`,
+      })
+
       const config: RequestInit = {
         ...options,
         headers: {
@@ -70,6 +83,12 @@ class ApiClient {
 
       const response = await fetch(url, config)
       clearTimeout(timeoutId)
+
+      console.log('✅ API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      })
 
       const data = await response.json()
 
@@ -203,16 +222,3 @@ class ApiClient {
 
 // Create and export API client instance
 export const apiClient = new ApiClient()
-
-// Export ApiError class
-export class ApiError extends Error {
-  status: number
-  errors?: Record<string, string[]>
-
-  constructor({ message, status, errors }: { message: string; status: number; errors?: Record<string, string[]> }) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-    this.errors = errors
-  }
-}

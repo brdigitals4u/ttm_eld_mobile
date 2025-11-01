@@ -102,7 +102,7 @@ export interface VehicleAssignment {
   driver_id: string;
   driver_name: string;
   has_vehicle_assigned: boolean;
-  vehicle_info: VehicleInfo;
+  vehicle_info: VehicleInfo | null;
   assignment_status: string;
 }
 

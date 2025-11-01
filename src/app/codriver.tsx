@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { ArrowLeft, Mail, Plus, User, UserMinus, UserPlus, Users } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useCoDriver } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { CoDriver } from '@/types/codriver';
+import { Text } from '@/components/Text';
 
 export default function CoDriverScreen() {
   const { theme } = useAppTheme();

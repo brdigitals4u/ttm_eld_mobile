@@ -8,6 +8,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { COLORS } from '@/constants';
+import { Text } from '@/components/Text';
+
+const AnimatedText = Animated.createAnimatedComponent(Text);
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -46,9 +49,9 @@ const HOSCircle: React.FC<HOSCircleProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.center}>
-        <Animated.Text style={[styles.text, { fontSize: size * 0.14 }]}>
+        <AnimatedText style={[styles.text, { fontSize: size * 0.14 }]}>
           {text}
-        </Animated.Text>
+        </AnimatedText>
         <Svg height={size} width={size} viewBox="0 0 100 100">
           <Defs>
             <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -97,7 +100,6 @@ const styles = StyleSheet.create({
   },
   text: {
     color: COLORS.primary,
-    fontWeight: 'bold',
     position: 'absolute',
   },
 });

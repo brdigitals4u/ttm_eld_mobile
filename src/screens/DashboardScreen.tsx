@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native"
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native"
 import { router } from "expo-router"
 import {
   MapPin,
@@ -15,7 +15,7 @@ import {
   BookOpen,
 } from "lucide-react-native"
 
-import * as Progress from "react-native-progress"
+import * as Progress from "react-native-progress" 
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -35,6 +35,7 @@ import { colors } from "@/theme/colors"
 import { Header } from "@/components/Header"
 import { COLORS } from "@/constants"
 import HOSChart from "@/components/VictoryHOS"
+import { Text } from "@/components/Text"
 
 
 
@@ -748,7 +749,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 24,
     marginBottom: 16,
-  },
+    },
   greetingRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { ArrowLeft, FileText, Plus, Truck } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useAssets } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { Asset } from '@/types/assets';
+import { Text } from '@/components/Text';
 
 export default function AssetsScreen() {
   const { theme } = useAppTheme();

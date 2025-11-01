@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { View, StyleSheet, KeyboardAvoidingView, Platform, TextInput, TouchableOpacity, Linking, ScrollView, Image } from 'react-native'
+import React, { useState, useMemo } from 'react'
+import { View, StyleSheet, KeyboardAvoidingView, Platform, TextInput, TouchableOpacity, Linking, ScrollView, Image, Pressable } from 'react-native'
 import { Text } from '@/components/Text'
 import { useDriverLogin } from '@/api/organization'
 import { useAuth } from '@/stores/authStore'
@@ -15,11 +15,18 @@ export const LoginScreen: React.FC = () => {
   const driverLoginMutation = useDriverLogin()
 
   const [credentials, setCredentials] = useState<LoginCredentials>({
-    email: '',
-    password: '',
+    email: 'testdriver.cognito@ttmkonnect.com',
+    password: 'TestDriver@2025!',
   })
   const [errors, setErrors] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false)
+  const [privacyError, setPrivacyError] = useState('')
+
+  // Check if button should be disabled
+  const isButtonDisabled = useMemo(() => {
+    return !credentials.email.trim() || !credentials.password || !agreedToPrivacy
+  }, [credentials.email, credentials.password, agreedToPrivacy])
 
   const validateForm = () => {
     let valid = true
@@ -40,7 +47,13 @@ export const LoginScreen: React.FC = () => {
   }
 
   const handleLogin = async () => {
-    if (!validateForm()) return
+    if (!validateForm()) {
+      throw new Error('Please fix form errors')
+    }
+    if (!agreedToPrivacy) {
+      setPrivacyError('You must agree to the Privacy Policy to continue')
+      throw new Error('You must agree to the Privacy Policy to continue')
+    }
     try {
       const result = await driverLoginMutation.mutateAsync({
         email: credentials.email,
@@ -57,6 +70,7 @@ export const LoginScreen: React.FC = () => {
       else if (error?.message) errorMessage = error.message
       else if (typeof error === 'string') errorMessage = error
       toast.error(errorMessage, 4000)
+      throw error // Re-throw to prevent AnimatedButton from showing success
     }
   }
 
@@ -145,6 +159,36 @@ export const LoginScreen: React.FC = () => {
             {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
           </View>
 
+          {/* Privacy Policy Agreement */}
+          <View style={styles.privacyContainer}>
+            <Pressable 
+              style={styles.checkboxContainer}
+              onPress={() => {
+                setAgreedToPrivacy(!agreedToPrivacy)
+                setPrivacyError('')
+              }}
+            >
+              <View style={[styles.checkbox, agreedToPrivacy && styles.checkboxChecked]}>
+                {agreedToPrivacy && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <View style={styles.privacyTextContainer}>
+                <Text style={styles.privacyText}>
+                  I agree to the{' '}
+                  <Text 
+                    style={styles.privacyLink}
+                    onPress={(e) => {
+                      e.stopPropagation()
+                      Linking.openURL('https://ttmkonnect.com/privacy')
+                    }}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </View>
+            </Pressable>
+            {!!privacyError && <Text style={styles.errorText}>{privacyError}</Text>}
+          </View>
+
           {/* Forgot Password */}
           <TouchableOpacity style={styles.forgotContainer} onPress={handleForgotPassword}>
             <Text style={styles.forgotText}>Forget password?</Text>
@@ -157,6 +201,7 @@ export const LoginScreen: React.FC = () => {
             onSuccess={handleLoginSuccess}
             loadingAnimation={loadingAnimation}
             successAnimation={successAnimation}
+            disabled={isButtonDisabled}
             style={styles.loginButton}
             textStyle={styles.loginButtonText}
             successDuration={1500}
@@ -239,6 +284,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#EF4444',
     marginTop: 6,
+  },
+
+  /* Privacy Policy */
+  privacyContainer: {
+    marginBottom: 16,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.ink300,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.indigo,
+    borderColor: COLORS.indigo,
+  },
+  checkmark: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  privacyTextContainer: {
+    flex: 1,
+  },
+  privacyText: {
+    fontSize: 14,
+    color: COLORS.ink700,
+    lineHeight: 20,
+  },
+  privacyLink: {
+    color: COLORS.indigo,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 
   /* Forgot Password */

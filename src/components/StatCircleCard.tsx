@@ -1,5 +1,5 @@
 import React, { useEffect } from "react"
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native"
+import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native"
 import Svg, { Circle } from "react-native-svg"
 import Animated, {
   useSharedValue,
@@ -11,6 +11,7 @@ import Animated, {
   Extrapolate,
   Easing,
 } from "react-native-reanimated"
+import { Text } from "@/components/Text"
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView)

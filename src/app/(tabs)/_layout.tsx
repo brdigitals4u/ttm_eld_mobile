@@ -1,7 +1,8 @@
 import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui'
-import { View, Pressable, Text, StyleSheet, Platform } from 'react-native'
+import { Pressable, StyleSheet, Platform } from 'react-native'
 import { Icon } from '@/components/Icon'
 import { COLORS } from '@/constants/colors'
+import { Text } from '@/components/Text'
 
 function CustomTabButton({ isFocused, icon, label, ...props }: any) {
   return (

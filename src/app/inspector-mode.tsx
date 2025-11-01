@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { ArrowLeft, Clock, FileText, Lock, Share2, Unlock } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
 import  LogEntry  from '@/components/LogEntry';
 import { useAuth, useStatus } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
+import { Text } from '@/components/Text';
 
 export default function InspectorModeScreen() {
   const { theme } = useAppTheme();

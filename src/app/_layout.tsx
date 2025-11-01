@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Slot } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
-import { useFonts } from "@expo-google-fonts/space-grotesk"
+import { useFonts } from "expo-font"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
 

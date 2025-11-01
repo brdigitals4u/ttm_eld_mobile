@@ -1,7 +1,9 @@
 // FMCSA-compliant HOS Chart
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Dimensions, ScrollView } from "react-native";
+import { View, StyleSheet, Dimensions, ScrollView } from "react-native";
 import Svg, { Rect, Line as SvgLine, Text as SvgText } from "react-native-svg";
+import { Text } from "@/components/Text";
+import { typography } from "@/theme/typography";
 
 /**
  * FMCSA HOS Chart Component
@@ -327,7 +329,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: typography.primary.bold,
     color: "#111827",
   },
   subHeaderText: {
@@ -355,6 +357,6 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 12,
     color: "#374151",
-    fontWeight: "600",
+    fontFamily: typography.primary.semiBold,
   },
 });

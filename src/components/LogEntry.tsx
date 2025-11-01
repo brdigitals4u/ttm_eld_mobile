@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
 import { useAppTheme } from '@/theme/context';
 import { StatusUpdate } from '@/types/status';
 import { hosApi } from '@/api/hos';
 import { Check, Lock } from 'lucide-react-native';
+import { Text } from '@/components/Text';
 
 interface LogEntryProps {
   log: StatusUpdate;

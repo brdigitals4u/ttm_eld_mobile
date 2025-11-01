@@ -1,6 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import { useAppTheme } from '@/theme/context';
+import { Text } from '@/components/Text';
 
 interface ButtonProps {
   title: string;

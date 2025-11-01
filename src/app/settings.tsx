@@ -1,10 +1,11 @@
 import { ArrowLeft, Bell, Moon, Smartphone, Sun } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useAppTheme } from '@/theme/context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Text } from '@/components/Text';
 
 export default function SettingsScreen() {
   const { theme, setThemeContextOverride } = useAppTheme();

@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   buttonDisabled: {
-    opacity: 0.9,
+    opacity: 0.5,
   },
   buttonText: {
     color: "#FFFFFF",

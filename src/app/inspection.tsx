@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { ArrowLeft, CheckCircle, Clock, XCircle } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useInspection } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { InspectionItem } from '@/types/inspection';
+import { Text } from '@/components/Text';
 
 export default function InspectionScreen() {
   const { theme } = useAppTheme();
