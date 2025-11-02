@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import * as Location from 'expo-location'
+import { useStatusStore } from '@/stores/statusStore'
 
 export interface LocationData {
   latitude: number
@@ -25,6 +26,7 @@ interface LocationProviderProps {
 }
 
 export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) => {
+  const { setCurrentLocation: setStatusLocation } = useStatusStore()
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -120,8 +122,14 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       }
 
       setCurrentLocation(locationData)
+      // Store expo-location in global state (non-blocking)
+      setStatusLocation({
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        address: locationData.address,
+      })
       setIsLoading(false)
-      console.log('Location data:', locationData)
+      console.log('📍 Location Context: Stored expo-location:', locationData.latitude, locationData.longitude)
       return locationData
     } catch (error: any) {
       console.error('Error getting current location:', error)

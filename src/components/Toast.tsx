@@ -1,8 +1,15 @@
 import React, { useEffect } from 'react'
-import { View, StyleSheet, Animated, Dimensions } from 'react-native'
-import { Card, Text, IconButton } from 'react-native-paper'
+import { View, StyleSheet, TouchableOpacity } from 'react-native'
+import { Card, Text } from 'react-native-paper'
 import { useAppTheme } from '@/theme/context'
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
+import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated'
 
 export interface ToastProps {
   visible: boolean
@@ -22,8 +29,22 @@ export const Toast: React.FC<ToastProps> = ({
   position = 'top',
 }) => {
   const { theme } = useAppTheme()
-  const translateY = React.useRef(new Animated.Value(position === 'top' ? -100 : 100)).current
-  const opacity = React.useRef(new Animated.Value(0)).current
+  
+  // Use react-native-reanimated values
+  const translateY = useSharedValue(position === 'top' ? -100 : 100)
+  const opacity = useSharedValue(0)
+  const scale = useSharedValue(0.8)
+
+  // Animated styles
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+      opacity: opacity.value,
+    }
+  })
 
   const getToastColors = () => {
     switch (type) {
@@ -65,18 +86,21 @@ export const Toast: React.FC<ToastProps> = ({
     }
   }
 
-  const getIconName = () => {
+  const getIcon = () => {
+    const iconColor = getToastColors().icon
+    const iconSize = 24
+    
     switch (type) {
       case 'success':
-        return 'check-circle'
+        return <CheckCircle size={iconSize} color={iconColor} />
       case 'warning':
-        return 'alert-circle'
+        return <AlertTriangle size={iconSize} color={iconColor} />
       case 'error':
-        return 'close-circle'
+        return <AlertCircle size={iconSize} color={iconColor} />
       case 'info':
-        return 'information'
+        return <Info size={iconSize} color={iconColor} />
       default:
-        return 'information'
+        return <Info size={iconSize} color={iconColor} />
     }
   }
 
@@ -84,19 +108,25 @@ export const Toast: React.FC<ToastProps> = ({
 
   useEffect(() => {
     if (visible) {
-      // Show animation
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
+      // Show animation with scale and bounce effect
+      translateY.value = withTiming(0, {
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+      })
+      opacity.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+      })
+      scale.value = withSequence(
+        withTiming(1.1, {
+          duration: 150,
+          easing: Easing.out(Easing.cubic),
         }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start()
+        withTiming(1, {
+          duration: 150,
+          easing: Easing.in(Easing.cubic),
+        })
+      )
 
       // Auto dismiss
       const timer = setTimeout(() => {
@@ -111,18 +141,18 @@ export const Toast: React.FC<ToastProps> = ({
   }, [visible])
 
   const hideToast = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: position === 'top' ? -100 : 100,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
+    translateY.value = withTiming(position === 'top' ? -100 : 100, {
+      duration: 300,
+      easing: Easing.in(Easing.cubic),
+    })
+    opacity.value = withTiming(0, {
+      duration: 300,
+      easing: Easing.in(Easing.cubic),
+    })
+    scale.value = withTiming(0.8, {
+      duration: 300,
+      easing: Easing.in(Easing.cubic),
+    }, () => {
       onDismiss()
     })
   }
@@ -135,9 +165,8 @@ export const Toast: React.FC<ToastProps> = ({
         styles.container,
         {
           [position]: 50,
-          transform: [{ translateY }],
-          opacity,
         },
+        animatedStyle,
       ]}
     >
       <Card
@@ -153,7 +182,9 @@ export const Toast: React.FC<ToastProps> = ({
       >
         <View style={styles.content}>
           <View style={styles.leftContent}>
-            <Icon name={getIconName()} size={24} color={colors.icon} />
+            <View style={styles.iconContainer}>
+              {getIcon()}
+            </View>
             <Text
               variant="bodyMedium"
               style={[styles.message, { color: colors.text }]}
@@ -161,13 +192,13 @@ export const Toast: React.FC<ToastProps> = ({
               {message}
             </Text>
           </View>
-          <IconButton
-            icon="close"
-            size={20}
-            iconColor={colors.icon}
+          <TouchableOpacity
             onPress={hideToast}
             style={styles.closeButton}
-          />
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <X size={20} color={colors.icon} />
+          </TouchableOpacity>
         </View>
       </Card>
     </Animated.View>
@@ -196,14 +227,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  iconContainer: {
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   message: {
-    marginLeft: 12,
     flex: 1,
     fontWeight: '500',
   },
   closeButton: {
     margin: 0,
-    padding: 0,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 })
 

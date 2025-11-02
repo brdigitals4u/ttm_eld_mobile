@@ -18,6 +18,11 @@ export interface StatusState {
     longitude: number;
     address?: string;
   };
+  eldLocation?: {
+    latitude: number;
+    longitude: number;
+    timestamp?: number;
+  };
 }
 
 // Actions
@@ -53,6 +58,7 @@ interface StatusActions {
   
   // Location
   setCurrentLocation: (location: StatusState['currentLocation']) => void;
+  setEldLocation: (location: StatusState['eldLocation']) => void;
   
   // Utility functions
   getStatusReasons: (status?: DriverStatus) => StatusReason[];
@@ -91,6 +97,7 @@ const initialState: StatusState = {
   logEntries: [],
   splitSleepSettings: initialSplitSleepSettings,
   currentLocation: undefined,
+  eldLocation: undefined,
 };
 
 // Predefined status reasons
@@ -342,8 +349,13 @@ export const useStatusStore = create<StatusState & StatusActions>()(
 
       // Location
       setCurrentLocation: (location: StatusState['currentLocation']) => {
-        console.log('🔄 StatusStore: Setting current location:', location);
+        console.log('🔄 StatusStore: Setting current location (expo-location):', location);
         set({ currentLocation: location });
+      },
+      
+      setEldLocation: (location: StatusState['eldLocation']) => {
+        console.log('🔄 StatusStore: Setting ELD location:', location);
+        set({ eldLocation: location });
       },
 
       // Utility functions
@@ -380,6 +392,7 @@ export const useStatusStore = create<StatusState & StatusActions>()(
         certification: state.certification,
         splitSleepSettings: state.splitSleepSettings,
         currentLocation: state.currentLocation,
+        eldLocation: state.eldLocation,
       }),
       onRehydrateStorage: () => (state) => {
         console.log('🔄 StatusStore: Rehydrating from AsyncStorage...');
@@ -424,6 +437,7 @@ export const useStatusActions = () => useStatusStore(state => ({
   setSplitSleepSettings: state.setSplitSleepSettings,
   toggleSplitSleep: state.toggleSplitSleep,
   setCurrentLocation: state.setCurrentLocation,
+  setEldLocation: state.setEldLocation,
   getStatusReasons: state.getStatusReasons,
   formatDuration: state.formatDuration,
   canUpdateStatus: state.canUpdateStatus,

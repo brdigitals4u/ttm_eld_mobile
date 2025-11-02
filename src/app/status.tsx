@@ -31,9 +31,9 @@ import { DriverStatus } from "@/types/status"
 import { Header } from "@/components/Header"
 import { useHOSClock, useChangeDutyStatus, hosApi } from "@/api/hos"
 import { useAuth } from "@/stores/authStore"
-import { useLocation } from "@/contexts/location-context"
 import { useStatusStore } from "@/stores/statusStore"
 import { useObdData } from "@/contexts/obd-data-context"
+import { useLocationData } from "@/hooks/useLocationData"
 import { useToast } from "@/providers/ToastProvider"
 import { ActivityIndicator } from "react-native"
 
@@ -96,9 +96,9 @@ export default function StatusScreen() {
     getStatusReasons,
   } = useStatus()
   const { isAuthenticated, updateHosStatus, hosStatus, logout } = useAuth()
-  const { currentLocation, requestLocation } = useLocation()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
   const { obdData } = useObdData()
+  const locationData = useLocationData()
   const toast = useToast()
   const [showDoneForDayModal, setShowDoneForDayModal] = useState(false)
   const [showReasonModal, setShowReasonModal] = useState(false)
@@ -218,43 +218,10 @@ export default function StatusScreen() {
     setIsSubmittingStatus(true)
 
     try {
-      console.log('📍 Step 1: Getting location data')
-      
-      // Get location - try to request if not available, but don't block
-      let locationData = currentLocation
-      if (!locationData) {
-        console.log('📍 No current location, requesting (with 5s timeout)...')
-        try {
-          // Request location with timeout - don't wait longer than 5 seconds
-          const locationPromise = requestLocation()
-          const timeoutPromise = new Promise<null>((resolve) => 
-            setTimeout(() => {
-              console.log('📍 Location request timed out after 5s, continuing with defaults')
-              resolve(null)
-            }, 5000)
-          )
-          
-          locationData = await Promise.race([locationPromise, timeoutPromise])
-          console.log('📍 Location request completed:', locationData ? 'Success' : 'Timeout/Failed')
-        } catch (locationError: any) {
-          console.warn('⚠️ Location request failed:', locationError?.message)
-          locationData = null
-        }
-      } else {
-        console.log('📍 Using cached location data')
-      }
-
-      // Get location data - ensure we have valid values
-      const location = locationData?.address || currentLocation?.address || "Unknown location"
-      const latitude = locationData?.latitude ?? currentLocation?.latitude ?? null
-      const longitude = locationData?.longitude ?? currentLocation?.longitude ?? null
+      // Get odometer - no location blocking
       const odometer = getOdometer()
 
-      console.log('📍 Location data for API:', { location, latitude, longitude, odometer })
-      console.log('🕐 HOS Clock ID:', hosClock?.id)
-      console.log('🕐 HOS Clock full object:', JSON.stringify(hosClock, null, 2))
-      console.log('📝 Selected Status:', selectedStatus)
-      console.log('📝 Final Reason:', finalReason)
+
 
       // Validate that we have a clock ID
       if (!hosClock?.id) {
@@ -269,18 +236,17 @@ export default function StatusScreen() {
       console.log('📊 API Status mapped:', apiStatus, 'from app status:', selectedStatus)
 
       // Build payload exactly as API expects
+      // Use locationData hook which prioritizes: ELD -> Expo -> 0,0
       const requestPayload: any = {
         duty_status: apiStatus,
-        location: location,
+        location: "", // Empty text as requested (no reverse geocoding)
         notes: finalReason,
       }
-
-      // Only include lat/long if we have them
-      if (latitude !== null && latitude !== undefined) {
-        requestPayload.latitude = latitude
-      }
-      if (longitude !== null && longitude !== undefined) {
-        requestPayload.longitude = longitude
+      
+      // Include lat/lng from locationData (ELD -> Expo -> 0,0)
+      if (locationData.latitude !== 0 || locationData.longitude !== 0) {
+        requestPayload.latitude = locationData.latitude
+        requestPayload.longitude = locationData.longitude
       }
       
       // Only include odometer if we have a value
@@ -302,10 +268,7 @@ export default function StatusScreen() {
           clockId: hosClock.id,
           request: requestPayload,
         })
-
-          console.log('✅ StatusScreen: HOS API call successful', result)
-          
-          // Show success toast
+   // Show success toast
           toast.success("Status updated successfully")
           
           // Update HOS status immediately with the response data (if available)
@@ -354,12 +317,7 @@ export default function StatusScreen() {
           setIsOtherSelected(false)
           setOtherReasonText("")
         } catch (error: any) {
-          console.error('❌ StatusScreen: Failed to update HOS status via API')
-          console.error('❌ Error type:', error?.constructor?.name)
-          console.error('❌ Error status:', error?.status)
-          console.error('❌ Error message:', error?.message)
-          console.error('❌ Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
-          
+
           // Handle 404 - clock might not exist
           if (error?.status === 404) {
             toast.error("HOS clock not found. Please refresh or contact support.")
@@ -380,12 +338,7 @@ export default function StatusScreen() {
           setOtherReasonText("")
         }
     } catch (error: any) {
-      console.error("❌ Status change outer error:", error)
-      console.error("❌ Error type:", error?.constructor?.name)
-      console.error("❌ Error message:", error?.message)
-      console.error("❌ Error stack:", error?.stack)
-      console.error("❌ Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
-      
+
       toast.error("Failed to update status. Please try again.")
       setShowReasonModal(false)
       setSelectedStatus(null)
@@ -402,40 +355,37 @@ export default function StatusScreen() {
     setIsGoingOffDuty(true)
     
     try {
-      // Request location if not available
-      if (!currentLocation) {
-        await requestLocation()
-      }
-
-      const location = currentLocation?.address || "Unknown location"
-      const latitude = currentLocation?.latitude
-      const longitude = currentLocation?.longitude
+      // Get odometer - no location blocking
       const odometer = getOdometer()
 
-      console.log('🚀 handleGoOffDuty: Starting off duty API call', {
-        clockId: hosClock?.id,
-        location,
-        latitude,
-        longitude,
-        odometer,
-        reason,
-      })
+
 
       // Call HOS API if we have a clock ID
       if (hosClock?.id) {
         try {
           const apiStatus = hosApi.getAPIDutyStatus("offDuty")
+          
+          // Use locationData hook which prioritizes: ELD -> Expo -> 0,0
+          const requestPayload: any = {
+            duty_status: apiStatus,
+            location: "", // Empty text as requested
+            notes: reason,
+          }
+          
+          // Include lat/lng from locationData (ELD -> Expo -> 0,0)
+          if (locationData.latitude !== 0 || locationData.longitude !== 0) {
+            requestPayload.latitude = locationData.latitude
+            requestPayload.longitude = locationData.longitude
+          }
+          
+          // Only include odometer if we have a value
+          if (odometer > 0) {
+            requestPayload.odometer = odometer
+          }
 
           const result = await changeDutyStatusMutation.mutateAsync({
             clockId: hosClock.id,
-            request: {
-              duty_status: apiStatus,
-              location: location,
-              latitude: latitude,
-              longitude: longitude,
-              odometer: odometer || undefined,
-              notes: reason,
-            },
+            request: requestPayload,
           })
 
           console.log('✅ StatusScreen: Off duty status synced to backend', result)

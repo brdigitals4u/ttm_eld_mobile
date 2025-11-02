@@ -30,7 +30,8 @@ import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
-import { useHOSClock, useComplianceSettings, hosApi } from "@/api/hos"
+import { useLocationData } from "@/hooks/useLocationData"
+import { useHOSClock, useComplianceSettings, useDailyLogs, hosApi } from "@/api/hos"
 import { useStatusStore } from "@/stores/statusStore"
 import { DriverStatus } from "@/types/status"
 import HOSCircle from "@/components/HOSSvg"
@@ -58,8 +59,16 @@ export const DashboardScreen = () => {
   } = useAuth()
   const { logEntries, certification, hoursOfService } = useStatus()
   const { currentLocation, requestLocation } = useLocation()
+  const locationData = useLocationData()
   const { obdData, isConnected: eldConnected } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
+
+  // Request location non-blocking on mount (for fallback when ELD not available)
+  useEffect(() => {
+    // Request location in background without blocking
+    locationData.refreshLocation()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
 
   // Sync HOS Clock from backend
   const { 
@@ -78,7 +87,7 @@ export const DashboardScreen = () => {
     isLoading: isSettingsLoading 
   } = useComplianceSettings({
     enabled: isAuthenticated,
-  })
+  }) as any
 
   // Sync HOS clock data to auth store and status store when it updates
   useEffect(() => {
@@ -122,20 +131,28 @@ export const DashboardScreen = () => {
     }
   }, [hosError])
 
-  // Shorten location address
+  // Shorten location address - use locationData hook which prioritizes ELD -> Expo -> fallback
   const shortLocationAddress = useMemo(() => {
-    if (!currentLocation?.address) return "Loading location..."
-
-    const parts = currentLocation.address.split(", ")
-    if (parts.length >= 2) {
-      // Return just city and state/region
-      return parts.slice(-2).join(", ")
+    if (locationData.address) {
+      const parts = locationData.address.split(", ")
+      if (parts.length >= 2) {
+        // Return just city and state/region
+        return parts.slice(-2).join(", ")
+      }
+      // If format is unexpected, return first 30 chars
+      return locationData.address.length > 30
+        ? locationData.address.substring(0, 30) + "..."
+        : locationData.address
     }
-    // If format is unexpected, return first 30 chars
-    return currentLocation.address.length > 30
-      ? currentLocation.address.substring(0, 30) + "..."
-      : currentLocation.address
-  }, [currentLocation])
+    
+    // Show source instead of "Loading location..."
+    if (locationData.source === 'eld') {
+      return "ELD Location"
+    } else if (locationData.source === 'expo') {
+      return "GPS Location"
+    }
+    return "Location unavailable"
+  }, [locationData])
 
   // Extract speed and fuel level from OBD data
   const currentSpeed = useMemo(() => {
@@ -222,8 +239,8 @@ export const DashboardScreen = () => {
         if (complianceSettings?.cycle_type) {
           // Format: "70_hour_8_day" -> "USA 70 hours / 8 days"
           const parts = complianceSettings.cycle_type.split('_')
-          const hours = parts.find(p => p.includes('hour'))?.replace('hour', '') || '70'
-          const days = parts.find(p => p.includes('day'))?.replace('day', '') || '8'
+          const hours = parts.find((p: any) => p.includes('hour'))?.replace('hour', '') || '70'
+          const days = parts.find((p: any) => p.includes('day'))?.replace('day', '') || '8'
           return `USA ${hours} hours / ${days} days`
         }
         return organizationSettings?.hos_settings?.cycle_type || "USA 70 hours / 8 days"

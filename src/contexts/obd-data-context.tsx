@@ -3,6 +3,7 @@ import JMBluetoothService from '@/services/JMBluetoothService'
 import { ObdEldData } from '@/types/JMBluetooth'
 import { handleData } from '@/services/handleData'
 import { useAuth } from '@/stores/authStore'
+import { useStatusStore } from '@/stores/statusStore'
 import { sendObdDataBatch, ObdDataPayload } from '@/api/obd'
 import { awsApiService, AwsObdPayload } from '@/services/AwsApiService'
 import { awsConfig } from '@/config/aws-config'
@@ -28,6 +29,7 @@ const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
 
 export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, driverProfile, vehicleAssignment } = useAuth()
+  const { setEldLocation } = useStatusStore()
   const [obdData, setObdData] = useState<OBDDataItem[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -58,6 +60,17 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setObdData(displayData)
         setLastUpdate(new Date())
         setIsConnected(true)
+
+        // Store ELD location in global state (non-blocking)
+        if (data.latitude !== undefined && data.longitude !== undefined && 
+            !isNaN(data.latitude) && !isNaN(data.longitude)) {
+          setEldLocation({
+            latitude: data.latitude,
+            longitude: data.longitude,
+            timestamp: Date.now(),
+          })
+          console.log('📍 OBD Data Context: Stored ELD location:', data.latitude, data.longitude)
+        }
 
         // Add to buffers for dual sync (Local API + AWS)
         if (driverProfile?.driver_id) {
