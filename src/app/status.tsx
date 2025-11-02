@@ -95,7 +95,7 @@ export default function StatusScreen() {
     updateStatus,
     getStatusReasons,
   } = useStatus()
-  const { isAuthenticated, updateHosStatus, hosStatus, logout } = useAuth()
+  const { isAuthenticated, updateHosStatus, hosStatus, logout, driverProfile } = useAuth()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
   const { obdData } = useObdData()
   const locationData = useLocationData()
@@ -112,14 +112,16 @@ export default function StatusScreen() {
   const insets = useSafeAreaInsets()
 
   // Get HOS clock data and sync to auth store
+  // CRITICAL: Pass driver_id to ensure we get the clock for the logged-in driver
   const { 
     data: hosClock, 
     isLoading: isClockLoading,
     isFetching: isClockFetching 
   } = useHOSClock({
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!driverProfile?.driver_id,
     refetchInterval: 60000, // Sync every 60 seconds
     refetchIntervalInBackground: false,
+    driverId: driverProfile?.driver_id,  // Match clock by driver_id from auth store
   })
 
   // Sync HOS clock data to auth store and status store when it updates
@@ -259,14 +261,19 @@ export default function StatusScreen() {
       console.log('📤 Full payload:', JSON.stringify(requestPayload, null, 2))
 
       try {
+        const driverIdForLog = hosClock.driver || driverProfile?.driver_id
         console.log('🔄 Calling mutateAsync with:', {
           clockId: hosClock.id,
           request: requestPayload,
+          driverId: driverIdForLog,
+          hasDriverId: !!driverIdForLog,
         })
         
         const result = await changeDutyStatusMutation.mutateAsync({
           clockId: hosClock.id,
           request: requestPayload,
+          driverId: driverIdForLog,  // For log entry creation
+          previousClock: hosClock,  // Previous clock state for start_time
         })
    // Show success toast
           toast.success("Status updated successfully")
@@ -383,9 +390,14 @@ export default function StatusScreen() {
             requestPayload.odometer = odometer
           }
 
+          const driverIdForLog = hosClock.driver || driverProfile?.driver_id
+          console.log('🔄 Off duty: Calling mutateAsync with driverId:', driverIdForLog)
+          
           const result = await changeDutyStatusMutation.mutateAsync({
             clockId: hosClock.id,
             request: requestPayload,
+            driverId: driverIdForLog,  // For log entry creation
+            previousClock: hosClock,  // Previous clock state for start_time
           })
 
           console.log('✅ StatusScreen: Off duty status synced to backend', result)

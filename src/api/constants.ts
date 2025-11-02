@@ -49,11 +49,13 @@ export const API_ENDPOINTS = {
     UPDATE_CLOCK: '/hos/clocks/{id}/',
     CHANGE_DUTY_STATUS: '/hos/clocks/{id}/change_duty_status/',
     GET_DAILY_LOGS: '/hos/daily-logs/',
+    GET_HOS_LOGS: '/hos/logs/',  // GET endpoint for individual log entries
     GET_COMPLIANCE_SETTINGS: '/hos/compliance-settings/',
     CREATE_LOG_ENTRY: '/hos/logs/',
     CREATE_DAILY_LOG: '/hos/daily-logs/',
     CREATE_ELD_EVENT: '/hos/eld-events/',
-    CERTIFY_LOG: '/hos/logs/{id}/certify/',
+    CERTIFY_LOG: '/hos/daily-logs/{id}/',  // PATCH endpoint per spec
+    CERTIFY_ALL_UNCERTIFIED: '/hos/daily-logs/certify-all-uncertified/',  // POST endpoint
   },
 }
 

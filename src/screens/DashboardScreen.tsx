@@ -31,7 +31,7 @@ import { useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
 import { useLocationData } from "@/hooks/useLocationData"
-import { useHOSClock, useComplianceSettings, useDailyLogs, hosApi } from "@/api/hos"
+import { useHOSClock, useComplianceSettings, useHOSLogs, hosApi } from "@/api/hos"
 import { useStatusStore } from "@/stores/statusStore"
 import { DriverStatus } from "@/types/status"
 import HOSCircle from "@/components/HOSSvg"
@@ -42,6 +42,8 @@ import { colors } from "@/theme/colors"
 import { Header } from "@/components/Header"
 import { COLORS } from "@/constants"
 import HOSChart from "@/components/VictoryHOS"
+import HOSChartSkeleton from "@/components/HOSChartSkeleton"
+import HOSServiceCardSkeleton from "@/components/HOSServiceCardSkeleton"
 import { Text } from "@/components/Text"
 
 
@@ -89,6 +91,28 @@ export const DashboardScreen = () => {
     enabled: isAuthenticated,
   }) as any
 
+  // Get today's and next day's HOS logs for chart and uncertified count
+  // IMPORTANT: Call after HOS clock is fetched, using driver ID from clock
+  // Using today and next day gives better HOS chart visualization
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0] // YYYY-MM-DD
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowStr = tomorrow.toISOString().split('T')[0] // YYYY-MM-DD
+  const correctDriverId = hosClock?.driver || driverProfile?.driver_id
+  const { 
+    data: todayHOSLogs, 
+    isLoading: isHOSLogsLoading,
+    refetch: refetchHOSLogs 
+  } = useHOSLogs(
+    { 
+      driver: correctDriverId,    // Sent as driver_id to API
+      startDate: todayStr,        // Sent as start_date to API
+      endDate: tomorrowStr,       // Sent as end_date to API (today + next day)
+    },
+    { enabled: isAuthenticated && !!correctDriverId && !!hosClock } // Only call after HOS clock is available
+  )
+
   // Sync HOS clock data to auth store and status store when it updates
   useEffect(() => {
     if (hosClock && isAuthenticated) {
@@ -121,8 +145,15 @@ export const DashboardScreen = () => {
         breakTimeRemaining: hoursOfService.breakTimeRemaining, // Keep existing break time
         lastCalculated: Date.now(),
       })
+      
+      // Refetch HOS logs after HOS clock is synced
+      // This ensures HOS logs are fetched with the correct driver ID from the clock
+      if (refetchHOSLogs) {
+        console.log('🔄 Dashboard: Refetching HOS logs after HOS clock sync, driver ID:', hosClock.driver)
+        refetchHOSLogs()
+      }
     }
-  }, [hosClock, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining])
+  }, [hosClock, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining, refetchHOSLogs])
 
   // Log HOS sync errors
   useEffect(() => {
@@ -225,7 +256,34 @@ export const DashboardScreen = () => {
 
     const orgName = organizationSettings?.organization_name || "TTM Konnect"
 
-    const uncertifiedLogsCount = logEntries.filter((log) => !log.isCertified).length
+    // Calculate uncertified count from HOS logs API or local logEntries
+    let uncertifiedLogsCount = 0
+    if (todayHOSLogs && todayHOSLogs.length > 0) {
+      // Filter logs for today only and count those that are not certified
+      const todayStart = new Date(today)
+      todayStart.setHours(0, 0, 0, 0)
+      const todayEnd = new Date(today)
+      todayEnd.setHours(23, 59, 59, 999)
+      
+      uncertifiedLogsCount = todayHOSLogs.filter((log: any) => {
+        const logDate = log.start_time ? new Date(log.start_time) : null
+        if (!logDate) return false
+        // Only count logs from today (not tomorrow)
+        const isToday = logDate >= todayStart && logDate <= todayEnd
+        // Individual HOS logs are considered uncertified until aggregated into daily logs
+        return isToday && !log.is_certified
+      }).length
+    } else {
+      // Fallback to local logEntries
+      const todayStart = new Date(today)
+      todayStart.setHours(0, 0, 0, 0)
+      const todayEnd = new Date(today)
+      todayEnd.setHours(23, 59, 59, 999)
+      uncertifiedLogsCount = logEntries.filter((log) => {
+        const logDate = new Date(log.startTime)
+        return logDate >= todayStart && logDate <= todayEnd && !log.isCertified
+      }).length
+    }
 
     return {
       appTitle: orgName,
@@ -240,7 +298,7 @@ export const DashboardScreen = () => {
           // Format: "70_hour_8_day" -> "USA 70 hours / 8 days"
           const parts = complianceSettings.cycle_type.split('_')
           const hours = parts.find((p: any) => p.includes('hour'))?.replace('hour', '') || '70'
-          const days = parts.find((p: any) => p.includes('day'))?.replace('day', '') || '8'
+          const days = parts.find((p: any)   => p.includes('day'))?.replace('day', '') || '8'
           return `USA ${hours} hours / ${days} days`
         }
         return organizationSettings?.hos_settings?.cycle_type || "USA 70 hours / 8 days"
@@ -271,52 +329,42 @@ export const DashboardScreen = () => {
     logEntries,
     certification,
     complianceSettings,
+    todayHOSLogs,
   ]) as any
 
 
-  const logs = [
-  // Overnight rest (previous day into morning)
-  { start: '2025-10-31T23:00:00-05:00', end: '2025-11-01T06:00:00-05:00', status: 'offDuty' },
+  // Convert HOS logs API response to chart format
+  // HOS logs API returns individual log entries with start_time, end_time, duty_status
+  // Using today and next day gives better HOS chart visualization
+  const logs = useMemo(() => {
+    if (!todayHOSLogs || todayHOSLogs.length === 0) {
+      return []
+    }
 
-  // Early-morning pre-trip inspection
-  { start: '2025-11-01T06:00:00-05:00', end: '2025-11-01T06:20:00-05:00', status: 'onDuty' },
+    // Convert HOS logs to chart format
+    // API returns individual log entries with start_time, end_time (or null if ongoing), duty_status
+    const chartLogs: Array<{ start: string; end: string; status: string; note?: string }> = []
+    
+    todayHOSLogs.forEach((log: any) => {
+      if (log.start_time && log.duty_status) {
+        const status = hosApi.getAppDutyStatus(log.duty_status)
+        // If end_time is null, use current time for ongoing status
+        const endTime = log.end_time || new Date().toISOString()
+        
+        chartLogs.push({
+          start: log.start_time,
+          end: endTime,
+          status: status,
+          note: '',
+        })
+      }
+    })
 
-  // First drive segment
-  { start: '2025-11-01T06:20:00-05:00', end: '2025-11-01T09:15:00-05:00', status: 'driving' },
-
-  // Short on-duty fueling check
-  { start: '2025-11-01T09:15:00-05:00', end: '2025-11-01T09:30:00-05:00', status: 'onDuty' },
-
-  // Continue driving
-  { start: '2025-11-01T09:30:00-05:00', end: '2025-11-01T11:45:00-05:00', status: 'driving' },
-
-  // Lunch break
-  { start: '2025-11-01T11:45:00-05:00', end: '2025-11-01T12:30:00-05:00', status: 'offDuty' },
-
-  // Afternoon drive
-  { start: '2025-11-01T12:30:00-05:00', end: '2025-11-01T15:00:00-05:00', status: 'driving' },
-
-  // Quick on-duty check
-  { start: '2025-11-01T15:00:00-05:00', end: '2025-11-01T15:20:00-05:00', status: 'onDuty' },
-
-  // More driving
-  { start: '2025-11-01T15:20:00-05:00', end: '2025-11-01T17:10:00-05:00', status: 'driving' },
-
-  // Pre-shutdown inspection
-  { start: '2025-11-01T17:10:00-05:00', end: '2025-11-01T17:40:00-05:00', status: 'onDuty' },
-
-  // Early evening meal / break
-  { start: '2025-11-01T17:40:00-05:00', end: '2025-11-01T18:15:00-05:00', status: 'offDuty' },
-
-  // Final short drive to yard
-  { start: '2025-11-01T18:15:00-05:00', end: '2025-11-01T19:00:00-05:00', status: 'driving' },
-
-  // Post-trip paperwork
-  { start: '2025-11-01T19:00:00-05:00', end: '2025-11-01T19:25:00-05:00', status: 'onDuty' },
-
-  // End-of-day rest
-  { start: '2025-11-01T19:25:00-05:00', end: '2025-11-02T05:00:00-05:00', status: 'sleeper' },
-];
+    // Sort by start time
+    chartLogs.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    
+    return chartLogs
+  }, [todayHOSLogs])
 
   
 
@@ -540,84 +588,88 @@ export const DashboardScreen = () => {
       </View>
 
       {/* Hours of Service - Card Style */}
-      <View style={s.serviceCard}>
-        <View style={s.serviceHeader}>
-          <Clock size={20} color="#22C55E" strokeWidth={2.5} />
-          <Text style={s.serviceTitle}>Hours of Service</Text>
-        </View>
+      {isHOSLoading || isSettingsLoading ? (
+        <HOSServiceCardSkeleton />
+      ) : (
+        <View style={s.serviceCard}>
+          <View style={s.serviceHeader}>
+            <Clock size={20} color="#22C55E" strokeWidth={2.5} />
+            <Text style={s.serviceTitle}>Hours of Service</Text>
+          </View>
 
-        {/* Big Timer */}
-        <View style={s.bigTimerSection}>
-          <Text style={s.bigTimerLabel}>Time Until Rest</Text>
-          <HOSCircle text={time(data.stopIn)} />
-          <Text style={s.bigTimerSubtext}>hours remaining</Text>
-        </View>
+          {/* Big Timer */}
+          <View style={s.bigTimerSection}>
+            <Text style={s.bigTimerLabel}>Time Until Rest</Text>
+            <HOSCircle text={time(data.stopIn)} />
+            <Text style={s.bigTimerSubtext}>hours remaining</Text>
+          </View>
 
-        {/* Horizontal Stats */}
-        <View style={s.horizontalStats}>
-          <View style={s.statItem}>
-            <View style={s.statIconCircle}>
-              <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
-            </View>
-            <Text style={s.statItemLabel}>Drive</Text>
-            <Progress.Circle
-              size={42}
-              progress={pct(data.driveLeft, 840) / 100}
-              color="#3B82F6"
-              thickness={6}
-              showsText={false}
-              strokeCap="round"
-              unfilledColor="#E5E7EB"
-            />
-            <Text style={s.statItemValue}>{time(data.driveLeft)}</Text>
-            <View style={s.miniBar}>
-              <View
-                style={[
-                  s.miniBarFill,
-                  { width: `${pct(data.driveLeft, 660)}%`, backgroundColor: "#22C55E" },
-                ]}
+          {/* Horizontal Stats */}
+          <View style={s.horizontalStats}>
+            <View style={s.statItem}>
+              <View style={s.statIconCircle}>
+                <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
+              </View>
+              <Text style={s.statItemLabel}>Drive</Text>
+              <Progress.Circle
+                size={42}
+                progress={pct(data.driveLeft, 840) / 100}
+                color="#3B82F6"
+                thickness={6}
+                showsText={false}
+                strokeCap="round"
+                unfilledColor="#E5E7EB"
               />
+              <Text style={s.statItemValue}>{time(data.driveLeft)}</Text>
+              <View style={s.miniBar}>
+                <View
+                  style={[
+                    s.miniBarFill,
+                    { width: `${pct(data.driveLeft, 660)}%`, backgroundColor: "#22C55E" },
+                  ]}
+                />
+              </View>
             </View>
-          </View>
 
-          <View style={s.statDivider} />
+            <View style={s.statDivider} />
 
-          <View style={s.statItem}>
-            <View style={s.statIconCircle}>
-              <Clock size={18} color="#3B82F6" strokeWidth={2.5} />
-            </View>
-            <Text style={s.statItemLabel}>Shift</Text>
-            <Progress.Circle
-              size={42}
-              progress={pct(data.shiftLeft, 840) / 100}
-              color="#3B82F6"
-              thickness={6}
-              showsText={false}
-              strokeCap="round"
-              unfilledColor="#E5E7EB"
-            />
-            <Text style={s.statItemValue}>{time(data.shiftLeft)}</Text>
-            <View style={s.miniBar}>
-              <View
-                style={[
-                  s.miniBarFill,
-                  { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: "#3B82F6" },
-                ]}
+            <View style={s.statItem}>
+              <View style={s.statIconCircle}>
+                <Clock size={18} color="#3B82F6" strokeWidth={2.5} />
+              </View>
+              <Text style={s.statItemLabel}>Shift</Text>
+              <Progress.Circle
+                size={42}
+                progress={pct(data.shiftLeft, 840) / 100}
+                color="#3B82F6"
+                thickness={6}
+                showsText={false}
+                strokeCap="round"
+                unfilledColor="#E5E7EB"
               />
+              <Text style={s.statItemValue}>{time(data.shiftLeft)}</Text>
+              <View style={s.miniBar}>
+                <View
+                  style={[
+                    s.miniBarFill,
+                    { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: "#3B82F6" },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Cycle Progress */}
+          <View style={s.cycleSection}>
+            <View style={s.cycleLabelRow}>
+              <Text style={s.cycleLabelText}>Cycle Time</Text>
+              <Text style={s.cycleValueText}>
+                {cycleTime(data.cycleLeft)} • {data.cycleDays}d
+              </Text>
             </View>
           </View>
         </View>
-
-        {/* Cycle Progress */}
-        <View style={s.cycleSection}>
-          <View style={s.cycleLabelRow}>
-            <Text style={s.cycleLabelText}>Cycle Time</Text>
-            <Text style={s.cycleValueText}>
-              {cycleTime(data.cycleLeft)} • {data.cycleDays}d
-            </Text>
-          </View>
-        </View>
-      </View>
+      )}
 
       {/* Quick Actions - Ride/Rent Style */}
       <View style={s.actionsSection}>
@@ -666,7 +718,14 @@ export const DashboardScreen = () => {
           <Text style={s.activitySubtitle}>Daily Activity</Text>
         </View>
 
-        <HOSChart data={logs} dayStartIso="2025-11-01" />
+        {isHOSLogsLoading ? (
+          <HOSChartSkeleton />
+        ) : (
+          <HOSChart 
+            data={logs} 
+            dayStartIso={todayStr} 
+          />
+        )}
       </View>
 
       {/* Vehicle Information Card */}

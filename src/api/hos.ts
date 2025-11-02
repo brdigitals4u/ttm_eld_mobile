@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LocationData } from "@/contexts/location-context"
 import { apiClient, ApiError } from "./client"
 import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
+import { useAuthStore } from '@/stores/authStore'
 
 // ============================================================================
 // HOS API Types - Updated to match backend API structure
@@ -124,6 +125,26 @@ export interface HOSLogEntry {
 }
 
 /**
+ * Create HOS Log Entry Request
+ * POST /api/hos/logs/
+ * Required: driver, duty_status, start_time, remark
+ */
+export interface CreateHOSLogEntryRequest {
+  driver: string  // ✅ REQUIRED: Driver UUID
+  duty_status: string  // ✅ REQUIRED: duty status
+  start_time: string  // ✅ REQUIRED: ISO 8601 DateTime
+  remark: string  // ✅ REQUIRED: Notes/reason for status change
+  vehicle?: number  // Optional: Vehicle ID
+  end_time?: string  // Optional: ISO 8601 DateTime (null for ongoing logs)
+  duration_minutes?: number  // Optional: Duration in minutes
+  start_location?: string  // Optional: Location string
+  end_location?: string  // Optional: End location string
+  start_odometer?: number  // Optional: Starting odometer reading
+  end_odometer?: number  // Optional: Ending odometer reading
+  is_certified?: boolean  // Optional: Default false
+}
+
+/**
  * HOS ELD Event (existing)
  */
 export interface HOSELDEvent {
@@ -144,7 +165,17 @@ export interface HOSELDEvent {
 export interface DailyLogsQueryParams {
   startDate?: string  // YYYY-MM-DD
   endDate?: string    // YYYY-MM-DD
-  driver?: string
+  driver?: string     // Driver UUID - Should match the driver from hosClock
+}
+
+/**
+ * HOS Logs Query Parameters (Individual entries)
+ */
+export interface HOSLogsQueryParams {
+  driver?: string     // Driver UUID - Will be sent as driver_id to API
+  driver_id?: string  // Driver UUID - Should match the driver from hosClock
+  startDate?: string  // YYYY-MM-DD format (sent as start_date to API)
+  endDate?: string    // YYYY-MM-DD format (sent as end_date to API)
 }
 
 // ============================================================================
@@ -169,29 +200,68 @@ export const hosApi = {
    * Get Current HOS Clock for Driver (Primary Sync Endpoint)
    * GET /api/hos/clocks/
    * Returns paginated response with results array
+   * 
+   * @param driverId Optional driver ID to filter clocks. If provided, will find the clock matching this driver.
    */
-  async getCurrentHOSClock(): Promise<HOSClock | null> {
+  async getCurrentHOSClock(driverId?: string): Promise<HOSClock | null> {
     const response = await apiClient.get<any>(API_ENDPOINTS.HOS.GET_CLOCKS)
     if (response.success && response.data) {
       // Handle paginated response with results array
       if (response.data.results && Array.isArray(response.data.results)) {
-        // Return the first clock (most recent/active) or find by driver ID
-        // For now, return the first one. If needed, we can match by driver ID later
         const clocks = response.data.results as HOSClock[]
+        
+        // If driverId provided, find the clock matching this driver
+        if (driverId && clocks.length > 0) {
+          const matchingClock = clocks.find(clock => clock.driver === driverId)
+          if (matchingClock) {
+            console.log('✅ HOS API: Found matching clock for driver', driverId, ':', matchingClock.id)
+            console.log('📋 Clock details:', {
+              clockId: matchingClock.id,
+              driverId: matchingClock.driver,
+              driverName: matchingClock.driver_name,
+              status: matchingClock.current_duty_status,
+            })
+            return matchingClock
+          } else {
+            console.warn('⚠️ HOS API: No clock found for driver', driverId, '- available drivers:', clocks.map(c => c.driver))
+            // Fallback to first clock if no match found
+            if (clocks.length > 0) {
+              console.log('⚠️ HOS API: Using first clock as fallback:', clocks[0].id)
+              return clocks[0]
+            }
+          }
+        }
+        
+        // No driverId provided or no match found - return first clock
         if (clocks.length > 0) {
           console.log('✅ HOS API: Found', clocks.length, 'clock(s), using first one:', clocks[0].id)
+          if (driverId) {
+            console.warn('⚠️ HOS API: No matching clock found for driver', driverId, '- using first available clock')
+          }
           return clocks[0]
         }
       }
       // Handle array response (legacy format)
       if (Array.isArray(response.data)) {
-        console.log('✅ HOS API: Found array response with', response.data.length, 'clock(s)')
-        return response.data[0] as HOSClock
+        const clocks = response.data as HOSClock[]
+        if (driverId && clocks.length > 0) {
+          const matchingClock = clocks.find(clock => clock.driver === driverId)
+          if (matchingClock) {
+            console.log('✅ HOS API: Found matching clock for driver', driverId, ':', matchingClock.id)
+            return matchingClock
+          }
+        }
+        console.log('✅ HOS API: Found array response with', clocks.length, 'clock(s)')
+        return clocks.length > 0 ? clocks[0] : null
       }
       // Handle single object response
       if (response.data.id) {
-        console.log('✅ HOS API: Found single clock:', response.data.id)
-        return response.data as HOSClock
+        const clock = response.data as HOSClock
+        if (driverId && clock.driver !== driverId) {
+          console.warn('⚠️ HOS API: Single clock driver', clock.driver, 'does not match requested driver', driverId)
+        }
+        console.log('✅ HOS API: Found single clock:', clock.id)
+        return clock
       }
     }
     console.warn('⚠️ HOS API: No clock found in response')
@@ -214,10 +284,16 @@ export const hosApi = {
   /**
    * Change Duty Status
    * POST /api/hos/clocks/{clock_id}/change_duty_status/
+   * Also creates a log entry via POST /api/hos/logs/
    */
   async changeDutyStatus(
     clockId: string, 
-    request: ChangeDutyStatusRequest
+    request: ChangeDutyStatusRequest,
+    options?: {
+      driverId?: string  // Driver UUID for log entry
+      vehicleId?: number  // Vehicle ID for log entry
+      previousClock?: HOSClock  // Previous clock state to get start_time for log
+    }
   ): Promise<ChangeDutyStatusResponse> {
     const endpoint = API_ENDPOINTS.HOS.CHANGE_DUTY_STATUS.replace("{id}", clockId)
     console.log('📡 HOS API: changeDutyStatus called', {
@@ -225,11 +301,97 @@ export const hosApi = {
       endpoint,
       request: JSON.stringify(request, null, 2),
     })
-    const response = await apiClient.post<ChangeDutyStatusResponse>(endpoint, request)
-    if (response.success && response.data) {
-      return response.data
+    
+    try {
+      const response = await apiClient.post<ChangeDutyStatusResponse>(endpoint, request)
+      
+      console.log('🔍 HOS API: Response check:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataType: typeof response.data,
+        dataValue: response.data,
+        fullResponse: JSON.stringify(response, null, 2),
+      })
+      
+      // Always try to create log entry after successful status change, regardless of response structure
+      if (response.success) {
+        // After successfully changing duty status, create a log entry
+        // Get driverId from global auth store (most reliable source)
+        const authState = useAuthStore.getState()
+        const driverId = authState.driverProfile?.driver_id
+        
+        console.log('📋 HOS API: Checking if should create log entry:', {
+          authStoreHasDriverProfile: !!authState.driverProfile,
+          driverIdFromAuthStore: authState.driverProfile?.driver_id,
+          driverProfileName: authState.driverProfile?.name,
+          driverProfileEmail: authState.driverProfile?.email,
+          driverIdFromOptions: options?.driverId,
+          driverIdFromPreviousClock: options?.previousClock?.driver,
+          driverIdFromResponse: response.data?.clock?.driver,
+          finalDriverId: driverId,
+          willCreateLog: !!driverId,
+        })
+        
+        // If no driverId found, log detailed auth state for debugging
+        if (!driverId) {
+          console.error('❌ HOS API: No driverId found from auth store!', {
+            authState: {
+              isAuthenticated: authState.isAuthenticated,
+              hasDriverProfile: !!authState.driverProfile,
+              driverProfileKeys: authState.driverProfile ? Object.keys(authState.driverProfile) : [],
+              driverProfile: authState.driverProfile,
+            },
+            options: options,
+            responseClock: response.data?.clock,
+          })
+        }
+        
+        if (driverId) {
+          try {
+            const startTime = new Date().toISOString()
+            
+            const logEntryRequest: CreateHOSLogEntryRequest = {
+              driver: driverId,
+              duty_status: request.duty_status,
+              start_time: startTime,
+              remark: request.notes || "Status change",
+              // Optional fields
+              vehicle: options?.vehicleId,
+              start_location: request.location || undefined,
+              start_odometer: request.odometer || undefined,
+              is_certified: false,
+            }
+            
+            // Include lat/lng in location if available
+            if (request.latitude !== undefined && request.longitude !== undefined) {
+              if (!logEntryRequest.start_location) {
+                logEntryRequest.start_location = `${request.latitude.toFixed(6)}, ${request.longitude.toFixed(6)}`
+              }
+            }
+            
+            console.log('📝 HOS API: Creating log entry with:', JSON.stringify(logEntryRequest, null, 2))
+            await this.createHOSLogEntry(logEntryRequest)
+            console.log('✅ HOS API: Log entry created successfully')
+          } catch (error) {
+            // Log error but don't fail the status change
+            console.error('❌ HOS API: Failed to create log entry (non-fatal):', error)
+          }
+        } else {
+          console.warn('⚠️ HOS API: Skipping log entry creation - no driverId available', {
+            options: options,
+            responseData: response.data,
+          })
+        }
+        
+        return response.data || { status: 'duty status changed' }
+      } else {
+        console.error('❌ HOS API: changeDutyStatus failed - response.success is false')
+        throw new ApiError({ message: 'Failed to change duty status', status: 400 })
+      }
+    } catch (error) {
+      console.error('❌ HOS API: changeDutyStatus error:', error)
+      throw error
     }
-    throw new ApiError({ message: 'Failed to change duty status', status: 400 })
   },
 
   /**
@@ -261,9 +423,12 @@ export const hosApi = {
   },
 
   /**
-   * Get HOS Daily Logs
+   * Get HOS Daily Logs (Aggregated summaries)
    * GET /api/hos/daily-logs/
    * GET /api/hos/daily-logs/?startDate=2025-11-01&endDate=2025-11-02
+   * 
+   * Note: Daily logs are aggregated summaries created at end of day or when certified.
+   * For individual log entries (available immediately after status change), use getHOSLogs().
    */
   async getDailyLogs(params?: DailyLogsQueryParams): Promise<HOSDailyLog[]> {
     let endpoint = API_ENDPOINTS.HOS.GET_DAILY_LOGS
@@ -289,6 +454,63 @@ export const hosApi = {
   },
 
   /**
+   * Get HOS Logs (Individual entries - available immediately after status change)
+   * GET /api/hos/logs/
+   * GET /api/hos/logs/?driver_id=DRIVER_ID&start_date=2025-11-02&end_date=2025-11-02
+   * 
+   * Returns individual log entries for each duty status change.
+   * These are available immediately after status changes, unlike daily logs which are aggregated.
+   */
+  async getHOSLogs(params?: HOSLogsQueryParams): Promise<HOSLogEntry[]> {
+    let endpoint = API_ENDPOINTS.HOS.GET_HOS_LOGS
+    
+    // Add query parameters
+    if (params) {
+      const queryParams = new URLSearchParams()
+      
+      // Use driver_id (preferred) or fallback to driver for backwards compatibility
+      const driverId = params.driver_id || params.driver
+      if (driverId) {
+        queryParams.append('driver_id', driverId)
+      }
+      
+      // Use start_date and end_date in YYYY-MM-DD format
+      if (params.startDate) {
+        queryParams.append('start_date', params.startDate)
+      }
+      if (params.endDate) {
+        queryParams.append('end_date', params.endDate)
+      }
+      
+      const queryString = queryParams.toString()
+      if (queryString) {
+        endpoint += `?${queryString}`
+      }
+    }
+    
+    const response = await apiClient.get<any>(endpoint)
+    if (response.success && response.data) {
+      // Handle paginated response with results array
+      if (response.data.results && Array.isArray(response.data.results)) {
+        console.log('✅ HOS API: Found paginated response with', response.data.results.length, 'log entries')
+        return response.data.results as HOSLogEntry[]
+      }
+      // Handle array response (legacy format)
+      if (Array.isArray(response.data)) {
+        console.log('✅ HOS API: Found array response with', response.data.length, 'log entries')
+        return response.data as HOSLogEntry[]
+      }
+      // Handle single object response
+      if (response.data.id) {
+        console.log('✅ HOS API: Found single log entry')
+        return [response.data as HOSLogEntry]
+      }
+      console.warn('⚠️ HOS API: Unexpected response format:', response.data)
+    }
+    return []
+  },
+
+  /**
    * Get Compliance Settings
    * GET /api/hos/compliance-settings/
    */
@@ -305,11 +527,20 @@ export const hosApi = {
   // ============================================================================
 
   /**
-   * Create HOS Log Entry (legacy)
+   * Create HOS Log Entry
+   * POST /api/hos/logs/
+   * Required fields: driver, duty_status, start_time, remark
    */
-  async createHOSLogEntry(logData: HOSLogEntry) {
+  async createHOSLogEntry(logData: CreateHOSLogEntryRequest) {
+    console.log('📡 HOS API: createHOSLogEntry called', {
+      endpoint: API_ENDPOINTS.HOS.CREATE_LOG_ENTRY,
+      logData: JSON.stringify(logData, null, 2),
+    })
     const response = await apiClient.post(API_ENDPOINTS.HOS.CREATE_LOG_ENTRY, logData)
-    return response.data
+    if (response.success && response.data) {
+      return response.data
+    }
+    throw new ApiError({ message: 'Failed to create HOS log entry', status: 400 })
   },
 
   /**
@@ -329,11 +560,24 @@ export const hosApi = {
   },
 
   /**
-   * Certify HOS Log (legacy)
+   * Certify HOS Daily Log
+   * PATCH /api/hos/daily-logs/{id}/
+   * Per spec: PATCH /api/hos/daily-logs/{id}/ to certify the log
    */
-  async certifyHOSLog(logId: string) {
-    const endpoint = API_ENDPOINTS.HOS.CERTIFY_LOG.replace("{id}", logId)
-    const response = await apiClient.patch(endpoint)
+  async certifyHOSLog(dailyLogId: string) {
+    const endpoint = API_ENDPOINTS.HOS.CERTIFY_LOG.replace("{id}", dailyLogId)
+    // PATCH with is_certified: true in body (or just PATCH to certify)
+    const response = await apiClient.patch(endpoint, { is_certified: true })
+    return response.data
+  },
+
+  /**
+   * Certify All Uncertified Logs
+   * POST /api/hos/daily-logs/certify-all-uncertified/
+   */
+  async certifyAllUncertifiedLogs() {
+    const endpoint = API_ENDPOINTS.HOS.CERTIFY_ALL_UNCERTIFIED
+    const response = await apiClient.post(endpoint, {})
     return response.data
   },
 
@@ -403,17 +647,23 @@ export const hosApi = {
 /**
  * Hook: Get Current HOS Clock
  * Primary sync endpoint - used on app startup and periodic refresh
+ * 
+ * @param driverId Optional driver ID to filter clocks. If provided, will find the clock matching this driver.
  */
 export const useHOSClock = (options?: {
   enabled?: boolean
   refetchInterval?: number  // Default: 60 seconds (60000ms)
   refetchIntervalInBackground?: boolean
+  driverId?: string  // Optional: Driver ID to match clock (should match driverProfile.driver_id)
 }) => {
   return useQuery<HOSClock | null>({
-    queryKey: QUERY_KEYS.HOS_CLOCKS,
+    queryKey: [...QUERY_KEYS.HOS_CLOCKS, options?.driverId],
     queryFn: async () => {
       try {
-        const clock = await hosApi.getCurrentHOSClock()
+        const clock = await hosApi.getCurrentHOSClock(options?.driverId)
+        if (clock && options?.driverId && clock.driver !== options.driverId) {
+          console.warn('⚠️ useHOSClock: Clock driver', clock.driver, 'does not match requested driver', options.driverId)
+        }
         return clock
       } catch (error) {
         console.error('❌ useHOSClock: Error fetching clock:', error)
@@ -467,8 +717,28 @@ export const useChangeDutyStatus = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ clockId, request }: { clockId: string; request: ChangeDutyStatusRequest }) =>
-      hosApi.changeDutyStatus(clockId, request),
+    mutationFn: ({ 
+      clockId, 
+      request, 
+      driverId, 
+      vehicleId, 
+      previousClock 
+    }: { 
+      clockId: string
+      request: ChangeDutyStatusRequest
+      driverId?: string
+      vehicleId?: number
+      previousClock?: HOSClock
+    }) => {
+      console.log('🔄 useChangeDutyStatus: mutationFn called with:', {
+        clockId,
+        driverId,
+        vehicleId,
+        hasPreviousClock: !!previousClock,
+        duty_status: request.duty_status,
+      })
+      return hosApi.changeDutyStatus(clockId, request, { driverId, vehicleId, previousClock })
+    },
     onSuccess: (data) => {
       console.log('✅ useChangeDutyStatus: API response received', data)
       
@@ -483,10 +753,16 @@ export const useChangeDutyStatus = () => {
         console.log('⚠️ useChangeDutyStatus: No clock data in response, invalidating to refetch')
       }
       
-      // Always invalidate and refetch to ensure we have latest data
-      // This handles cases where API returns status only without clock data
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.HOS_CLOCKS })
+      // Only invalidate if clock data was not in response
+      // This prevents unnecessary refetch when we already have the updated clock data
+      if (!data.clock) {
+        console.log('⚠️ useChangeDutyStatus: No clock in response, invalidating to refetch')
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.HOS_CLOCKS })
+      }
+      
+      // Always invalidate daily logs and HOS logs to refresh log entries after status change
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.HOS_DAILY_LOGS })
+      queryClient.invalidateQueries({ queryKey: ['hos_logs'] })
     },
     onError: (error: ApiError) => {
       console.error('❌ useChangeDutyStatus: Failed to change duty status:', error)
@@ -544,7 +820,10 @@ export const useUpdateHOSClock = () => {
 }
 
 /**
- * Hook: Get HOS Daily Logs
+ * Hook: Get HOS Daily Logs (Aggregated summaries)
+ * 
+ * Note: Daily logs are aggregated summaries created at end of day or when certified.
+ * For individual log entries (available immediately), use useHOSLogs() instead.
  */
 export const useDailyLogs = (params?: DailyLogsQueryParams, options?: {
   enabled?: boolean
@@ -554,6 +833,29 @@ export const useDailyLogs = (params?: DailyLogsQueryParams, options?: {
     queryFn: () => hosApi.getDailyLogs(params),
     enabled: options?.enabled !== false,
     staleTime: 5 * 60 * 1000,  // 5 minutes - daily logs don't change frequently
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 404) {
+        return false
+      }
+      return failureCount < 2
+    },
+  })
+}
+
+/**
+ * Hook: Get HOS Logs (Individual entries - available immediately)
+ * 
+ * Returns individual log entries for each duty status change.
+ * These are available immediately after status changes, unlike daily logs.
+ */
+export const useHOSLogs = (params?: HOSLogsQueryParams, options?: {
+  enabled?: boolean
+}) => {
+  return useQuery({
+    queryKey: ['hos_logs', params],
+    queryFn: () => hosApi.getHOSLogs(params),
+    enabled: options?.enabled !== false,
+    staleTime: 30 * 1000,  // 30 seconds - logs update frequently
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status === 404) {
         return false
@@ -574,7 +876,6 @@ export const useComplianceSettings = (options?: {
     queryFn: hosApi.getComplianceSettings,
     enabled: options?.enabled !== false,
     staleTime: 30 * 60 * 1000,  // 30 minutes - settings rarely change
-    cacheTime: 60 * 60 * 1000,  // Keep in cache for 1 hour
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status === 404) {
         return false
@@ -593,11 +894,31 @@ export const useCertifyHOSLog = () => {
   return useMutation({
     mutationFn: hosApi.certifyHOSLog,
     onSuccess: () => {
-      // Invalidate daily logs to reflect certification
+      // Invalidate daily logs and HOS logs to reflect certification
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.HOS_DAILY_LOGS })
+      queryClient.invalidateQueries({ queryKey: ['hos_logs'] })
     },
     onError: (error: ApiError) => {
       console.error('Failed to certify HOS log:', error)
+    },
+  })
+}
+
+/**
+ * Hook: Certify All Uncertified Logs
+ */
+export const useCertifyAllUncertifiedLogs = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: hosApi.certifyAllUncertifiedLogs,
+    onSuccess: () => {
+      // Invalidate daily logs and HOS logs to reflect certification
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.HOS_DAILY_LOGS })
+      queryClient.invalidateQueries({ queryKey: ['hos_logs'] })
+    },
+    onError: (error: ApiError) => {
+      console.error('Failed to certify all uncertified logs:', error)
     },
   })
 }

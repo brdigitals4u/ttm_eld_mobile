@@ -256,8 +256,31 @@ export const useAuthStore = create<AuthState>()(
 
             console.log('✅ AuthStore: Extracted profile data from API response');
             console.log('👤 Driver Profile:', driverProfile ? 'Available' : 'Not available');
+            if (driverProfile) {
+              console.log('📋 Driver Profile Details:', {
+                driver_id: driverProfile.driver_id,
+                name: driverProfile.name,
+                email: driverProfile.email,
+                company_driver_id: driverProfile.company_driver_id,
+                hasDriverId: !!driverProfile.driver_id,
+              });
+            }
             console.log('⏰ HOS Status:', hosStatus ? 'Available' : 'Not available');
+            if (hosStatus) {
+              console.log('⏰ HOS Status Details:', {
+                driver_id: hosStatus.driver_id,
+                driver_name: hosStatus.driver_name,
+                current_status: hosStatus.current_status,
+              });
+            }
             console.log('🚛 Vehicle Assignment:', vehicleAssignment ? 'Available' : 'Not available');
+            if (vehicleAssignment) {
+              console.log('🚛 Vehicle Assignment Details:', {
+                driver_id: vehicleAssignment.driver_id,
+                driver_name: vehicleAssignment.driver_name,
+                has_vehicle_assigned: vehicleAssignment.has_vehicle_assigned,
+              });
+            }
             console.log('🏢 Organization Settings:', organizationSettings ? 'Available' : 'Not available');
           } else {
             console.log('📄 AuthStore: Processing basic user profile');
@@ -302,6 +325,20 @@ export const useAuthStore = create<AuthState>()(
 
           console.log('✅ AuthStore: Login completed successfully');
           console.log('👤 User:', userData.firstName, userData.lastName);
+          console.log('📋 Final Driver Profile in Store:', {
+            hasDriverProfile: !!driverProfile,
+            driver_id: driverProfile?.driver_id || 'MISSING',
+            name: driverProfile?.name || 'N/A',
+            email: driverProfile?.email || 'N/A',
+          });
+          
+          // Verify driver_id is saved
+          const stateAfterSave = useAuthStore.getState();
+          console.log('🔍 Verification: Driver ID in saved state:', {
+            driverProfileExists: !!stateAfterSave.driverProfile,
+            driverId: stateAfterSave.driverProfile?.driver_id || 'NOT FOUND',
+            matches: stateAfterSave.driverProfile?.driver_id === driverProfile?.driver_id,
+          });
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Login failed';
