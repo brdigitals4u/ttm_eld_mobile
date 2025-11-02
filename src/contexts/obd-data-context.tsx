@@ -42,10 +42,12 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const awsBufferRef = useRef<AwsObdPayload[]>([]) // AWS buffer
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const awsSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const eldReportingStartedRef = useRef<boolean>(false) // Track if ELD reporting has been started
 
-  // Listen for OBD data updates
+    // Listen for OBD data updates
   useEffect(() => {
     if (!isAuthenticated) {
+      console.log('📡 OBD Data Context: User not authenticated, skipping setup')
       return
     }
 
@@ -55,8 +57,17 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const obdEldDataListener = JMBluetoothService.addEventListener(
       'onObdEldDataReceived',
       (data: ObdEldData) => {
-        console.log('📊 OBD Data Context: Received ELD data')
+        console.log('📊 OBD Data Context: Received ELD data', { 
+          dataKeys: Object.keys(data),
+          hasDataFlowList: !!data.dataFlowList,
+          dataFlowListLength: data.dataFlowList?.length || 0,
+          fullData: data
+        })
         const displayData = handleData(data)
+        console.log('📊 OBD Data Context: Processed display data', { 
+          displayDataLength: displayData.length,
+          displayDataItems: displayData.map(item => ({ name: item.name, value: item.value }))
+        })
         setObdData(displayData)
         setLastUpdate(new Date())
         setIsConnected(true)
@@ -137,7 +148,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       'onDisconnected',
       () => {
         console.log('❌ OBD Data Context: Device disconnected')
+        console.log('🔄 OBD Data Context: Setting isConnected to false')
         setIsConnected(false)
+        eldReportingStartedRef.current = false // Reset flag on disconnect
       }
     )
 
@@ -145,7 +158,157 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       'onConnected',
       () => {
         console.log('✅ OBD Data Context: Device connected')
+        console.log('🔄 OBD Data Context: Setting isConnected to true')
         setIsConnected(true)
+        
+        // Prevent duplicate calls
+        if (eldReportingStartedRef.current) {
+          console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
+          return
+        }
+        
+        // Wait for stable connection before starting ELD reporting
+        setTimeout(async () => {
+          try {
+            if (eldReportingStartedRef.current) {
+              console.log('ℹ️ OBD Data Context: ELD reporting already started during wait period, skipping')
+              return
+            }
+            
+            const status = await JMBluetoothService.getConnectionStatus()
+            if (status.isConnected) {
+              console.log('📊 OBD Data Context: Connection stable, starting ELD reporting...')
+              await JMBluetoothService.startReportEldData()
+              eldReportingStartedRef.current = true
+              console.log('✅ OBD Data Context: ELD reporting started successfully from onConnected')
+            } else {
+              console.log('⚠️ OBD Data Context: Connection lost before starting ELD reporting')
+            }
+          } catch (error) {
+            console.log('⚠️ OBD Data Context: Failed to start ELD reporting from onConnected:', error)
+          }
+        }, 2000) // Wait 2 seconds for stable connection
+      }
+    )
+
+    // Listen for authentication passed event
+    const authPassedListener = JMBluetoothService.addEventListener(
+      'onAuthenticationPassed',
+      async () => {
+        console.log('✅ OBD Data Context: Authentication passed, waiting for stable connection...')
+        
+        // Note: Native module automatically starts ELD reporting in onAuthenticationPassed
+        // This is a backup/fallback in case native module doesn't start it
+        // Wait a bit after authentication before starting ELD reporting
+        setTimeout(async () => {
+          try {
+            if (eldReportingStartedRef.current) {
+              console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
+              return
+            }
+            
+            const status = await JMBluetoothService.getConnectionStatus()
+            if (status.isConnected) {
+              console.log('📊 OBD Data Context: Starting ELD reporting after authentication (fallback)...')
+              await JMBluetoothService.startReportEldData()
+              eldReportingStartedRef.current = true
+              console.log('✅ OBD Data Context: ELD reporting started successfully after authentication')
+            } else {
+              console.log('⚠️ OBD Data Context: Not connected after authentication')
+            }
+          } catch (error) {
+            console.log('⚠️ OBD Data Context: Failed to start ELD reporting after authentication:', error)
+          }
+        }, 3000) // Wait 3 seconds after authentication
+      }
+    )
+
+    // Check current connection status on setup
+    const checkConnectionStatus = async () => {
+      try {
+        const status = await JMBluetoothService.getConnectionStatus()
+        console.log('🔍 OBD Data Context: Initial connection check:', status)
+        if (status.isConnected) {
+          console.log('✅ OBD Data Context: Device already connected, setting connected state')
+          setIsConnected(true)
+          
+          // Wait a bit before starting ELD reporting to ensure stable connection
+          setTimeout(async () => {
+            try {
+              if (eldReportingStartedRef.current) {
+                console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
+                return
+              }
+              
+              const recheckStatus = await JMBluetoothService.getConnectionStatus()
+              if (recheckStatus.isConnected) {
+                console.log('📊 OBD Data Context: Starting ELD reporting from status check...')
+                await JMBluetoothService.startReportEldData()
+                eldReportingStartedRef.current = true
+                console.log('✅ OBD Data Context: ELD reporting started successfully from status check')
+              } else {
+                console.log('⚠️ OBD Data Context: Connection lost before starting ELD reporting')
+              }
+            } catch (error) {
+              console.log('⚠️ OBD Data Context: Failed to start ELD reporting from status check:', error)
+            }
+          }, 2000) // Wait 2 seconds for stable connection
+        }
+      } catch (error) {
+        console.log('⚠️ OBD Data Context: Failed to check connection status:', error)
+      }
+    }
+
+    // Check connection status immediately
+    checkConnectionStatus()
+
+    // Listen for other events for debugging
+    const obdEldStartListener = JMBluetoothService.addEventListener(
+      'onObdEldStart',
+      () => {
+        console.log('📊 OBD Data Context: OBD ELD started')
+        setIsConnected(true)
+      }
+    )
+
+    const obdEldFinishListener = JMBluetoothService.addEventListener(
+      'onObdEldFinish',
+      () => {
+        console.log('📊 OBD Data Context: OBD ELD finished')
+      }
+    )
+
+    const obdDataFlowListener = JMBluetoothService.addEventListener(
+      'onObdDataFlowReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received OBD data flow', data)
+        // Also try to process data flow as ELD data
+        if (data && data.dataFlowList) {
+          console.log('📊 OBD Data Context: Processing data flow as ELD data')
+          const displayData = handleData(data)
+          if (displayData.length > 0) {
+            console.log('📊 OBD Data Context: Processed data flow, setting obdData')
+            setObdData(displayData)
+            setLastUpdate(new Date())
+            setIsConnected(true)
+          }
+        }
+      }
+    )
+
+    // Listen for raw data events for debugging
+    const obdRawDataListener = JMBluetoothService.addEventListener(
+      'onRawDataReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received raw data', data)
+      }
+    )
+
+    // Listen for any data received event
+    const obdDataReceivedListener = JMBluetoothService.addEventListener(
+      'onDataReceived',
+      (data: any) => {
+        console.log('📊 OBD Data Context: Received generic data', data)
       }
     )
 
@@ -153,6 +316,12 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       JMBluetoothService.removeEventListener(obdEldDataListener)
       JMBluetoothService.removeEventListener(disconnectedListener)
       JMBluetoothService.removeEventListener(connectedListener)
+      JMBluetoothService.removeEventListener(authPassedListener)
+      JMBluetoothService.removeEventListener(obdEldStartListener)
+      JMBluetoothService.removeEventListener(obdEldFinishListener)
+      JMBluetoothService.removeEventListener(obdDataFlowListener)
+      JMBluetoothService.removeEventListener(obdRawDataListener)
+      JMBluetoothService.removeEventListener(obdDataReceivedListener)
     }
   }, [isAuthenticated, driverProfile?.driver_id])
 

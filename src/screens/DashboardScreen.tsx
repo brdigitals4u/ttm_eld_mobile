@@ -196,15 +196,38 @@ export const DashboardScreen = () => {
       (item) =>
         item.name.includes("Vehicle Speed") || item.name.includes("Wheel-Based Vehicle Speed"),
     )
-    return speedItem ? parseFloat(speedItem.value) || 0 : 0
+    const speed = speedItem ? parseFloat(speedItem.value) || 0 : 0
+    console.log('📊 Dashboard: OBD Speed extraction', { 
+      obdDataLength: obdData.length, 
+      speedItem: speedItem ? { name: speedItem.name, value: speedItem.value } : null,
+      extractedSpeed: speed
+    })
+    return speed
   }, [obdData])
 
   const fuelLevel = useMemo(() => {
     const fuelItem = obdData.find(
       (item) => item.name.includes("Fuel Level") || item.name.includes("Fuel Level Input"),
     )
-    return fuelItem ? parseFloat(fuelItem.value) || 0 : 0
+    const fuel = fuelItem ? parseFloat(fuelItem.value) || 0 : 0
+    console.log('📊 Dashboard: OBD Fuel extraction', { 
+      obdDataLength: obdData.length, 
+      fuelItem: fuelItem ? { name: fuelItem.name, value: fuelItem.value } : null,
+      extractedFuel: fuel
+    })
+    return fuel
   }, [obdData])
+
+  // Debug OBD data state
+  useEffect(() => {
+    console.log('📊 Dashboard: OBD Data State', {
+      eldConnected,
+      obdDataLength: obdData.length,
+      obdDataItems: obdData.map(item => ({ name: item.name, value: item.value })),
+      currentSpeed,
+      fuelLevel
+    })
+  }, [eldConnected, obdData, currentSpeed, fuelLevel])
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -537,14 +560,46 @@ export const DashboardScreen = () => {
                 <Text style={s.eldStatusText}>ELD Connected</Text>
               </View>
             </View>
-            <View style={s.gaugesRow}>
-              <View style={s.gaugeCard}>
-                <SpeedGauge speed={currentSpeed} unit="mph" maxSpeed={120} />
+            {obdData.length === 0 ? (
+              <View style={s.noDataCard}>
+                <Text style={s.noDataText}>Waiting for OBD data...</Text>
+                <Text style={s.noDataSubtext}>
+                  {eldConnected ? 'ELD is connected but no data received yet' : 'ELD not connected'}
+                </Text>
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={s.debugButton}
+                    onPress={async () => {
+                      console.log('🔧 Manual trigger: Starting ELD reporting...')
+                      try {
+                        const JMBluetoothService = require('@/services/JMBluetoothService').default
+                        const status = await JMBluetoothService.getConnectionStatus()
+                        console.log('🔍 Connection status:', status)
+                        if (status.isConnected) {
+                          await JMBluetoothService.startReportEldData()
+                          console.log('✅ ELD reporting started manually')
+                        } else {
+                          console.log('❌ Not connected, cannot start ELD reporting')
+                        }
+                      } catch (error) {
+                        console.error('❌ Failed to start ELD reporting:', error)
+                      }
+                    }}
+                  >
+                    <Text style={s.debugButtonText}>🔧 Start ELD Reporting (Debug)</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <View style={s.gaugeCard}>
-                <FuelLevelIndicator fuelLevel={fuelLevel} />
+            ) : (
+              <View style={s.gaugesRow}>
+                <View style={s.gaugeCard}>
+                  <SpeedGauge speed={currentSpeed} unit="mph" maxSpeed={120} />
+                </View>
+                <View style={s.gaugeCard}>
+                  <FuelLevelIndicator fuelLevel={fuelLevel} />
+                </View>
               </View>
-            </View>
+            )}
           </View>
         )}
 
@@ -1615,5 +1670,38 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
+  },
+  noDataCard: {
+    alignItems: "center",
+    backgroundColor: "#FFF7ED",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    padding: 24,
+    marginTop: 16,
+  },
+  noDataText: {
+    color: "#92400E",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  noDataSubtext: {
+    color: "#B45309",
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  debugButton: {
+    backgroundColor: "#0071ce",
+    borderRadius: 12,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  debugButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 })

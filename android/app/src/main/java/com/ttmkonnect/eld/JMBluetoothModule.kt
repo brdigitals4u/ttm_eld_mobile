@@ -946,20 +946,44 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             
             when (data.ack) {
                 InstructionAnalysis.BT.ACK_OBD_ELD_START -> {
-                // Device acknowledges "start ELD upload" command
+                    Log.i(TAG, "🚀 OBD ELD data collection started")
+                    sendEvent("onObdEldStart", null)
+                    // Also process the data
+                    handleDataReceived(data)
                 }
                 InstructionAnalysis.BT.ACK_OBD_ELD_PROCESS -> {
-                // Process ELD data 
-                parseData(data)
-                // Notify device to send next command
-                BluetoothLESDK.replyReceivedEldData()
-                
-                } else -> {
-                    Log.d(TAG, "📝 onDataAnalyze: Unhandled ACK: ${data.ack}")
+                    Log.d(TAG, "📊 Processing OBD ELD data with ACK: ${data.ack}")
+                    // Process ELD data 
+                    parseData(data)
+                    // Notify device to send next command
+                    try {
+                        BluetoothLESDK.replyReceivedEldData()
+                        Log.d(TAG, "✅ Sent reply for ELD data")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "⚠️ Failed to send ELD reply: ${e.message}")
+                    }
+                }
+                InstructionAnalysis.BT.ACK_OBD_ELD_FINISH -> {
+                    Log.i(TAG, "🏁 OBD ELD data collection finished")
+                    sendEvent("onObdEldFinish", null)
+                    // Also process the data
+                    handleDataReceived(data)
+                }
+                else -> {
+                    Log.d(TAG, "📝 onDataAnalyze: Processing unhandled ACK: ${data.ack} - forwarding to handleDataReceived")
+                    // Always process all data, even if ACK is not specifically handled
+                    handleDataReceived(data)
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in onDataAnalyze: ${e.message}")
+            // Even on error, try to process the data as fallback
+            try {
+                Log.d(TAG, "🔄 Attempting fallback data processing after error")
+                handleDataReceived(data)
+            } catch (fallbackException: Exception) {
+                Log.e(TAG, "Fallback processing also failed: ${fallbackException.message}")
+            }
         }
     }
 
