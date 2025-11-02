@@ -12,6 +12,7 @@ export const awsConfig = {
     baseUrl: 'https://oy47qb63f3.execute-api.us-east-1.amazonaws.com',
     endpoints: {
       saveData: '/data',
+      saveBatch: '/batch',
       getData: '/data',
     },
     region: 'us-east-1',

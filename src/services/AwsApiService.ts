@@ -65,6 +65,7 @@ class AwsApiService {
 
   /**
    * Send batch OBD data to AWS Lambda
+   * Sends each record individually as a direct payload (no batch wrapper)
    */
   async saveObdDataBatch(payloads: AwsObdPayload[]): Promise<AwsApiResponse> {
     if (!awsConfig.features.enableAwsSync) {
@@ -72,27 +73,89 @@ class AwsApiService {
       return { success: false, error: 'AWS sync disabled' }
     }
 
-    // Split into chunks if needed
-    const batchSize = awsConfig.features.batchSize
-    if (payloads.length > batchSize) {
-      console.log(`📦 Splitting ${payloads.length} records into batches of ${batchSize}`)
-      const results = []
-      
-      for (let i = 0; i < payloads.length; i += batchSize) {
-        const chunk = payloads.slice(i, i + batchSize)
-        const result = await this.sendBatchWithRetry(chunk)
-        results.push(result)
+    // Validate payloads before sending
+    const validPayloads = payloads.filter((payload, index) => {
+      // Validate vehicleId
+      const vehicleId = payload.vehicleId
+      if (!vehicleId || vehicleId === 'UNKNOWN_VEHICLE') {
+        console.warn(`⚠️ AWS: Invalid payload at index ${index} - missing or invalid vehicleId: ${vehicleId}`)
+        return false
+      }
+      if (typeof vehicleId === 'string' && vehicleId.trim() === '') {
+        console.warn(`⚠️ AWS: Invalid payload at index ${index} - empty vehicleId string`)
+        return false
       }
       
-      const allSucceeded = results.every(r => r.success)
-      return {
-        success: allSucceeded,
-        data: results,
-        error: allSucceeded ? undefined : 'Some batches failed'
+      // Validate timestamp
+      const timestamp = payload.timestamp
+      if (!timestamp || timestamp <= 0 || !Number.isFinite(timestamp)) {
+        console.warn(`⚠️ AWS: Invalid payload at index ${index} - missing or invalid timestamp: ${timestamp}`)
+        return false
+      }
+      
+      // Validate driverId
+      const driverId = payload.driverId
+      if (!driverId) {
+        console.warn(`⚠️ AWS: Invalid payload at index ${index} - missing driverId`)
+        return false
+      }
+      if (typeof driverId === 'string' && driverId.trim() === '') {
+        console.warn(`⚠️ AWS: Invalid payload at index ${index} - empty driverId string`)
+        return false
+      }
+      
+      return true
+    })
+
+    if (validPayloads.length === 0) {
+      console.warn('⚠️ AWS: No valid payloads to send after validation')
+      return { success: false, error: 'No valid payloads' }
+    }
+
+    if (validPayloads.length < payloads.length) {
+      console.log(`⚠️ AWS: Filtered out ${payloads.length - validPayloads.length} invalid payloads, sending ${validPayloads.length} valid ones`)
+    }
+
+    // Send each record individually as a direct payload (batch: false, all data in payload)
+    console.log(`📤 AWS: Sending ${validPayloads.length} records individually (no batch wrapper)`)
+    
+    let successCount = 0
+    let failureCount = 0
+    const errors: string[] = []
+
+    // Send records sequentially to avoid overwhelming the API
+    for (let i = 0; i < validPayloads.length; i++) {
+      const payload = validPayloads[i]
+      try {
+        const response = await this.sendWithRetry(payload)
+        if (response.success) {
+          successCount++
+        } else {
+          failureCount++
+          errors.push(`Record ${i + 1}: ${response.error}`)
+        }
+        // Small delay between requests to avoid rate limiting
+        if (i < validPayloads.length - 1) {
+          await this.sleep(50) // 50ms delay between requests
+        }
+      } catch (error) {
+        failureCount++
+        errors.push(`Record ${i + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
 
-    return this.sendBatchWithRetry(payloads)
+    if (successCount > 0) {
+      console.log(`✅ AWS: Successfully sent ${successCount}/${validPayloads.length} records`)
+    }
+    if (failureCount > 0) {
+      console.warn(`⚠️ AWS: Failed to send ${failureCount}/${validPayloads.length} records`)
+      console.warn('⚠️ AWS: Errors:', errors)
+    }
+
+    return {
+      success: failureCount === 0,
+      error: failureCount > 0 ? `${failureCount} record(s) failed to send` : undefined
+    }
   }
 
   /**
@@ -126,10 +189,40 @@ class AwsApiService {
 
   /**
    * Send single payload with retry logic
+   * Sends payload with batch: false and all fields destructured at root level
    */
   private async sendWithRetry(payload: AwsObdPayload, attempt = 1): Promise<AwsApiResponse> {
     try {
-      const response = await this.post(awsConfig.apiGateway.endpoints.saveData, payload)
+      // Validate payload has required fields
+      if (!payload.vehicleId || payload.vehicleId === 'UNKNOWN_VEHICLE') {
+        console.error('❌ AWS: Invalid payload - missing or invalid vehicleId:', payload.vehicleId)
+        return {
+          success: false,
+          error: 'Missing or invalid vehicleId'
+        }
+      }
+      if (!payload.timestamp || payload.timestamp <= 0 || !Number.isFinite(payload.timestamp)) {
+        console.error('❌ AWS: Invalid payload - missing or invalid timestamp:', payload.timestamp)
+        return {
+          success: false,
+          error: 'Missing or invalid timestamp'
+        }
+      }
+
+      // AWS Lambda expects single payload with batch: false and all fields destructured
+      console.log('📤 AWS: Sending single record', {
+        vehicleId: payload.vehicleId,
+        driverId: payload.driverId,
+        timestamp: payload.timestamp,
+        dataType: payload.dataType
+      })
+
+      // Send payload with batch: false and all fields at root level
+      const singlePayload = {
+        batch: false,
+        ...payload
+      }
+      const response = await this.postRequest(awsConfig.apiGateway.endpoints.saveData, singlePayload)
       
       if (response.success) {
         console.log(`✅ AWS sync successful (attempt ${attempt})`)
@@ -165,10 +258,43 @@ class AwsApiService {
    */
   private async sendBatchWithRetry(payloads: AwsObdPayload[], attempt = 1): Promise<AwsApiResponse> {
     try {
-      const response = await this.post(awsConfig.apiGateway.endpoints.saveData, {
+      // Validate all payloads have required fields
+      const invalidItems = payloads.filter(p => !p.vehicleId || !p.timestamp || p.timestamp <= 0)
+      if (invalidItems.length > 0) {
+        console.error(`❌ AWS: ${invalidItems.length} payload(s) missing required fields (vehicleId or timestamp)`)
+        console.error('❌ AWS: Invalid items:', invalidItems.map((p, i) => ({
+          index: i,
+          vehicleId: p.vehicleId,
+          timestamp: p.timestamp,
+          driverId: p.driverId
+        })))
+        return {
+          success: false,
+          error: `${invalidItems.length} payload(s) missing required fields`
+        }
+      }
+
+      const batchPayload = {
         batch: true,
         data: payloads
+      }
+
+      // Log payload summary for debugging
+      console.log(`📤 AWS: Sending batch of ${payloads.length} records`, {
+        firstItem: {
+          vehicleId: payloads[0]?.vehicleId,
+          driverId: payloads[0]?.driverId,
+          timestamp: payloads[0]?.timestamp,
+          dataType: payloads[0]?.dataType
+        },
+        lastItem: {
+          vehicleId: payloads[payloads.length - 1]?.vehicleId,
+          driverId: payloads[payloads.length - 1]?.driverId,
+          timestamp: payloads[payloads.length - 1]?.timestamp
+        }
       })
+
+      const response = await this.postRequest(awsConfig.apiGateway.endpoints.saveData, batchPayload)
       
       if (response.success) {
         console.log(`✅ AWS batch sync successful: ${payloads.length} records (attempt ${attempt})`)
@@ -200,9 +326,46 @@ class AwsApiService {
   }
 
   /**
-   * POST request to AWS API Gateway
+   * Send batch data to AWS /batch endpoint
    */
-  private async post(endpoint: string, data: any): Promise<AwsApiResponse> {
+  async sendBatch(payloads: AwsObdPayload[]): Promise<AwsApiResponse> {
+    if (!awsConfig.features.enableAwsSync) {
+      console.log('ℹ️  AWS sync is disabled via config')
+      return { success: false, error: 'AWS sync disabled' }
+    }
+
+    // Validate payloads
+    const validPayloads = payloads.filter((payload) => {
+      return payload.vehicleId && payload.vehicleId !== 'UNKNOWN_VEHICLE' && 
+             payload.timestamp && payload.timestamp > 0 && 
+             payload.driverId
+    })
+
+    if (validPayloads.length === 0) {
+      return { success: false, error: 'No valid payloads' }
+    }
+
+    // Send batch format: {batch: true, data: [...]}
+    const batchPayload = {
+      batch: true,
+      data: validPayloads
+    }
+
+    console.log(`📤 AWS: Sending batch of ${validPayloads.length} records to /batch endpoint`)
+    return this.postRequest(awsConfig.apiGateway.endpoints.saveBatch, batchPayload)
+  }
+
+  /**
+   * POST request to AWS API Gateway (public method)
+   */
+  async post(endpoint: string, data: any): Promise<AwsApiResponse> {
+    return this.postRequest(endpoint, data)
+  }
+
+  /**
+   * POST request to AWS API Gateway (private implementation)
+   */
+  private async postRequest(endpoint: string, data: any): Promise<AwsApiResponse> {
     try {
       // Get auth token
       const token = this.getAuthToken()
@@ -236,11 +399,29 @@ class AwsApiService {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`❌ AWS API error ${response.status}:`, errorText)
+        let errorMessage = errorText
+        
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.message) {
+            errorMessage = errorJson.message
+          }
+        } catch {
+          // If not JSON, use text as is
+        }
+        
+        console.error(`❌ AWS API error ${response.status}:`, errorMessage)
+        console.error(`❌ AWS API response body:`, errorText)
+        
+        // If it's a 404 with "Missing vehicleId or timestamp", log more details
+        if (response.status === 404 && errorMessage.includes('Missing vehicleId or timestamp')) {
+          console.error('❌ AWS: Payload validation failed - checking payload structure...')
+          console.error('❌ AWS: This might indicate the Lambda expects a different payload format')
+        }
         
         return {
           success: false,
-          error: `HTTP ${response.status}: ${errorText}`,
+          error: `HTTP ${response.status}: ${errorMessage}`,
           statusCode: response.status
         }
       }

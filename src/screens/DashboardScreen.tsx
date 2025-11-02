@@ -1,7 +1,7 @@
-import React, { useMemo, useEffect } from "react"
+import React, { useMemo, useEffect, useCallback, useRef } from "react"
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
-import { router } from "expo-router"
+import { router, useFocusEffect } from "expo-router"
 import {
   MapPin,
   Truck,
@@ -57,7 +57,7 @@ export const DashboardScreen = () => {
     updateHosStatus,
   } = useAuth()
   const { logEntries, certification, hoursOfService } = useStatus()
-  const { currentLocation, requestLocation } = useLocation()
+  const { currentLocation } = useLocation()
   const locationData = useLocationData()
   const { obdData, isConnected: eldConnected } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
@@ -68,6 +68,106 @@ export const DashboardScreen = () => {
     locationData.refreshLocation()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount
+
+  // Track if we've already started ELD reporting to prevent duplicate calls
+  const eldReportingStartedRef = useRef(false)
+
+  // Automatically start ELD reporting when dashboard loads/focuses and ELD is connected
+  const checkAndStartEldReporting = useCallback(async () => {
+    try {
+      // Only proceed if authenticated
+      if (!isAuthenticated) {
+        console.log('⏭️ Dashboard: Skipping ELD reporting check - not authenticated')
+        return
+      }
+
+      // Import service
+      const JMBluetoothService = require('@/services/JMBluetoothService').default
+
+      // Check connection status from native module
+      const status = await JMBluetoothService.getConnectionStatus()
+      console.log('🔍 Dashboard: Connection status check:', status)
+
+      if (status.isConnected) {
+        // Prevent duplicate calls
+        if (eldReportingStartedRef.current) {
+          console.log('ℹ️ Dashboard: ELD reporting already started, skipping duplicate call')
+          return
+        }
+
+        console.log('✅ Dashboard: ELD is connected, starting ELD reporting...')
+        
+        // Wait a bit for stable connection
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        // Double-check connection is still stable
+        const recheckStatus = await JMBluetoothService.getConnectionStatus()
+        console.log('🔍 Dashboard: Rechecking connection status:', recheckStatus)
+
+        if (recheckStatus.isConnected && !eldReportingStartedRef.current) {
+          console.log('📊 Dashboard: Starting ELD reporting from dashboard...')
+          try {
+            const result = await JMBluetoothService.startReportEldData()
+            console.log('✅ Dashboard: ELD reporting start result:', result)
+            if (result) {
+              console.log('✅ Dashboard: ELD reporting started successfully')
+              eldReportingStartedRef.current = true
+            } else {
+              console.warn('⚠️ Dashboard: ELD reporting start returned false')
+            }
+          } catch (error) {
+            console.error('❌ Dashboard: Exception starting ELD reporting:', error)
+          }
+        } else {
+          if (!recheckStatus.isConnected) {
+            console.log('⚠️ Dashboard: Connection lost during wait period')
+          } else {
+            console.log('ℹ️ Dashboard: ELD reporting already started')
+          }
+        }
+      } else {
+        console.log('ℹ️ Dashboard: ELD not connected, skipping ELD reporting start')
+        eldReportingStartedRef.current = false // Reset flag when disconnected
+      }
+    } catch (error) {
+      console.error('❌ Dashboard: Error checking ELD connection:', error)
+    }
+  }, [isAuthenticated])
+
+  // Run when screen comes into focus (when user navigates to dashboard)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 Dashboard: Screen focused - checking ELD connection...')
+      
+      // Wait a bit for screen to fully mount
+      const timeout = setTimeout(() => {
+        checkAndStartEldReporting()
+      }, 1000)
+
+      return () => {
+        clearTimeout(timeout)
+      }
+    }, [checkAndStartEldReporting])
+  )
+
+  // Also run on mount and when connection status changes
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      checkAndStartEldReporting()
+    }, 2000) // Wait 2 seconds after mount
+
+    return () => {
+      clearTimeout(timeout)
+    }
+  }, [checkAndStartEldReporting, eldConnected]) // Re-run when connection status changes
+
+  // Reset flag when disconnected
+  useEffect(() => {
+    if (!eldConnected) {
+      eldReportingStartedRef.current = false
+      console.log('🔄 Dashboard: ELD disconnected, reset ELD reporting flag')
+    }
+  }, [eldConnected])
 
   // Sync HOS Clock from backend
   const {
@@ -196,38 +296,16 @@ export const DashboardScreen = () => {
       (item) =>
         item.name.includes("Vehicle Speed") || item.name.includes("Wheel-Based Vehicle Speed"),
     )
-    const speed = speedItem ? parseFloat(speedItem.value) || 0 : 0
-    console.log('📊 Dashboard: OBD Speed extraction', { 
-      obdDataLength: obdData.length, 
-      speedItem: speedItem ? { name: speedItem.name, value: speedItem.value } : null,
-      extractedSpeed: speed
-    })
-    return speed
+    return speedItem ? parseFloat(speedItem.value) || 0 : 0
   }, [obdData])
 
   const fuelLevel = useMemo(() => {
     const fuelItem = obdData.find(
       (item) => item.name.includes("Fuel Level") || item.name.includes("Fuel Level Input"),
     )
-    const fuel = fuelItem ? parseFloat(fuelItem.value) || 0 : 0
-    console.log('📊 Dashboard: OBD Fuel extraction', { 
-      obdDataLength: obdData.length, 
-      fuelItem: fuelItem ? { name: fuelItem.name, value: fuelItem.value } : null,
-      extractedFuel: fuel
-    })
-    return fuel
+    return fuelItem ? parseFloat(fuelItem.value) || 0 : 0
   }, [obdData])
 
-  // Debug OBD data state
-  useEffect(() => {
-    console.log('📊 Dashboard: OBD Data State', {
-      eldConnected,
-      obdDataLength: obdData.length,
-      obdDataItems: obdData.map(item => ({ name: item.name, value: item.value })),
-      currentSpeed,
-      fuelLevel
-    })
-  }, [eldConnected, obdData, currentSpeed, fuelLevel])
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -415,7 +493,7 @@ export const DashboardScreen = () => {
         return { backgroundColor: "#FFF4DC", borderColor: "#F59E0B", textColor: "#B45309" }
       case "ON_DUTY":
       case "ON-DUTY":
-        return { backgroundColor: "#EFF6FF", borderColor: "#3B82F6", textColor: "#1E40AF" }
+        return { backgroundColor: colors.palette.primary100, borderColor: colors.PRIMARY, textColor: colors.palette.primary700 }
       case "OFF_DUTY":
       case "OFF-DUTY":
         return { backgroundColor: "#F3F4F6", borderColor: "#6B7280", textColor: "#374151" }
@@ -451,11 +529,10 @@ export const DashboardScreen = () => {
     )
   }, [])
 
-  // Request location on mount
-  useEffect(() => {
-    console.log("📍 DashboardScreen: Requesting location...")
-    requestLocation()
-  }, [requestLocation])
+  // Removed excessive location requests - location is handled by:
+  // 1. useLocationData hook (line 61) - automatically refreshes and prioritizes ELD location
+  // 2. Initial mount refresh (line 68) - only runs once on mount
+  // No need for additional requestLocation calls that cause excessive logs
 
   const vehicleIconAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: vehicleIconScale.value }],
@@ -495,7 +572,7 @@ export const DashboardScreen = () => {
       <ScrollView style={s.screen} contentContainerStyle={s.cc}>
         {/* Hero Card - Are you ready */}
         <LinearGradient
-          colors={["#66ade7", "#0071ce"]}
+          colors={[colors.palette.primary400, colors.PRIMARY]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.heroCard}
@@ -536,15 +613,15 @@ export const DashboardScreen = () => {
               <Text style={s.categoryTextActive}>HOS</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/(tabs)/logs")}>
-              <FileCheck size={32} color="#0071ce" strokeWidth={2} />
+              <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
               <Text style={s.categoryText}>Logs</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/dvir")}>
-              <Shield size={32} color="#0071ce" strokeWidth={2} />
+              <Shield size={32} color={colors.PRIMARY} strokeWidth={2} />
               <Text style={s.categoryText}>DVIR</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.categoryBox}>
-              <BookOpen size={32} color="#0071ce" strokeWidth={2} />
+              <BookOpen size={32} color={colors.PRIMARY} strokeWidth={2} />
               <Text style={s.categoryText}>Reports</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -566,29 +643,6 @@ export const DashboardScreen = () => {
                 <Text style={s.noDataSubtext}>
                   {eldConnected ? 'ELD is connected but no data received yet' : 'ELD not connected'}
                 </Text>
-                {__DEV__ && (
-                  <TouchableOpacity
-                    style={s.debugButton}
-                    onPress={async () => {
-                      console.log('🔧 Manual trigger: Starting ELD reporting...')
-                      try {
-                        const JMBluetoothService = require('@/services/JMBluetoothService').default
-                        const status = await JMBluetoothService.getConnectionStatus()
-                        console.log('🔍 Connection status:', status)
-                        if (status.isConnected) {
-                          await JMBluetoothService.startReportEldData()
-                          console.log('✅ ELD reporting started manually')
-                        } else {
-                          console.log('❌ Not connected, cannot start ELD reporting')
-                        }
-                      } catch (error) {
-                        console.error('❌ Failed to start ELD reporting:', error)
-                      }
-                    }}
-                  >
-                    <Text style={s.debugButtonText}>🔧 Start ELD Reporting (Debug)</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             ) : (
               <View style={s.gaugesRow}>
@@ -627,11 +681,11 @@ export const DashboardScreen = () => {
             style={[s.quickCard, { backgroundColor: "#EFF6FF" }]}
             onPress={() => router.push("/(tabs)/logs")}
           >
-            <View style={[s.quickCardIcon, { backgroundColor: "#3B82F6" }]}>
+            <View style={[s.quickCardIcon, { backgroundColor: colors.PRIMARY }]}>
               <FileText size={20} color="#FFF" strokeWidth={2.5} />
             </View>
             <Text style={s.quickCardLabel}>Logs</Text>
-            <Text style={[s.quickCardValue, { color: "#1E40AF" }]}>
+            <Text style={[s.quickCardValue, { color: colors.palette.primary700 }]}>
               {data.isCertified ? "Certified" : `${data.uncertifiedLogsCount} Pending`}
             </Text>
           </TouchableOpacity>
@@ -670,10 +724,10 @@ export const DashboardScreen = () => {
                   <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
                 </View>
                 <Text style={s.statItemLabel}>Drive</Text>
-                <Progress.Circle
+                  <Progress.Circle
                   size={42}
                   progress={pct(data.driveLeft, 840) / 100}
-                  color="#3B82F6"
+                  color={colors.PRIMARY}
                   thickness={6}
                   showsText={false}
                   strokeCap="round"
@@ -684,7 +738,7 @@ export const DashboardScreen = () => {
                   <View
                     style={[
                       s.miniBarFill,
-                      { width: `${pct(data.driveLeft, 660)}%`, backgroundColor: "#22C55E" },
+                      { width: `${pct(data.driveLeft, 660)}%`, backgroundColor: colors.palette.success500 },
                     ]}
                   />
                 </View>
@@ -694,13 +748,13 @@ export const DashboardScreen = () => {
 
               <View style={s.statItem}>
                 <View style={s.statIconCircle}>
-                  <Clock size={18} color="#3B82F6" strokeWidth={2.5} />
+                  <Clock size={18} color={colors.PRIMARY} strokeWidth={2.5} />
                 </View>
                 <Text style={s.statItemLabel}>Shift</Text>
                 <Progress.Circle
                   size={42}
                   progress={pct(data.shiftLeft, 840) / 100}
-                  color="#3B82F6"
+                  color={colors.PRIMARY}
                   thickness={6}
                   showsText={false}
                   strokeCap="round"
@@ -711,7 +765,7 @@ export const DashboardScreen = () => {
                   <View
                     style={[
                       s.miniBarFill,
-                      { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: "#3B82F6" },
+                      { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: colors.PRIMARY },
                     ]}
                   />
                 </View>
@@ -736,7 +790,7 @@ export const DashboardScreen = () => {
           <View style={s.actionsGrid}>
             <TouchableOpacity style={s.actionCard} onPress={() => router.push("/status")}>
               <LinearGradient
-                colors={["#22C55E", "#16A34A"]}
+                colors={[colors.palette.success500, colors.palette.success600]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={s.actionGradient}
@@ -753,7 +807,7 @@ export const DashboardScreen = () => {
 
             <TouchableOpacity style={s.actionCard} onPress={() => router.push("/(tabs)/logs")}>
               <LinearGradient
-                colors={["#3B82F6", "#2563EB"]}
+                colors={[colors.PRIMARY, colors.palette.primary600]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={s.actionGradient}
@@ -802,7 +856,7 @@ export const DashboardScreen = () => {
             {currentLocation?.address && (
               <View style={s.vehicleDetailSection}>
                 <View style={s.vehicleDetailHeader}>
-                  <MapPin size={16} color="#0071ce" strokeWidth={2.5} />
+                  <MapPin size={16} color={colors.PRIMARY} strokeWidth={2.5} />
                   <Text style={s.vehicleSectionTitle}>Current Location</Text>
                 </View>
                 <Text style={s.vehicleAddressText}>{currentLocation.address}</Text>
@@ -811,7 +865,7 @@ export const DashboardScreen = () => {
 
             <View style={s.vehicleDetailSection}>
               <View style={s.vehicleDetailHeader}>
-                <Gauge size={16} color="#0071ce" strokeWidth={2.5} />
+                <Gauge size={16} color={colors.PRIMARY} strokeWidth={2.5} />
                 <Text style={s.vehicleSectionTitle}>Vehicle Details</Text>
               </View>
 
@@ -876,7 +930,7 @@ const s = StyleSheet.create({
   },
   avatarContainer: {
     alignItems: "center",
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.PRIMARY,
     borderRadius: 25,
     height: 50,
     justifyContent: "center",
@@ -956,7 +1010,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   heroButtonText: {
-    color: "#0071ce",
+    color: colors.PRIMARY,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -1397,7 +1451,7 @@ const s = StyleSheet.create({
     fontWeight: "800",
   },
   seeAllText: {
-    color: "#0071ce",
+    color: colors.PRIMARY,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1415,7 +1469,7 @@ const s = StyleSheet.create({
     width: 100,
   },
   categoryBoxActive: {
-    backgroundColor: "#0071ce",
+    backgroundColor: colors.PRIMARY,
   },
   categoryText: {
     color: "#6B7280",
@@ -1516,7 +1570,7 @@ const s = StyleSheet.create({
 
   loginButton: {
     alignSelf: "flex-start",
-    backgroundColor: "#0071ce",
+    backgroundColor: colors.PRIMARY,
     borderRadius: 16,
     marginTop: 16,
     paddingHorizontal: 24,
@@ -1549,12 +1603,12 @@ const s = StyleSheet.create({
   },
   vehicleIconContainer: {
     alignItems: "center",
-    backgroundColor: "#0071ce",
+    backgroundColor: colors.PRIMARY,
     borderRadius: 16,
     elevation: 6,
     height: 56,
     justifyContent: "center",
-    shadowColor: "#0071ce",
+    shadowColor: colors.PRIMARY,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1567,7 +1621,7 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   vehicleInfoSubtitle: {
-    color: "#0071ce",
+    color: colors.PRIMARY,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1693,7 +1747,7 @@ const s = StyleSheet.create({
     textAlign: "center",
   },
   debugButton: {
-    backgroundColor: "#0071ce",
+    backgroundColor: colors.PRIMARY,
     borderRadius: 12,
     marginTop: 16,
     paddingHorizontal: 16,

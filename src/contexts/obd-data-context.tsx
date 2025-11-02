@@ -57,12 +57,11 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const obdEldDataListener = JMBluetoothService.addEventListener(
       'onObdEldDataReceived',
       (data: ObdEldData) => {
-        console.log('📊 OBD Data Context: Received ELD data', { 
-          dataKeys: Object.keys(data),
-          hasDataFlowList: !!data.dataFlowList,
-          dataFlowListLength: data.dataFlowList?.length || 0,
-          fullData: data
-        })
+        console.log('📊 OBD Data Context: Received ELD data event')
+        console.log('📊 OBD Data Context: Data keys:', Object.keys(data))
+        console.log('📊 OBD Data Context: Has dataFlowList?', !!data.dataFlowList, 'Length:', data.dataFlowList?.length || 0)
+        console.log('📊 OBD Data Context: driverProfile exists?', !!driverProfile, 'driver_id:', driverProfile?.driver_id)
+        console.log('📊 OBD Data Context: vehicleAssignment exists?', !!vehicleAssignment)
         const displayData = handleData(data)
         console.log('📊 OBD Data Context: Processed display data', { 
           displayDataLength: displayData.length,
@@ -84,21 +83,33 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
 
         // Add to buffers for dual sync (Local API + AWS)
-        if (driverProfile?.driver_id) {
-          // Local API payload
-          const localPayload: ObdDataPayload = {
-            driver_id: driverProfile.driver_id,
-            timestamp: new Date().toISOString(),
-            latitude: data.latitude,
-            longitude: data.longitude,
-            raw_data: data,
-          }
+        if (!driverProfile?.driver_id) {
+          console.warn('⚠️ OBD Data Context: Cannot add to buffers - missing driverProfile.driver_id')
+          console.warn('⚠️ OBD Data Context: driverProfile:', driverProfile)
+          return
+        }
 
-          // AWS Lambda payload
+        // Local API payload
+        const localPayload: ObdDataPayload = {
+          driver_id: driverProfile.driver_id,
+          timestamp: new Date().toISOString(),
+          latitude: data.latitude,
+          longitude: data.longitude,
+          raw_data: data,
+        }
+
+        // AWS Lambda payload - ensure required fields are always valid
+        const vehicleId = vehicleAssignment?.vehicle_info?.vin || vehicleAssignment?.vehicle_info?.vehicle_unit || 'UNKNOWN_VEHICLE'
+        const timestamp = Date.now()
+        
+        console.log('📦 OBD Data Context: Preparing payloads - vehicleId:', vehicleId, 'timestamp:', timestamp)
+        
+        // Only add to AWS buffer if vehicleId and timestamp are valid
+        if (vehicleId !== 'UNKNOWN_VEHICLE' && timestamp > 0) {
           const awsPayload: AwsObdPayload = {
-            vehicleId: vehicleAssignment?.vehicle_info?.vin || 'unknown',
+            vehicleId: vehicleId,
             driverId: driverProfile.driver_id,
-            timestamp: Date.now(),
+            timestamp: timestamp,
             dataType: 'engine_data',
             latitude: data.latitude,
             longitude: data.longitude,
@@ -140,6 +151,10 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dataBufferRef.current.push(localPayload)
           awsBufferRef.current.push(awsPayload)
           console.log(`📦 OBD Data Context: Added to buffers - Local: ${dataBufferRef.current.length}, AWS: ${awsBufferRef.current.length} items`)
+        } else {
+          // Skip AWS sync if vehicleId is invalid
+          console.warn(`⚠️ OBD Data Context: Skipping AWS sync - invalid vehicleId: ${vehicleId}`)
+          dataBufferRef.current.push(localPayload) // Still sync to local API
         }
       }
     )
@@ -223,44 +238,65 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     )
 
-    // Check current connection status on setup
+    // Check current connection status on setup (runs when context initializes)
     const checkConnectionStatus = async () => {
       try {
+        // Only check if authenticated
+        if (!isAuthenticated) {
+          console.log('⏭️ OBD Data Context: Skipping connection check - not authenticated')
+          return
+        }
+
         const status = await JMBluetoothService.getConnectionStatus()
         console.log('🔍 OBD Data Context: Initial connection check:', status)
+        
         if (status.isConnected) {
           console.log('✅ OBD Data Context: Device already connected, setting connected state')
           setIsConnected(true)
+          
+          // Prevent duplicate calls
+          if (eldReportingStartedRef.current) {
+            console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
+            return
+          }
           
           // Wait a bit before starting ELD reporting to ensure stable connection
           setTimeout(async () => {
             try {
               if (eldReportingStartedRef.current) {
-                console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
+                console.log('ℹ️ OBD Data Context: ELD reporting already started during wait period, skipping')
                 return
               }
               
               const recheckStatus = await JMBluetoothService.getConnectionStatus()
-              if (recheckStatus.isConnected) {
+              if (recheckStatus.isConnected && !eldReportingStartedRef.current) {
                 console.log('📊 OBD Data Context: Starting ELD reporting from status check...')
                 await JMBluetoothService.startReportEldData()
                 eldReportingStartedRef.current = true
                 console.log('✅ OBD Data Context: ELD reporting started successfully from status check')
               } else {
-                console.log('⚠️ OBD Data Context: Connection lost before starting ELD reporting')
+                if (!recheckStatus.isConnected) {
+                  console.log('⚠️ OBD Data Context: Connection lost during wait period')
+                } else {
+                  console.log('ℹ️ OBD Data Context: ELD reporting already started elsewhere')
+                }
               }
             } catch (error) {
               console.log('⚠️ OBD Data Context: Failed to start ELD reporting from status check:', error)
             }
           }, 2000) // Wait 2 seconds for stable connection
+        } else {
+          console.log('ℹ️ OBD Data Context: Device not connected on initial check')
         }
       } catch (error) {
         console.log('⚠️ OBD Data Context: Failed to check connection status:', error)
       }
     }
 
-    // Check connection status immediately
-    checkConnectionStatus()
+    // Check connection status immediately (only if authenticated)
+    if (isAuthenticated) {
+      checkConnectionStatus()
+    }
 
     // Listen for other events for debugging
     const obdEldStartListener = JMBluetoothService.addEventListener(
@@ -340,7 +376,8 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     syncIntervalRef.current = setInterval(async () => {
       if (dataBufferRef.current.length === 0) {
-        console.log('⏭️  Local API: No data to sync, skipping')
+        console.log('⏭️  Local API: No data to sync, skipping (buffer empty)')
+        console.log('⏭️  Local API: Debug - isAuthenticated:', isAuthenticated, 'driverProfile:', !!driverProfile, 'isConnected:', isConnected)
         return
       }
 
@@ -387,7 +424,8 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     awsSyncIntervalRef.current = setInterval(async () => {
       if (awsBufferRef.current.length === 0) {
-        console.log('⏭️  AWS: No data to sync, skipping')
+        console.log('⏭️  AWS: No data to sync, skipping (buffer empty)')
+        console.log('⏭️  AWS: Debug - isAuthenticated:', isAuthenticated, 'driverProfile:', !!driverProfile, 'vehicleAssignment:', !!vehicleAssignment)
         return
       }
 

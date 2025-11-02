@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
   withSequence,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated'
 
 export interface ToastProps {
@@ -153,7 +154,7 @@ export const Toast: React.FC<ToastProps> = ({
       duration: 300,
       easing: Easing.in(Easing.cubic),
     }, () => {
-      onDismiss()
+      runOnJS(onDismiss)()
     })
   }
 

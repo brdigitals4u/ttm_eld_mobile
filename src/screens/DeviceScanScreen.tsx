@@ -110,26 +110,69 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         });
       }
       
-      // Check if this is a status 8 expected disconnection
-      if (data.status8Expected) {
-        console.log('Status 8 expected - device authenticated successfully, proceeding to dashboard');
+      try {
+        // Step 1: Check connection status
+        console.log('📡 Step 1: Checking connection status...');
+        const status = await JMBluetoothService.getConnectionStatus();
+        console.log('📡 Connection status:', status);
+        
+        if (!status.isConnected) {
+          console.warn('⚠️ Device not connected after authentication');
+          Alert.alert('Connection Error', 'Device is not connected. Please try again.');
+          setConnecting(false);
+          return;
+        }
+        
+        // Step 2: Wait for stable connection (2 seconds)
+        console.log('⏳ Waiting for stable connection...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Step 3: Re-check connection before transmitting
+        const recheckStatus = await JMBluetoothService.getConnectionStatus();
+        if (!recheckStatus.isConnected) {
+          console.warn('⚠️ Connection lost during wait period');
+          Alert.alert('Connection Error', 'Connection lost. Please try again.');
+          setConnecting(false);
+          return;
+        }
+        
+        // Step 4: Start ELD reporting (transmit)
+        console.log('📤 Step 2: Starting ELD data transmission...');
+        const transmitResult = await JMBluetoothService.startReportEldData();
+        console.log('📤 ELD transmission start result:', transmitResult);
+        
+        if (!transmitResult) {
+          console.warn('⚠️ ELD transmission start returned false');
+          Alert.alert('Transmission Error', 'Failed to start ELD data transmission. You can try again from the dashboard.');
+        } else {
+          console.log('✅ ELD data transmission started successfully');
+        }
+        
+        // Step 5: Wait a moment for transmission to initialize
+        console.log('⏳ Waiting for transmission to initialize...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Step 6: Navigate to dashboard
+        console.log('✅ Step 3: Navigating to dashboard...');
         setConnecting(false);
         router.replace('/(tabs)/dashboard');
-        return;
+        
+      } catch (error) {
+        console.error('❌ Error during connection check and transmission:', error);
+        Alert.alert(
+          'Error', 
+          `Failed to complete setup: ${error}. You can try starting transmission from the dashboard.`,
+          [
+            { 
+              text: 'Go to Dashboard', 
+              onPress: () => {
+                setConnecting(false);
+                router.replace('/(tabs)/dashboard');
+              }
+            }
+          ]
+        );
       }
-      
-      // Check if authentication is complete (new flag for password-disabled devices)
-      if (data.authenticationComplete) {
-        console.log('Authentication complete - proceeding to dashboard');
-        setConnecting(false);
-        router.replace('/(tabs)/dashboard');
-        return;
-      }
-      
-      // Fallback: assume authentication is successful and proceed
-      console.log('Authentication passed - proceeding to dashboard');
-      setConnecting(false);
-      router.replace('/(tabs)/dashboard');
     });
 
     JMBluetoothService.addEventListener('onDisconnected', () => {
