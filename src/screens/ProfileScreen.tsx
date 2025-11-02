@@ -15,7 +15,7 @@
     TrendingUp,
     ChevronRight,
   } from "lucide-react-native"
-  import React, { useEffect } from "react"
+  import React, { useEffect, useMemo, useState } from "react"
   import { router } from "expo-router"
   import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Image } from "react-native"
   import { LinearGradient } from "expo-linear-gradient"
@@ -34,6 +34,8 @@
   import { useHeader } from "@/utils/useHeader"
   import { Header } from "@/components/Header"
   import StatCircleCard from "@/components/StatCircleCard"
+  import { useObdData } from "@/contexts/obd-data-context"
+  import { getEldDevice, EldDeviceInfo } from "@/utils/eldStorage"
 
   const { width } = Dimensions.get("window")
 
@@ -160,6 +162,8 @@
     const { colors, isDark } = theme
     const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings } =
       useAuth()
+    const { obdData, isConnected: eldConnected } = useObdData()
+    const [eldDeviceInfo, setEldDeviceInfo] = useState<EldDeviceInfo | null>(null)
 
     const headerOpacity = useSharedValue(0)
     const headerTranslateY = useSharedValue(-50)
@@ -174,7 +178,15 @@
         200,
         withSequence(withSpring(360, { damping: 10 }), withSpring(0, { damping: 10 })),
       )
+      
+      // Load saved ELD device info
+      loadEldDeviceInfo()
     }, [])
+
+    const loadEldDeviceInfo = async () => {
+      const deviceInfo = await getEldDevice()
+      setEldDeviceInfo(deviceInfo)
+    }
 
     const headerAnimatedStyle = useAnimatedStyle(() => ({
       opacity: headerOpacity.value,
@@ -196,6 +208,17 @@
         console.error("❌ ProfileScreen: Logout failed:", error)
       }
     }
+
+    // Extract odometer from OBD data
+    const currentOdometer = useMemo(() => {
+      const odometerItem = obdData.find(
+        (item) =>
+          item.name.includes('Total Vehicle Distance') ||
+          item.name.includes('Odometer') ||
+          item.name.includes('High Resolution Total Vehicle Distance')
+      )
+      return odometerItem ? parseFloat(odometerItem.value) || 0 : null
+    }, [obdData])
 
     const menuItems = [
       {
@@ -622,13 +645,37 @@
                 index={4}
               />
 
-              {driverProfile.eld_device_id && (
+              {/* ELD Device ID - from profile, saved device, or connected device */}
+              {(driverProfile.eld_device_id || eldDeviceInfo || eldConnected) && (
                 <InfoCard
                   icon={<Bluetooth size={20} color="#3b82f6" />}
-                  label="ELD Device ID"
-                  value={driverProfile.eld_device_id}
+                  label="ELD Device MAC Address"
+                  value={
+                    driverProfile.eld_device_id ||
+                    eldDeviceInfo?.address ||
+                    'Connected'
+                  }
+                  subtext={
+                    eldConnected
+                      ? 'Currently Connected'
+                      : eldDeviceInfo?.name
+                      ? `Device: ${eldDeviceInfo.name}`
+                      : undefined
+                  }
                   color="#3b82f6"
                   index={5}
+                />
+              )}
+
+              {/* Current Odometer from live ELD data */}
+              {currentOdometer !== null && (
+                <InfoCard
+                  icon={<TrendingUp size={20} color="#f59e0b" />}
+                  label="Live Odometer Reading"
+                  value={`${currentOdometer.toFixed(1)} km`}
+                  subtext="From ELD Device"
+                  color="#f59e0b"
+                  index={6}
                 />
               )}
 

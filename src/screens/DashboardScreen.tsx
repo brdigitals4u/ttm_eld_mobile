@@ -29,8 +29,11 @@ import { LinearGradient } from "expo-linear-gradient"
 import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
+import { useObdData } from "@/contexts/obd-data-context"
 import HOSCircle from "@/components/HOSSvg"
 import { EldIndicator } from "@/components/EldIndicator"
+import { SpeedGauge } from "@/components/SpeedGauge"
+import { FuelLevelIndicator } from "@/components/FuelLevelIndicator"
 import { colors } from "@/theme/colors"
 import { Header } from "@/components/Header"
 import { COLORS } from "@/constants"
@@ -51,6 +54,7 @@ export const DashboardScreen = () => {
   } = useAuth()
   const { logEntries, certification } = useStatus()
   const { currentLocation, requestLocation } = useLocation()
+  const { obdData, isConnected: eldConnected } = useObdData()
 
   // Shorten location address
   const shortLocationAddress = useMemo(() => {
@@ -66,6 +70,25 @@ export const DashboardScreen = () => {
       ? currentLocation.address.substring(0, 30) + "..."
       : currentLocation.address
   }, [currentLocation])
+
+  // Extract speed and fuel level from OBD data
+  const currentSpeed = useMemo(() => {
+    const speedItem = obdData.find(
+      (item) =>
+        item.name.includes('Vehicle Speed') ||
+        item.name.includes('Wheel-Based Vehicle Speed')
+    )
+    return speedItem ? parseFloat(speedItem.value) || 0 : 0
+  }, [obdData])
+
+  const fuelLevel = useMemo(() => {
+    const fuelItem = obdData.find(
+      (item) =>
+        item.name.includes('Fuel Level') ||
+        item.name.includes('Fuel Level Input')
+    )
+    return fuelItem ? parseFloat(fuelItem.value) || 0 : 0
+  }, [obdData])
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -356,6 +379,27 @@ export const DashboardScreen = () => {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {/* ELD Data - Speed & Fuel */}
+      {eldConnected && (
+        <View style={s.eldDataSection}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>Live Vehicle Data</Text>
+            <View style={s.eldStatusBadge}>
+              <View style={s.eldStatusDot} />
+              <Text style={s.eldStatusText}>ELD Connected</Text>
+            </View>
+          </View>
+          <View style={s.gaugesRow}>
+            <View style={s.gaugeCard}>
+              <SpeedGauge speed={currentSpeed} unit="mph" maxSpeed={120} />
+            </View>
+            <View style={s.gaugeCard}>
+              <FuelLevelIndicator fuelLevel={fuelLevel} />
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Quick Status Cards */}
       <View style={s.statusCardsRow}>
@@ -1375,5 +1419,46 @@ const s = StyleSheet.create({
   },
   vehicleVinText: {
     fontFamily: "monospace",
+  },
+
+  // ELD Data Section
+  eldDataSection: {
+    marginHorizontal: 20,
+    marginTop: 24,
+  },
+  eldStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  eldStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#10B981",
+  },
+  eldStatusText: {
+    color: "#059669",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  gaugesRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  gaugeCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
 })

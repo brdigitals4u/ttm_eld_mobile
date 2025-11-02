@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import JMBluetoothService from '../services/JMBluetoothService';
 import { useConnectionState } from '../services/ConnectionStateService';
 import { BleDevice } from '../types/JMBluetooth';
+import { saveEldDevice } from '../utils/eldStorage';
 
 const __DEV__ = process.env.NODE_ENV === 'development';
 
@@ -97,8 +98,17 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       Alert.alert('Connection Failed', `Failed to connect: ${error.status}`);
     });
 
-    JMBluetoothService.addEventListener('onAuthenticationPassed', (data: any) => {
+    JMBluetoothService.addEventListener('onAuthenticationPassed', async (data: any) => {
       console.log('Device authentication passed:', data);
+      
+      // Save ELD device info to storage
+      if (_selectedDevice) {
+        await saveEldDevice({
+          address: _selectedDevice.address || '',
+          name: _selectedDevice.name,
+          connectedAt: new Date().toISOString(),
+        });
+      }
       
       // Check if this is a status 8 expected disconnection
       if (data.status8Expected) {
