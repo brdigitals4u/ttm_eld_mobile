@@ -30,6 +30,9 @@ import { useAuth } from "@/stores/authStore"
 import { useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
+import { useHOSClock, useComplianceSettings, hosApi } from "@/api/hos"
+import { useStatusStore } from "@/stores/statusStore"
+import { DriverStatus } from "@/types/status"
 import HOSCircle from "@/components/HOSSvg"
 import { EldIndicator } from "@/components/EldIndicator"
 import { SpeedGauge } from "@/components/SpeedGauge"
@@ -51,10 +54,73 @@ export const DashboardScreen = () => {
     organizationSettings,
     isAuthenticated,
     isLoading,
+    updateHosStatus,
   } = useAuth()
-  const { logEntries, certification } = useStatus()
+  const { logEntries, certification, hoursOfService } = useStatus()
   const { currentLocation, requestLocation } = useLocation()
   const { obdData, isConnected: eldConnected } = useObdData()
+  const { setCurrentStatus, setHoursOfService } = useStatusStore()
+
+  // Sync HOS Clock from backend
+  const { 
+    data: hosClock, 
+    isLoading: isHOSLoading,
+    error: hosError 
+  } = useHOSClock({
+    enabled: isAuthenticated,
+    refetchInterval: 60000, // Sync every 60 seconds
+    refetchIntervalInBackground: false,
+  })
+
+  // Get HOS Compliance Settings
+  const { 
+    data: complianceSettings, 
+    isLoading: isSettingsLoading 
+  } = useComplianceSettings({
+    enabled: isAuthenticated,
+  })
+
+  // Sync HOS clock data to auth store and status store when it updates
+  useEffect(() => {
+    if (hosClock && isAuthenticated) {
+      console.log('🔄 Dashboard: Syncing HOS clock data from backend', hosClock)
+      
+      // Map HOSClock to HOSStatus format for auth store
+      updateHosStatus({
+        driver_id: hosClock.driver,
+        driver_name: hosClock.driver_name,
+        current_status: hosClock.current_duty_status?.toUpperCase() || 'OFF_DUTY',
+        driving_time_remaining: hosClock.driving_time_remaining || 0,
+        on_duty_time_remaining: hosClock.on_duty_time_remaining || 0,
+        cycle_time_remaining: hosClock.cycle_time_remaining || 0,
+        time_remaining: {
+          driving_time_remaining: hosClock.driving_time_remaining || 0,
+          on_duty_time_remaining: hosClock.on_duty_time_remaining || 0,
+          cycle_time_remaining: hosClock.cycle_time_remaining || 0,
+        },
+      })
+      
+      // Sync current status from clock data
+      const appStatus = hosApi.getAppDutyStatus(hosClock.current_duty_status || 'off_duty')
+      setCurrentStatus(appStatus as DriverStatus)
+      
+      // Sync HOS times to status store
+      setHoursOfService({
+        driveTimeRemaining: hosClock.driving_time_remaining || 0,
+        shiftTimeRemaining: hosClock.on_duty_time_remaining || 0,
+        cycleTimeRemaining: hosClock.cycle_time_remaining || 0,
+        breakTimeRemaining: hoursOfService.breakTimeRemaining, // Keep existing break time
+        lastCalculated: Date.now(),
+      })
+    }
+  }, [hosClock, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining])
+
+  // Log HOS sync errors
+  useEffect(() => {
+    if (hosError) {
+      console.error('❌ Dashboard: HOS sync error', hosError)
+    }
+  }, [hosError])
 
   // Shorten location address
   const shortLocationAddress = useMemo(() => {
@@ -115,12 +181,13 @@ export const DashboardScreen = () => {
       }
     }
 
+    // Use clock data if available (from API), otherwise fallback to hosStatus
     const drivingTimeRemaining =
-      hosStatus.driving_time_remaining || hosStatus.time_remaining?.driving_time_remaining || 0
+      hosClock?.driving_time_remaining ?? hosStatus.driving_time_remaining ?? hosStatus.time_remaining?.driving_time_remaining ?? 0
     const onDutyTimeRemaining =
-      hosStatus.on_duty_time_remaining || hosStatus.time_remaining?.on_duty_time_remaining || 0
+      hosClock?.on_duty_time_remaining ?? hosStatus.on_duty_time_remaining ?? hosStatus.time_remaining?.on_duty_time_remaining ?? 0
     const cycleTimeRemaining =
-      hosStatus.cycle_time_remaining || hosStatus.time_remaining?.cycle_time_remaining || 0
+      hosClock?.cycle_time_remaining ?? hosStatus.cycle_time_remaining ?? hosStatus.time_remaining?.cycle_time_remaining ?? 0
 
     const cycleDays = Math.ceil(cycleTimeRemaining / (24 * 60))
 
@@ -150,8 +217,17 @@ export const DashboardScreen = () => {
       coDriver: "N/A",
       truck: vehicleUnit,
       trailer: "N/A",
-      duty: hosStatus.current_status || "OFF_DUTY",
-      cycleLabel: "USA 70 hours / 8 days",
+      duty: hosClock?.current_duty_status?.toUpperCase() ?? hosStatus.current_status ?? "OFF_DUTY",
+      cycleLabel: (() => {
+        if (complianceSettings?.cycle_type) {
+          // Format: "70_hour_8_day" -> "USA 70 hours / 8 days"
+          const parts = complianceSettings.cycle_type.split('_')
+          const hours = parts.find(p => p.includes('hour'))?.replace('hour', '') || '70'
+          const days = parts.find(p => p.includes('day'))?.replace('day', '') || '8'
+          return `USA ${hours} hours / ${days} days`
+        }
+        return organizationSettings?.hos_settings?.cycle_type || "USA 70 hours / 8 days"
+      })(),
       stopIn: onDutyTimeRemaining,
       driveLeft: drivingTimeRemaining,
       shiftLeft: onDutyTimeRemaining,
@@ -171,11 +247,13 @@ export const DashboardScreen = () => {
     user,
     driverProfile,
     hosStatus,
+    hosClock,
     vehicleAssignment,
     organizationSettings,
     isAuthenticated,
     logEntries,
     certification,
+    complianceSettings,
   ]) as any
 
 

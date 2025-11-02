@@ -4,88 +4,471 @@
 
 ## Overview
 
-Hours of Service API module for ELD compliance. Handles HOS clocks, log entries, daily logs, ELD events, and duty status changes. Provides helper functions for data formatting and status mapping.
+Hours of Service API module for ELD compliance with React Query hooks for real-time synchronization. Handles HOS clocks, duty status changes, daily logs, compliance settings, and provides automatic periodic sync (every 30-60 seconds).
 
-## Features
+## Key Features
 
-- HOS clock creation and management
-- Log entry creation
-- Daily log tracking
-- ELD event recording
-- Duty status changes
-- Status certification
-- Location formatting helpers
-- Status remark mapping
+- ✅ **Real-time HOS Clock Sync** - Primary sync endpoint with automatic refresh
+- ✅ **Periodic Updates** - Automatic sync every 60 seconds (configurable)
+- ✅ **Duty Status Changes** - Update duty status with location and odometer
+- ✅ **Daily Logs Retrieval** - Historical HOS data with date range filtering
+- ✅ **Compliance Settings** - Organization HOS rules and configuration
+- ✅ **React Query Integration** - Automatic caching, refetching, and error handling
+- ✅ **Optimistic Updates** - Immediate UI updates with background sync
+
+## Primary Sync Endpoint
+
+### GET /api/hos/clocks/
+
+**Primary endpoint** for syncing current HOS clock data. Returns the driver's current HOS clock with all time remaining calculations.
+
+**Response Structure**:
+```typescript
+{
+  id: "uuid",
+  driver: "driver_uuid",
+  driver_name: "John Doe",
+  current_duty_status: "driving",
+  current_duty_status_start_time: "2025-11-02T10:30:00Z",
+  
+  // Time remaining (in minutes)
+  driving_time_remaining: 660,  // 11 hours
+  on_duty_time_remaining: 840,  // 14 hours
+  cycle_time_remaining: 5040,   // 84 hours
+  
+  // Time remaining (in hours - computed)
+  driving_time_remaining_hours: 11.0,
+  on_duty_time_remaining_hours: 14.0,
+  cycle_time_remaining_hours: 84.0,
+  
+  // Cycle info
+  cycle_start_time: "2025-10-27T00:00:00Z",
+  cycle_type: "70_hour",
+  
+  // Vehicle assignment
+  current_vehicle: "vehicle_uuid",
+  vehicle_unit: "Truck-101",
+  
+  // Last sync timestamp
+  last_updated: "2025-11-02T13:00:00Z"
+}
+```
 
 ## Data Types
 
 ### HOSClock
 
-HOS clock information:
+Complete HOS clock structure:
 
 ```typescript
-{
+interface HOSClock {
+  id?: string
   driver: string
-  clock_type: string
-  start_time: string
-  time_remaining: string
-  cycle_start: string
-  current_duty_status_start_time: string
-  cycle_start_time: string
+  driver_name: string
+  current_duty_status: string  // driving, on_duty, off_duty, sleeper_berth, etc.
+  current_duty_status_start_time: string  // ISO 8601
+  
+  // Time remaining (in minutes)
+  driving_time_remaining: number  // 660 = 11 hours
+  on_duty_time_remaining: number  // 840 = 14 hours
+  cycle_time_remaining: number    // 5040 = 84 hours
+  
+  // Time remaining (in hours - computed)
+  driving_time_remaining_hours: number
+  on_duty_time_remaining_hours: number
+  cycle_time_remaining_hours: number
+  
+  // Cycle info
+  cycle_start_time: string  // ISO 8601
+  cycle_type: string  // "70_hour", "60_hour"
+  
+  // Vehicle assignment
+  current_vehicle?: string
+  vehicle_unit?: string
+  
+  // Last sync timestamp
+  last_updated?: string  // ISO 8601
 }
 ```
 
-### HOSLogEntry
+### ChangeDutyStatusRequest
 
-Log entry for duty status changes:
+Request payload for changing duty status:
 
 ```typescript
-{
-  driver: string
-  duty_status: string
-  start_time: string
-  end_time?: string
-  duration_minutes?: number
-  start_location?: string
-  end_location?: string
-  start_odometer?: number
-  end_odometer?: number
-  remark?: string
+interface ChangeDutyStatusRequest {
+  duty_status: string  // off_duty, sleeper_berth, driving, on_duty, personal_conveyance, yard_move
+  location?: string
+  latitude?: number
+  longitude?: number
+  odometer?: number
+  notes?: string
+}
+```
+
+### ChangeDutyStatusResponse
+
+Response from duty status change:
+
+```typescript
+interface ChangeDutyStatusResponse {
+  status: string
+  clock: HOSClock  // Updated clock data
+}
+```
+
+### HOSComplianceSettings
+
+Organization HOS rules and settings:
+
+```typescript
+interface HOSComplianceSettings {
+  ruleset: string  // "usa_property_70_hour"
+  cycle_type: string  // "70_hour_8_day", "60_hour_7_day"
+  restart_hours: number  // 34 hours for restart
+  enable_16_hour_exception: boolean
+  break_period_required: boolean
+  break_period_minutes: number  // 30 minutes
+  personal_conveyance_enabled: boolean
+  yard_move_enabled: boolean
+  adverse_weather_exemption_enabled?: boolean
+  big_day_exemption_enabled?: boolean
+  waiting_time_duty_status_enabled?: boolean
 }
 ```
 
 ### HOSDailyLog
 
-Daily summary log:
+Daily log summary:
 
 ```typescript
-{
+interface HOSDailyLog {
+  id?: string
   driver: string
-  log_date: string
-  total_driving_time: number
-  total_on_duty_time: number
-  total_off_duty_time: number
+  driver_name?: string
+  log_date: string  // YYYY-MM-DD
+  total_driving_time: number  // minutes
+  total_on_duty_time: number  // minutes
+  total_off_duty_time: number  // minutes
+  total_sleeper_berth_time?: number  // minutes
   is_certified: boolean
+  certified_at?: string
+  certified_by?: string
 }
 ```
 
-### HOSELDEvent
+### DailyLogsQueryParams
 
-ELD compliance event:
+Query parameters for daily logs:
 
 ```typescript
-{
-  driver: string
-  event_type: string
-  event_code: string
-  event_data: {
-    new_duty_status: string
-    previous_duty_status?: string
-  }
-  event_time: string
-  location: string
+interface DailyLogsQueryParams {
+  startDate?: string  // YYYY-MM-DD
+  endDate?: string    // YYYY-MM-DD
+  driver?: string
 }
 ```
+
+## React Query Hooks
+
+### `useHOSClock(options?)`
+
+**Primary hook** for getting current HOS clock. Used for periodic sync.
+
+**Features**:
+- Automatic periodic refetch (default: 60 seconds)
+- Configurable refetch interval
+- Background refetch support
+- Smart retry logic (no retry on 404)
+
+**Parameters**:
+```typescript
+{
+  enabled?: boolean  // Default: true
+  refetchInterval?: number  // Default: 60000ms (60 seconds)
+  refetchIntervalInBackground?: boolean  // Default: false
+}
+```
+
+**Returns**: `UseQueryResult<HOSClock, ApiError>`
+
+**Usage**:
+```typescript
+// Basic usage with default 60-second sync
+const { data: clock, isLoading, error } = useHOSClock()
+
+// Custom interval (30 seconds)
+const { data: clock } = useHOSClock({
+  refetchInterval: 30000
+})
+
+// Disable when not needed
+const { data: clock } = useHOSClock({
+  enabled: isAuthenticated && isConnected
+})
+```
+
+**Auto-refetch**: Automatically refetches every 60 seconds to keep clock data current.
+
+### `useHOSClockById(clockId, options?)`
+
+Get specific HOS clock by ID.
+
+**Parameters**:
+- `clockId`: string | null | undefined
+- `options.enabled?: boolean`
+
+**Usage**:
+```typescript
+const { data: clock } = useHOSClockById(clockId)
+```
+
+### `useChangeDutyStatus()`
+
+Mutation hook for changing duty status.
+
+**Features**:
+- Optimistic cache updates
+- Automatic cache invalidation
+- Error handling
+
+**Returns**: `UseMutationResult<ChangeDutyStatusResponse, ApiError>`
+
+**Usage**:
+```typescript
+const changeStatus = useChangeDutyStatus()
+
+const handleStatusChange = async () => {
+  try {
+    const result = await changeStatus.mutateAsync({
+      clockId: clock.id!,
+      request: {
+        duty_status: 'driving',
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        location: currentLocation.address,
+        odometer: currentOdometer
+      }
+    })
+    console.log('Status changed:', result.clock.current_duty_status)
+  } catch (error) {
+    console.error('Failed to change status:', error)
+  }
+}
+```
+
+### `useCreateHOSClock()`
+
+Mutation hook for creating a new HOS clock.
+
+**Usage**:
+```typescript
+const createClock = useCreateHOSClock()
+
+await createClock.mutateAsync({
+  driver: driverId,
+  current_duty_status: 'off_duty',
+  current_duty_status_start_time: new Date().toISOString(),
+  driving_time_remaining: 660,
+  on_duty_time_remaining: 840,
+  cycle_time_remaining: 5040,
+  cycle_start_time: cycleStart,
+  cycle_type: '70_hour'
+})
+```
+
+### `useUpdateHOSClock()`
+
+Mutation hook for updating an existing HOS clock.
+
+**Usage**:
+```typescript
+const updateClock = useUpdateHOSClock()
+
+await updateClock.mutateAsync({
+  clockId: clock.id!,
+  clockData: {
+    driving_time_remaining: 600,
+    on_duty_time_remaining: 800
+  }
+})
+```
+
+### `useDailyLogs(params?, options?)`
+
+Query hook for retrieving daily logs.
+
+**Parameters**:
+- `params?: DailyLogsQueryParams` - Query filters
+- `options.enabled?: boolean`
+
+**Usage**:
+```typescript
+// Get all daily logs
+const { data: logs } = useDailyLogs()
+
+// Get logs for date range
+const { data: logs } = useDailyLogs({
+  startDate: '2025-11-01',
+  endDate: '2025-11-02'
+})
+
+// Get logs for specific driver
+const { data: logs } = useDailyLogs({
+  driver: driverId
+})
+```
+
+**Cache**: 5 minutes stale time (logs don't change frequently)
+
+### `useComplianceSettings(options?)`
+
+Query hook for getting HOS compliance settings.
+
+**Usage**:
+```typescript
+const { data: settings } = useComplianceSettings()
+
+// Check if personal conveyance is enabled
+if (settings?.personal_conveyance_enabled) {
+  // Show PC option
+}
+```
+
+**Cache**: 30 minutes stale time (settings rarely change)
+
+### `useCertifyHOSLog()`
+
+Mutation hook for certifying HOS logs (legacy).
+
+**Usage**:
+```typescript
+const certifyLog = useCertifyHOSLog()
+
+await certifyLog.mutateAsync(logId)
+```
+
+## API Service Functions
+
+### `hosApi.getCurrentHOSClock()`
+
+**GET** `/api/hos/clocks/`
+
+Fetches current HOS clock for authenticated driver.
+
+**Returns**: `Promise<HOSClock>`
+
+**Handles**: Array or single object response (returns first clock if array)
+
+### `hosApi.getHOSClockById(clockId)`
+
+**GET** `/api/hos/clocks/{clock_id}/`
+
+Fetches specific clock by ID.
+
+**Parameters**:
+- `clockId`: string
+
+**Returns**: `Promise<HOSClock>`
+
+### `hosApi.changeDutyStatus(clockId, request)`
+
+**POST** `/api/hos/clocks/{clock_id}/change_duty_status/`
+
+Changes duty status with location and optional data.
+
+**Parameters**:
+- `clockId`: string
+- `request`: ChangeDutyStatusRequest
+
+**Returns**: `Promise<ChangeDutyStatusResponse>`
+
+**Example**:
+```typescript
+const response = await hosApi.changeDutyStatus(clockId, {
+  duty_status: 'driving',
+  location: '123 Main St',
+  latitude: 37.7749,
+  longitude: -122.4194,
+  odometer: 123456,
+  notes: 'Starting shift'
+})
+```
+
+### `hosApi.createHOSClock(clockData)`
+
+**POST** `/api/hos/clocks/`
+
+Creates a new HOS clock.
+
+**Parameters**: `CreateUpdateHOSClockRequest`
+
+**Returns**: `Promise<HOSClock>`
+
+### `hosApi.updateHOSClock(clockId, clockData)`
+
+**PATCH** `/api/hos/clocks/{clock_id}/`
+
+Updates an existing HOS clock.
+
+**Parameters**:
+- `clockId`: string
+- `clockData`: `Partial<CreateUpdateHOSClockRequest>`
+
+**Returns**: `Promise<HOSClock>`
+
+### `hosApi.getDailyLogs(params?)`
+
+**GET** `/api/hos/daily-logs/`
+**GET** `/api/hos/daily-logs/?startDate=2025-11-01&endDate=2025-11-02`
+
+Retrieves daily logs with optional filtering.
+
+**Parameters**: `DailyLogsQueryParams`
+
+**Returns**: `Promise<HOSDailyLog[]>`
+
+### `hosApi.getComplianceSettings()`
+
+**GET** `/api/hos/compliance-settings/`
+
+Gets organization HOS compliance settings.
+
+**Returns**: `Promise<HOSComplianceSettings>`
+
+## Helper Functions
+
+### `hosApi.formatLocationForAPI(location)`
+
+Formats location data for API submission.
+
+**Returns**: Formatted location string (address or lat,lng)
+
+### `hosApi.getStatusRemark(status)`
+
+Gets predefined remark for duty status.
+
+### `hosApi.formatTimestamp(timestamp)`
+
+Converts timestamp to ISO 8601 string.
+
+### `hosApi.getAPIDutyStatus(appStatus)`
+
+Converts app status format (camelCase) to API format (snake_case).
+
+**Mapping**:
+- `driving` → `driving`
+- `onDuty` → `on_duty`
+- `offDuty` → `off_duty`
+- `sleeperBerth` → `sleeper_berth`
+- `personalConveyance` → `personal_conveyance`
+- `yardMoves` → `yard_move`
+
+### `hosApi.getAppDutyStatus(apiStatus)`
+
+Converts API status format (snake_case) to app format (camelCase).
+
+**Reverse mapping** of `getAPIDutyStatus`.
 
 ## Status Remarks
 
@@ -102,243 +485,176 @@ STATUS_REMARKS = {
 }
 ```
 
-## API Functions
+## Mobile App Integration Flow
 
-### `hosApi.createHOSClock(clockData)`
+### Initial Sync (App Launch)
 
-Creates a new HOS clock entry.
-
-**Parameters:**
-- `clockData`: HOSClock object
-
-**Returns:** Promise with API response data
-
-**Example:**
 ```typescript
-const clock = await hosApi.createHOSClock({
-  driver: 'driver-id-123',
-  clock_type: 'driving',
-  start_time: new Date().toISOString(),
-  time_remaining: '10:30:00',
-  cycle_start: new Date().toISOString(),
-  current_duty_status_start_time: new Date().toISOString(),
-  cycle_start_time: new Date().toISOString()
+// 1. Login and get driver details (includes HOS data)
+const loginResponse = await organizationApi.loginDriver({ email, password })
+// loginResponse.user.hos_status contains current clock data
+
+// 2. Get full HOS clock data (using hook)
+const { data: clock } = useHOSClock()
+
+// 3. Get compliance settings
+const { data: settings } = useComplianceSettings()
+```
+
+### Periodic Sync (Every 30-60 seconds)
+
+```typescript
+// Automatic via useHOSClock hook
+const { data: clock } = useHOSClock({
+  refetchInterval: 60000,  // 60 seconds
+  refetchIntervalInBackground: false
+})
+
+// Clock data automatically updates every 60 seconds
+// Use clock data in UI
+```
+
+### Status Change (Driver Action)
+
+```typescript
+const changeStatus = useChangeDutyStatus()
+const { currentLocation } = useLocation()
+
+const handleStatusChange = async (newStatus: string) => {
+  const result = await changeStatus.mutateAsync({
+    clockId: clock.id!,
+    request: {
+      duty_status: hosApi.getAPIDutyStatus(newStatus),
+      location: currentLocation?.address,
+      latitude: currentLocation?.latitude,
+      longitude: currentLocation?.longitude,
+      odometer: currentOdometer
+    }
+  })
+  
+  // Result contains updated clock
+  updateLocalState(result.clock)
+}
+```
+
+## Query Keys
+
+React Query cache keys:
+
+```typescript
+QUERY_KEYS.HOS_CLOCKS = ['hos', 'clocks']
+QUERY_KEYS.HOS_CLOCK(clockId) = ['hos', 'clock', clockId]
+QUERY_KEYS.HOS_DAILY_LOGS = ['hos', 'daily-logs']
+QUERY_KEYS.HOS_COMPLIANCE_SETTINGS = ['hos', 'compliance-settings']
+```
+
+## Caching Strategy
+
+### HOS Clock
+- **Stale Time**: 30 seconds
+- **Refetch Interval**: 60 seconds (configurable)
+- **Background Refetch**: Disabled by default
+
+### Daily Logs
+- **Stale Time**: 5 minutes
+- **Refetch**: Manual or on mutation
+
+### Compliance Settings
+- **Stale Time**: 30 minutes
+- **Cache Time**: 1 hour
+- **Refetch**: Manual or on app restart
+
+## Error Handling
+
+### Retry Logic
+
+- **HOS Clock**: Retries up to 3 times (skips retry on 404)
+- **Daily Logs**: Retries up to 2 times
+- **Compliance Settings**: Retries up to 2 times
+- **Mutations**: No automatic retry (user must retry manually)
+
+### Error Types
+
+- **404**: Clock doesn't exist (create new clock)
+- **401**: Unauthorized (logout user)
+- **400**: Bad request (validation error)
+- **500**: Server error (retry with backoff)
+
+## Integration Points
+
+### With Auth Store
+
+HOS clock data from login response:
+```typescript
+// Login response includes hos_status
+const { user } = loginResponse
+const initialClock = user.hos_status
+```
+
+### With Status Store
+
+Sync HOS clock updates to status store:
+```typescript
+const { data: clock } = useHOSClock()
+
+useEffect(() => {
+  if (clock) {
+    statusStore.setHoursOfService({
+      driveTimeRemaining: clock.driving_time_remaining,
+      shiftTimeRemaining: clock.on_duty_time_remaining,
+      cycleTimeRemaining: clock.cycle_time_remaining,
+      lastCalculated: Date.now()
+    })
+    statusStore.updateStatus(clock.current_duty_status)
+  }
+}, [clock])
+```
+
+### With Location Context
+
+Include location in status changes:
+```typescript
+const { currentLocation } = useLocation()
+
+await changeStatus.mutateAsync({
+  clockId: clock.id!,
+  request: {
+    duty_status: 'driving',
+    latitude: currentLocation?.latitude,
+    longitude: currentLocation?.longitude,
+    location: currentLocation?.address
+  }
 })
 ```
 
-### `hosApi.createHOSLogEntry(logData)`
+## Best Practices
 
-Creates a new HOS log entry.
+1. **Use Primary Hook**: Use `useHOSClock()` for main sync (automatic updates)
+2. **Handle Loading States**: Check `isLoading` before using clock data
+3. **Error Boundaries**: Wrap HOS components in error boundaries
+4. **Location Always**: Include location in status changes
+5. **Cache Updates**: Let React Query handle cache updates automatically
+6. **Periodic Sync**: Keep refetch interval at 60 seconds for real-time feel
+7. **Background Sync**: Disable background refetch to save battery (optional)
 
-**Parameters:**
-- `logData`: HOSLogEntry object
+## Performance
 
-**Returns:** Promise with API response data
-
-**Example:**
-```typescript
-const logEntry = await hosApi.createHOSLogEntry({
-  driver: 'driver-id-123',
-  duty_status: 'driving',
-  start_time: new Date().toISOString(),
-  start_location: '123 Main St, City, State',
-  start_odometer: 50000,
-  remark: 'Regular driving activity'
-})
-```
-
-### `hosApi.createDailyHOSLog(dailyLogData)`
-
-Creates a daily HOS summary log.
-
-**Parameters:**
-- `dailyLogData`: HOSDailyLog object
-
-**Returns:** Promise with API response data
-
-**Example:**
-```typescript
-const dailyLog = await hosApi.createDailyHOSLog({
-  driver: 'driver-id-123',
-  log_date: '2024-01-15',
-  total_driving_time: 480, // minutes
-  total_on_duty_time: 600,
-  total_off_duty_time: 720,
-  is_certified: false
-})
-```
-
-### `hosApi.createHOSELDEvent(eventData)`
-
-Creates an ELD compliance event.
-
-**Parameters:**
-- `eventData`: HOSELDEvent object
-
-**Returns:** Promise with API response data
-
-**Example:**
-```typescript
-const event = await hosApi.createHOSELDEvent({
-  driver: 'driver-id-123',
-  event_type: 'duty_status_change',
-  event_code: 'DS_CHANGE',
-  event_data: {
-    new_duty_status: 'driving',
-    previous_duty_status: 'off_duty'
-  },
-  event_time: new Date().toISOString(),
-  location: '123 Main St, City, State'
-})
-```
-
-### `hosApi.certifyHOSLog(logId)`
-
-Certifies a HOS log entry.
-
-**Parameters:**
-- `logId`: string - Log entry ID
-
-**Returns:** Promise with API response data
-
-**Example:**
-```typescript
-await hosApi.certifyHOSLog('log-id-123')
-```
-
-### `hosApi.changeDutyStatus(clockId, newStatus)`
-
-Changes the duty status for a HOS clock.
-
-**Parameters:**
-- `clockId`: string - Clock entry ID
-- `newStatus`: string - New duty status
-
-**Returns:** Promise with API response data
-
-**Example:**
-```typescript
-await hosApi.changeDutyStatus('clock-id-123', 'off_duty')
-```
-
-## Helper Functions
-
-### `hosApi.formatLocationForAPI(location)`
-
-Formats location data for API submission.
-
-**Parameters:**
-- `location`: LocationData object with latitude, longitude, and optional address
-
-**Returns:** string - Formatted location string
-
-**Logic:**
-- If address exists, returns address
-- Otherwise, returns "latitude, longitude" format
-
-**Example:**
-```typescript
-const locationStr = hosApi.formatLocationForAPI({
-  latitude: 40.7128,
-  longitude: -74.0060,
-  address: 'New York, NY'
-})
-// Returns: "New York, NY"
-
-const locationStr2 = hosApi.formatLocationForAPI({
-  latitude: 40.7128,
-  longitude: -74.0060
-})
-// Returns: "40.712800, -74.006000"
-```
-
-### `hosApi.getStatusRemark(status)`
-
-Gets the predefined remark for a duty status.
-
-**Parameters:**
-- `status`: string - Duty status
-
-**Returns:** string - Status remark or default "Status change"
-
-**Example:**
-```typescript
-const remark = hosApi.getStatusRemark('driving')
-// Returns: "Regular driving activity"
-```
-
-### `hosApi.formatTimestamp(timestamp)`
-
-Converts timestamp to ISO string.
-
-**Parameters:**
-- `timestamp`: number - Unix timestamp in milliseconds
-
-**Returns:** string - ISO 8601 formatted date string
-
-**Example:**
-```typescript
-const isoString = hosApi.formatTimestamp(Date.now())
-// Returns: "2024-01-15T10:30:00.000Z"
-```
-
-### `hosApi.getAPIDutyStatus(appStatus)`
-
-Converts app duty status format to API format.
-
-**Parameters:**
-- `appStatus`: string - App format status (camelCase)
-
-**Returns:** string - API format status (snake_case)
-
-**Status Mapping:**
-- `driving` → `driving`
-- `onDuty` → `on_duty`
-- `offDuty` → `off_duty`
-- `sleeperBerth` → `sleeper_berth`
-- `personalConveyance` → `personal_conveyance`
-- `yardMoves` → `yard_move`
-
-**Example:**
-```typescript
-const apiStatus = hosApi.getAPIDutyStatus('onDuty')
-// Returns: "on_duty"
-```
-
-## Duty Statuses
-
-Supported duty statuses:
-- `driving`: Actively driving
-- `on_duty`: On duty but not driving
-- `off_duty`: Off duty (rest break)
-- `sleeper_berth`: Sleeper berth rest period
-- `personal_conveyance`: Personal use of vehicle
-- `yard_move`: Yard repositioning
-
-## ELD Compliance
-
-This API module supports ELD (Electronic Logging Device) compliance by:
-1. Tracking all duty status changes
-2. Recording location for status changes
-3. Maintaining accurate timestamps
-4. Creating audit trail events
-5. Supporting log certification
-
-## Integration with Location Context
-
-The `formatLocationForAPI` function integrates with the location context (`LocationData` type) to provide proper location formatting for HOS records.
+- **Automatic Batching**: React Query batches requests
+- **Smart Caching**: Prevents unnecessary network calls
+- **Optimistic Updates**: Immediate UI updates
+- **Background Sync**: Optional background refetch
 
 ## Dependencies
 
-- `./client`: ApiClient
-- `./constants`: API endpoints
-- `@/contexts/location-context`: LocationData type
+- `@tanstack/react-query` - React Query hooks
+- `./client` - API client
+- `./constants` - API endpoints and query keys
+- `@/contexts/location-context` - Location data
 
-## Usage Tips
+## Notes
 
-1. **Always include location**: Use `formatLocationForAPI` to ensure proper location formatting
-2. **Use status remarks**: Prefer `getStatusRemark` over hardcoded strings
-3. **Convert timestamps**: Use `formatTimestamp` for consistent ISO date formatting
-4. **Status format conversion**: Use `getAPIDutyStatus` when converting from app state
-5. **Certify logs**: Certify daily logs before the end of day cutoff
-
+1. **Primary Endpoint**: `GET /api/hos/clocks/` is the main sync endpoint
+2. **Auto-refresh**: Clock data refreshes automatically every 60 seconds
+3. **Last Updated**: Use `last_updated` timestamp to detect sync changes
+4. **Time Units**: Minutes and hours both provided (use as needed)
+5. **Cycle Types**: Supports 70-hour and 60-hour cycles

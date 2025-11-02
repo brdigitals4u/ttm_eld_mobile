@@ -66,6 +66,7 @@ class ApiClient {
         method: options.method || 'GET',
         url,
         timeout: `${this.timeout}ms`,
+        body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
       })
 
       const config: RequestInit = {

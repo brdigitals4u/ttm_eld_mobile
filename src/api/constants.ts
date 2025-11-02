@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://api.ttmkonnect.com/api',
+  BASE_URL: __DEV__ ? 'http://10.0.2.2:8000/api' : 'https://api.ttmkonnect.com/api',
   TIMEOUT: 30000, // Increased to 30 seconds for slow networks/dev environments
   RETRY_ATTEMPTS: 3,
 }
@@ -43,12 +43,17 @@ export const API_ENDPOINTS = {
   
   // HOS (Hours of Service) APIs
   HOS: {
+    GET_CLOCKS: '/hos/clocks/',
+    GET_CLOCK: '/hos/clocks/{id}/',
     CREATE_CLOCK: '/hos/clocks/',
+    UPDATE_CLOCK: '/hos/clocks/{id}/',
+    CHANGE_DUTY_STATUS: '/hos/clocks/{id}/change_duty_status/',
+    GET_DAILY_LOGS: '/hos/daily-logs/',
+    GET_COMPLIANCE_SETTINGS: '/hos/compliance-settings/',
     CREATE_LOG_ENTRY: '/hos/logs/',
     CREATE_DAILY_LOG: '/hos/daily-logs/',
     CREATE_ELD_EVENT: '/hos/eld-events/',
     CERTIFY_LOG: '/hos/logs/{id}/certify/',
-    CHANGE_DUTY_STATUS: '/hos/clocks/{id}/change_duty_status/',
   },
 }
 
@@ -90,7 +95,7 @@ export const SUCCESS_MESSAGES = {
   EMAIL_VERIFIED: 'Email verified successfully.',
 } as const
 
-// Query Keys for TanStack Query
+  // Query Keys for TanStack Query
 export const QUERY_KEYS = {
   // Authentication
   AUTH: ['auth'] as const,
@@ -100,6 +105,12 @@ export const QUERY_KEYS = {
   DASHBOARD_STATS: ['dashboard', 'stats'] as const,
   DASHBOARD_ACTIVITY: ['dashboard', 'activity'] as const,
   NOTIFICATIONS: ['notifications'] as const,
+  
+  // HOS (Hours of Service)
+  HOS_CLOCKS: ['hos', 'clocks'] as const,
+  HOS_CLOCK: (clockId: string) => ['hos', 'clock', clockId] as const,
+  HOS_DAILY_LOGS: ['hos', 'daily-logs'] as const,
+  HOS_COMPLIANCE_SETTINGS: ['hos', 'compliance-settings'] as const,
 } as const
 
 // Storage Keys

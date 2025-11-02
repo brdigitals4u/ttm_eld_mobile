@@ -62,25 +62,62 @@ const initialState: StatusState = {
   currentLocation: undefined,
 }
 
-// Predefined status reasons
+// Predefined status reasons - Truck Driver Specific
 const STATUS_REASONS: StatusReason[] = [
+  // On Duty Reasons
   { id: "1", text: "Starting shift", category: "onDuty" },
   { id: "2", text: "Pre-trip inspection", category: "onDuty" },
   { id: "3", text: "Post-trip inspection", category: "onDuty" },
-  { id: "4", text: "Loading", category: "onDuty" },
-  { id: "5", text: "Unloading", category: "onDuty" },
-  { id: "6", text: "Waiting at shipper/receiver", category: "onDuty" },
-  { id: "7", text: "Fueling", category: "onDuty" },
-  { id: "8", text: "Maintenance", category: "onDuty" },
-  { id: "9", text: "Meal break", category: "offDuty" },
-  { id: "10", text: "Rest break", category: "offDuty" },
-  { id: "11", text: "End of shift", category: "offDuty" },
-  { id: "12", text: "Personal conveyance", category: "personalConveyance" },
-  { id: "13", text: "Start of sleep period", category: "sleeperBerth" },
-  { id: "14", text: "End of sleep period", category: "sleeperBerth" },
-  { id: "15", text: "Moving trailer in yard", category: "yardMoves" },
-  { id: "16", text: "Repositioning vehicle", category: "yardMoves" },
-  { id: "17", text: "Other", category: "all" },
+  { id: "4", text: "Loading cargo", category: "onDuty" },
+  { id: "5", text: "Unloading cargo", category: "onDuty" },
+  { id: "6", text: "Waiting at shipper", category: "onDuty" },
+  { id: "7", text: "Waiting at receiver", category: "onDuty" },
+  { id: "8", text: "Waiting for dispatch", category: "onDuty" },
+  { id: "9", text: "Fueling vehicle", category: "onDuty" },
+  { id: "10", text: "Vehicle maintenance", category: "onDuty" },
+  { id: "11", text: "Paperwork/documentation", category: "onDuty" },
+  { id: "12", text: "Weighing cargo", category: "onDuty" },
+  { id: "13", text: "Securing load", category: "onDuty" },
+  { id: "14", text: "Checking equipment", category: "onDuty" },
+  { id: "15", text: "Vehicle wash/cleaning", category: "onDuty" },
+  
+  // Off Duty Reasons
+  { id: "16", text: "Meal break", category: "offDuty" },
+  { id: "17", text: "Rest break", category: "offDuty" },
+  { id: "18", text: "End of shift", category: "offDuty" },
+  { id: "19", text: "Personal time", category: "offDuty" },
+  { id: "20", text: "Lunch break", category: "offDuty" },
+  { id: "21", text: "Dinner break", category: "offDuty" },
+  { id: "22", text: "Rest area break", category: "offDuty" },
+  
+  // Driving Reasons
+  { id: "23", text: "Starting route", category: "driving" },
+  { id: "24", text: "Continuing route", category: "driving" },
+  { id: "25", text: "Highway driving", category: "driving" },
+  { id: "26", text: "City driving", category: "driving" },
+  { id: "27", text: "Local delivery", category: "driving" },
+  
+  // Sleeper Berth Reasons
+  { id: "28", text: "Start of sleep period", category: "sleeperBerth" },
+  { id: "29", text: "End of sleep period", category: "sleeperBerth" },
+  { id: "30", text: "Split sleeper berth", category: "sleeperBerth" },
+  { id: "31", text: "Rest in sleeper berth", category: "sleeperBerth" },
+  
+  // Personal Conveyance Reasons
+  { id: "32", text: "Personal errands", category: "personalConveyance" },
+  { id: "33", text: "Going home", category: "personalConveyance" },
+  { id: "34", text: "Personal use", category: "personalConveyance" },
+  { id: "35", text: "Non-work travel", category: "personalConveyance" },
+  
+  // Yard Moves Reasons
+  { id: "36", text: "Moving trailer in yard", category: "yardMoves" },
+  { id: "37", text: "Repositioning vehicle", category: "yardMoves" },
+  { id: "38", text: "Yard maneuvers", category: "yardMoves" },
+  { id: "39", text: "Switching trailers", category: "yardMoves" },
+  { id: "40", text: "Parking in yard", category: "yardMoves" },
+  
+  // Other - always available
+  { id: "41", text: "Other", category: "all" },
 ]
 
 export const [StatusProvider, useStatus] = createContextHook(() => {
@@ -357,7 +394,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       if (existingClockId) {
         // Update existing clock instead of creating new one
         console.log('🔄 HOS API: Updating existing clock:', existingClockId)
-        await changeDutyStatus(existingClockId, apiDutyStatus)
+        await changeDutyStatus(existingClockId, apiDutyStatus, locationData, reason)
         clockId = existingClockId
       } else {
         // Create new clock
@@ -615,10 +652,25 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
     }
   }
 
-  const changeDutyStatus = async (clockId: string, newStatus: string) => {
+  const changeDutyStatus = async (clockId: string, newStatus: string, locationData?: any, reason?: string) => {
     try {
       console.log('📤 HOS API: Changing duty status for clock:', clockId, 'to:', newStatus)
-      await hosApi.changeDutyStatus(clockId, newStatus)
+      
+      // Build proper request payload
+      const requestPayload: any = {
+        duty_status: newStatus,
+        location: locationData?.address || "Unknown location",
+        notes: reason || "Status change",
+      }
+      
+      if (locationData?.latitude !== null && locationData?.latitude !== undefined) {
+        requestPayload.latitude = locationData.latitude
+      }
+      if (locationData?.longitude !== null && locationData?.longitude !== undefined) {
+        requestPayload.longitude = locationData.longitude
+      }
+      
+      await hosApi.changeDutyStatus(clockId, requestPayload)
       console.log('✅ HOS API: Duty status changed successfully')
     } catch (error: any) {
       console.error('Failed to change duty status:', error)
