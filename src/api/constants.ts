@@ -57,6 +57,50 @@ export const API_ENDPOINTS = {
     CERTIFY_LOG: '/hos/daily-logs/{id}/',  // PATCH endpoint per spec
     CERTIFY_ALL_UNCERTIFIED: '/hos/daily-logs/certify-all-uncertified/',  // POST endpoint
   },
+  
+  // Fuel Purchase APIs
+  FUEL: {
+    CREATE_PURCHASE: '/fuel-purchase/fuel-purchases/',
+    GET_PURCHASES: '/fuel-purchase/fuel-purchases/',
+    SEARCH_PURCHASES: '/fuel-purchase/fuel-purchases/search/',
+    STATISTICS: '/fuel-purchase/fuel-purchases/statistics/',
+  },
+  
+  // File Upload APIs
+  UPLOAD: {
+    GENERATE_UPLOAD_URL: '/generate-upload-url/upload/',
+  },
+  
+  // Vehicle Management APIs
+  VEHICLES: {
+    CREATE: '/vehicles/vehicles/',
+    GET_ALL: '/vehicles/vehicles/',
+    GET_ONE: '/vehicles/vehicles/{id}/',
+    UPDATE: '/vehicles/vehicles/{id}/',
+  },
+  
+  // Trailer Management APIs
+  TRAILERS: {
+    CREATE: '/assets/trailers/',
+    ASSIGN: '/drivers/trailer-assignments/',
+    GET_ASSIGNMENTS: '/drivers/trailer-assignments/',
+    UPDATE_ASSIGNMENT: '/drivers/trailer-assignments/{id}/',
+  },
+  
+  // Driver/Co-Driver Management APIs
+  DRIVERS: {
+    GET_ALL: '/organisation_drivers/',
+    CREATE: '/organisation_drivers/',
+    CREATE_CO_DRIVER_EVENT: '/hos/eld-events/',  // For co-driver login/logout
+  },
+  
+  // DVIR (Inspection) APIs
+  DVIR: {
+    CREATE: '/compliance/dvirs/',
+    GET_ALL: '/compliance/dvirs/',
+    ADD_DEFECT: '/compliance/dvir-defects/',
+    GET_DEFECTS: '/compliance/dvir-defects/',
+  },
 }
 
 // HTTP Status Codes
@@ -113,6 +157,25 @@ export const QUERY_KEYS = {
   HOS_CLOCK: (clockId: string) => ['hos', 'clock', clockId] as const,
   HOS_DAILY_LOGS: ['hos', 'daily-logs'] as const,
   HOS_COMPLIANCE_SETTINGS: ['hos', 'compliance-settings'] as const,
+  
+  // Fuel Purchase
+  FUEL_PURCHASES: ['fuel', 'purchases'] as const,
+  FUEL_STATISTICS: ['fuel', 'statistics'] as const,
+  
+  // Vehicles
+  VEHICLES: ['vehicles'] as const,
+  VEHICLE: (id: string | number) => ['vehicle', id] as const,
+  
+  // Trailers
+  TRAILERS: ['trailers'] as const,
+  TRAILER_ASSIGNMENTS: ['trailer', 'assignments'] as const,
+  
+  // Drivers
+  DRIVERS: ['drivers'] as const,
+  
+  // DVIR
+  DVIRS: ['dvirs'] as const,
+  DVIR_DEFECTS: ['dvir', 'defects'] as const,
 } as const
 
 // Storage Keys

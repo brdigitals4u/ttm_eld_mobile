@@ -16,6 +16,10 @@ import LoadingButton from "@/components/LoadingButton"
 import { toast } from "@/components/Toast"
 import { useAppTheme } from "@/theme/context"
 import { Header } from "@/components/Header"
+import { useCreateDVIR, useAddDVIRDefect } from "@/api/dvirs"
+import { useAuth } from "@/stores/authStore"
+import { useLocationData } from "@/hooks/useLocationData"
+import { useObdData } from "@/contexts/obd-data-context"
 
 type InspectionType = "pre-trip" | "post-trip"
 type SafetyStatus = "safe" | "unsafe" | null
@@ -29,9 +33,15 @@ interface PhotoSlot {
 export default function DVIRScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
+  const { driverProfile, vehicleAssignment, isAuthenticated } = useAuth()
+  const locationData = useLocationData()
+  const { obdData } = useObdData() as any
+  const createDVIRMutation = useCreateDVIR()
+  const addDefectMutation = useAddDVIRDefect()
   const [inspectionType, setInspectionType] = useState<InspectionType>("pre-trip")
   const [safetyStatus, setSafetyStatus] = useState<SafetyStatus>(null)
   const [showCertifyModal, setShowCertifyModal] = useState(false)
+  const [defects, setDefects] = useState<Array<{ defect_type: string; severity: string; description: string }>>([])
 
   const [vehiclePhotos, setVehiclePhotos] = useState<PhotoSlot[]>([
     { id: "driver-side", label: "Driver Side", taken: false },
@@ -69,12 +79,71 @@ export default function DVIRScreen() {
     }
   }
 
-  const handleCertifyAndSubmit = () => {
-    setShowCertifyModal(false)
-    toast.success("Your Driver Vehicle Inspection Report has been submitted successfully.")
-    setTimeout(() => {
-      router.back()
-    }, 1500)
+  const handleCertifyAndSubmit = async () => {
+    if (!driverProfile?.driver_id) {
+      toast.error("Driver information not available")
+      return
+    }
+
+    const vehicleId = vehicleAssignment?.vehicle_info?.id 
+      ? parseInt(vehicleAssignment.vehicle_info.id) 
+      : undefined;
+
+    if (!vehicleId) {
+      toast.error("No vehicle assigned")
+      return
+    }
+
+    try {
+      // Map inspection type and safety status to API format
+      const inspectionTypeApi = inspectionType === "pre-trip" ? "pre_trip" : "post_trip"
+      const statusApi = safetyStatus === "safe" ? "pass" : safetyStatus === "unsafe" ? "fail" : "pass_with_defects"
+      
+      // Get odometer from OBD data or vehicle assignment
+      const odometer = obdData?.odometer || vehicleAssignment?.vehicle_info?.current_odometer || undefined
+
+      // Create DVIR POST API call
+      const dvirResponse = await createDVIRMutation.mutateAsync({
+        driver: driverProfile.driver_id,
+        vehicle: vehicleId,
+        inspection_date: new Date().toISOString(),
+        inspection_type: inspectionTypeApi,
+        status: statusApi,
+        odometer_reading: odometer,
+        defects_found: defects.length > 0,
+        notes: `DVIR ${inspectionType} inspection - ${safetyStatus === "safe" ? "No defects" : "Defects found"}`,
+        location: locationData.address || undefined,
+        latitude: locationData.latitude || undefined,
+        longitude: locationData.longitude || undefined,
+      })
+
+      // Add defects if any
+      if (defects.length > 0 && dvirResponse.id) {
+        for (const defect of defects) {
+          try {
+            await addDefectMutation.mutateAsync({
+              dvir: dvirResponse.id,
+              defect_type: defect.defect_type,
+              severity: defect.severity as 'critical' | 'major' | 'minor',
+              description: defect.description,
+              status: 'pending',
+            })
+          } catch (error) {
+            console.error("Failed to add defect:", error)
+            // Continue with other defects even if one fails
+          }
+        }
+      }
+
+      setShowCertifyModal(false)
+      toast.success("Your Driver Vehicle Inspection Report has been submitted successfully.")
+      setTimeout(() => {
+        router.back()
+      }, 1500)
+    } catch (error: any) {
+      console.error("Failed to create DVIR:", error)
+      toast.error(error?.message || "Failed to submit DVIR")
+    }
   }
 
   const renderPhotoGrid = (photos: PhotoSlot[], isTrailer: boolean = false) => (
@@ -190,7 +259,10 @@ export default function DVIRScreen() {
 
           <TouchableOpacity
             style={[styles.addDefectsButton, { borderColor: colors.tint }]}
-            onPress={() => toast.warning("Defects management would be implemented here")}
+            onPress={() => {
+              // TODO: Open defect form modal
+              toast.info("Defect form will open here")
+            }}
           >
             <Text style={[styles.addDefectsText, { color: colors.tint }]}>Add defects</Text>
           </TouchableOpacity>
@@ -205,7 +277,10 @@ export default function DVIRScreen() {
 
           <TouchableOpacity
             style={[styles.addDefectsButton, { borderColor: colors.tint }]}
-            onPress={() => toast.warning("Defects management would be implemented here")}
+            onPress={() => {
+              // TODO: Open defect form modal
+              toast.info("Defect form will open here")
+            }}
           >
             <Text style={[styles.addDefectsText, { color: colors.tint }]}>Add defects</Text>
           </TouchableOpacity>
@@ -284,11 +359,11 @@ export default function DVIRScreen() {
             </View>
 
             <Text style={[styles.modalVehicleTitle, { color: colors.text }]}>
-              Safe DVIR for 330
+              Safe DVIR for {vehicleAssignment?.vehicle_info?.vehicle_unit || 'Vehicle'}
             </Text>
 
             <Text style={[styles.modalCertifyText, { color: colors.textDim }]}>
-              I certify that the Vehicle 330 is safe to drive.
+              I certify that {vehicleAssignment?.vehicle_info?.vehicle_unit || 'this vehicle'} is safe to drive.
             </Text>
 
             <LoadingButton
@@ -296,6 +371,8 @@ export default function DVIRScreen() {
               onPress={handleCertifyAndSubmit}
               fullWidth
               style={styles.certifyButton}
+              loading={createDVIRMutation.isPending || addDefectMutation.isPending}
+              disabled={createDVIRMutation.isPending || addDefectMutation.isPending}
             />
           </View>
         </View>

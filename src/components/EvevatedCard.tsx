@@ -1,10 +1,11 @@
 import React from 'react';
-import { StyleSheet, View, ViewProps } from 'react-native';
+import { StyleSheet, View, ViewProps, ViewStyle } from 'react-native';
 import { useAppTheme } from '@/theme/context';
 
-interface CardProps extends ViewProps {
+interface CardProps extends Omit<ViewProps, 'style'> {
   children: React.ReactNode;
   variant?: 'default' | 'elevated';
+  style?: ViewStyle | ViewStyle[];
 }
 
 export default function EvelvatedCard({ children, variant = 'default', style, ...props }: CardProps) {

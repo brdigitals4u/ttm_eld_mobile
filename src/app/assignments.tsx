@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useMemo } from "react"
 import {
   Alert,
   Modal,
@@ -17,24 +17,46 @@ import ElevatedCard from "@/components/EvevatedCard"
 import LoadingButton from "@/components/LoadingButton"
 import { toast } from "@/components/Toast"
 import { useAppTheme } from "@/theme/context"
-// Removed @/hooks/api import - using mock data instead
+import { useVehicles } from "@/api/vehicles"
+import { useTrailerAssignments, useAssignTrailer, useRemoveTrailer } from "@/api/trailers"
+import { useAuth } from "@/stores/authStore"
+import { useLocationData } from "@/hooks/useLocationData"
 
 export default function AssignmentsScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
-  // Mock data for vehicles, trailers, and shipping IDs
-  const vehicles: any[] = []
-  const vehiclesLoading = false
-  const trailers: any[] = []
-  const trailersLoading = false
-  const addTrailer = (trailer: any) => {}
-  const removeTrailer = (id: string) => {}
+  const { driverProfile, vehicleAssignment, isAuthenticated } = useAuth()
+  const locationData = useLocationData()
+  
+  // GET API: Get vehicles - show only vehicle assigned to driver (from vehicleAssignment)
+  // Note: Vehicle assignment is managed by organization admin, driver can only view assigned vehicle
+  const assignedVehicleId = vehicleAssignment?.vehicle_info?.id ? parseInt(vehicleAssignment.vehicle_info.id) : null
+  const { data: allVehicles, isLoading: vehiclesLoading } = useVehicles({ enabled: isAuthenticated })
+  
+  // Filter to show only assigned vehicle
+  const vehicles = useMemo(() => {
+    if (!allVehicles || !assignedVehicleId) return []
+    return allVehicles.filter(v => v.id === assignedVehicleId)
+  }, [allVehicles, assignedVehicleId])
+  
+  // GET API: Get trailer assignments for this driver
+  const { data: trailerAssignments, isLoading: trailersLoading, refetch: refetchTrailers } = useTrailerAssignments(
+    { driver: driverProfile?.driver_id || undefined, status: 'active' },
+    { enabled: isAuthenticated && !!driverProfile?.driver_id }
+  )
+  
+  const assignTrailerMutation = useAssignTrailer()
+  const removeTrailerMutation = useRemoveTrailer()
+  
+  // Mock data for shipping IDs (not in API spec)
   const shippingIDs: any[] = []
   const shippingLoading = false
   const addShippingID = (shipping: any) => {}
   const removeShippingID = (id: string) => {}
 
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
+    vehicleAssignment?.vehicle_info?.vehicle_unit || null
+  )
   const [showTrailerModal, setShowTrailerModal] = useState(false)
   const [showShippingModal, setShowShippingModal] = useState(false)
   const [newTrailerNumber, setNewTrailerNumber] = useState("")
@@ -47,16 +69,32 @@ export default function AssignmentsScreen() {
       return
     }
 
+    if (!driverProfile?.driver_id) {
+      toast.error("Driver information not available")
+      return
+    }
+
     try {
-      await addTrailer({
-        number: newTrailerNumber.trim(),
-        type: "Dry Van",
+      // Note: This assumes trailer already exists and we're just assigning it
+      // If we need to create trailer first, we'd need trailer ID/asset_id
+      // For now, we'll assign by asset_id (assuming trailer number is asset_id)
+      
+      await assignTrailerMutation.mutateAsync({
+        driver: driverProfile.driver_id,
+        trailer: newTrailerNumber.trim(), // Assuming this is trailer UUID or asset_id
+        start_time: new Date().toISOString(),
+        status: 'active',
+        is_primary: true,
+        notes: `Assigned trailer ${newTrailerNumber.trim()}`,
       })
+      
       setNewTrailerNumber("")
       setShowTrailerModal(false)
-      toast.success("Trailer added successfully")
-    } catch (error) {
-      toast.warning("Failed to add trailer")
+      refetchTrailers()
+      toast.success("Trailer assigned successfully")
+    } catch (error: any) {
+      console.error("Failed to assign trailer:", error)
+      toast.error(error?.message || "Failed to assign trailer")
     }
   }
 
@@ -87,10 +125,12 @@ export default function AssignmentsScreen() {
         text: "Remove",
         onPress: async () => {
           try {
-            await removeTrailer(id)
+            await removeTrailerMutation.mutateAsync(id)
+            refetchTrailers()
             toast.success("Trailer removed successfully")
-          } catch (error) {
-            toast.warning("Failed to remove trailer")
+          } catch (error: any) {
+            console.error("Failed to remove trailer:", error)
+            toast.error(error?.message || "Failed to remove trailer")
           }
         },
         style: "destructive",
@@ -135,9 +175,10 @@ export default function AssignmentsScreen() {
         <Text style={[styles.title, { color: colors.text }]}>My Assets</Text>
         <LoadingButton
           loading={vehiclesLoading}
-          title={selectedVehicle ? `Vehicle ${selectedVehicle}` : "Select Vehicle"}
-          onPress={() => toast.warning("Vehicle selection functionality would be implemented here")}
-          icon={<Plus size={16} color={isDark ? colors.text : "#fff"} />}
+          title={selectedVehicle ? `Vehicle ${selectedVehicle}` : "No Vehicle Assigned"}
+          onPress={() => toast.info("Vehicle assignment is managed by organization admin")}
+          disabled={true}
+          variant="secondary"
         />
       </View>
 
@@ -145,28 +186,57 @@ export default function AssignmentsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.contentContainer}
       >
+        {/* Vehicle Section - Show assigned vehicle */}
+        {vehicles.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Assigned Vehicle</Text>
+            {vehicles.map((vehicle) => (
+              <ElevatedCard key={vehicle.id} style={styles.itemCard}>
+                <View style={styles.itemRow}>
+                  <View style={styles.itemInfo}>
+                    <Text style={[styles.itemNumber, { color: colors.text }]}>
+                      {vehicle.vehicle_unit}
+                    </Text>
+                    <Text style={[styles.itemType, { color: colors.textDim }]}>
+                      {vehicle.make} {vehicle.model} • {vehicle.license_plate}
+                    </Text>
+                  </View>
+                </View>
+              </ElevatedCard>
+            ))}
+          </View>
+        )}
+
         {/* Trailers Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Trailers</Text>
 
-          {trailers.map((trailer) => (
-            <ElevatedCard key={trailer.id} style={styles.itemCard}>
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={[styles.itemNumber, { color: colors.text }]}>
-                    Trailer {trailer.number}
-                  </Text>
-                  <Text style={[styles.itemType, { color: colors.textDim }]}>{trailer.type}</Text>
+          {trailerAssignments && trailerAssignments.length > 0 ? (
+            trailerAssignments.map((assignment) => (
+              <ElevatedCard key={assignment.id} style={styles.itemCard}>
+                <View style={styles.itemRow}>
+                  <View style={styles.itemInfo}>
+                    <Text style={[styles.itemNumber, { color: colors.text }]}>
+                      Trailer {assignment.trailer_asset_id || assignment.trailer}
+                    </Text>
+                    <Text style={[styles.itemType, { color: colors.textDim }]}>
+                      {assignment.is_primary ? "Primary" : "Secondary"} • {assignment.status}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveTrailer(assignment.id)}
+                    style={styles.removeButton}
+                  >
+                    <X size={20} color={colors.error} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => handleRemoveTrailer(trailer.id)}
-                  style={styles.removeButton}
-                >
-                  <X size={20} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            </ElevatedCard>
-          ))}
+              </ElevatedCard>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: colors.textDim }]}>
+              No trailers assigned
+            </Text>
+          )}
 
           <TouchableOpacity
             style={[styles.addButton, { borderColor: colors.tint }]}
@@ -257,7 +327,8 @@ export default function AssignmentsScreen() {
               <LoadingButton
                 title="Add"
                 onPress={handleAddTrailer}
-                loading={trailersLoading}
+                loading={trailersLoading || assignTrailerMutation.isPending}
+                disabled={assignTrailerMutation.isPending}
                 style={styles.modalButton}
               />
             </View>
@@ -394,6 +465,11 @@ const styles = StyleSheet.create({
   },
   itemType: {
     fontSize: 14,
+  },
+  emptyText: {
+    fontSize: 14,
+    padding: 16,
+    textAlign: "center",
   },
   loadingText: {
     fontSize: 16,

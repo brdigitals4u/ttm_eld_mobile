@@ -9,11 +9,19 @@ import { useCoDriver } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { CoDriver } from '@/types/codriver';
 import { Text } from '@/components/Text';
+import { useDrivers, useCreateCoDriverEvent } from '@/api/drivers';
+import { useAuth } from '@/stores/authStore';
+import { useLocationData } from '@/hooks/useLocationData';
 
 export default function CoDriverScreen() {
   const { theme } = useAppTheme();
   const { colors, isDark } = theme;
   const { coDrivers, activeCoDriver, addCoDriver, removeCoDriver, setActiveCoDriver, isLoading } = useCoDriver();
+  const { driverProfile, vehicleAssignment, isAuthenticated } = useAuth();
+  const locationData = useLocationData();
+  const createCoDriverEventMutation = useCreateCoDriverEvent();
+  // GET API: Fetch all drivers for co-driver selection
+  const { data: driversList, isLoading: isDriversLoading } = useDrivers({ enabled: isAuthenticated });
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -60,9 +68,69 @@ export default function CoDriverScreen() {
     );
   };
 
-  const handleSetActive = (id: string) => {
+  const handleSetActive = async (id: string) => {
     const isCurrentlyActive = activeCoDriver?.id === id;
-    setActiveCoDriver(isCurrentlyActive ? null : id);
+    const coDriver = coDrivers.find(cd => cd.id === id);
+    
+    if (!coDriver) {
+      toast.error("Co-driver not found");
+      return;
+    }
+
+    try {
+      const vehicleId = vehicleAssignment?.vehicle_info?.id 
+        ? parseInt(vehicleAssignment.vehicle_info.id) 
+        : undefined;
+
+      if (!vehicleId) {
+        toast.error("No vehicle assigned. Cannot activate co-driver.");
+        return;
+      }
+
+      if (!driverProfile?.driver_id) {
+        toast.error("Driver information not available");
+        return;
+      }
+
+      if (isCurrentlyActive) {
+        // Deactivating: Create co_driver_logout event
+        await createCoDriverEventMutation.mutateAsync({
+          driver: driverProfile.driver_id,
+          vehicle: vehicleId,
+          event_type: 'co_driver_logout',
+          event_time: new Date().toISOString(),
+          event_location: locationData.address || undefined,
+          remark: `Co-driver ${coDriver.name} logged out`,
+          event_data: {
+            co_driver_id: id,
+            co_driver_name: coDriver.name,
+          },
+        });
+        
+        setActiveCoDriver(null);
+        toast.success(`${coDriver.name} has been logged out`);
+      } else {
+        // Activating: Create co_driver_login event
+        await createCoDriverEventMutation.mutateAsync({
+          driver: driverProfile.driver_id,
+          vehicle: vehicleId,
+          event_type: 'co_driver_login',
+          event_time: new Date().toISOString(),
+          event_location: locationData.address || undefined,
+          remark: `Co-driver ${coDriver.name} logged in`,
+          event_data: {
+            co_driver_id: id,
+            co_driver_name: coDriver.name,
+          },
+        });
+        
+        setActiveCoDriver(id);
+        toast.success(`${coDriver.name} has been logged in`);
+      }
+    } catch (error: any) {
+      console.error("Failed to create co-driver event:", error);
+      toast.error(error?.message || "Failed to update co-driver status");
+    }
   };
 
   const renderCoDriverItem = ({ item }: { item: CoDriver }) => (
@@ -108,6 +176,8 @@ export default function CoDriverScreen() {
             <UserPlus size={16} color={isDark ? colors.text : '#fff'} />
           }
           style={{ flex: 1, marginRight: 8 }}
+          loading={createCoDriverEventMutation.isPending}
+          disabled={createCoDriverEventMutation.isPending}
         />
         <LoadingButton
           title="Remove"
