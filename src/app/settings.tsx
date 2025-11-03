@@ -105,14 +105,17 @@ export default function SettingsScreen() {
               App Version
             </Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>
-              1.0.0
+              1.0.1
             </Text>
           </View>
         </View>
       </ElevatedCard>
 
       <Text style={[styles.footerText, { color: colors.textDim }]}>
-        TruckLog ELD © 2025
+        TTM Konnect © 2025
+      </Text>
+      <Text style={[{ color: colors.textDim }, { marginTop: 2, textAlign: 'center', fontSize: 10 }]}>
+        Powered by TTM247
       </Text>
     </ScrollView>
   );

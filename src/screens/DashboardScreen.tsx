@@ -35,7 +35,6 @@ import HOSCircle from "@/components/HOSSvg"
 import { SpeedGauge } from "@/components/SpeedGauge"
 import { Text } from "@/components/Text"
 import HOSChart from "@/components/VictoryHOS"
-import { COLORS } from "@/constants"
 import { useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
@@ -53,7 +52,6 @@ export const DashboardScreen = () => {
     vehicleAssignment,
     organizationSettings,
     isAuthenticated,
-    isLoading,
     updateHosStatus,
   } = useAuth()
   const { logEntries, certification, hoursOfService } = useStatus()
@@ -77,68 +75,68 @@ export const DashboardScreen = () => {
     try {
       // Only proceed if authenticated
       if (!isAuthenticated) {
-        console.log('⏭️ Dashboard: Skipping ELD reporting check - not authenticated')
+        console.log("⏭️ Dashboard: Skipping ELD reporting check - not authenticated")
         return
       }
 
       // Import service
-      const JMBluetoothService = require('@/services/JMBluetoothService').default
+      const JMBluetoothService = require("@/services/JMBluetoothService").default
 
       // Check connection status from native module
       const status = await JMBluetoothService.getConnectionStatus()
-      console.log('🔍 Dashboard: Connection status check:', status)
+      console.log("🔍 Dashboard: Connection status check:", status)
 
       if (status.isConnected) {
         // Prevent duplicate calls
         if (eldReportingStartedRef.current) {
-          console.log('ℹ️ Dashboard: ELD reporting already started, skipping duplicate call')
+          console.log("ℹ️ Dashboard: ELD reporting already started, skipping duplicate call")
           return
         }
 
-        console.log('✅ Dashboard: ELD is connected, starting ELD reporting...')
-        
+        console.log("✅ Dashboard: ELD is connected, starting ELD reporting...")
+
         // Wait a bit for stable connection
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        await new Promise((resolve) => setTimeout(resolve, 1500))
 
         // Double-check connection is still stable
         const recheckStatus = await JMBluetoothService.getConnectionStatus()
-        console.log('🔍 Dashboard: Rechecking connection status:', recheckStatus)
+        console.log("🔍 Dashboard: Rechecking connection status:", recheckStatus)
 
         if (recheckStatus.isConnected && !eldReportingStartedRef.current) {
-          console.log('📊 Dashboard: Starting ELD reporting from dashboard...')
+          console.log("📊 Dashboard: Starting ELD reporting from dashboard...")
           try {
             const result = await JMBluetoothService.startReportEldData()
-            console.log('✅ Dashboard: ELD reporting start result:', result)
+            console.log("✅ Dashboard: ELD reporting start result:", result)
             if (result) {
-              console.log('✅ Dashboard: ELD reporting started successfully')
+              console.log("✅ Dashboard: ELD reporting started successfully")
               eldReportingStartedRef.current = true
             } else {
-              console.warn('⚠️ Dashboard: ELD reporting start returned false')
+              console.warn("⚠️ Dashboard: ELD reporting start returned false")
             }
           } catch (error) {
-            console.error('❌ Dashboard: Exception starting ELD reporting:', error)
+            console.error("❌ Dashboard: Exception starting ELD reporting:", error)
           }
         } else {
           if (!recheckStatus.isConnected) {
-            console.log('⚠️ Dashboard: Connection lost during wait period')
+            console.log("⚠️ Dashboard: Connection lost during wait period")
           } else {
-            console.log('ℹ️ Dashboard: ELD reporting already started')
+            console.log("ℹ️ Dashboard: ELD reporting already started")
           }
         }
       } else {
-        console.log('ℹ️ Dashboard: ELD not connected, skipping ELD reporting start')
+        console.log("ℹ️ Dashboard: ELD not connected, skipping ELD reporting start")
         eldReportingStartedRef.current = false // Reset flag when disconnected
       }
     } catch (error) {
-      console.error('❌ Dashboard: Error checking ELD connection:', error)
+      console.error("❌ Dashboard: Error checking ELD connection:", error)
     }
   }, [isAuthenticated])
 
   // Run when screen comes into focus (when user navigates to dashboard)
   useFocusEffect(
     useCallback(() => {
-      console.log('📱 Dashboard: Screen focused - checking ELD connection...')
-      
+      console.log("📱 Dashboard: Screen focused - checking ELD connection...")
+
       // Wait a bit for screen to fully mount
       const timeout = setTimeout(() => {
         checkAndStartEldReporting()
@@ -147,7 +145,7 @@ export const DashboardScreen = () => {
       return () => {
         clearTimeout(timeout)
       }
-    }, [checkAndStartEldReporting])
+    }, [checkAndStartEldReporting]),
   )
 
   // Also run on mount and when connection status changes
@@ -165,7 +163,7 @@ export const DashboardScreen = () => {
   useEffect(() => {
     if (!eldConnected) {
       eldReportingStartedRef.current = false
-      console.log('🔄 Dashboard: ELD disconnected, reset ELD reporting flag')
+      console.log("🔄 Dashboard: ELD disconnected, reset ELD reporting flag")
     }
   }, [eldConnected])
 
@@ -268,27 +266,6 @@ export const DashboardScreen = () => {
   }, [hosError])
 
   // Shorten location address - use locationData hook which prioritizes ELD -> Expo -> fallback
-  const shortLocationAddress = useMemo(() => {
-    if (locationData.address) {
-      const parts = locationData.address.split(", ")
-      if (parts.length >= 2) {
-        // Return just city and state/region
-        return parts.slice(-2).join(", ")
-      }
-      // If format is unexpected, return first 30 chars
-      return locationData.address.length > 30
-        ? locationData.address.substring(0, 30) + "..."
-        : locationData.address
-    }
-
-    // Show source instead of "Loading location..."
-    if (locationData.source === "eld") {
-      return "ELD Location"
-    } else if (locationData.source === "expo") {
-      return "GPS Location"
-    }
-    return "Location unavailable"
-  }, [locationData])
 
   // Extract speed and fuel level from OBD data
   const currentSpeed = useMemo(() => {
@@ -305,7 +282,6 @@ export const DashboardScreen = () => {
     )
     return fuelItem ? parseFloat(fuelItem.value) || 0 : 0
   }, [obdData])
-
 
   const data = useMemo(() => {
     if (!isAuthenticated || !user || !driverProfile || !hosStatus) {
@@ -493,7 +469,11 @@ export const DashboardScreen = () => {
         return { backgroundColor: "#FFF4DC", borderColor: "#F59E0B", textColor: "#B45309" }
       case "ON_DUTY":
       case "ON-DUTY":
-        return { backgroundColor: colors.palette.primary100, borderColor: colors.PRIMARY, textColor: colors.palette.primary700 }
+        return {
+          backgroundColor: colors.palette.primary100,
+          borderColor: colors.PRIMARY,
+          textColor: colors.palette.primary700,
+        }
       case "OFF_DUTY":
       case "OFF-DUTY":
         return { backgroundColor: "#F3F4F6", borderColor: "#6B7280", textColor: "#374151" }
@@ -503,8 +483,6 @@ export const DashboardScreen = () => {
         return { backgroundColor: "#F3F4F6", borderColor: "#6B7280", textColor: "#374151" }
     }
   }
-
-  const dutyStyle = getDutyStatusStyle(data?.duty)
 
   // Animated pulse for vehicle info card icon
   const vehicleIconScale = useSharedValue(1)
@@ -533,11 +511,6 @@ export const DashboardScreen = () => {
   // 1. useLocationData hook (line 61) - automatically refreshes and prioritizes ELD location
   // 2. Initial mount refresh (line 68) - only runs once on mount
   // No need for additional requestLocation calls that cause excessive logs
-
-  const vehicleIconAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: vehicleIconScale.value }],
-    opacity: vehicleIconOpacity.value,
-  }))
 
   return (
     <View style={{ flex: 1 }}>
@@ -627,6 +600,106 @@ export const DashboardScreen = () => {
           </ScrollView>
         </View>
 
+        {/* Hours of Service - Card Style */}
+        {isHOSLoading || isSettingsLoading ? (
+          <HOSServiceCardSkeleton />
+        ) : (
+          <View style={s.serviceCard}>
+            <View style={s.serviceHeader}>
+              <Clock size={20} color="#22C55E" strokeWidth={2.5} />
+              <Text style={s.serviceTitle}>Hours of Service</Text>
+            </View>
+
+            {/* Big Timer */}
+            <View style={s.bigTimerSection}>
+              <Text style={s.bigTimerLabel}>Time Until Rest</Text>
+              <HOSCircle text={time(data.stopIn)} />
+              <Text style={s.bigTimerSubtext}>hours remaining</Text>
+            </View>
+
+            {/* Horizontal Stats */}
+            <View style={s.horizontalStats}>
+              <View style={s.statItem}>
+                <View style={s.statIconCircle}>
+                  <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
+                </View>
+                <Text style={s.statItemLabel}>Drive</Text>
+                <Progress.Circle
+                  size={42}
+                  progress={pct(data.driveLeft, 840) / 100}
+                  color={colors.PRIMARY}
+                  thickness={6}
+                  showsText={false}
+                  strokeCap="round"
+                  unfilledColor="#E5E7EB"
+                />
+                <Text style={s.statItemValue}>{time(data.driveLeft)}</Text>
+                <View style={s.miniBar}>
+                  <View
+                    style={[
+                      s.miniBarFill,
+                      {
+                        width: `${pct(data.driveLeft, 660)}%`,
+                        backgroundColor: colors.palette.success500,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <View style={s.statDivider} />
+
+              <View style={s.statItem}>
+                <View style={s.statIconCircle}>
+                  <Clock size={18} color={colors.PRIMARY} strokeWidth={2.5} />
+                </View>
+                <Text style={s.statItemLabel}>Shift</Text>
+                <Progress.Circle
+                  size={42}
+                  progress={pct(data.shiftLeft, 840) / 100}
+                  color={colors.PRIMARY}
+                  thickness={6}
+                  showsText={false}
+                  strokeCap="round"
+                  unfilledColor="#E5E7EB"
+                />
+                <Text style={s.statItemValue}>{time(data.shiftLeft)}</Text>
+                <View style={s.miniBar}>
+                  <View
+                    style={[
+                      s.miniBarFill,
+                      { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: colors.PRIMARY },
+                    ]}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Cycle Progress */}
+            <View style={s.cycleSection}>
+              <View style={s.cycleLabelRow}>
+                <Text style={s.cycleLabelText}>Cycle Time</Text>
+                <Text style={s.cycleValueText}>
+                  {cycleTime(data.cycleLeft)} • {data.cycleDays}d
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Daily Activity Chart */}
+        <View style={s.activityCard}>
+          <View style={s.activityHeader}>
+            <Text style={s.activityTitle}>{data.dateTitle}</Text>
+            <Text style={s.activitySubtitle}>Daily Activity</Text>
+          </View>
+
+          {isHOSLogsLoading ? (
+            <HOSChartSkeleton />
+          ) : (
+            <HOSChart data={logs} dayStartIso={todayStr} />
+          )}
+        </View>
         {/* ELD Data - Speed & Fuel */}
         {eldConnected && (
           <View style={s.eldDataSection}>
@@ -641,7 +714,7 @@ export const DashboardScreen = () => {
               <View style={s.noDataCard}>
                 <Text style={s.noDataText}>Waiting for OBD data...</Text>
                 <Text style={s.noDataSubtext}>
-                  {eldConnected ? 'ELD is connected but no data received yet' : 'ELD not connected'}
+                  {eldConnected ? "ELD is connected but no data received yet" : "ELD not connected"}
                 </Text>
               </View>
             ) : (
@@ -700,90 +773,6 @@ export const DashboardScreen = () => {
           <Text style={s.greetingQuestion}>How's your day going?</Text>
         </View>
 
-        {/* Hours of Service - Card Style */}
-        {isHOSLoading || isSettingsLoading ? (
-          <HOSServiceCardSkeleton />
-        ) : (
-          <View style={s.serviceCard}>
-            <View style={s.serviceHeader}>
-              <Clock size={20} color="#22C55E" strokeWidth={2.5} />
-              <Text style={s.serviceTitle}>Hours of Service</Text>
-            </View>
-
-            {/* Big Timer */}
-            <View style={s.bigTimerSection}>
-              <Text style={s.bigTimerLabel}>Time Until Rest</Text>
-              <HOSCircle text={time(data.stopIn)} />
-              <Text style={s.bigTimerSubtext}>hours remaining</Text>
-            </View>
-
-            {/* Horizontal Stats */}
-            <View style={s.horizontalStats}>
-              <View style={s.statItem}>
-                <View style={s.statIconCircle}>
-                  <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
-                </View>
-                <Text style={s.statItemLabel}>Drive</Text>
-                  <Progress.Circle
-                  size={42}
-                  progress={pct(data.driveLeft, 840) / 100}
-                  color={colors.PRIMARY}
-                  thickness={6}
-                  showsText={false}
-                  strokeCap="round"
-                  unfilledColor="#E5E7EB"
-                />
-                <Text style={s.statItemValue}>{time(data.driveLeft)}</Text>
-                <View style={s.miniBar}>
-                  <View
-                    style={[
-                      s.miniBarFill,
-                      { width: `${pct(data.driveLeft, 660)}%`, backgroundColor: colors.palette.success500 },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              <View style={s.statDivider} />
-
-              <View style={s.statItem}>
-                <View style={s.statIconCircle}>
-                  <Clock size={18} color={colors.PRIMARY} strokeWidth={2.5} />
-                </View>
-                <Text style={s.statItemLabel}>Shift</Text>
-                <Progress.Circle
-                  size={42}
-                  progress={pct(data.shiftLeft, 840) / 100}
-                  color={colors.PRIMARY}
-                  thickness={6}
-                  showsText={false}
-                  strokeCap="round"
-                  unfilledColor="#E5E7EB"
-                />
-                <Text style={s.statItemValue}>{time(data.shiftLeft)}</Text>
-                <View style={s.miniBar}>
-                  <View
-                    style={[
-                      s.miniBarFill,
-                      { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: colors.PRIMARY },
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Cycle Progress */}
-            <View style={s.cycleSection}>
-              <View style={s.cycleLabelRow}>
-                <Text style={s.cycleLabelText}>Cycle Time</Text>
-                <Text style={s.cycleValueText}>
-                  {cycleTime(data.cycleLeft)} • {data.cycleDays}d
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* Quick Actions - Ride/Rent Style */}
         <View style={s.actionsSection}>
           <Text style={s.actionsTitle}>Quick Actions</Text>
@@ -822,20 +811,6 @@ export const DashboardScreen = () => {
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Daily Activity Chart */}
-        <View style={s.activityCard}>
-          <View style={s.activityHeader}>
-            <Text style={s.activityTitle}>{data.dateTitle}</Text>
-            <Text style={s.activitySubtitle}>Daily Activity</Text>
-          </View>
-
-          {isHOSLogsLoading ? (
-            <HOSChartSkeleton />
-          ) : (
-            <HOSChart data={logs} dayStartIso={todayStr} />
-          )}
         </View>
 
         {/* Vehicle Information Card */}
@@ -1728,11 +1703,11 @@ const s = StyleSheet.create({
   noDataCard: {
     alignItems: "center",
     backgroundColor: "#FFF7ED",
+    borderColor: "#FED7AA",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#FED7AA",
-    padding: 24,
     marginTop: 16,
+    padding: 24,
   },
   noDataText: {
     color: "#92400E",
