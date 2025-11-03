@@ -1,6 +1,6 @@
 {
   "name": "ttm-konnect-bind",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {

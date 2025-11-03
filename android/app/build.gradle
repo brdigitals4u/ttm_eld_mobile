@@ -111,10 +111,13 @@ android {
         }
         release {
             if (keystorePropertiesFile.exists()) {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
+                def keystoreFile = file(keystoreProperties['storeFile'])
+                if (keystoreFile.exists()) {
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                    storeFile keystoreFile
+                    storePassword keystoreProperties['storePassword']
+                }
             }
         }
     }
@@ -125,7 +128,10 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.release
+            // Use release signing if available, otherwise fall back to debug for local builds
+            def releaseSigningAvailable = keystorePropertiesFile.exists() && 
+                file(keystoreProperties['storeFile'] ?: '').exists()
+            signingConfig releaseSigningAvailable ? signingConfigs.release : signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
