@@ -1,13 +1,12 @@
-import React from 'react';
-import { AssetsProvider } from './assets-context';
-import { CarrierProvider } from './carrier-context';
-import { CoDriverProvider } from './codriver-context';
-import { FuelProvider } from './fuel-context';
-import { InspectionProvider } from './inspection-context';
-import { LocationProvider } from './location-context';
-import { StatusProvider } from './status-context';
-import { ObdDataProvider } from './obd-data-context';
-
+import { AssetsProvider } from "./assets-context"
+import { CarrierProvider } from "./carrier-context"
+import { ChatSupportProvider } from "./ChatSupportContext"
+import { CoDriverProvider } from "./codriver-context"
+import { FuelProvider } from "./fuel-context"
+import { InspectionProvider } from "./inspection-context"
+import { LocationProvider } from "./location-context"
+import { ObdDataProvider } from "./obd-data-context"
+import { StatusProvider } from "./status-context"
 // Main Context Provider that wraps all contexts (except auth which is now handled by Zustand)
 export const AllContextsProvider = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -19,7 +18,7 @@ export const AllContextsProvider = ({ children }: { children: React.ReactNode })
               <InspectionProvider>
                 <StatusProvider>
                   <ObdDataProvider>
-                    {children}
+                    <ChatSupportProvider>{children}</ChatSupportProvider>
                   </ObdDataProvider>
                 </StatusProvider>
               </InspectionProvider>
@@ -28,5 +27,5 @@ export const AllContextsProvider = ({ children }: { children: React.ReactNode })
         </CarrierProvider>
       </AssetsProvider>
     </LocationProvider>
-  );
-};
+  )
+}

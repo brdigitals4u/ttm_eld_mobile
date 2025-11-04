@@ -30,6 +30,7 @@
     "build:android:prod:apk": "eas build --platform android --profile production-apk --local"
   },
   "dependencies": {
+    "@chatwoot/react-native-widget": "^0.0.21",
     "@expo/metro-runtime": "~5.0.4",
     "@nkzw/create-context-hook": "^1.1.0",
     "@react-native-async-storage/async-storage": "^2.1.2",
@@ -77,6 +78,7 @@
     "react-native-toast-message": "^2.3.3",
     "react-native-vector-icons": "^10.3.0",
     "react-native-web": "^0.20.0",
+    "react-native-webview": "^13.16.0",
     "realm": "^20.2.0",
     "victory": "^37.3.6",
     "victory-native": "^41.20.1",

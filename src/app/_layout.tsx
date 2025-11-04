@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react"
+import { useFonts } from "expo-font"
 import { Slot } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
-import { useFonts } from "expo-font"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
 
+import { AllContextsProvider } from "@/contexts"
 import { initI18n } from "@/i18n"
+import { QueryProvider } from "@/providers/QueryProvider"
+import { ToastProvider } from "@/providers/ToastProvider"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
-import { QueryProvider } from "@/providers/QueryProvider"
-import { AllContextsProvider } from "@/contexts"
-import { ToastProvider } from "@/providers/ToastProvider"
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
