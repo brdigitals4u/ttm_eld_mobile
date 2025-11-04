@@ -1,5 +1,6 @@
-import ChatSupportScreen from "../chat-support"
+import ProfileScreen from "@/screens/ProfileScreen";
+
 
 export default function ProfileTab() {
-  return <ChatSupportScreen />
+  return <ProfileScreen />
 }

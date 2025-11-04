@@ -34,10 +34,10 @@ export default function Layout() {
           <CustomTabButton icon="bell" label="Fuel" />
         </TabTrigger>
         <TabTrigger name="support" href="/support" asChild>
-         <CustomTabButton icon="user" label="Profile" />
+          <CustomTabButton icon="bell" label="Support" />
         </TabTrigger>
         <TabTrigger name="profile" href="/profile" asChild>
-           <CustomTabButton icon="bell" label="Support" /> 
+          <CustomTabButton icon="user" label="Profile" />
         </TabTrigger>
       </TabList>
     </Tabs>

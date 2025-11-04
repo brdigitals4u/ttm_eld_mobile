@@ -18,6 +18,30 @@ export interface User {
   isEmailVerified: boolean;
   onboardingCompleted: boolean;
   onboardingStep: string | number;
+  // Custom attributes from driver profile
+  companyDriverId?: string;
+  licenseState?: string;
+  licenseExpiry?: string;
+  currentStatus?: string;
+  employmentStatus?: string;
+  homeTerminalName?: string;
+  homeTerminalAddress?: string;
+  eldDayStartHour?: number;
+  eldPcEnabled?: boolean;
+  eldYmEnabled?: boolean;
+  timezone?: string;
+  locale?: string;
+  violationsCount?: number;
+  isActive?: boolean;
+  // HOS-related custom attributes
+  drivingTimeRemaining?: number;
+  onDutyTimeRemaining?: number;
+  cycleTimeRemaining?: number;
+  // Vehicle-related custom attributes
+  hasVehicleAssigned?: boolean;
+  vehicleUnit?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
 }
 
 export interface CognitoTokens {
@@ -230,7 +254,7 @@ export const useAuthStore = create<AuthState>()(
               cognitoTokens = loginData.cognito_tokens;
             }
             
-            // Extract user data
+            // Extract user data with custom attributes from driver profile
             userData = {
               id: loginData.user.id,
               email: loginData.user.email,
@@ -245,6 +269,30 @@ export const useAuthStore = create<AuthState>()(
               isEmailVerified: true,
               onboardingCompleted: loginData.user.onboardingCompleted || false,
               onboardingStep: loginData.user.onboardingStep || 0,
+              // Custom attributes from driver profile
+              companyDriverId: loginData.user.driver_profile?.company_driver_id,
+              licenseState: loginData.user.driver_profile?.license_state,
+              licenseExpiry: loginData.user.driver_profile?.license_expiry,
+              currentStatus: loginData.user.driver_profile?.current_status,
+              employmentStatus: loginData.user.driver_profile?.employment_status,
+              homeTerminalName: loginData.user.driver_profile?.home_terminal_name,
+              homeTerminalAddress: loginData.user.driver_profile?.home_terminal_address,
+              eldDayStartHour: loginData.user.driver_profile?.eld_day_start_hour,
+              eldPcEnabled: loginData.user.driver_profile?.eld_pc_enabled,
+              eldYmEnabled: loginData.user.driver_profile?.eld_ym_enabled,
+              timezone: loginData.user.driver_profile?.timezone || loginData.user.organization_settings?.timezone,
+              locale: loginData.user.driver_profile?.locale || loginData.user.organization_settings?.locale,
+              violationsCount: loginData.user.driver_profile?.violations_count || 0,
+              isActive: loginData.user.driver_profile?.is_active ?? true,
+              // HOS-related custom attributes
+              drivingTimeRemaining: loginData.user.hos_status?.time_remaining?.driving_time_remaining || loginData.user.hos_status?.driving_time_remaining,
+              onDutyTimeRemaining: loginData.user.hos_status?.time_remaining?.on_duty_time_remaining || loginData.user.hos_status?.on_duty_time_remaining,
+              cycleTimeRemaining: loginData.user.hos_status?.time_remaining?.cycle_time_remaining || loginData.user.hos_status?.cycle_time_remaining,
+              // Vehicle-related custom attributes
+              hasVehicleAssigned: loginData.user.vehicle_assignment?.has_vehicle_assigned ?? false,
+              vehicleUnit: loginData.user.vehicle_assignment?.vehicle_info?.vehicle_unit,
+              vehicleMake: loginData.user.vehicle_assignment?.vehicle_info?.make,
+              vehicleModel: loginData.user.vehicle_assignment?.vehicle_info?.model,
             };
 
             // Extract profile data
