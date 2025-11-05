@@ -48,6 +48,15 @@
       }
     ],
     [
+      "expo-notifications",
+      {
+        "icon": "./assets/images/app-icon-android-adaptive-foreground.png",
+        "color": "#4338CA",
+        "sounds": [],
+        "mode": "production"
+      }
+    ],
+    [
       "expo-splash-screen",
       {
         "image": "./assets/images/app-icon-ios.png",

@@ -4,6 +4,7 @@ import { Slot } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
+import { Platform } from "react-native"
 
 import { AllContextsProvider } from "@/contexts"
 import { initI18n } from "@/i18n"
@@ -12,6 +13,8 @@ import { ToastProvider } from "@/providers/ToastProvider"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
+import { NotificationService } from "@/services/NotificationService"
+import { notificationsApi } from "@/api/notifications"
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
@@ -40,6 +43,33 @@ export default function Root() {
     initI18n()
       .then(() => setIsI18nInitialized(true))
       .then(() => loadDateFnsLocale())
+  }, [])
+
+  // Initialize push notifications
+  useEffect(() => {
+    const setupNotifications = async () => {
+      try {
+        const pushToken = await NotificationService.initialize()
+        
+        if (pushToken) {
+          // Register push token with backend
+          await notificationsApi.registerPushToken({
+            push_token: pushToken,
+            device_type: Platform.OS as 'ios' | 'android',
+          })
+          console.log('✅ Push token registered with backend')
+        }
+      } catch (error) {
+        console.error('❌ Failed to setup notifications:', error)
+      }
+    }
+
+    setupNotifications()
+
+    // Cleanup on unmount
+    return () => {
+      NotificationService.cleanup()
+    }
   }, [])
 
   const loaded = fontsLoaded && isI18nInitialized

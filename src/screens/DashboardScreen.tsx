@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect, useCallback, useRef } from "react"
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native"
+import React, { useMemo, useEffect, useCallback, useRef, useState } from "react"
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { router, useFocusEffect } from "expo-router"
 import {
@@ -14,6 +14,8 @@ import {
   Gauge,
   Shield,
   BookOpen,
+  Bell,
+  RefreshCw,
 } from "lucide-react-native"
 import * as Progress from "react-native-progress"
 import Animated, {
@@ -26,9 +28,11 @@ import Animated, {
 } from "react-native-reanimated"
 
 import { useHOSClock, useComplianceSettings, useHOSLogs, hosApi } from "@/api/hos"
+import { useNotifications, useMalfunctionStatus } from "@/api/notifications"
 import { EldIndicator } from "@/components/EldIndicator"
 import { FuelLevelIndicator } from "@/components/FuelLevelIndicator"
 import { Header } from "@/components/Header"
+import { NotificationsPanel } from "@/components/NotificationsPanel"
 import HOSChartSkeleton from "@/components/HOSChartSkeleton"
 import HOSServiceCardSkeleton from "@/components/HOSServiceCardSkeleton"
 import HOSCircle from "@/components/HOSSvg"
@@ -59,6 +63,14 @@ export const DashboardScreen = () => {
   const locationData = useLocationData()
   const { obdData, isConnected: eldConnected } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
+  
+  // Notifications state
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // Fetch notifications and malfunction status
+  const { data: notificationsData, refetch: refetchNotifications } = useNotifications({ enabled: isAuthenticated })
+  const { data: malfunctionStatus } = useMalfunctionStatus({ enabled: isAuthenticated })
 
   // Request location non-blocking on mount (for fallback when ELD not available)
   useEffect(() => {
@@ -172,6 +184,7 @@ export const DashboardScreen = () => {
     data: hosClock,
     isLoading: isHOSLoading,
     error: hosError,
+    refetch: refetchHOSClock,
   } = useHOSClock({
     enabled: isAuthenticated,
     refetchInterval: 60000, // Sync every 60 seconds
@@ -179,7 +192,7 @@ export const DashboardScreen = () => {
   })
 
   // Get HOS Compliance Settings
-  const { data: complianceSettings, isLoading: isSettingsLoading } = useComplianceSettings({
+  const { data: complianceSettings, isLoading: isSettingsLoading, refetch: refetchSettings } = useComplianceSettings({
     enabled: isAuthenticated,
   }) as any
 
@@ -453,6 +466,25 @@ export const DashboardScreen = () => {
     return chartLogs
   }, [todayHOSLogs])
 
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      // Refetch all data
+      await Promise.all([
+        refetchHOSClock(),
+        refetchSettings(),
+        refetchHOSLogs(),
+        refetchNotifications(),
+        locationData.refreshLocation(),
+      ])
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [refetchHOSClock, refetchSettings, refetchHOSLogs, refetchNotifications, locationData])
+
   const time = (m: number) =>
     `${String(Math.floor(Math.round(m) / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`
 
@@ -520,7 +552,31 @@ export const DashboardScreen = () => {
         title=""
         backgroundColor={colors.background}
         RightActionComponent={
-          <View style={{ paddingRight: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 12, paddingRight: 4, alignItems: 'center' }}>
+            <TouchableOpacity 
+              onPress={() => setShowNotifications(true)}
+              style={{ position: 'relative' }}
+            >
+              <Bell size={24} color={colors.PRIMARY} strokeWidth={2} />
+              {(notificationsData?.unread_count || 0) > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  top: -4,
+                  right: -4,
+                  backgroundColor: '#EF4444',
+                  borderRadius: 10,
+                  minWidth: 20,
+                  height: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 4,
+                }}>
+                  <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
+                    {notificationsData.unread_count}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <Image
               source={require("assets/images/ttm-logo.png")}
               style={{ width: 120, height: 32, resizeMode: "contain" }}
@@ -542,7 +598,36 @@ export const DashboardScreen = () => {
         safeAreaEdges={["top"]}
       />
 
-      <ScrollView style={s.screen} contentContainerStyle={s.cc}>
+      <ScrollView 
+        style={s.screen} 
+        contentContainerStyle={s.cc}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.PRIMARY}
+            colors={[colors.PRIMARY]}
+          />
+        }
+      >
+        {/* Critical Malfunction Alert Banner */}
+        {malfunctionStatus?.active_malfunctions && malfunctionStatus.active_malfunctions.length > 0 && (
+          <TouchableOpacity 
+            style={s.criticalAlertBanner}
+            onPress={() => setShowNotifications(true)}
+          >
+            <View style={s.alertIconContainer}>
+              <AlertTriangle size={24} color="#FFF" strokeWidth={2.5} />
+            </View>
+            <View style={s.alertContent}>
+              <Text style={s.alertTitle}>ELD Malfunction Detected</Text>
+              <Text style={s.alertMessage}>
+                {malfunctionStatus.active_malfunctions.length} active malfunction(s). Manual logs required.
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Hero Card - Are you ready */}
         <LinearGradient
           colors={[colors.palette.primary400, colors.PRIMARY]}
@@ -880,6 +965,20 @@ export const DashboardScreen = () => {
         {/* Bottom Spacer */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={showNotifications}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalContent}>
+            <NotificationsPanel onClose={() => setShowNotifications(false)} />
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -1732,5 +1831,66 @@ const s = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  // Notifications Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 500,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+
+  // Critical Alert Banner
+  criticalAlertBanner: {
+    backgroundColor: '#DC2626',
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  alertIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  alertMessage: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
   },
 })
