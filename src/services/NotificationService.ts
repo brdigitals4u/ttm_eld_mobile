@@ -131,13 +131,32 @@ export class NotificationService {
     })
 
     // Listener for when user taps on notification
-    this.responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+    this.responseListener = Notifications.addNotificationResponseReceivedListener(async (response) => {
       console.log('👆 Notification tapped:', response)
       
       const data = response.notification.request.content.data
+      // Get notification ID from data.id or identifier
+      const notificationId = data?.id || data?.notification_id || response.notification.request.identifier
+      const notificationType = data?.type as string
       
-      // Navigate based on notification action
-      if (data?.action) {
+      // Handle profile change notifications
+      if (notificationType === 'profile_change_approved' || notificationType === 'profile_change_rejected') {
+        // Navigate to profile requests page with notification ID for marking as read
+        if (notificationId) {
+          router.push({
+            pathname: '/profile-requests',
+            params: { notificationId: String(notificationId) },
+          } as any)
+        } else {
+          // Fallback: navigate without notification ID
+          router.push('/profile-requests' as any)
+        }
+        return
+      }
+      
+      // Navigate based on notification action (for other notification types)
+      // Skip actions that point to /driver/profile/requests since we handle it above
+      if (data?.action && !data.action.includes('/driver/profile/requests')) {
         router.push(data.action as any)
       } else {
         // Default: Navigate to notifications panel/dashboard

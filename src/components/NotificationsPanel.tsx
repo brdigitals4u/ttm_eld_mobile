@@ -28,8 +28,18 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
       await markAsReadMutation.mutateAsync(notification.id)
     }
 
-    // Navigate to action if available
-    if (notification.action) {
+    // Handle profile change notifications
+    if (notification.type === 'profile_change_approved' || notification.type === 'profile_change_rejected') {
+      router.push({
+        pathname: '/profile-requests',
+        params: { notificationId: notification.id },
+      } as any)
+      if (onClose) onClose()
+      return
+    }
+
+    // Navigate to action if available (but exclude profile requests action)
+    if (notification.action && !notification.action.includes('/driver/profile/requests')) {
       router.push(notification.action as any)
     }
 
@@ -51,6 +61,10 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
       case 'certification_reminder':
         return <FileCheck size={iconSize} color={iconColor} strokeWidth={2.5} />
       case 'violation_warning':
+        return <XCircle size={iconSize} color={iconColor} strokeWidth={2.5} />
+      case 'profile_change_approved':
+        return <CheckCircle size={iconSize} color={iconColor} strokeWidth={2.5} />
+      case 'profile_change_rejected':
         return <XCircle size={iconSize} color={iconColor} strokeWidth={2.5} />
       default:
         return <Bell size={iconSize} color={iconColor} strokeWidth={2.5} />

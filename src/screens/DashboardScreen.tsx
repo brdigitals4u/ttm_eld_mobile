@@ -28,7 +28,7 @@ import Animated, {
 } from "react-native-reanimated"
 
 import { useHOSClock, useComplianceSettings, useHOSLogs, hosApi } from "@/api/hos"
-import { useNotifications, useMalfunctionStatus } from "@/api/notifications"
+import { useNotifications, useMalfunctionStatus, useMarkAsRead, Notification } from "@/api/notifications"
 import { EldIndicator } from "@/components/EldIndicator"
 import { FuelLevelIndicator } from "@/components/FuelLevelIndicator"
 import { Header } from "@/components/Header"
@@ -71,6 +71,7 @@ export const DashboardScreen = () => {
   // Fetch notifications and malfunction status
   const { data: notificationsData, refetch: refetchNotifications } = useNotifications({ enabled: isAuthenticated })
   const { data: malfunctionStatus } = useMalfunctionStatus({ enabled: isAuthenticated })
+  const markAsReadMutation = useMarkAsRead()
 
   // Request location non-blocking on mount (for fallback when ELD not available)
   useEffect(() => {
@@ -544,6 +545,44 @@ export const DashboardScreen = () => {
   // 2. Initial mount refresh (line 68) - only runs once on mount
   // No need for additional requestLocation calls that cause excessive logs
 
+  // Handle notification bell press - navigate directly to notification destination
+  const handleNotificationBellPress = useCallback(async () => {
+    if (!notificationsData?.notifications || notificationsData.notifications.length === 0) {
+      // No notifications, open panel as fallback
+      setShowNotifications(true)
+      return
+    }
+
+    // Get first unread notification, or latest notification if all are read
+    const unreadNotifications = notificationsData.notifications.filter(n => !n.is_read)
+    const targetNotification = unreadNotifications.length > 0 
+      ? unreadNotifications[0]  // First unread
+      : notificationsData.notifications[0]  // Latest if all read
+
+    // Mark as read if unread
+    if (!targetNotification.is_read) {
+      await markAsReadMutation.mutateAsync(targetNotification.id)
+    }
+
+    // Handle profile change notifications
+    if (targetNotification.type === 'profile_change_approved' || targetNotification.type === 'profile_change_rejected') {
+      router.push({
+        pathname: '/profile-requests',
+        params: { notificationId: targetNotification.id },
+      } as any)
+      return
+    }
+
+    // Navigate to action if available (but exclude profile requests action)
+    if (targetNotification.action && !targetNotification.action.includes('/driver/profile/requests')) {
+      router.push(targetNotification.action as any)
+      return
+    }
+
+    // Fallback: open notifications panel if no action
+    setShowNotifications(true)
+  }, [notificationsData, markAsReadMutation])
+
   return (
     <View style={{ flex: 1 }}>
       <Header
@@ -554,7 +593,7 @@ export const DashboardScreen = () => {
         RightActionComponent={
           <View style={{ flexDirection: 'row', gap: 12, paddingRight: 4, alignItems: 'center' }}>
             <TouchableOpacity 
-              onPress={() => setShowNotifications(true)}
+              onPress={handleNotificationBellPress}
               style={{ position: 'relative' }}
             >
               <Bell size={24} color={colors.PRIMARY} strokeWidth={2} />
@@ -614,7 +653,30 @@ export const DashboardScreen = () => {
         {malfunctionStatus?.active_malfunctions && malfunctionStatus.active_malfunctions.length > 0 && (
           <TouchableOpacity 
             style={s.criticalAlertBanner}
-            onPress={() => setShowNotifications(true)}
+            onPress={async () => {
+              // Find malfunction notification and navigate to it
+              const malfunctionNotification = notificationsData?.notifications?.find(
+                n => n.type === 'malfunction_alert' || n.type === 'eld_malfunction'
+              )
+              
+              if (malfunctionNotification) {
+                // Mark as read if unread
+                if (!malfunctionNotification.is_read) {
+                  await markAsReadMutation.mutateAsync(malfunctionNotification.id)
+                }
+                
+                // Navigate to action if available
+                if (malfunctionNotification.action) {
+                  router.push(malfunctionNotification.action as any)
+                } else {
+                  // Fallback: open notifications panel
+                  setShowNotifications(true)
+                }
+              } else {
+                // No malfunction notification found, open panel
+                setShowNotifications(true)
+              }
+            }}
           >
             <View style={s.alertIconContainer}>
               <AlertTriangle size={24} color="#FFF" strokeWidth={2.5} />

@@ -11,6 +11,8 @@ export type NotificationType =
   | 'certification_reminder' 
   | 'malfunction_alert' 
   | 'violation_warning'
+  | 'profile_change_approved'
+  | 'profile_change_rejected'
   | 'general'
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical'
@@ -119,8 +121,24 @@ export const notificationsApi = {
    * Mark Notification as Read
    * POST /driver/notifications/{id}/mark-read/
    */
-  async markAsRead(notificationId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.post<{ success: boolean }>(
+  async markAsRead(notificationId: string): Promise<{
+    success: boolean
+    message: string
+    notification: {
+      id: string
+      read: boolean
+      read_at: string
+    }
+  }> {
+    const response = await apiClient.post<{
+      success: boolean
+      message: string
+      notification: {
+        id: string
+        read: boolean
+        read_at: string
+      }
+    }>(
       `/driver/notifications/${notificationId}/mark-read/`,
       {}
     )
@@ -217,12 +235,55 @@ export const useMarkAsRead = () => {
 
   return useMutation({
     mutationFn: notificationsApi.markAsRead,
-    onSuccess: () => {
-      // Invalidate notifications to refetch
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS })
+    onMutate: async (notificationId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS })
+
+      // Snapshot the previous value
+      const previousNotifications = queryClient.getQueryData<NotificationsResponse>(QUERY_KEYS.NOTIFICATIONS)
+
+      // Optimistically update the notification to read
+      if (previousNotifications) {
+        queryClient.setQueryData<NotificationsResponse>(QUERY_KEYS.NOTIFICATIONS, {
+          ...previousNotifications,
+          notifications: previousNotifications.notifications.map((notif) =>
+            notif.id === notificationId
+              ? { ...notif, is_read: true }
+              : notif
+          ),
+          unread_count: Math.max(0, (previousNotifications.unread_count || 0) - 1),
+        })
+      }
+
+      // Return context for rollback
+      return { previousNotifications }
     },
-    onError: (error: ApiError) => {
+    onSuccess: (data, notificationId) => {
+      // Update with actual response data
+      queryClient.setQueryData<NotificationsResponse>(QUERY_KEYS.NOTIFICATIONS, (old) => {
+        if (!old) return old
+
+        return {
+          ...old,
+          notifications: old.notifications.map((notif) =>
+            notif.id === notificationId
+              ? { ...notif, is_read: true }
+              : notif
+          ),
+          unread_count: Math.max(0, (old.unread_count || 0) - 1),
+        }
+      })
+    },
+    onError: (error, notificationId, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(QUERY_KEYS.NOTIFICATIONS, context.previousNotifications)
+      }
       console.error('Failed to mark notification as read:', error)
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS })
     },
   })
 }
