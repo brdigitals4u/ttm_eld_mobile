@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { toast } from '@/components/Toast';
 import { Inspection, InspectionItem, InspectionState } from '@/types/inspection';
 import { useAuth } from '@/stores/authStore';
 
@@ -168,10 +168,8 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
         isLoading: false,
       }));
 
-      Alert.alert(
-        'Inspection Complete',
-        `Inspection ${completedInspection.overallStatus === 'pass' ? 'passed' : 'completed with issues'}`,
-        [{ text: 'OK' }]
+      toast.success(
+        `Inspection ${completedInspection.overallStatus === 'pass' ? 'passed' : 'completed with issues'}`
       );
     } catch (error) {
       console.error('Failed to complete inspection:', error);

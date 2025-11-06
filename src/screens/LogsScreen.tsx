@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
 import {
-  Alert,
   Modal,
   ScrollView,
   Share,
@@ -188,21 +187,9 @@ export const LogsScreen = () => {
 
   const handleCertifyLogs = () => {
     if (certification.isCertified) {
-      // Show confirmation dialog for uncertifying
-      Alert.alert(
-        "Logs Already Certified",
-        `Logs were certified by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}`,
-        [
-          { text: "OK" },
-          {
-            text: "Uncertify",
-            onPress: () => {
-              uncertifyLogs()
-              toast.success("Logs have been uncertified")
-            },
-            style: "destructive",
-          },
-        ],
+      // Show warning and allow uncertification
+      toast.warning(
+        `Logs were certified by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}. Use the uncertify button to make changes.`
       )
       return
     }

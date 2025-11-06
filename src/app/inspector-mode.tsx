@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { ArrowLeft, Clock, FileText, Lock, Share2, Unlock } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
@@ -27,15 +27,8 @@ export default function InspectorModeScreen() {
       return;
     }
     
-    // Use Alert.alert for confirmation in React Native
-    Alert.alert(
-      'Exit Inspector Mode',
-      'Are you sure you want to exit inspector mode?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Exit', onPress: () => router.back() }
-      ]
-    );
+    router.back();
+    toast.success('Exited inspector mode');
   };
 
   const handleToggleLock = () => {

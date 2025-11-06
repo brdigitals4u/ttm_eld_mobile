@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import JMBluetoothService from '../services/JMBluetoothService';
 import { useConnectionState } from '../services/ConnectionStateService';
 import { BleDevice } from '../types/JMBluetooth';
 import { saveEldDevice } from '../utils/eldStorage';
+import { toast } from '@/components/Toast';
 
 const __DEV__ = process.env.NODE_ENV === 'development';
 
@@ -46,25 +46,11 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       if (permissionResult.granted) {
         setIsInitialized(true);
       } else {
-        Alert.alert(
-          'Permissions Required', 
-          permissionResult.message || 'Bluetooth permissions are required to use this app. Please grant the permissions and restart the app.',
-          [
-            { text: 'Retry', onPress: () => initializeBluetooth() },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
+        toast.error(permissionResult.message || 'Bluetooth permissions are required to use this app. Please grant the permissions and restart the app.');
       }
     } catch (error) {
       console.error('Bluetooth initialization error:', error);
-      Alert.alert(
-        'Bluetooth Error', 
-        `Failed to initialize Bluetooth: ${error}`,
-        [
-          { text: 'Retry', onPress: () => initializeBluetooth() },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+      toast.error(`Failed to initialize Bluetooth: ${error}`);
     }
   };
 
@@ -95,7 +81,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
     JMBluetoothService.addEventListener('onConnectFailure', (error) => {
       setConnecting(false);
-      Alert.alert('Connection Failed', `Failed to connect: ${error.status}`);
+      toast.error(`Failed to connect: ${error.status}`);
     });
 
     JMBluetoothService.addEventListener('onAuthenticationPassed', async (data: any) => {
@@ -118,7 +104,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         
         if (!status.isConnected) {
           console.warn('⚠️ Device not connected after authentication');
-          Alert.alert('Connection Error', 'Device is not connected. Please try again.');
+          toast.error('Device is not connected. Please try again.');
           setConnecting(false);
           return;
         }
@@ -131,7 +117,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         const recheckStatus = await JMBluetoothService.getConnectionStatus();
         if (!recheckStatus.isConnected) {
           console.warn('⚠️ Connection lost during wait period');
-          Alert.alert('Connection Error', 'Connection lost. Please try again.');
+          toast.error('Connection lost. Please try again.');
           setConnecting(false);
           return;
         }
@@ -143,7 +129,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         
         if (!transmitResult) {
           console.warn('⚠️ ELD transmission start returned false');
-          Alert.alert('Transmission Error', 'Failed to start ELD data transmission. You can try again from the dashboard.');
+          toast.error('Failed to start ELD data transmission. You can try again from the dashboard.');
         } else {
           console.log('✅ ELD data transmission started successfully');
         }
@@ -159,31 +145,21 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         
       } catch (error) {
         console.error('❌ Error during connection check and transmission:', error);
-        Alert.alert(
-          'Error', 
-          `Failed to complete setup: ${error}. You can try starting transmission from the dashboard.`,
-          [
-            { 
-              text: 'Go to Dashboard', 
-              onPress: () => {
-                setConnecting(false);
-                router.replace('/(tabs)/dashboard');
-              }
-            }
-          ]
-        );
+        toast.error(`Failed to complete setup: ${error}. You can try starting transmission from the dashboard.`);
+        setConnecting(false);
+        router.replace('/(tabs)/dashboard');
       }
     });
 
     JMBluetoothService.addEventListener('onDisconnected', () => {
       setConnecting(false);
-      Alert.alert('Disconnected', 'Device disconnected');
+      toast.warning('Device disconnected');
     });
   };
 
   const startScan = async () => {
     if (!isInitialized) {
-      Alert.alert('Error', 'Bluetooth not initialized');
+      toast.error('Bluetooth not initialized');
       return;
     }
 
@@ -193,7 +169,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       await JMBluetoothService.startScan();
     } catch (error) {
       setIsScanning(false);
-      Alert.alert('Error', 'Failed to start scan: ' + error);
+      toast.error('Failed to start scan: ' + error);
     }
   };
 
@@ -202,13 +178,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       await JMBluetoothService.stopScan();
       setIsScanning(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to stop scan: ' + error);
+      toast.error('Failed to stop scan: ' + error);
     }
   };
 
   const connectToDevice = async (device: BleDevice) => {
     if (!device.address) {
-      Alert.alert('Error', 'Invalid device address');
+      toast.error('Invalid device address');
       return;
     }
 
@@ -220,7 +196,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       await JMBluetoothService.connect(device.address);
     } catch (error) {
       setConnecting(false);
-      Alert.alert('Error', 'Failed to connect: ' + error);
+      toast.error('Failed to connect: ' + error);
     }
   };
 

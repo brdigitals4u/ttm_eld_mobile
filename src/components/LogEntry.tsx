@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { useAppTheme } from '@/theme/context';
 import { StatusUpdate } from '@/types/status';
 import { hosApi } from '@/api/hos';
 import { Check, Lock, Edit2 } from 'lucide-react-native';
 import { Text } from '@/components/Text';
+import { toast } from '@/components/Toast';
 
 interface LogEntryProps {
   log: StatusUpdate | {
@@ -119,11 +120,7 @@ function LogEntry({ log, onCertify }: LogEntryProps) {
 
   const handleCertify = () => {
     if (log.isCertified) {
-      Alert.alert(
-        'Already Certified',
-        'This log entry has already been certified and cannot be modified.',
-        [{ text: 'OK' }]
-      );
+      toast.warning('This log entry has already been certified and cannot be modified.');
       return;
     }
     setShowCertifyModal(true);
@@ -131,7 +128,7 @@ function LogEntry({ log, onCertify }: LogEntryProps) {
 
   const handleSubmitCertification = async () => {
     if (!signature.trim()) {
-      Alert.alert('Error', 'Please enter your signature');
+      toast.error('Please enter your signature');
       return;
     }
 
@@ -140,9 +137,9 @@ function LogEntry({ log, onCertify }: LogEntryProps) {
         await onCertify(log.logId || (log as any).logId || (log as any).id || '', signature.trim());
         setShowCertifyModal(false);
         setSignature('');
-        Alert.alert('Success', 'Log entry has been certified');
+        toast.success('Log entry has been certified');
       } catch (error) {
-        Alert.alert('Error', 'Failed to certify log entry');
+        toast.error('Failed to certify log entry');
       }
     }
   };

@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { toast } from '@/components/Toast';
 import { CoDriver, CoDriverState } from '@/types/codriver';
 import { useAuth } from '@/stores/authStore';
 
@@ -83,7 +83,7 @@ export const [CoDriverProvider, useCoDriver] = createContextHook(() => {
         isLoading: false,
       }));
       
-      Alert.alert('Success', 'Co-driver added successfully');
+      toast.success('Co-driver added successfully');
     } catch (error) {
       console.error('Failed to add co-driver:', error);
       setState(prev => ({
@@ -113,7 +113,7 @@ export const [CoDriverProvider, useCoDriver] = createContextHook(() => {
         activeCoDriver,
       }));
       
-      Alert.alert('Success', 'Co-driver removed successfully');
+      toast.success('Co-driver removed successfully');
     } catch (error) {
       console.error('Failed to remove co-driver:', error);
       setState(prev => ({

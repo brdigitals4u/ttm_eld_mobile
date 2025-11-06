@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react"
 import {
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -119,41 +118,23 @@ export default function AssignmentsScreen() {
   }
 
   const handleRemoveTrailer = async (id: string) => {
-    Alert.alert("Remove Trailer", "Are you sure you want to remove this trailer?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        onPress: async () => {
-          try {
-            await removeTrailerMutation.mutateAsync(id)
-            refetchTrailers()
-            toast.success("Trailer removed successfully")
-          } catch (error: any) {
-            console.error("Failed to remove trailer:", error)
-            toast.error(error?.message || "Failed to remove trailer")
-          }
-        },
-        style: "destructive",
-      },
-    ])
+    try {
+      await removeTrailerMutation.mutateAsync(id)
+      refetchTrailers()
+      toast.success("Trailer removed successfully")
+    } catch (error: any) {
+      console.error("Failed to remove trailer:", error)
+      toast.error(error?.message || "Failed to remove trailer")
+    }
   }
 
   const handleRemoveShippingID = async (id: string) => {
-    Alert.alert("Remove Shipping ID", "Are you sure you want to remove this shipping ID?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        onPress: async () => {
-          try {
-            await removeShippingID(id)
-            toast.success("Shipping ID removed successfully")
-          } catch (error) {
-            toast.warning("Failed to remove shipping ID")
-          }
-        },
-        style: "destructive",
-      },
-    ])
+    try {
+      await removeShippingID(id)
+      toast.success("Shipping ID removed successfully")
+    } catch (error) {
+      toast.error("Failed to remove shipping ID")
+    }
   }
 
   return (

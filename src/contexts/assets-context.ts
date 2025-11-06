@@ -1,7 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { Asset, AssetDocument, AssetsState } from '@/types/assets';
 import { useAuth } from '@/stores/authStore';
 import { toast } from '@/components/Toast';

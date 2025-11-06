@@ -32,7 +32,7 @@ import { Header } from "@/components/Header"
 import { useHOSClock, useChangeDutyStatus, hosApi } from "@/api/hos"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
-import { useObdData } from "@/contexts/obd-data-context"
+import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useToast } from "@/providers/ToastProvider"
 import { ActivityIndicator } from "react-native"
@@ -97,7 +97,7 @@ export default function StatusScreen() {
   } = useStatus()
   const { isAuthenticated, updateHosStatus, hosStatus, logout, driverProfile } = useAuth()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
-  const { obdData } = useObdData()
+  const { odometer: eldOdometer } = useEldVehicleData()
   const locationData = useLocationData()
   const toast = useToast()
   const [showDoneForDayModal, setShowDoneForDayModal] = useState(false)
@@ -162,15 +162,12 @@ export default function StatusScreen() {
   // Mutation hook for changing duty status
   const changeDutyStatusMutation = useChangeDutyStatus()
 
-  // Get odometer from OBD data
+  // Get odometer from ELD device using the hook
   const getOdometer = (): number => {
-    const odometerItem = obdData.find(
-      (item) =>
-        item.name.includes('Total Vehicle Distance') ||
-        item.name.includes('Odometer') ||
-        item.name.includes('Vehicle Distance')
-    )
-    return odometerItem ? parseFloat(odometerItem.value) || 0 : 0
+    if (eldOdometer.source === 'eld' && eldOdometer.value !== null) {
+      return eldOdometer.value
+    }
+    return 0
   }
 
   const handleStatusChange = (status: DriverStatus) => {

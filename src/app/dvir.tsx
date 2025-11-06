@@ -1,14 +1,13 @@
 import React, { useState } from "react"
 import {
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native"
-import { router, Stack } from "expo-router"
+import { router } from "expo-router"
 import { ArrowLeft, Camera, ThumbsUp, X } from "lucide-react-native"
 
 import ElevatedCard from "@/components/EvevatedCard"
@@ -19,7 +18,7 @@ import { Header } from "@/components/Header"
 import { useCreateDVIR, useAddDVIRDefect } from "@/api/dvirs"
 import { useAuth } from "@/stores/authStore"
 import { useLocationData } from "@/hooks/useLocationData"
-import { useObdData } from "@/contexts/obd-data-context"
+import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 
 type InspectionType = "pre-trip" | "post-trip"
 type SafetyStatus = "safe" | "unsafe" | null
@@ -35,7 +34,7 @@ export default function DVIRScreen() {
   const { colors, isDark } = theme
   const { driverProfile, vehicleAssignment, isAuthenticated } = useAuth()
   const locationData = useLocationData()
-  const { obdData } = useObdData() as any
+  const { odometer: eldOdometer } = useEldVehicleData()
   const createDVIRMutation = useCreateDVIR()
   const addDefectMutation = useAddDVIRDefect()
   const [inspectionType, setInspectionType] = useState<InspectionType>("pre-trip")
@@ -99,8 +98,14 @@ export default function DVIRScreen() {
       const inspectionTypeApi = inspectionType === "pre-trip" ? "pre_trip" : "post_trip"
       const statusApi = safetyStatus === "safe" ? "pass" : safetyStatus === "unsafe" ? "fail" : "pass_with_defects"
       
-      // Get odometer from OBD data or vehicle assignment
-      const odometer = obdData?.odometer || vehicleAssignment?.vehicle_info?.current_odometer || undefined
+      // Get odometer from ELD device or vehicle assignment
+      const odometer = eldOdometer.source === 'eld' && eldOdometer.value !== null
+        ? eldOdometer.value
+        : (vehicleAssignment?.vehicle_info?.current_odometer 
+          ? (typeof vehicleAssignment.vehicle_info.current_odometer === 'object' && vehicleAssignment.vehicle_info.current_odometer?.value
+            ? vehicleAssignment.vehicle_info.current_odometer.value
+            : vehicleAssignment.vehicle_info.current_odometer)
+          : undefined)
 
       // Create DVIR POST API call
       const dvirResponse = await createDVIRMutation.mutateAsync({

@@ -56,10 +56,10 @@ export const useLocationData = () => {
   }, [eldLocation, currentLocation])
 
   return {
-    latitude: locationData.latitude,
-    longitude: locationData.longitude,
-    address: 'address' in locationData ? locationData.address : undefined,
-    source: locationData.source,
+    latitude: locationData.latitude || 0,
+    longitude: locationData.longitude || 0,
+    address: 'address' in locationData ? locationData.address : 'fallback location',
+    source: locationData.source || 'fallback_source',
     // Non-blocking function to refresh expo location (doesn't block if called)
     refreshLocation: async () => {
       // Request location in background without blocking

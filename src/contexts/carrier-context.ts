@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { toast } from '@/components/Toast';
 import { CarrierInfo, CarrierState } from '@/types/carrier';
 import { useAuth } from '@/stores/authStore';
 
@@ -87,7 +87,7 @@ export const [CarrierProvider, useCarrier] = createContextHook(() => {
         isLoading: false,
       }));
       
-      Alert.alert('Success', 'Carrier information updated successfully');
+      toast.success('Carrier information updated successfully');
     } catch (error) {
       console.error('Failed to update carrier info:', error);
       setState(prev => ({

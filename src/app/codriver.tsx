@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { ArrowLeft, Mail, Plus, User, UserMinus, UserPlus, Users } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
@@ -58,14 +58,12 @@ export default function CoDriverScreen() {
   };
 
   const handleRemoveCoDriver = (id: string, name: string) => {
-    Alert.alert(
-      'Remove Co-Driver',
-      `Are you sure you want to remove ${name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', onPress: () => removeCoDriver(id as any), style: 'destructive' }
-      ]
-    );
+    try {
+      removeCoDriver(id as any)
+      toast.success(`${name} removed successfully`)
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to remove co-driver')
+    }
   };
 
   const handleSetActive = async (id: string) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Alert } from "react-native"
+import { toast } from '@/components/Toast'
 import createContextHook from "@nkzw/create-context-hook"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useAuthStore } from '../stores/authStore'
@@ -332,12 +332,10 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       // Call HOS APIs after successful local update
       await sendHOSAPIs(status, reason, statusUpdate)
 
-      // Alert for critical status changes
+      // Warning for critical status changes
       if (status === "driving" && storeState.hoursOfService.driveTimeRemaining < 60) {
-        Alert.alert(
-          "Hours of Service Warning",
-          `You have less than ${storeState.formatDuration(storeState.hoursOfService.driveTimeRemaining)} of driving time remaining.`,
-          [{ text: "OK" }],
+        toast.warning(
+          `You have less than ${storeState.formatDuration(storeState.hoursOfService.driveTimeRemaining)} of driving time remaining.`
         )
       }
     } catch (error) {
@@ -581,14 +579,10 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
 
       storeState.setCertification(certification)
 
-      Alert.alert(
-        "Logs Certified",
-        "Your logs have been successfully certified. No further changes can be made until uncertified.",
-        [{ text: "OK" }],
-      )
+      toast.success("Your logs have been successfully certified. No further changes can be made until uncertified.")
     } catch (error) {
       console.error("Failed to certify logs:", error)
-      Alert.alert("Error", "Failed to certify logs")
+      toast.error("Failed to certify logs")
     }
   }
 
@@ -641,14 +635,10 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
         isEditable: true,
       })))
 
-      Alert.alert(
-        "Logs Uncertified",
-        "Your logs have been uncertified. You can now make changes.",
-        [{ text: "OK" }],
-      )
+      toast.success("Your logs have been uncertified. You can now make changes.")
     } catch (error) {
       console.error("Failed to uncertify logs:", error)
-      Alert.alert("Error", "Failed to uncertify logs")
+      toast.error("Failed to uncertify logs")
     }
   }
 

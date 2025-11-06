@@ -1,7 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { FuelReceipt, FuelState } from '@/types/fuel';
 import { useAuth } from '@/stores/authStore';
 import { toast } from '@/components/Toast';
@@ -74,7 +73,7 @@ export const [FuelProvider, useFuel] = createContextHook(() => {
         isLoading: false,
       }));
       
-      Alert.alert('Success', 'Fuel receipt added successfully');
+      toast.success('Fuel receipt added successfully');
     } catch (error) {
       console.error('Failed to add fuel receipt:', error);
       setState(prev => ({

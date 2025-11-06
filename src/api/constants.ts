@@ -65,8 +65,11 @@ export const API_ENDPOINTS = {
   FUEL: {
     CREATE_PURCHASE: "/fuel-purchase/fuel-purchases/",
     GET_PURCHASES: "/fuel-purchase/fuel-purchases/",
+    GET_DRIVER_PURCHASES: "/driver/fuel-purchases/",
     SEARCH_PURCHASES: "/fuel-purchase/fuel-purchases/search/",
     STATISTICS: "/fuel-purchase/fuel-purchases/statistics/",
+    GENERATE_RECEIPT_UPLOAD_URL: "/fuel-purchase/generate-receipt-upload-url/",
+    CONFIRM_RECEIPT_UPLOAD: "/fuel-purchase/confirm-receipt-upload/",
   },
 
   // File Upload APIs
