@@ -1,5 +1,6 @@
 import { API_CONFIG, HTTP_STATUS, ERROR_MESSAGES } from './constants'
 import { getStoredToken, removeStoredTokens } from '../utils/storage'
+import { tokenRefreshService } from '../services/token-refresh-service'
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -34,6 +35,9 @@ class ApiClient {
 
   // Get headers with authentication
   private async getHeaders(): Promise<Record<string, string>> {
+    // Check and refresh token if needed before making request
+    await tokenRefreshService.checkAndRefreshToken()
+    
     const token = await getStoredToken()
     
     console.log('🔑 API Client: Retrieved token:', token ? 'Token exists' : 'No token found')
@@ -94,13 +98,64 @@ class ApiClient {
       const data = await response.json()
 
       if (!response.ok) {
-        // Handle specific error cases
+        // Handle 401 Unauthorized - try to refresh token and retry
         if (response.status === HTTP_STATUS.UNAUTHORIZED) {
-          await removeStoredTokens()
-          throw new ApiError({
-            message: ERROR_MESSAGES.UNAUTHORIZED,
-            status: response.status,
-          })
+          // Skip refresh for refresh endpoint itself to avoid infinite loop
+          if (!endpoint.includes('/refresh/')) {
+            console.log('🔄 API Client: 401 error, attempting token refresh...')
+            const refreshed = await tokenRefreshService.refreshToken()
+            
+            if (refreshed) {
+              console.log('✅ API Client: Token refreshed, retrying request...')
+              // Retry the request with new token
+              const retryHeaders = await this.getHeaders()
+              const retryConfig: RequestInit = {
+                ...options,
+                headers: {
+                  ...retryHeaders,
+                  ...options.headers,
+                },
+              }
+              
+              const retryController = new AbortController()
+              const retryTimeoutId = setTimeout(() => retryController.abort(), this.timeout)
+              retryConfig.signal = retryController.signal
+              
+              const retryResponse = await fetch(url, retryConfig)
+              clearTimeout(retryTimeoutId)
+              
+              const retryData = await retryResponse.json()
+              
+              if (!retryResponse.ok) {
+                // Still failed after refresh, logout
+                await removeStoredTokens()
+                throw new ApiError({
+                  message: ERROR_MESSAGES.UNAUTHORIZED,
+                  status: retryResponse.status,
+                })
+              }
+              
+              return {
+                success: true,
+                data: retryData,
+                message: retryData.message,
+              }
+            } else {
+              // Refresh failed, logout
+              await removeStoredTokens()
+              throw new ApiError({
+                message: ERROR_MESSAGES.UNAUTHORIZED,
+                status: response.status,
+              })
+            }
+          } else {
+            // Refresh endpoint itself returned 401, logout
+            await removeStoredTokens()
+            throw new ApiError({
+              message: ERROR_MESSAGES.UNAUTHORIZED,
+              status: response.status,
+            })
+          }
         }
 
         throw new ApiError({

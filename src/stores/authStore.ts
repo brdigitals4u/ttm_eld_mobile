@@ -418,6 +418,10 @@ export const useAuthStore = create<AuthState>()(
           // Clear stored tokens
           await tokenStorage.removeTokens();
           
+          // Clear token expiry
+          const { tokenRefreshService } = require('@/services/token-refresh-service');
+          await tokenRefreshService.clearTokenExpiry();
+          
           // Reset state
           set({
             isAuthenticated: false,

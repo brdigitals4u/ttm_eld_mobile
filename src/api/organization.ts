@@ -4,6 +4,7 @@ import { API_CONFIG, API_ENDPOINTS, QUERY_KEYS } from './constants'
 import { tokenStorage, userStorage } from '@/utils/storage'
 import { RealmService } from '@/database/realm'
 import { BSON } from 'realm'
+import { tokenRefreshService } from '@/services/token-refresh-service'
 
 // Organization Driver types
 export interface OrganizationDriverLoginCredentials {
@@ -141,6 +142,15 @@ export const organizationApi = {
       // Store token securely
       await tokenStorage.setAccessToken(response.data.token)
       
+      // Store refresh token if provided
+      if ((response.data as any).refresh_token) {
+        await tokenStorage.setRefreshToken((response.data as any).refresh_token)
+      }
+      
+      // Store token expiry (10 minutes default, or from response)
+      const expiresIn = (response.data as any).expires_in || 600 // Default to 10 minutes (600 seconds)
+      await tokenRefreshService.setTokenExpiry(expiresIn)
+      
       // Store driver ID
       await userStorage.setUserId(response.data.user.id)
       
@@ -164,9 +174,9 @@ export const organizationApi = {
       // Store auth session in Realm
       await RealmService.createAuthSession({
         accessToken: response.data.token,
-        refreshToken: '', // Organization API doesn't provide refresh token
+        refreshToken: (response.data as any).refresh_token || '', // Store refresh token if provided
         userId: response.data.user.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        expiresAt: new Date(Date.now() + expiresIn * 1000), // Use actual expiry time
         createdAt: new Date(),
       })
     }

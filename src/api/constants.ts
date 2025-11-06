@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
     DRIVER_LOGIN: "/organisation_users/login/",
     DRIVER_PROFILE: "/organisation_users/profile/",
     DRIVER_LOGOUT: "/organisation_users/logout/",
+    DRIVER_REFRESH_TOKEN: "/organisation_users/refresh/",
     DRIVER_PROFILE_UPDATE: "/driver/profile/update/",
     DRIVER_PROFILE_REQUEST_CHANGE: "/driver/profile/request-change/",
     DRIVER_PROFILE_CHANGE_REQUESTS: "/driver/profile/change-requests/",
