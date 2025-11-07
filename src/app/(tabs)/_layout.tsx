@@ -27,11 +27,12 @@ export default function Layout() {
         <TabTrigger name="dashboard" href="/dashboard" asChild>
           <CustomTabButton icon="menu" label="Home" />
         </TabTrigger>
-        <TabTrigger name="logs" href="/logs" asChild>
-          <CustomTabButton icon="view" label="Logs" />
-        </TabTrigger>
+
         <TabTrigger name="fuel" href="/fuel" asChild>
           <CustomTabButton icon="bell" label="Fuel" />
+        </TabTrigger>
+        <TabTrigger name="logs" href="/logs" asChild>
+          <CustomTabButton icon="view" label="Logs" />
         </TabTrigger>
         <TabTrigger name="support" href="/support" asChild>
           <CustomTabButton icon="bell" label="Support" />

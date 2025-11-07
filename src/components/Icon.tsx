@@ -124,6 +124,7 @@ export const iconRegistry = {
   view: require("@assets/icons/view.png"),
   x: require("@assets/icons/x.png"),
   user: require("@assets/icons/user.png"),
+  trident: require("@assets/icons/trident.png"),
 }
 
 const $imageStyleBase: ImageStyle = {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
@@ -26,6 +26,12 @@ export const HOSScreen: React.FC = () => {
   })
   const { data: hosClocks, isLoading: isClocksLoading } = useHOSClocks(isAuthenticated)
   const { data: violationsData } = useViolations(isAuthenticated)
+
+  // Filter to only unresolved violations
+  const unresolvedViolations = useMemo(() => {
+    if (!violationsData?.violations) return []
+    return violationsData.violations.filter((v: any) => v.resolved === false)
+  }, [violationsData])
 
   const isLoading = isStatusLoading || isClocksLoading
   const currentHOS = currentHOSStatus || {} as any
@@ -276,7 +282,7 @@ export const HOSScreen: React.FC = () => {
         </Surface>
 
         {/* HOS Violations */}
-        {((violationsData?.violations && violationsData.violations.length > 0) ||
+        {(unresolvedViolations.length > 0 ||
           (clocks.violations && clocks.violations.length > 0)) && (
             <Surface style={[styles.violationsCard, { backgroundColor: theme.colors.background }]} elevation={2}>
               <View style={styles.violationsHeader}>
@@ -290,7 +296,7 @@ export const HOSScreen: React.FC = () => {
                   <Text style={[styles.viewAllText, { color: theme.colors.tint }]}>View All</Text>
                 </TouchableOpacity>
               </View>
-              {(violationsData?.violations || clocks.violations || []).slice(0, 3).map((violation: any, index: number) => (
+              {(unresolvedViolations || clocks.violations || []).slice(0, 3).map((violation: any, index: number) => (
                 <TouchableOpacity
                   key={violation.id || index}
                   style={styles.violationItem}

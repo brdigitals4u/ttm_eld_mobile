@@ -173,6 +173,12 @@ export default function ProfileScreen() {
     refetchInterval: 30000,
   })
   const { data: violationsData } = useViolations(isAuthenticated)
+  
+  // Filter to only unresolved violations
+  const unresolvedViolations = useMemo(() => {
+    if (!violationsData?.violations) return []
+    return violationsData.violations.filter((v: any) => v.resolved === false)
+  }, [violationsData])
   const { data: driverProfileData } = useDriverProfile(isAuthenticated)
   const { currentStatus } = useStatusStore()
   
@@ -760,7 +766,7 @@ export default function ProfileScreen() {
         )}
 
         {/* Violations */}
-        {((violationsData?.violations && violationsData.violations.length > 0) ||
+        {(unresolvedViolations.length > 0 ||
           driverProfile?.violations_count !== undefined) && (
             <ElevatedCard style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -768,7 +774,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Compliance Status</Text>
               </View>
 
-              {violationsData?.violations && violationsData.violations.length > 0 && (
+              {unresolvedViolations.length > 0 && (
                 <TouchableOpacity
                   style={[
                     styles.violationCard,
@@ -784,7 +790,7 @@ export default function ProfileScreen() {
                       Active Violations
                     </Text>
                     <Text style={[styles.violationCount, { color: colors.text }]}>
-                      {violationsData.violations.length} violation(s) require attention
+                      {unresolvedViolations.length} violation(s) require attention
                     </Text>
                   </View>
                 </TouchableOpacity>

@@ -88,6 +88,12 @@ export const DashboardScreen = () => {
   // Fetch violations
   const { data: violationsData } = useViolations(isAuthenticated)
   
+  // Filter to only unresolved violations
+  const unresolvedViolations = useMemo(() => {
+    if (!violationsData?.violations) return []
+    return violationsData.violations.filter((v: any) => v.resolved === false)
+  }, [violationsData])
+  
   // Get HOS status from context (polls every 30s)
   const { hosStatus: contextHOSStatus, isLoading: isHOSLoading, error: hosError, refetch: refetchHOSClock } = useHOSStatusContext()
   
@@ -631,7 +637,7 @@ export const DashboardScreen = () => {
         }
       >
         {/* Critical Violations Alert Banner */}
-        {violationsData?.violations && violationsData.violations.length > 0 && (
+        {unresolvedViolations.length > 0 && (
           <TouchableOpacity 
             style={s.criticalAlertBanner}
             onPress={() => {
@@ -645,7 +651,7 @@ export const DashboardScreen = () => {
             <View style={s.alertContent}>
               <Text style={s.alertTitle}>HOS Violations Detected</Text>
               <Text style={s.alertMessage}>
-                {violationsData.violations.length} active violation(s) require attention.
+                {unresolvedViolations.length} active violation(s) require attention.
               </Text>
             </View>
           </TouchableOpacity>

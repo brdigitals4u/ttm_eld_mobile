@@ -73,8 +73,11 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
   const shiftProgress = clocks.shift.remaining_minutes / clocks.shift.limit_minutes
   const cycleProgress = clocks.cycle.remaining_minutes / clocks.cycle.limit_minutes
 
+  // Filter to only unresolved violations (if resolved field exists)
+  const unresolvedViolations = violations?.filter((v: any) => v.resolved === false || v.resolved === undefined) || []
+  
   // Check for violations
-  const hasViolations = violations && violations.length > 0
+  const hasViolations = unresolvedViolations.length > 0
   const driveViolation = clocks.drive.remaining_minutes <= 0
   const shiftViolation = clocks.shift.remaining_minutes <= 0
   const cycleViolation = clocks.cycle.remaining_minutes <= 0
@@ -93,7 +96,7 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
           {hasViolations && (
             <View style={styles.violationBadge}>
               <AlertTriangle size={12} color="#FFF" strokeWidth={2} />
-              <Text style={styles.violationBadgeText}>{violations.length}</Text>
+              <Text style={styles.violationBadgeText}>{unresolvedViolations.length}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -192,7 +195,7 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
             <Progress.Circle
               size={70}
               progress={Math.min(1, Math.max(0, cycleProgress))}
-              color={cycleViolation ? "#EF4444" : "#8B5CF6"}
+              color={cycleViolation ? "#EF4444" : colors.PRIMARY}
               thickness={6}
               showsText={false}
               strokeCap="round"
@@ -232,7 +235,7 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
         <View style={styles.violationsSummary}>
           <AlertTriangle size={16} color="#EF4444" strokeWidth={2} />
           <Text style={styles.violationsSummaryText}>
-            {violations.length} active violation{violations.length !== 1 ? 's' : ''}
+            {unresolvedViolations.length} active violation{unresolvedViolations.length !== 1 ? 's' : ''}
           </Text>
         </View>
       )}
