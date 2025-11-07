@@ -13,7 +13,7 @@ import { HOSCurrentStatus } from '@/api/driver'
 export function mapDriverStatusToAppStatus(apiStatus: string): DriverStatus {
   const statusMap: Record<string, DriverStatus> = {
     'off_duty': 'offDuty',
-    'sleeper_berth': 'sleeping',
+    'sleeper_berth': 'sleeperBerth',
     'driving': 'driving',
     'on_duty': 'onDuty',
     'personal_conveyance': 'personalConveyance',

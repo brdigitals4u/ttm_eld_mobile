@@ -43,6 +43,8 @@ export const LogsScreen = () => {
   const [showCertifyAllModal, setShowCertifyAllModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
   const [showEldMaterialsModal, setShowEldMaterialsModal] = useState(false)
+  const [showEmailDialog, setShowEmailDialog] = useState(false)
+  const [emailDialogType, setEmailDialogType] = useState<"wireless" | "email-dot" | null>(null)
   const [signature, setSignature] = useState("")
   const [transferEmail, setTransferEmail] = useState("")
   const [isCertifiedInStorage, setIsCertifiedInStorage] = useState(false)
@@ -118,32 +120,35 @@ export const LogsScreen = () => {
     setShowTransferModal(false)
 
     if (option === "wireless") {
-      Alert.prompt(
-        "Wireless Transfer",
-        "Enter email address for wireless web services transfer:",
-        async (email) => {
-          if (email) {
-            await shareLogsViaEmail(email, "Wireless Web Services Transfer")
-          }
-        },
-        "plain-text",
-        transferEmail,
-      )
+      setEmailDialogType("wireless")
+      setShowEmailDialog(true)
     } else if (option === "email-dot") {
-      Alert.prompt(
-        "Email to DOT",
-        "Enter DOT email address:",
-        async (email) => {
-          if (email) {
-            await shareLogsViaEmail(email, "DOT Transfer")
-          }
-        },
-        "plain-text",
-        transferEmail,
-      )
+      setEmailDialogType("email-dot")
+      setShowEmailDialog(true)
     } else if (option === "email-self") {
       await shareLogsViaEmail(user?.email || "", "Self Transfer")
     }
+  }
+
+  const handleEmailDialogSubmit = async () => {
+    if (!transferEmail || !emailDialogType) return
+
+    setShowEmailDialog(false)
+    
+    if (emailDialogType === "wireless") {
+      await shareLogsViaEmail(transferEmail, "Wireless Web Services Transfer")
+    } else if (emailDialogType === "email-dot") {
+      await shareLogsViaEmail(transferEmail, "DOT Transfer")
+    }
+    
+    setTransferEmail("")
+    setEmailDialogType(null)
+  }
+
+  const handleEmailDialogCancel = () => {
+    setShowEmailDialog(false)
+    setTransferEmail("")
+    setEmailDialogType(null)
   }
 
   const shareLogsViaEmail = async (email: string, transferType: string) => {
@@ -844,6 +849,64 @@ export const LogsScreen = () => {
           </View>
         </Modal>
 
+        {/* Email Input Dialog */}
+        <Modal
+          visible={showEmailDialog}
+          transparent
+          animationType="fade"
+          onRequestClose={handleEmailDialogCancel}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {emailDialogType === "wireless" ? "Wireless Transfer" : "Email to DOT"}
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+                {emailDialogType === "wireless" 
+                  ? "Enter email address for wireless web services transfer:"
+                  : "Enter DOT email address:"}
+              </Text>
+
+              <TextInput
+                style={[
+                  styles.emailInput,
+                  {
+                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                    color: colors.text,
+                    borderColor: isDark ? "transparent" : "#E5E7EB",
+                  },
+                ]}
+                placeholder="Enter email address"
+                placeholderTextColor={colors.textDim}
+                value={transferEmail}
+                onChangeText={setTransferEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.modalButtons}>
+                <View style={styles.modalButton}>
+                  <LoadingButton
+                    title="Cancel"
+                    onPress={handleEmailDialogCancel}
+                    variant="outline"
+                    fullWidth
+                  />
+                </View>
+                <View style={styles.modalButton}>
+                  <LoadingButton
+                    title="Submit"
+                    onPress={handleEmailDialogSubmit}
+                    fullWidth
+                    disabled={!transferEmail.trim()}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {filteredLogs.length === 0 ? (
           <ElevatedCard style={styles.emptyContainer}>
             <View style={styles.emptyIconContainer}>
@@ -1036,6 +1099,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     height: 50,
     marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  emailInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    height: 50,
+    marginBottom: 16,
+    marginTop: 12,
     paddingHorizontal: 16,
   },
   title: {

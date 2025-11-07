@@ -14,6 +14,7 @@
 import { asyncStorage } from '@/utils/storage'
 import { driverApi, LocationBatchItem, LocationBatchResponse } from '@/api/driver'
 import { getEldDeviceId } from '@/utils/device'
+import { mapDriverStatusToAppStatus } from '@/utils/hos-status-mapper'
 
 const LOCATION_QUEUE_KEY = '@ttm_eld_location_queue'
 const LAST_SEQ_KEY = '@ttm_eld_last_seq'
@@ -23,12 +24,22 @@ export interface QueuedLocation extends LocationBatchItem {
   queuedAt: number // Timestamp when queued
 }
 
+type AutoDutyChangeHandler = (changes: LocationBatchResponse['auto_duty_changes']) => void
+
 class LocationQueueService {
   private queue: QueuedLocation[] = []
   private lastSeq: number = 0
   private lastAppliedSeq: number = 0
   private flushInterval: ReturnType<typeof setInterval> | null = null
   private isFlushing: boolean = false
+  private autoDutyChangeHandler: AutoDutyChangeHandler | null = null
+
+  /**
+   * Set handler for auto-duty status changes
+   */
+  setAutoDutyChangeHandler(handler: AutoDutyChangeHandler | null): void {
+    this.autoDutyChangeHandler = handler
+  }
 
   /**
    * Initialize the queue from storage
@@ -154,6 +165,14 @@ class LocationQueueService {
           remainingInQueue: this.queue.length,
           autoDutyChanges: response.auto_duty_changes?.length || 0,
         })
+
+        // Handle auto-duty changes if any
+        if (response.auto_duty_changes && response.auto_duty_changes.length > 0) {
+          console.log('🔄 LocationQueue: Auto-duty changes detected', response.auto_duty_changes)
+          if (this.autoDutyChangeHandler) {
+            this.autoDutyChangeHandler(response.auto_duty_changes)
+          }
+        }
 
         // Return response so caller can handle auto-duty changes
         return response

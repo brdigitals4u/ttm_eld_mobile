@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import JMBluetoothService from '@/services/JMBluetoothService'
 import { ObdEldData } from '@/types/JMBluetooth'
 import { handleData } from '@/services/handleData'
 import { useAuth } from '@/stores/authStore'
 import { useStatusStore } from '@/stores/statusStore'
+import { mapDriverStatusToAppStatus } from '@/utils/hos-status-mapper'
 import { sendObdDataBatch, ObdDataPayload } from '@/api/obd'
 import { awsApiService, AwsObdPayload } from '@/services/AwsApiService'
 import { awsConfig } from '@/config/aws-config'
@@ -18,6 +20,14 @@ interface OBDDataItem {
   isError?: boolean
 }
 
+export interface AutoDutyChange {
+  seq: number
+  old_status: string
+  new_status: string
+  reason: string
+  timestamp: string
+}
+
 interface ObdDataContextType {
   obdData: OBDDataItem[]
   lastUpdate: Date | null
@@ -25,19 +35,22 @@ interface ObdDataContextType {
   isSyncing: boolean
   awsSyncStatus: 'idle' | 'syncing' | 'success' | 'error'
   lastAwsSync: Date | null
+  recentAutoDutyChanges: AutoDutyChange[]
 }
 
 const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
 
 export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, driverProfile, vehicleAssignment } = useAuth()
-  const { setEldLocation } = useStatusStore()
+  const { setEldLocation, setCurrentStatus } = useStatusStore()
+  const queryClient = useQueryClient()
   const [obdData, setObdData] = useState<OBDDataItem[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [awsSyncStatus, setAwsSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
   const [lastAwsSync, setLastAwsSync] = useState<Date | null>(null)
+  const [recentAutoDutyChanges, setRecentAutoDutyChanges] = useState<AutoDutyChange[]>([])
   
   // Store data buffers for batch API sync
   const dataBufferRef = useRef<ObdDataPayload[]>([]) // Local API buffer
@@ -342,6 +355,71 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Initialize location queue service
       locationQueueService.initialize().then(() => {
+        // Set up auto-duty change handler
+        locationQueueService.setAutoDutyChangeHandler((changes) => {
+          if (changes && changes.length > 0) {
+            // Process all changes, but apply the most recent one (last in array)
+            // This handles cases where multiple changes occur in one batch
+            changes.forEach((change, index) => {
+              console.log(`🔄 OBD Data Context: Auto-duty change ${index + 1}/${changes.length}`, {
+                seq: change.seq,
+                from: change.old_status,
+                to: change.new_status,
+                reason: change.reason,
+                auto_changed: change.auto_changed,
+              })
+            })
+            
+            // Get the most recent change (last in array) - this is the current state
+            const latestChange = changes[changes.length - 1]
+            
+            // Store recent auto-duty changes (keep last 5)
+            const newChanges: AutoDutyChange[] = changes.map(change => ({
+              seq: change.seq,
+              old_status: change.old_status,
+              new_status: change.new_status,
+              reason: change.reason,
+              timestamp: new Date().toISOString(),
+            }))
+            
+            setRecentAutoDutyChanges(prev => {
+              const combined = [...prev, ...newChanges]
+              // Keep only the last 5 changes
+              return combined.slice(-5)
+            })
+            
+            // Map API status to app status
+            const appStatus = mapDriverStatusToAppStatus(latestChange.new_status)
+            
+            // Special logging for common auto-transitions
+            if (latestChange.old_status === 'driving' && latestChange.new_status === 'on_duty') {
+              console.log('🛑 OBD Data Context: Vehicle stopped - Auto-returning to On Duty', {
+                reason: latestChange.reason,
+                idleTime: latestChange.reason?.toLowerCase().includes('idle') ? 'detected' : 'unknown',
+              })
+            } else if (latestChange.old_status === 'on_duty' && latestChange.new_status === 'driving') {
+              console.log('🚗 OBD Data Context: Motion detected - Auto-switching to Driving', {
+                reason: latestChange.reason,
+              })
+            }
+            
+            // Update status store
+            setCurrentStatus(appStatus)
+            
+            // Invalidate HOS status queries to refresh UI
+            queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'current-status'] })
+            queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'clocks'] })
+            
+            console.log('✅ OBD Data Context: Status auto-changed and UI refreshed', {
+              from: latestChange.old_status,
+              to: latestChange.new_status,
+              appStatus,
+              reason: latestChange.reason,
+              timestamp: new Date().toISOString(),
+            })
+          }
+        })
+        
         locationQueueService.startAutoFlush(30000) // Every 30 seconds
         console.log('📍 OBD Data Context: Location queue service initialized and started')
       }).catch(error => {
@@ -539,6 +617,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isSyncing,
     awsSyncStatus,
     lastAwsSync,
+    recentAutoDutyChanges,
   }
 
   return <ObdDataContext.Provider value={value}>{children}</ObdDataContext.Provider>

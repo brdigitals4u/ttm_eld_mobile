@@ -33,13 +33,13 @@ import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hook
 import { useHOSStatusContext } from "@/contexts/hos-status-context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 import { EldIndicator } from "@/components/EldIndicator"
-import { FuelLevelIndicator } from "@/components/FuelLevelIndicator"
 import { Header } from "@/components/Header"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
 import HOSChartSkeleton from "@/components/HOSChartSkeleton"
 import HOSServiceCardSkeleton from "@/components/HOSServiceCardSkeleton"
 import HOSCircle from "@/components/HOSSvg"
-import { SpeedGauge } from "@/components/SpeedGauge"
+import { HOSComponent } from "@/components/HOSComponent"
+import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { Text } from "@/components/Text"
 import HOSChart from "@/components/VictoryHOS"
 import { useStatus } from "@/contexts"
@@ -64,7 +64,7 @@ export const DashboardScreen = () => {
   const { logEntries, certification, hoursOfService } = useStatus()
   const { currentLocation } = useLocation()
   const locationData = useLocationData()
-  const { obdData, isConnected: eldConnected } = useObdData()
+  const { obdData, isConnected: eldConnected, recentAutoDutyChanges } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
   
   // Notifications state
@@ -726,211 +726,26 @@ export const DashboardScreen = () => {
           </ScrollView>
         </View>
 
-        {/* Hours of Service - Enhanced Compact View */}
-        {isHOSLoading ? (
-          <HOSServiceCardSkeleton />
-        ) : (
-          <View 
-            ref={hosSectionRef}
-            style={s.serviceCard}
-            onLayout={(event) => {
-              // onLayout gives position relative to parent (ScrollView content)
-              const { y } = event.nativeEvent.layout
-              setHosSectionY(y)
+        {/* Hours of Service - Separate Component */}
+        <View 
+          ref={hosSectionRef}
+          onLayout={(event) => {
+            // onLayout gives position relative to parent (ScrollView content)
+            const { y } = event.nativeEvent.layout
+            setHosSectionY(y)
+          }}
+        >
+          <HOSComponent 
+            onScrollToTop={() => {
+              if (hosSectionY !== null && hosSectionY > 0) {
+                scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
+              } else {
+                // Fallback: approximate position based on typical layout
+                scrollViewRef.current?.scrollTo({ y: 600, animated: true })
+              }
             }}
-          >
-            <View style={s.serviceHeader}>
-              <TouchableOpacity 
-                style={s.serviceHeaderLeft}
-                onPress={() => {
-                  if (hosSectionY !== null) {
-                    scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 10), animated: true })
-                  } else {
-                    // Fallback: approximate position
-                    scrollViewRef.current?.scrollTo({ y: 600, animated: true })
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Clock size={20} color="#22C55E" strokeWidth={2.5} />
-                <Text style={s.serviceTitle}>Hours of Service</Text>
-                {hosClocks?.violations && hosClocks.violations.length > 0 && (
-                  <View style={s.violationBadge}>
-                    <AlertTriangle size={12} color="#FFF" strokeWidth={2} />
-                    <Text style={s.violationBadgeText}>{hosClocks.violations.length}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => router.push("/hos" as any)}
-                activeOpacity={0.7}
-              >
-                <Text style={s.viewAllText}>View Details →</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Current Status & Can Drive */}
-            {contextHOSStatus && (
-              <View style={s.currentStatusRow}>
-                <View style={[
-                  s.statusBadge,
-                  { backgroundColor: contextHOSStatus.can_drive ? "#ECFDF5" : "#FEE2E2" }
-                ]}>
-                  <Text style={[
-                    s.statusBadgeText,
-                    { color: contextHOSStatus.can_drive ? "#059669" : "#DC2626" }
-                  ]}>
-                    {contextHOSStatus.current_status?.replace(/_/g, ' ').toUpperCase() || 'OFF DUTY'}
-                  </Text>
-                  {!contextHOSStatus.can_drive && (
-                    <Text style={s.cannotDriveText}>Cannot Drive</Text>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {/* Main Timer - HOSCircle */}
-            {hosClocks && (
-              <View style={s.mainTimerWrapper}>
-                <HOSCircle 
-                  text={time(hosClocks.driving_11hr?.remaining_minutes ?? contextHOSStatus?.clocks?.drive?.remaining_minutes ?? 0)} 
-                  size={140}
-                  progress={Math.min(100, Math.max(0, ((hosClocks.driving_11hr?.remaining_minutes ?? contextHOSStatus?.clocks?.drive?.remaining_minutes ?? 0) / 660) * 100))}
-                  strokeWidth={8}
-                />
-                <Text style={s.mainTimerLabel}>11-Hour Drive Limit</Text>
-                {hosClocks.driving_11hr?.violation && (
-                  <View style={s.violationIndicator}>
-                    <AlertTriangle size={14} color="#EF4444" strokeWidth={2} />
-                    <Text style={s.violationText}>Violation</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Compact Clocks Grid - Circular Progress */}
-            {hosClocks && (
-              <View style={s.clocksGrid}>
-                {/* 14-Hour Shift */}
-                <View style={s.clockItem}>
-                  <View style={s.clockHeader}>
-                    <Text style={s.clockLabel}>14-Hr Shift</Text>
-                    {hosClocks.shift_14hr?.violation && (
-                      <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />
-                    )}
-                  </View>
-                  <View style={s.circularProgressWrapper}>
-                    <Progress.Circle
-                      size={70}
-                      progress={Math.min(1, Math.max(0, (hosClocks.shift_14hr?.remaining_minutes ?? 0) / 840))}
-                      color={hosClocks.shift_14hr?.violation ? "#EF4444" : colors.PRIMARY}
-                      thickness={6}
-                      showsText={false}
-                      strokeCap="round"
-                      unfilledColor="#E5E7EB"
-                    />
-                    <View style={s.circularProgressText}>
-                      <Text style={[
-                        s.circularClockValue,
-                        { color: hosClocks.shift_14hr?.violation ? "#EF4444" : colors.text }
-                      ]}>
-                        {time(hosClocks.shift_14hr?.remaining_minutes ?? 0)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Cycle */}
-                <View style={s.clockItem}>
-                  <View style={s.clockHeader}>
-                    <Text style={s.clockLabel}>
-                      {hosClocks.cycle_60_70hr?.cycle_type === '70_8' ? '70-Hr' : '60-Hr'} Cycle
-                    </Text>
-                    {hosClocks.cycle_60_70hr?.violation && (
-                      <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />
-                    )}
-                  </View>
-                  <View style={s.circularProgressWrapper}>
-                    <Progress.Circle
-                      size={70}
-                      progress={Math.min(1, Math.max(0, (hosClocks.cycle_60_70hr?.remaining_minutes ?? 0) / (hosClocks.cycle_60_70hr?.limit_minutes ?? 4200)))}
-                      color={hosClocks.cycle_60_70hr?.violation ? "#EF4444" : "#8B5CF6"}
-                      thickness={6}
-                      showsText={false}
-                      strokeCap="round"
-                      unfilledColor="#E5E7EB"
-                    />
-                    <View style={s.circularProgressText}>
-                      <Text style={[
-                        s.circularClockValue,
-                        { color: hosClocks.cycle_60_70hr?.violation ? "#EF4444" : colors.text }
-                      ]}>
-                        {cycleTime(hosClocks.cycle_60_70hr?.remaining_minutes ?? 0)}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={s.cycleDaysText}>
-                    {hosClocks.cycle_60_70hr?.days || 0}d remaining
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* Break & Off-Duty Info */}
-            {hosClocks && (
-              <>
-                <View style={s.breakOffDutyRow}>
-                  {hosClocks.break_30min?.break_required && (
-                    <View style={s.breakAlert}>
-                      <Clock size={14} color="#F59E0B" strokeWidth={2} />
-                      <Text style={s.breakAlertText}>
-                        Break required in {time(hosClocks.break_30min.time_until_required ?? 0)}
-                      </Text>
-                    </View>
-                  )}
-                  {hosClocks.off_duty_10hr?.needs_break && (
-                    <View style={s.offDutyAlert}>
-                      <Shield size={14} color="#3B82F6" strokeWidth={2} />
-                      <Text style={s.offDutyAlertText}>
-                        {hosClocks.off_duty_10hr.current_off_duty_minutes === 0 
-                          ? '10hr rest required' 
-                          : `${time(hosClocks.off_duty_10hr.current_off_duty_minutes)} off-duty`}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Split Sleeper Info */}
-                {hosClocks.split_sleeper?.enabled && (
-                  <View style={s.splitSleeperInfo}>
-                    <Text style={s.splitSleeperText}>
-                      Split Sleeper: {hosClocks.split_sleeper.valid_splits?.length || 0} valid split(s)
-                    </Text>
-                  </View>
-                )}
-
-                {/* Active Violations Summary */}
-                {hosClocks.violations && hosClocks.violations.length > 0 && (
-                  <View style={s.violationsSummary}>
-                    <AlertTriangle size={16} color="#EF4444" strokeWidth={2} />
-                    <Text style={s.violationsSummaryText}>
-                      {hosClocks.violations.length} active violation{hosClocks.violations.length !== 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                )}
-              </>
-            )}
-
-            {/* Sign Button */}
-            <TouchableOpacity
-              style={s.signButton}
-              onPress={() => router.push("/status" as any)}
-              activeOpacity={0.7}
-            >
-              <Text style={s.signButtonText}>Sign</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          />
+        </View>
 
         {/* Daily Activity Chart */}
         <View style={s.activityCard}>
@@ -946,34 +761,13 @@ export const DashboardScreen = () => {
           )}
         </View>
         {/* ELD Data - Speed & Fuel */}
-        {eldConnected && (
-          <View style={s.eldDataSection}>
-            <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>Live Vehicle Data</Text>
-              <View style={s.eldStatusBadge}>
-                <View style={s.eldStatusDot} />
-                <Text style={s.eldStatusText}>ELD Connected</Text>
-              </View>
-            </View>
-            {obdData.length === 0 ? (
-              <View style={s.noDataCard}>
-                <Text style={s.noDataText}>Waiting for OBD data...</Text>
-                <Text style={s.noDataSubtext}>
-                  {eldConnected ? "ELD is connected but no data received yet" : "ELD not connected"}
-                </Text>
-              </View>
-            ) : (
-              <View style={s.gaugesRow}>
-                <View style={s.gaugeCard}>
-                  <SpeedGauge speed={currentSpeed} unit="mph" maxSpeed={120} />
-                </View>
-                <View style={s.gaugeCard}>
-                  <FuelLevelIndicator fuelLevel={fuelLevel} />
-                </View>
-              </View>
-            )}
-          </View>
-        )}
+        {eldConnected && <LiveVehicleData
+          eldConnected={eldConnected}
+          obdData={obdData}
+          currentSpeed={currentSpeed}
+          fuelLevel={fuelLevel}
+          recentAutoDutyChanges={recentAutoDutyChanges}
+        />}
 
         {/* Quick Status Cards */}
         <View style={s.statusCardsRow}>
@@ -2058,67 +1852,6 @@ const s = StyleSheet.create({
     fontFamily: "monospace",
   },
 
-  // ELD Data Section
-  eldDataSection: {
-    marginHorizontal: 20,
-    marginTop: 24,
-  },
-  eldStatusBadge: {
-    alignItems: "center",
-    backgroundColor: "#ECFDF5",
-    borderRadius: 12,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  eldStatusDot: {
-    backgroundColor: "#10B981",
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  eldStatusText: {
-    color: "#059669",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  gaugesRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
-  },
-  gaugeCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    elevation: 2,
-    flex: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-  },
-  noDataCard: {
-    alignItems: "center",
-    backgroundColor: "#FFF7ED",
-    borderColor: "#FED7AA",
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 16,
-    padding: 24,
-  },
-  noDataText: {
-    color: "#92400E",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  noDataSubtext: {
-    color: "#B45309",
-    fontSize: 13,
-    fontWeight: "500",
-    textAlign: "center",
-  },
   debugButton: {
     backgroundColor: colors.PRIMARY,
     borderRadius: 12,
