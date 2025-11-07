@@ -96,7 +96,7 @@ export default function StatusScreen() {
     updateStatus,
     getStatusReasons,
   } = useStatus()
-  const { isAuthenticated, updateHosStatus, hosStatus: authHosStatus, logout, driverProfile } = useAuth()
+  const { isAuthenticated, updateHosStatus, hosStatus: authHosStatus, logout, driverProfile, user } = useAuth()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
   const { odometer: eldOdometer } = useEldVehicleData()
   const locationData = useLocationData()
@@ -129,8 +129,8 @@ export default function StatusScreen() {
       
       // Map HOSCurrentStatus to HOSStatus format for auth store
       const mappedStatus = mapHOSStatusToAuthFormat(currentHosStatus)
-      if (driverProfile?.name) {
-        mappedStatus.driver_name = driverProfile.name
+      if (user?.firstName && user?.lastName) {
+        mappedStatus.driver_name = `${user.firstName} ${user.lastName}`
       }
       updateHosStatus(mappedStatus)
       
@@ -147,7 +147,7 @@ export default function StatusScreen() {
         lastCalculated: Date.now(),
       })
     }
-  }, [currentHosStatus, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining, driverProfile?.name])
+  }, [currentHosStatus, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining, user?.firstName, user?.lastName])
 
   // Mutation hook for changing duty status
   const changeDutyStatusMutation = useChangeDutyStatus()

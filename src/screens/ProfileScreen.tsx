@@ -37,6 +37,7 @@ import StatCircleCard from "@/components/StatCircleCard"
 import { useObdData } from "@/contexts/obd-data-context"
 import { getEldDevice, EldDeviceInfo } from "@/utils/eldStorage"
 import { useHOSCurrentStatus, useViolations, useDriverProfile } from "@/api/driver-hooks"
+import { useStatusStore } from "@/stores/statusStore"
 
 const { width } = Dimensions.get("window")
 
@@ -173,9 +174,20 @@ export default function ProfileScreen() {
   })
   const { data: violationsData } = useViolations(isAuthenticated)
   const { data: driverProfileData } = useDriverProfile(isAuthenticated)
+  const { currentStatus } = useStatusStore()
   
   // Use driver profile from API if available, otherwise fallback to auth store
   const effectiveDriverProfile = driverProfileData || driverProfile
+  
+  // Format status for display - use synced status from store for consistency
+  const formatStatus = (status: string) => {
+    if (!status) return 'OFF DUTY'
+    return status.replace(/_/g, ' ').toUpperCase()
+  }
+  
+  // Get display status - prefer synced status from store, fallback to API
+  const displayStatus = currentStatus ? formatStatus(currentStatus) : 
+    (currentHOSStatus?.current_status ? formatStatus(currentHOSStatus.current_status) : 'OFF DUTY')
 
   const headerOpacity = useSharedValue(0)
   const headerTranslateY = useSharedValue(-50)
@@ -316,7 +328,7 @@ export default function ProfileScreen() {
             </Animated.View>
 
             <Text style={styles.headerName}>
-              {driverProfile?.name || `${user?.firstName} ${user?.lastName}` || "Driver Name"}
+              {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : driverProfile?.name || "Driver Name"}
             </Text>
 
             <View style={styles.headerBadge}>
@@ -719,7 +731,7 @@ export default function ProfileScreen() {
             <InfoCard
               icon={<Clock size={20} color={colors.palette.primary500} />}
               label="Duty Status"
-              value={currentHOSStatus.current_status.replace('_', ' ').toUpperCase()}
+              value={displayStatus}
               color={colors.palette.primary500}
               index={0}
             />
@@ -757,13 +769,14 @@ export default function ProfileScreen() {
               </View>
 
               {violationsData?.violations && violationsData.violations.length > 0 && (
-                <View
+                <TouchableOpacity
                   style={[
                     styles.violationCard,
                     {
                       backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "rgba(239, 68, 68, 0.05)",
                     },
                   ]}
+                  onPress={() => router.push('/violations' as any)}
                 >
                   <AlertTriangle size={24} color="#ef4444" />
                   <View style={styles.violationContent}>
@@ -774,7 +787,7 @@ export default function ProfileScreen() {
                       {violationsData.violations.length} violation(s) require attention
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               )}
 
               {driverProfile?.violations_count !== undefined && (

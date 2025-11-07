@@ -71,6 +71,11 @@ export const DashboardScreen = () => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   
+  // ScrollView ref for scrolling to HOS section
+  const scrollViewRef = useRef<ScrollView>(null)
+  const hosSectionRef = useRef<View>(null)
+  const [hosSectionY, setHosSectionY] = useState<number | null>(null)
+  
   // Fetch notifications using new driver API
   const { data: notificationsData, refetch: refetchNotifications } = useNotifications({
     status: 'unread',
@@ -216,8 +221,8 @@ export const DashboardScreen = () => {
 
       // Map HOSCurrentStatus to HOSStatus format for auth store
       const mappedStatus = mapHOSStatusToAuthFormat(contextHOSStatus)
-      if (driverProfile?.name) {
-        mappedStatus.driver_name = driverProfile.name
+      if (user?.firstName && user?.lastName) {
+        mappedStatus.driver_name = `${user.firstName} ${user.lastName}`
       }
       updateHosStatus(mappedStatus)
 
@@ -241,7 +246,8 @@ export const DashboardScreen = () => {
     setCurrentStatus,
     setHoursOfService,
     hoursOfService.breakTimeRemaining,
-    driverProfile?.name,
+    user?.firstName,
+    user?.lastName,
   ])
   
   // Track dashboard focus for detailed clocks
@@ -612,6 +618,7 @@ export const DashboardScreen = () => {
       />
 
       <ScrollView 
+        ref={scrollViewRef}
         style={s.screen} 
         contentContainerStyle={s.cc}
         refreshControl={
@@ -666,6 +673,14 @@ export const DashboardScreen = () => {
             />
           </View>
         </LinearGradient>
+                {/* Greeting Section */}
+                <View style={s.greetingSection}>
+          <View style={s.greetingRow}>
+            <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]},</Text>
+            <EldIndicator />
+          </View>
+          <Text style={s.greetingQuestion}>How's your day going?</Text>
+        </View>
 
         <View style={s.categoriesSection}>
           <View style={s.sectionHeader}>
@@ -681,7 +696,14 @@ export const DashboardScreen = () => {
           >
             <TouchableOpacity
               style={[s.categoryBox, s.categoryBoxActive]}
-              onPress={() => router.push("/status")}
+              onPress={() => {
+                if (hosSectionY !== null && hosSectionY > 0) {
+                  scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
+                } else {
+                  // Fallback: approximate position based on typical layout
+                  scrollViewRef.current?.scrollTo({ y: 600, animated: true })
+                }
+              }}
             >
               <Gauge size={32} color="#FFF" strokeWidth={2} />
               <Text style={s.categoryTextActive}>HOS</Text>
@@ -690,101 +712,223 @@ export const DashboardScreen = () => {
               <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
               <Text style={s.categoryText}>Logs</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/dvir")}>
+            <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/(tabs)/dvir" as any)}>
               <Shield size={32} color={colors.PRIMARY} strokeWidth={2} />
               <Text style={s.categoryText}>DVIR</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.categoryBox}>
+            <TouchableOpacity 
+              style={s.categoryBox}
+              onPress={() => router.push("/(tabs)/fuel" as any)}
+            >
               <BookOpen size={32} color={colors.PRIMARY} strokeWidth={2} />
-              <Text style={s.categoryText}>Reports</Text>
+              <Text style={s.categoryText}>Fuel</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
 
-        {/* Hours of Service - Card Style */}
+        {/* Hours of Service - Enhanced Compact View */}
         {isHOSLoading ? (
           <HOSServiceCardSkeleton />
         ) : (
-          <View style={s.serviceCard}>
+          <View 
+            ref={hosSectionRef}
+            style={s.serviceCard}
+            onLayout={(event) => {
+              // onLayout gives position relative to parent (ScrollView content)
+              const { y } = event.nativeEvent.layout
+              setHosSectionY(y)
+            }}
+          >
             <View style={s.serviceHeader}>
-              <Clock size={20} color="#22C55E" strokeWidth={2.5} />
-              <Text style={s.serviceTitle}>Hours of Service</Text>
+              <TouchableOpacity 
+                style={s.serviceHeaderLeft}
+                onPress={() => {
+                  if (hosSectionY !== null) {
+                    scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 10), animated: true })
+                  } else {
+                    // Fallback: approximate position
+                    scrollViewRef.current?.scrollTo({ y: 600, animated: true })
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Clock size={20} color="#22C55E" strokeWidth={2.5} />
+                <Text style={s.serviceTitle}>Hours of Service</Text>
+                {hosClocks?.violations && hosClocks.violations.length > 0 && (
+                  <View style={s.violationBadge}>
+                    <AlertTriangle size={12} color="#FFF" strokeWidth={2} />
+                    <Text style={s.violationBadgeText}>{hosClocks.violations.length}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => router.push("/hos" as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={s.viewAllText}>View Details →</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Big Timer */}
-            <View style={s.bigTimerSection}>
-              <Text style={s.bigTimerLabel}>Time Until Rest</Text>
-              <HOSCircle text={time(data.stopIn)} />
-              <Text style={s.bigTimerSubtext}>hours remaining</Text>
-            </View>
-
-            {/* Horizontal Stats */}
-            <View style={s.horizontalStats}>
-              <View style={s.statItem}>
-                <View style={s.statIconCircle}>
-                  <TrendingUp size={18} color="#22C55E" strokeWidth={2.5} />
+            {/* Current Status & Can Drive */}
+            {contextHOSStatus && (
+              <View style={s.currentStatusRow}>
+                <View style={[
+                  s.statusBadge,
+                  { backgroundColor: contextHOSStatus.can_drive ? "#ECFDF5" : "#FEE2E2" }
+                ]}>
+                  <Text style={[
+                    s.statusBadgeText,
+                    { color: contextHOSStatus.can_drive ? "#059669" : "#DC2626" }
+                  ]}>
+                    {contextHOSStatus.current_status?.replace(/_/g, ' ').toUpperCase() || 'OFF DUTY'}
+                  </Text>
+                  {!contextHOSStatus.can_drive && (
+                    <Text style={s.cannotDriveText}>Cannot Drive</Text>
+                  )}
                 </View>
-                <Text style={s.statItemLabel}>Drive</Text>
-                <Progress.Circle
-                  size={42}
-                  progress={pct(data.driveLeft, 840) / 100}
-                  color={colors.PRIMARY}
-                  thickness={6}
-                  showsText={false}
-                  strokeCap="round"
-                  unfilledColor="#E5E7EB"
+              </View>
+            )}
+
+            {/* Main Timer - HOSCircle */}
+            {hosClocks && (
+              <View style={s.mainTimerWrapper}>
+                <HOSCircle 
+                  text={time(hosClocks.driving_11hr?.remaining_minutes ?? contextHOSStatus?.clocks?.drive?.remaining_minutes ?? 0)} 
+                  size={140}
+                  progress={Math.min(100, Math.max(0, ((hosClocks.driving_11hr?.remaining_minutes ?? contextHOSStatus?.clocks?.drive?.remaining_minutes ?? 0) / 660) * 100))}
+                  strokeWidth={8}
                 />
-                <Text style={s.statItemValue}>{time(data.driveLeft)}</Text>
-                <View style={s.miniBar}>
-                  <View
-                    style={[
-                      s.miniBarFill,
-                      {
-                        width: `${pct(data.driveLeft, 660)}%`,
-                        backgroundColor: colors.palette.success500,
-                      },
-                    ]}
-                  />
+                <Text style={s.mainTimerLabel}>11-Hour Drive Limit</Text>
+                {hosClocks.driving_11hr?.violation && (
+                  <View style={s.violationIndicator}>
+                    <AlertTriangle size={14} color="#EF4444" strokeWidth={2} />
+                    <Text style={s.violationText}>Violation</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Compact Clocks Grid - Circular Progress */}
+            {hosClocks && (
+              <View style={s.clocksGrid}>
+                {/* 14-Hour Shift */}
+                <View style={s.clockItem}>
+                  <View style={s.clockHeader}>
+                    <Text style={s.clockLabel}>14-Hr Shift</Text>
+                    {hosClocks.shift_14hr?.violation && (
+                      <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />
+                    )}
+                  </View>
+                  <View style={s.circularProgressWrapper}>
+                    <Progress.Circle
+                      size={70}
+                      progress={Math.min(1, Math.max(0, (hosClocks.shift_14hr?.remaining_minutes ?? 0) / 840))}
+                      color={hosClocks.shift_14hr?.violation ? "#EF4444" : colors.PRIMARY}
+                      thickness={6}
+                      showsText={false}
+                      strokeCap="round"
+                      unfilledColor="#E5E7EB"
+                    />
+                    <View style={s.circularProgressText}>
+                      <Text style={[
+                        s.circularClockValue,
+                        { color: hosClocks.shift_14hr?.violation ? "#EF4444" : colors.text }
+                      ]}>
+                        {time(hosClocks.shift_14hr?.remaining_minutes ?? 0)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Cycle */}
+                <View style={s.clockItem}>
+                  <View style={s.clockHeader}>
+                    <Text style={s.clockLabel}>
+                      {hosClocks.cycle_60_70hr?.cycle_type === '70_8' ? '70-Hr' : '60-Hr'} Cycle
+                    </Text>
+                    {hosClocks.cycle_60_70hr?.violation && (
+                      <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />
+                    )}
+                  </View>
+                  <View style={s.circularProgressWrapper}>
+                    <Progress.Circle
+                      size={70}
+                      progress={Math.min(1, Math.max(0, (hosClocks.cycle_60_70hr?.remaining_minutes ?? 0) / (hosClocks.cycle_60_70hr?.limit_minutes ?? 4200)))}
+                      color={hosClocks.cycle_60_70hr?.violation ? "#EF4444" : "#8B5CF6"}
+                      thickness={6}
+                      showsText={false}
+                      strokeCap="round"
+                      unfilledColor="#E5E7EB"
+                    />
+                    <View style={s.circularProgressText}>
+                      <Text style={[
+                        s.circularClockValue,
+                        { color: hosClocks.cycle_60_70hr?.violation ? "#EF4444" : colors.text }
+                      ]}>
+                        {cycleTime(hosClocks.cycle_60_70hr?.remaining_minutes ?? 0)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={s.cycleDaysText}>
+                    {hosClocks.cycle_60_70hr?.days || 0}d remaining
+                  </Text>
                 </View>
               </View>
+            )}
 
-              <View style={s.statDivider} />
-
-              <View style={s.statItem}>
-                <View style={s.statIconCircle}>
-                  <Clock size={18} color={colors.PRIMARY} strokeWidth={2.5} />
+            {/* Break & Off-Duty Info */}
+            {hosClocks && (
+              <>
+                <View style={s.breakOffDutyRow}>
+                  {hosClocks.break_30min?.break_required && (
+                    <View style={s.breakAlert}>
+                      <Clock size={14} color="#F59E0B" strokeWidth={2} />
+                      <Text style={s.breakAlertText}>
+                        Break required in {time(hosClocks.break_30min.time_until_required ?? 0)}
+                      </Text>
+                    </View>
+                  )}
+                  {hosClocks.off_duty_10hr?.needs_break && (
+                    <View style={s.offDutyAlert}>
+                      <Shield size={14} color="#3B82F6" strokeWidth={2} />
+                      <Text style={s.offDutyAlertText}>
+                        {hosClocks.off_duty_10hr.current_off_duty_minutes === 0 
+                          ? '10hr rest required' 
+                          : `${time(hosClocks.off_duty_10hr.current_off_duty_minutes)} off-duty`}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={s.statItemLabel}>Shift</Text>
-                <Progress.Circle
-                  size={42}
-                  progress={pct(data.shiftLeft, 840) / 100}
-                  color={colors.PRIMARY}
-                  thickness={6}
-                  showsText={false}
-                  strokeCap="round"
-                  unfilledColor="#E5E7EB"
-                />
-                <Text style={s.statItemValue}>{time(data.shiftLeft)}</Text>
-                <View style={s.miniBar}>
-                  <View
-                    style={[
-                      s.miniBarFill,
-                      { width: `${pct(data.shiftLeft, 840)}%`, backgroundColor: colors.PRIMARY },
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
 
-            {/* Cycle Progress */}
-            <View style={s.cycleSection}>
-              <View style={s.cycleLabelRow}>
-                <Text style={s.cycleLabelText}>Cycle Time</Text>
-                <Text style={s.cycleValueText}>
-                  {cycleTime(data.cycleLeft)} • {data.cycleDays}d
-                </Text>
-              </View>
-            </View>
+                {/* Split Sleeper Info */}
+                {hosClocks.split_sleeper?.enabled && (
+                  <View style={s.splitSleeperInfo}>
+                    <Text style={s.splitSleeperText}>
+                      Split Sleeper: {hosClocks.split_sleeper.valid_splits?.length || 0} valid split(s)
+                    </Text>
+                  </View>
+                )}
+
+                {/* Active Violations Summary */}
+                {hosClocks.violations && hosClocks.violations.length > 0 && (
+                  <View style={s.violationsSummary}>
+                    <AlertTriangle size={16} color="#EF4444" strokeWidth={2} />
+                    <Text style={s.violationsSummaryText}>
+                      {hosClocks.violations.length} active violation{hosClocks.violations.length !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* Sign Button */}
+            <TouchableOpacity
+              style={s.signButton}
+              onPress={() => router.push("/status" as any)}
+              activeOpacity={0.7}
+            >
+              <Text style={s.signButtonText}>Sign</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -865,54 +1009,9 @@ export const DashboardScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Greeting Section */}
-        <View style={s.greetingSection}>
-          <View style={s.greetingRow}>
-            <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]},</Text>
-            <EldIndicator />
-          </View>
-          <Text style={s.greetingQuestion}>How's your day going?</Text>
-        </View>
 
-        {/* Quick Actions - Ride/Rent Style */}
-        <View style={s.actionsSection}>
-          <Text style={s.actionsTitle}>Quick Actions</Text>
-          <View style={s.actionsGrid}>
-            <TouchableOpacity style={s.actionCard} onPress={() => router.push("/status")}>
-              <LinearGradient
-                colors={[colors.palette.success500, colors.palette.success600]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.actionGradient}
-              >
-                <View style={s.actionContent}>
-                  <View style={s.actionIconContainer}>
-                    <Truck size={32} color="#FFF" strokeWidth={2} />
-                  </View>
-                  <Text style={s.actionTitle}>Drive</Text>
-                  <Text style={s.actionSubtitle}>Start your shift</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
 
-            <TouchableOpacity style={s.actionCard} onPress={() => router.push("/(tabs)/logs")}>
-              <LinearGradient
-                colors={[colors.PRIMARY, colors.palette.primary600]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.actionGradient}
-              >
-                <View style={s.actionContent}>
-                  <View style={s.actionIconContainer}>
-                    <FileText size={32} color="#FFF" strokeWidth={2} />
-                  </View>
-                  <Text style={s.actionTitle}>Logs</Text>
-                  <Text style={s.actionSubtitle}>View & Sign</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
+     
 
         {/* Vehicle Information Card */}
         <View style={s.vehicleInfoCard}>
@@ -1176,17 +1275,211 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
+    marginTop: 10,
   },
   serviceHeader: {
     alignItems: "center",
     flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  serviceHeaderLeft: {
+    alignItems: "center",
+    flexDirection: "row",
     gap: 8,
-    marginBottom: 20,
   },
   serviceTitle: {
     color: "#1F2937",
     fontSize: 18,
     fontWeight: "800",
+  },
+  violationBadge: {
+    alignItems: "center",
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  violationBadgeText: {
+    color: "#FFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  viewAllText: {
+    color: colors.PRIMARY,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  currentStatusRow: {
+    marginBottom: 16,
+  },
+  statusBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  statusBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  cannotDriveText: {
+    color: "#DC2626",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  mainTimerWrapper: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  mainTimerLabel: {
+    color: "#6B7280",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  violationIndicator: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 6,
+  },
+  violationText: {
+    color: "#EF4444",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  clocksGrid: {
+    flexDirection: "row",
+    gap: 16,
+    justifyContent: "space-around",
+  },
+  clockItem: {
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
+  },
+  circularProgressWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  circularProgressText: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+  },
+  circularClockValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  clockHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "space-between",
+  },
+  clockLabel: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  clockValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  clockProgressBar: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 3,
+    height: 4,
+    overflow: "hidden",
+  },
+  clockProgressFill: {
+    borderRadius: 3,
+    height: "100%",
+  },
+  cycleDaysText: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  breakOffDutyRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  breakAlert: {
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  breakAlertText: {
+    color: "#92400E",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  offDutyAlert: {
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  offDutyAlertText: {
+    color: "#1E40AF",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  splitSleeperInfo: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  splitSleeperText: {
+    color: "#6B7280",
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  violationsSummary: {
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  violationsSummaryText: {
+    color: "#DC2626",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  signButton: {
+    backgroundColor: colors.PRIMARY,
+    borderRadius: 12,
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  signButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
   bigTimerSection: {
     alignItems: "center",
@@ -1611,16 +1904,6 @@ const s = StyleSheet.create({
     color: "#6B7280",
     fontSize: 11,
     fontWeight: "600",
-  },
-  statusBadge: {
-    borderRadius: 16,
-    borderWidth: 2,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: "800",
   },
 
   popularSection: {

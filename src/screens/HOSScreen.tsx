@@ -1,189 +1,326 @@
 import React, { useState } from 'react'
-import { View, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
 import { Screen } from '@/components/Screen'
+import { Header } from '@/components/Header'
 import { Surface } from 'react-native-paper'
 import { useAppTheme } from '@/theme/context'
-import { RealmService } from '@/database/realm'
 import { Icon } from '@/components/Icon'
+import { useHOSCurrentStatus, useHOSClocks, useViolations } from '@/api/driver-hooks'
+import { useAuth } from '@/stores/authStore'
+import { useStatusStore } from '@/stores/statusStore'
+import { router } from 'expo-router'
+import { AlertTriangle, Clock } from 'lucide-react-native'
 
 export const HOSScreen: React.FC = () => {
   const { theme } = useAppTheme()
-  
-  // Get HOS data from Realm
-  const hosStatus = RealmService.getHOSStatus() as any
-  const driverProfile = RealmService.getDriverProfile() as any
+  const { colors, isDark } = theme
+  const { isAuthenticated, driverProfile } = useAuth()
+  const { currentStatus } = useStatusStore()
 
-  const currentHOS = hosStatus || {}
-  const currentDriver = driverProfile || {}
+  // Get HOS data from API
+  const { data: currentHOSStatus, isLoading: isStatusLoading } = useHOSCurrentStatus({
+    enabled: isAuthenticated,
+    refetchInterval: 30000,
+  })
+  const { data: hosClocks, isLoading: isClocksLoading } = useHOSClocks(isAuthenticated)
+  const { data: violationsData } = useViolations(isAuthenticated)
+
+  const isLoading = isStatusLoading || isClocksLoading
+  const currentHOS = currentHOSStatus || {} as any
+  const clocks = hosClocks || {} as any
+  const currentDriver = driverProfile || {} as any
 
   const formatTime = (minutes: number) => {
-    if (!minutes) return '00:00'
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
+    if (!minutes && minutes !== 0) return '00:00'
+    const hours = Math.floor(Math.abs(minutes) / 60)
+    const mins = Math.abs(minutes) % 60
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   }
 
   const getProgressPercentage = (remaining: number, max: number) => {
-    return Math.min((remaining / max) * 100, 100)
+    if (!remaining && remaining !== 0) return 0
+    return Math.min((Math.abs(remaining) / max) * 100, 100)
+  }
+
+  const formatStatus = (status: string) => {
+    if (!status) return 'OFF DUTY'
+    return status.replace(/_/g, ' ').toUpperCase()
+  }
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Header
+          title="Hours of Service"
+          titleMode="center"
+          backgroundColor={colors.background}
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+            paddingLeft: 20,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+          containerStyle={{
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            shadowColor: colors.tint,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          style={{
+            paddingHorizontal: 16,
+          }}
+          safeAreaEdges={["top"]}
+          RightActionComponent={
+            <View style={{ paddingRight: 4 }}>
+              <Image
+                source={require('assets/images/ttm-logo.png')}
+                style={{ width: 120, height: 32, resizeMode: 'contain' }}
+              />
+            </View>}
+        />
+
+
+
+        <Screen preset="fixed" style={styles.screen}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.tint} />
+            <Text preset="default" style={[styles.loadingText, { color: theme.colors.text }]}>
+              Loading HOS data...
+            </Text>
+          </View>
+        </Screen>
+      </View>
+    )
   }
 
   return (
-    <Screen 
-      preset="scroll"
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.driverInfo}>
-          <Text preset="heading" style={[styles.driverName, { color: theme.colors.text }]}>
-            {currentDriver.name || 'Driver Name'}
-          </Text>
-          <View style={styles.connectionStatus}>
-            <View style={[styles.connectionIndicator, { backgroundColor: theme.colors.success }]} />
-            <Text preset="default" style={[styles.connectionText, { color: theme.colors.success }]}>
-              CONNECTED
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* HOS Rule */}
-      <View style={styles.hosRule}>
-        <Text preset="default" style={[styles.hosRuleText, { color: theme.colors.text }]}>
-          USA 70 hours / 8 days
-        </Text>
-      </View>
-
-      {/* Main Timer */}
-      <Surface style={[styles.mainTimerCard, { backgroundColor: theme.colors.background }]} elevation={3}>
-        <View style={styles.mainTimer}>
-          <View style={[styles.circularTimer, { borderColor: theme.colors.tint }]}>
-            <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
-              {formatTime(currentHOS.driving_time_remaining || 0)}
-            </Text>
-            <Text preset="default" style={[styles.timerLabel, { color: theme.colors.textDim }]}>
-              Stop In
-            </Text>
-          </View>
-        </View>
-      </Surface>
-
-      {/* HOS Timers */}
-      <View style={styles.timersSection}>
-        <Surface style={[styles.timerCard, { backgroundColor: theme.colors.background }]} elevation={2}>
-          <View style={styles.timerHeader}>
-            <Text preset="subheading" style={[styles.timerTitle, { color: theme.colors.text }]}>
-              Drive Left
-            </Text>
-            <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
-              {formatTime(currentHOS.driving_time_remaining || 0)}
-            </Text>
-          </View>
-          <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
-            <View style={[styles.progressFill, { 
-              backgroundColor: theme.colors.tint,
-              width: `${getProgressPercentage(currentHOS.driving_time_remaining || 0, 660)}%` // 11 hours max
-            }]} />
-          </View>
-        </Surface>
-
-        <Surface style={[styles.timerCard, { backgroundColor: theme.colors.background }]} elevation={2}>
-          <View style={styles.timerHeader}>
-            <Text preset="subheading" style={[styles.timerTitle, { color: theme.colors.text }]}>
-              Shift Left
-            </Text>
-            <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
-              {formatTime(currentHOS.on_duty_time_remaining || 0)}
-            </Text>
-          </View>
-          <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
-            <View style={[styles.progressFill, { 
-              backgroundColor: theme.colors.tint,
-              width: `${getProgressPercentage(currentHOS.on_duty_time_remaining || 0, 840)}%` // 14 hours max
-            }]} />
-          </View>
-        </Surface>
-
-        <Surface style={[styles.timerCard, { backgroundColor: theme.colors.background }]} elevation={2}>
-          <View style={styles.timerHeader}>
-            <Text preset="subheading" style={[styles.timerTitle, { color: theme.colors.text }]}>
-              Cycle Left
-            </Text>
-            <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
-              {formatTime(currentHOS.cycle_time_remaining || 0)}
-            </Text>
-          </View>
-          <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
-            <View style={[styles.progressFill, { 
-              backgroundColor: theme.colors.tint,
-              width: `${getProgressPercentage(currentHOS.cycle_time_remaining || 0, 4200)}%` // 70 hours max
-            }]} />
-          </View>
-        </Surface>
-      </View>
-
-      {/* Current Status */}
-      <Surface style={[styles.statusCard, { backgroundColor: theme.colors.background }]} elevation={2}>
-        <View style={styles.statusHeader}>
-          <Text preset="subheading" style={[styles.statusLabel, { color: theme.colors.text }]}>
-            Current Status
-          </Text>
-          <TouchableOpacity style={[styles.statusButton, { borderColor: theme.colors.tint }]}>
-            <Icon icon="more" color={theme.colors.tint} size={20} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={[styles.currentStatus, { backgroundColor: theme.colors.warning }]}>
-          <Text preset="heading" style={[styles.statusText, { color: '#000' }]}>
-            {currentHOS.current_status || 'OFF DUTY'}
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+             <Header
+          title="Hours of Service"
+          titleMode="center"
+          backgroundColor={colors.background}
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+            paddingLeft: 20,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+          containerStyle={{
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            shadowColor: colors.tint,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+          style={{
+            paddingHorizontal: 16,
+          }}
+          safeAreaEdges={["top"]}
+          RightActionComponent={
+            <View style={{ paddingRight: 4 }}>
+              <Image
+                source={require('assets/images/ttm-logo.png')}
+                style={{ width: 120, height: 32, resizeMode: 'contain' }}
+              />
+            </View>}
+        />
+      <Screen
+        preset="scroll"
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+      >
+        {/* HOS Rule */}
+        <View style={styles.hosRule}>
+          <Text preset="default" style={[styles.hosRuleText, { color: theme.colors.text }]}>
+            {clocks.cycle_60_70hr?.cycle_type === '70_8' ? 'USA 70 hours / 8 days' : 'USA 60 hours / 7 days'}
           </Text>
         </View>
-      </Surface>
 
-      {/* HOS Violations */}
-      {currentHOS.active_violations && currentHOS.active_violations.length > 0 && (
-        <Surface style={[styles.violationsCard, { backgroundColor: theme.colors.background }]} elevation={2}>
-          <Text preset="subheading" style={[styles.violationsTitle, { color: theme.colors.error }]}>
-            Active Violations
-          </Text>
-          {currentHOS.active_violations.map((violation: any, index: number) => (
-            <View key={index} style={styles.violationItem}>
-              <View style={[styles.violationIcon, { backgroundColor: theme.colors.error }]}>
-                <Text style={styles.violationIconText}>!</Text>
-              </View>
-              <View style={styles.violationDetails}>
-                <Text preset="default" style={[styles.violationType, { color: theme.colors.text }]}>
-                  {violation.type || 'HOS Violation'}
-                </Text>
-                <Text preset="default" style={[styles.violationDescription, { color: theme.colors.textDim }]}>
-                  {violation.description || 'Hours of Service violation detected'}
-                </Text>
-              </View>
+        {/* Main Timer */}
+        <Surface style={[styles.mainTimerCard, { backgroundColor: theme.colors.background }]} elevation={3}>
+          <View style={styles.mainTimer}>
+            <View style={[styles.circularTimer, { borderColor: theme.colors.tint }]}>
+              <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
+                {formatTime(currentHOS.clocks?.drive?.remaining_minutes ?? clocks.driving_11hr?.remaining_minutes ?? 0)}
+              </Text>
+
             </View>
-          ))}
+          </View>
+          <Text preset="default" style={[styles.timerLabel, { color: theme.colors.textDim }]}>
+            Drive Time Remaining
+          </Text>
         </Surface>
-      )}
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <Button
-          preset="reversed"
-          text="Change Status"
-          onPress={() => {}}
-          style={[styles.actionButton, { borderColor: theme.colors.tint }]}
-          textStyle={{ color: theme.colors.tint }}
-        />
-        <Button
-          preset="filled"
-          text="View Logs"
-          onPress={() => {}}
-          style={styles.actionButton}
-        />
-      </View>
-    </Screen>
+        {/* HOS Timers */}
+        <View style={styles.timersSection}>
+          <Surface style={[styles.timerCard, { backgroundColor: theme.colors.background }]} elevation={2}>
+            <View style={styles.timerHeader}>
+              <Text preset="subheading" style={[styles.timerTitle, { color: theme.colors.text }]}>
+                11-Hour Drive Limit
+              </Text>
+              <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
+                {formatTime(currentHOS.clocks?.drive?.remaining_minutes ?? clocks.driving_11hr?.remaining_minutes ?? 0)}
+              </Text>
+            </View>
+            <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
+              <View style={[styles.progressFill, {
+                backgroundColor: clocks.driving_11hr?.violation ? '#EF4444' : theme.colors.tint,
+                width: `${getProgressPercentage(
+                  currentHOS.clocks?.drive?.remaining_minutes ?? clocks.driving_11hr?.remaining_minutes ?? 0,
+                  660
+                )}%`
+              }]} />
+            </View>
+            {clocks.driving_11hr?.regulation && (
+              <Text preset="default" style={[styles.regulationText, { color: theme.colors.textDim }]}>
+                {clocks.driving_11hr.regulation}
+              </Text>
+            )}
+          </Surface>
+
+          <Surface style={[styles.timerCard, { backgroundColor: theme.colors.background }]} elevation={2}>
+            <View style={styles.timerHeader}>
+              <Text preset="subheading" style={[styles.timerTitle, { color: theme.colors.text }]}>
+                14-Hour Shift Limit
+              </Text>
+              <Text preset="heading" style={[styles.timerValue, {
+                color: clocks.shift_14hr?.violation ? '#EF4444' : theme.colors.text
+              }]}>
+                {formatTime(currentHOS.clocks?.shift?.remaining_minutes ?? clocks.shift_14hr?.remaining_minutes ?? 0)}
+              </Text>
+            </View>
+            <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
+              <View style={[styles.progressFill, {
+                backgroundColor: clocks.shift_14hr?.violation ? '#EF4444' : theme.colors.tint,
+                width: `${getProgressPercentage(
+                  currentHOS.clocks?.shift?.remaining_minutes ?? clocks.shift_14hr?.remaining_minutes ?? 0,
+                  840
+                )}%`
+              }]} />
+            </View>
+            {clocks.shift_14hr?.regulation && (
+              <Text preset="default" style={[styles.regulationText, { color: theme.colors.textDim }]}>
+                {clocks.shift_14hr.regulation}
+              </Text>
+            )}
+          </Surface>
+
+          <Surface style={[styles.timerCard, { backgroundColor: theme.colors.background }]} elevation={2}>
+            <View style={styles.timerHeader}>
+              <Text preset="subheading" style={[styles.timerTitle, { color: theme.colors.text }]}>
+                {clocks.cycle_60_70hr?.cycle_type === '70_8' ? '70-Hour / 8-Day' : '60-Hour / 7-Day'} Cycle
+              </Text>
+              <Text preset="heading" style={[styles.timerValue, { color: theme.colors.text }]}>
+                {formatTime(currentHOS.clocks?.cycle?.remaining_minutes ?? clocks.cycle_60_70hr?.remaining_minutes ?? 0)}
+              </Text>
+            </View>
+            <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
+              <View style={[styles.progressFill, {
+                backgroundColor: clocks.cycle_60_70hr?.violation ? '#EF4444' : theme.colors.tint,
+                width: `${getProgressPercentage(
+                  currentHOS.clocks?.cycle?.remaining_minutes ?? clocks.cycle_60_70hr?.remaining_minutes ?? 0,
+                  clocks.cycle_60_70hr?.limit_minutes ?? 4200
+                )}%`
+              }]} />
+            </View>
+            {clocks.cycle_60_70hr?.regulation && (
+              <Text preset="default" style={[styles.regulationText, { color: theme.colors.textDim }]}>
+                {clocks.cycle_60_70hr.regulation}
+              </Text>
+            )}
+          </Surface>
+        </View>
+
+        {/* Current Status */}
+        <Surface style={[styles.statusCard, { backgroundColor: theme.colors.background }]} elevation={2}>
+          <View style={styles.statusHeader}>
+            <Text preset="subheading" style={[styles.statusLabel, { color: theme.colors.text }]}>
+              Current Status
+            </Text>
+            <TouchableOpacity style={[styles.statusButton, { borderColor: theme.colors.tint }]}>
+              <Icon icon="more" color={theme.colors.tint} size={20} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.currentStatus, {
+            backgroundColor: currentHOS.can_drive === false ? '#FEE2E2' : theme.colors.warning
+          }]}>
+            <Text preset="heading" style={[styles.statusText, { color: '#000' }]}>
+              {formatStatus(currentHOS.current_status || currentStatus)}
+            </Text>
+            {currentHOS.can_drive === false && currentHOS.cannot_drive_reasons && (
+              <View style={styles.cannotDriveReasons}>
+                {currentHOS.cannot_drive_reasons.map((reason: string, idx: number) => (
+                  <Text key={idx} preset="default" style={[styles.reasonText, { color: '#DC2626' }]}>
+                    • {reason}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        </Surface>
+
+        {/* HOS Violations */}
+        {((violationsData?.violations && violationsData.violations.length > 0) ||
+          (clocks.violations && clocks.violations.length > 0)) && (
+            <Surface style={[styles.violationsCard, { backgroundColor: theme.colors.background }]} elevation={2}>
+              <View style={styles.violationsHeader}>
+                <Text preset="subheading" style={[styles.violationsTitle, { color: theme.colors.error }]}>
+                  Active Violations
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push('/violations' as any)}
+                  style={styles.viewAllButton}
+                >
+                  <Text style={[styles.viewAllText, { color: theme.colors.tint }]}>View All</Text>
+                </TouchableOpacity>
+              </View>
+              {(violationsData?.violations || clocks.violations || []).slice(0, 3).map((violation: any, index: number) => (
+                <TouchableOpacity
+                  key={violation.id || index}
+                  style={styles.violationItem}
+                  onPress={() => router.push('/violations' as any)}
+                >
+                  <View style={[styles.violationIcon, { backgroundColor: theme.colors.error }]}>
+                    <AlertTriangle size={16} color="#FFF" strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.violationDetails}>
+                    <Text preset="default" style={[styles.violationType, { color: theme.colors.text }]}>
+                      {violation.type || 'HOS Violation'}
+                    </Text>
+                    <Text preset="default" style={[styles.violationDescription, { color: theme.colors.textDim }]}>
+                      {violation.description || 'Hours of Service violation detected'}
+                    </Text>
+                    {violation.regulation && (
+                      <Text preset="default" style={[styles.regulationText, { color: theme.colors.textDim }]}>
+                        {violation.regulation}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </Surface>
+          )}
+
+        {/* Action Buttons */}
+
+      </Screen>
+    </View>
   )
 }
 
@@ -191,33 +328,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  screen: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     gap: 16,
-  },
-  header: {
-    gap: 12,
-  },
-  driverInfo: {
-    gap: 8,
-  },
-  driverName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  connectionStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  connectionIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  connectionText: {
-    fontWeight: '600',
-    fontSize: 12,
   },
   hosRule: {
     alignItems: 'center',
@@ -351,5 +467,40 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+  regulationText: {
+    fontSize: 11,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  violationsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllButton: {
+    padding: 4,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cannotDriveReasons: {
+    marginTop: 8,
+    gap: 4,
+  },
+  reasonText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 })

@@ -2,25 +2,35 @@ import React, { useEffect } from 'react'
 import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
 import { Text } from '@/components/Text'
 import { AlertTriangle, FileEdit, FileCheck, XCircle, CheckCircle, Bell } from 'lucide-react-native'
-import { useNotifications, useMarkAsRead, Notification } from '@/api/notifications'
+import { useNotifications, useMarkNotificationRead, Notification } from '@/api/driver-hooks'
 import { colors } from '@/theme/colors'
 import { router } from 'expo-router'
 import { NotificationService } from '@/services/NotificationService'
+import { useAuth } from '@/stores/authStore'
 
 interface NotificationsPanelProps {
   onClose?: () => void
 }
 
 export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose }) => {
-  const { data, isLoading, error, refetch } = useNotifications()
-  const markAsReadMutation = useMarkAsRead()
+  const { isAuthenticated } = useAuth()
+  const { data, isLoading, error, refetch } = useNotifications({
+    status: 'all',
+    limit: 50,
+    enabled: isAuthenticated,
+    refetchInterval: 60000,
+  })
+  const markAsReadMutation = useMarkNotificationRead()
+
+  // Calculate unread count from results
+  const unreadCount = data?.results?.filter((n: Notification) => !n.is_read).length || 0
 
   // Sync badge count with unread notifications
   useEffect(() => {
-    if (data?.unread_count !== undefined) {
-      NotificationService.setBadgeCount(data.unread_count).catch(console.error)
+    if (unreadCount > 0) {
+      NotificationService.setBadgeCount(unreadCount).catch(console.error)
     }
-  }, [data?.unread_count])
+  }, [unreadCount])
 
   const handleNotificationPress = async (notification: Notification) => {
     // Mark as read
@@ -29,7 +39,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     }
 
     // Handle profile change notifications
-    if (notification.type === 'profile_change_approved' || notification.type === 'profile_change_rejected') {
+    if (notification.notification_type === 'profile_change_approved' || notification.notification_type === 'profile_change_rejected') {
       router.push({
         pathname: '/profile-requests',
         params: { notificationId: notification.id },
@@ -38,9 +48,9 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
       return
     }
 
-    // Navigate to action if available (but exclude profile requests action)
-    if (notification.action && !notification.action.includes('/driver/profile/requests')) {
-      router.push(notification.action as any)
+    // Navigate to action if available (check data.action)
+    if (notification.data?.action && !notification.data.action.includes('/driver/profile/requests')) {
+      router.push(notification.data.action as any)
     }
 
     // Close panel
@@ -148,8 +158,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     )
   }
 
-  const notifications = data?.notifications || []
-  const unreadCount = data?.unread_count || 0
+  const notifications = data?.results || []
 
   return (
     <View style={styles.container}>
@@ -193,13 +202,13 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
                   onPress={() => handleNotificationPress(notification)}
                 >
                   <View style={styles.notificationIcon}>
-                    {getNotificationIcon(notification.type, notification.priority)}
+                    {getNotificationIcon(notification.notification_type, notification.priority)}
                   </View>
                   <View style={styles.notificationContent}>
                     <Text style={styles.notificationTitle}>{notification.title}</Text>
                     <Text style={styles.notificationMessage}>{notification.message}</Text>
                     <Text style={styles.notificationTime}>
-                      {formatTimestamp(notification.timestamp)}
+                      {formatTimestamp(notification.created_at)}
                     </Text>
                   </View>
                   {!notification.is_read && <View style={styles.unreadDot} />}
@@ -219,13 +228,13 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
                   onPress={() => handleNotificationPress(notification)}
                 >
                   <View style={styles.notificationIcon}>
-                    {getNotificationIcon(notification.type, notification.priority)}
+                    {getNotificationIcon(notification.notification_type, notification.priority)}
                   </View>
                   <View style={styles.notificationContent}>
                     <Text style={styles.notificationTitle}>{notification.title}</Text>
                     <Text style={styles.notificationMessage}>{notification.message}</Text>
                     <Text style={styles.notificationTime}>
-                      {formatTimestamp(notification.timestamp)}
+                      {formatTimestamp(notification.created_at)}
                     </Text>
                   </View>
                   {!notification.is_read && <View style={styles.unreadDot} />}
