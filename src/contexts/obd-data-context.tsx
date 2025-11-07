@@ -7,6 +7,8 @@ import { useStatusStore } from '@/stores/statusStore'
 import { sendObdDataBatch, ObdDataPayload } from '@/api/obd'
 import { awsApiService, AwsObdPayload } from '@/services/AwsApiService'
 import { awsConfig } from '@/config/aws-config'
+import { locationQueueService } from '@/services/location-queue'
+import { setBatteryGetter } from '@/services/device-heartbeat-service'
 
 interface OBDDataItem {
   id: string
@@ -43,6 +45,25 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const awsSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const eldReportingStartedRef = useRef<boolean>(false) // Track if ELD reporting has been started
+  
+  // Set up battery getter for heartbeat service
+  useEffect(() => {
+    setBatteryGetter(() => {
+      // Find battery/voltage in OBD data
+      const voltageItem = obdData.find(item => 
+        item.name.includes('Voltage') || item.name.includes('Battery')
+      )
+      if (voltageItem) {
+        const voltage = parseFloat(voltageItem.value)
+        // Convert voltage to percentage (assuming 12V = 100%, 10V = 0%)
+        if (voltage > 0) {
+          const percent = Math.max(0, Math.min(100, ((voltage - 10) / 2) * 100))
+          return percent
+        }
+      }
+      return undefined
+    })
+  }, [obdData])
 
     // Listen for OBD data updates
   useEffect(() => {
@@ -80,6 +101,28 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             timestamp: Date.now(),
           })
           console.log('📍 OBD Data Context: Stored ELD location:', data.latitude, data.longitude)
+          
+          // Add location to queue for batch upload (new driver API)
+          const speedItem = displayData.find(item => 
+            item.name.includes('Vehicle Speed') || item.name.includes('Wheel-Based Vehicle Speed')
+          )
+          const speedMph = speedItem ? parseFloat(speedItem.value) || 0 : 0
+          
+          const odometerItem = displayData.find(item => 
+            item.name.includes('Total Vehicle Distance') || item.name.includes('Odometer')
+          )
+          const odometer = odometerItem ? parseFloat(odometerItem.value) || undefined : undefined
+          
+          locationQueueService.addLocation({
+            latitude: data.latitude,
+            longitude: data.longitude,
+            speed_mph: speedMph,
+            heading: data.gpsRotation,
+            odometer: odometer,
+            accuracy_m: undefined, // ObdEldData doesn't have accuracy field, can be added later if available
+          }).catch(error => {
+            console.error('❌ OBD Data Context: Failed to add location to queue:', error)
+          })
         }
 
         // Add to buffers for dual sync (Local API + AWS)
@@ -296,6 +339,14 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Check connection status immediately (only if authenticated)
     if (isAuthenticated) {
       checkConnectionStatus()
+      
+      // Initialize location queue service
+      locationQueueService.initialize().then(() => {
+        locationQueueService.startAutoFlush(30000) // Every 30 seconds
+        console.log('📍 OBD Data Context: Location queue service initialized and started')
+      }).catch(error => {
+        console.error('❌ OBD Data Context: Failed to initialize location queue:', error)
+      })
     }
 
     // Listen for other events for debugging
@@ -358,6 +409,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       JMBluetoothService.removeEventListener(obdDataFlowListener)
       JMBluetoothService.removeEventListener(obdRawDataListener)
       JMBluetoothService.removeEventListener(obdDataReceivedListener)
+      
+      // Stop location queue auto-flush
+      locationQueueService.stopAutoFlush()
     }
   }, [isAuthenticated, driverProfile?.driver_id])
 

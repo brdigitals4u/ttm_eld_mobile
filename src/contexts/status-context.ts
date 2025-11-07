@@ -110,11 +110,11 @@ const STATUS_REASONS: StatusReason[] = [
   { id: "35", text: "Non-work travel", category: "personalConveyance" },
   
   // Yard Moves Reasons
-  { id: "36", text: "Moving trailer in yard", category: "yardMoves" },
-  { id: "37", text: "Repositioning vehicle", category: "yardMoves" },
-  { id: "38", text: "Yard maneuvers", category: "yardMoves" },
-  { id: "39", text: "Switching trailers", category: "yardMoves" },
-  { id: "40", text: "Parking in yard", category: "yardMoves" },
+  { id: "36", text: "Moving trailer in yard", category: "yardMove" },
+  { id: "37", text: "Repositioning vehicle", category: "yardMove" },
+  { id: "38", text: "Yard maneuvers", category: "yardMove" },
+  { id: "39", text: "Switching trailers", category: "yardMove" },
+  { id: "40", text: "Parking in yard", category: "yardMove" },
   
   // Other - always available
   { id: "41", text: "Other", category: "all" },
@@ -185,7 +185,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
           )
           // Reset break timer when driving
           updatedHos.breakTimeRemaining = 8 * 60
-        } else if (storeState.currentStatus === "onDuty" || storeState.currentStatus === "yardMoves") {
+        } else if (storeState.currentStatus === "onDuty" || storeState.currentStatus === "yardMove") {
           // On duty not driving still counts against shift and cycle
           updatedHos.shiftTimeRemaining = Math.max(
             0,
@@ -329,8 +329,8 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       storeState.addStatusUpdate(statusUpdate)
       storeState.setLogEntries([...storeState.logEntries, logEntry])
 
-      // Call HOS APIs after successful local update
-      await sendHOSAPIs(status, reason, statusUpdate)
+      // Note: HOS APIs are now handled by the backend automatically when using the new driver API
+      // Status changes should use the new driver API endpoints directly (see StatusScreen)
 
       // Warning for critical status changes
       if (status === "driving" && storeState.hoursOfService.driveTimeRemaining < 60) {
@@ -345,144 +345,9 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
     }
   }
 
-  // Send HOS APIs when status changes
-  const sendHOSAPIs = async (status: DriverStatus, reason: string, statusUpdate: StatusUpdate) => {
-    try {
-      // Get driver ID from auth store - use driver_profile.driver_id if available, fallback to user.id
-      const authState = useAuthStore.getState()
-      const driverId = authState.driverProfile?.driver_id || authState.user?.id || "driver_uuid" // Fallback for testing
-      
-      console.log('🔍 HOS API: Driver ID from auth store:', driverId)
-      console.log('🔍 HOS API: Auth state user:', authState.user ? 'User exists' : 'No user')
-      console.log('🔍 HOS API: Driver profile driver_id:', authState.driverProfile?.driver_id || 'Not available')
-      console.log('🔍 HOS API: User id:', authState.user?.id || 'Not available')
-      const apiDutyStatus = hosApi.getAPIDutyStatus(status)
-      // Create LocationData object from StatusUpdate location
-      const locationData = {
-        latitude: statusUpdate.location?.latitude || 37.7749,
-        longitude: statusUpdate.location?.longitude || -122.4194,
-        accuracy: null,
-        altitude: null,
-        timestamp: Date.now(),
-        address: statusUpdate.location?.address || "San Francisco, CA"
-      }
-      
-      const locationString = hosApi.formatLocationForAPI(locationData)
-      const timestamp = hosApi.formatTimestamp(statusUpdate.timestamp)
-      const remark = hosApi.getStatusRemark(status)
-
-      // 1. Create or Update HOS Clock (clock_type is driving_status)
-      const currentCycleStart = new Date().toISOString().split('T')[0] + 'T00:00:00Z'
-      const hosClock: HOSClock = {
-        driver: driverId,
-        clock_type: apiDutyStatus, // This is the driving_status
-        start_time: timestamp,
-        time_remaining: storeState.formatDuration(storeState.hoursOfService.driveTimeRemaining),
-        cycle_start: currentCycleStart,
-        current_duty_status_start_time: timestamp, // Current duty status start time
-        cycle_start_time: currentCycleStart, // Cycle start time
-      }
-
-      console.log('📤 HOS API: Sending HOS Clock payload:', JSON.stringify(hosClock, null, 2))
-      
-      // Check if we have an existing clock ID for this driver
-      const existingClockId = await getExistingClockId(driverId)
-      
-      let clockId: string | undefined
-      if (existingClockId) {
-        // Update existing clock instead of creating new one
-        console.log('🔄 HOS API: Updating existing clock:', existingClockId)
-        await changeDutyStatus(existingClockId, apiDutyStatus, locationData, reason)
-        clockId = existingClockId
-      } else {
-        // Create new clock
-        const clockResponse = await hosApi.createHOSClock(hosClock)
-        clockId = (clockResponse as any)?.id || (clockResponse as any)?.clock_id
-        console.log('📥 HOS API: Clock created with ID:', clockId)
-        
-        // Store the clock ID for future updates
-        if (clockId) {
-          await storeClockId(driverId, clockId)
-        }
-      }
-
-      // 2. Create HOS Log Entry (when driving_status changes from driving to other)
-      let logEntryId: string | undefined
-      if (storeState.currentStatus === "driving" && status !== "driving") {
-        const hosLogEntry: HOSLogEntry = {
-          driver: driverId,
-          duty_status: apiDutyStatus,
-          start_time: timestamp,
-          start_location: locationString,
-          remark: remark,
-        }
-
-        console.log('📤 HOS API: Sending HOS Log Entry payload:', JSON.stringify(hosLogEntry, null, 2))
-        const logEntryResponse = await hosApi.createHOSLogEntry(hosLogEntry)
-        logEntryId = (logEntryResponse as any)?.id || (logEntryResponse as any)?.log_id
-        console.log('📥 HOS API: Log Entry created with ID:', logEntryId)
-      }
-
-      // 3. Create HOS ELD Event (for all status changes)
-      const hosELDEvent: HOSELDEvent = {
-        driver: driverId,
-        event_type: "duty_status_change",
-        event_code: "1", // Standard ELD event code for duty status change
-        event_data: {
-          new_duty_status: apiDutyStatus,
-          previous_duty_status: storeState.currentStatus ? hosApi.getAPIDutyStatus(storeState.currentStatus) : undefined,
-        },
-        event_time: timestamp,
-        location: locationString,
-      }
-
-      console.log('📤 HOS API: Sending ELD Event payload:', JSON.stringify(hosELDEvent, null, 2))
-      await hosApi.createHOSELDEvent(hosELDEvent)
-
-      // Clear clock ID if driver goes off duty (end of shift)
-      if (status === 'offDuty' || status === 'sleeping') {
-        await clearClockId(driverId)
-        console.log('🔄 Clock ID cleared - driver went off duty')
-      }
-
-      console.log('HOS APIs called successfully for status change:', status)
-      
-      // Update HOS status in auth store with real-time calculations
-      updateHosStatusFromLogs()
-      
-      // Update the status update with log ID if available
-      if (logEntryId) {
-        statusUpdate.logId = logEntryId
-        statusUpdate.isCertified = false
-        
-        // Update the stored status update with the log ID
-        const updatedStatusUpdate = { ...statusUpdate }
-        const currentState = useAuthStore.getState()
-        const updatedHistoryWithLogId = [...storeState.statusHistory]
-        updatedHistoryWithLogId[updatedHistoryWithLogId.length - 1] = updatedStatusUpdate
-        
-        // Save updated history with log ID
-        await AsyncStorage.setItem("statusHistory", JSON.stringify(updatedHistoryWithLogId))
-        
-        // Update Zustand store
-        storeState.setStatusHistory(updatedHistoryWithLogId)
-      }
-    } catch (error: any) {
-      console.error('Failed to send HOS APIs:', error)
-      
-      // Handle specific error cases
-      if (error?.response?.status === 404) {
-        console.warn('HOS API endpoints not implemented on backend yet. Status update succeeded locally.')
-      } else if (error?.response?.status === 401) {
-        console.warn('Authentication failed for HOS APIs. Please check auth token.')
-      } else {
-        console.warn('HOS API call failed:', error?.message || 'Unknown error')
-      }
-      
-      // Don't throw error here to avoid breaking the status update
-      // The local status update should still succeed even if HOS APIs fail
-    }
-  }
+  // Note: HOS APIs are now handled automatically by the backend when using the new driver API
+  // The sendHOSAPIs function has been removed - status changes should use driverApi.changeDutyStatus()
+  // directly from the StatusScreen component
 
   const createDailyHOSLog = async () => {
     try {
@@ -523,7 +388,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
             totalOnDutyTime += duration
             break
           case 'onDuty':
-          case 'yardMoves':
+          case 'yardMove':
             totalOnDutyTime += duration
             break
           case 'offDuty':
@@ -549,9 +414,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       await hosApi.createDailyHOSLog(dailyHOSLog)
       console.log('✅ HOS API: Daily HOS log created successfully')
       
-      // Clear clock ID at end of day
-      await clearClockId(driverId)
-      console.log('🗑️ Clock ID cleared at end of day')
+      // Note: Clock ID management removed - new driver API handles this automatically
       
       // Update HOS status after creating daily log
       updateHosStatusFromLogs()
@@ -642,62 +505,8 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
     }
   }
 
-  const changeDutyStatus = async (clockId: string, newStatus: string, locationData?: any, reason?: string) => {
-    try {
-      console.log('📤 HOS API: Changing duty status for clock:', clockId, 'to:', newStatus)
-      
-      // Build proper request payload
-      const requestPayload: any = {
-        duty_status: newStatus,
-        location: locationData?.address || "Unknown location",
-        notes: reason || "Status change",
-      }
-      
-      if (locationData?.latitude !== null && locationData?.latitude !== undefined) {
-        requestPayload.latitude = locationData.latitude
-      }
-      if (locationData?.longitude !== null && locationData?.longitude !== undefined) {
-        requestPayload.longitude = locationData.longitude
-      }
-      
-      await hosApi.changeDutyStatus(clockId, requestPayload)
-      console.log('✅ HOS API: Duty status changed successfully')
-    } catch (error: any) {
-      console.error('Failed to change duty status:', error)
-      throw error
-    }
-  }
-
-  const getExistingClockId = async (driverId: string): Promise<string | null> => {
-    try {
-      const clockIdKey = `clock_id_${driverId}`
-      const storedClockId = await AsyncStorage.getItem(clockIdKey)
-      return storedClockId
-    } catch (error) {
-      console.error('Failed to get existing clock ID:', error)
-      return null
-    }
-  }
-
-  const storeClockId = async (driverId: string, clockId: string): Promise<void> => {
-    try {
-      const clockIdKey = `clock_id_${driverId}`
-      await AsyncStorage.setItem(clockIdKey, clockId)
-      console.log('💾 Clock ID stored for driver:', driverId, 'clock:', clockId)
-    } catch (error) {
-      console.error('Failed to store clock ID:', error)
-    }
-  }
-
-  const clearClockId = async (driverId: string): Promise<void> => {
-    try {
-      const clockIdKey = `clock_id_${driverId}`
-      await AsyncStorage.removeItem(clockIdKey)
-      console.log('🗑️ Clock ID cleared for driver:', driverId)
-    } catch (error) {
-      console.error('Failed to clear clock ID:', error)
-    }
-  }
+  // Note: Clock ID management functions removed - new driver API handles this automatically
+  // changeDutyStatus, getExistingClockId, storeClockId, clearClockId are no longer needed
 
   const updateHosStatusFromLogs = () => {
     try {
@@ -736,7 +545,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
             totalOnDutyTime += duration
             break
           case 'onDuty':
-          case 'yardMoves':
+          case 'yardMove':
             totalOnDutyTime += duration
             break
           case 'offDuty':
@@ -793,6 +602,6 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
     ...storeState,
     updateStatus,
     getCurrentLocation,
-    changeDutyStatus,
+    // changeDutyStatus removed - use driverApi.changeDutyStatus() directly
   }
 })

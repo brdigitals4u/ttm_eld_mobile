@@ -15,6 +15,7 @@ import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
 import { NotificationService } from "@/services/NotificationService"
 import { notificationsApi } from "@/api/notifications"
+import { BackgroundServices } from "@/components/BackgroundServices"
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
@@ -45,20 +46,12 @@ export default function Root() {
       .then(() => loadDateFnsLocale())
   }, [])
 
-  // Initialize push notifications
+  // Initialize push notifications (registration happens in BackgroundServices)
   useEffect(() => {
     const setupNotifications = async () => {
       try {
-        const pushToken = await NotificationService.initialize()
-        
-        if (pushToken) {
-          // Register push token with backend
-          await notificationsApi.registerPushToken({
-            push_token: pushToken,
-            device_type: Platform.OS as 'ios' | 'android',
-          })
-          console.log('✅ Push token registered with backend')
-        }
+        await NotificationService.initialize()
+        console.log('✅ Notification service initialized')
       } catch (error) {
         console.error('❌ Failed to setup notifications:', error)
       }
@@ -106,6 +99,7 @@ export default function Root() {
         <AllContextsProvider>
           <ThemeProvider>
             <ToastProvider>
+              <BackgroundServices />
               <KeyboardProvider>
                 <Slot />
               </KeyboardProvider>

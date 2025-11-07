@@ -19,7 +19,7 @@ const STATUS_TO_Y = {
   'sleeping': 3,
   'offDuty': 4,
   'personalConveyance': 4,
-  'yardMoves': 1
+  'yardMove': 1
 } as const;
 
 const Y_TO_LABEL = { 
@@ -66,7 +66,7 @@ function logsToChartData(logs: StatusUpdate[]): ChartPoint[] {
   let firstYValue: number;
   switch (firstLog.status) {
     case 'onDuty':
-    case 'yardMoves':
+    case 'yardMove':
       firstYValue = 1;
       break;
     case 'driving':
@@ -109,7 +109,7 @@ function logsToChartData(logs: StatusUpdate[]): ChartPoint[] {
     let yValue: number;
     switch (log.status) {
       case 'onDuty':
-      case 'yardMoves':
+      case 'yardMove':
         yValue = 1;
         break;
       case 'driving':
@@ -144,7 +144,7 @@ function logsToChartData(logs: StatusUpdate[]): ChartPoint[] {
   let lastYValue: number;
   switch (lastLog.status) {
     case 'onDuty':
-    case 'yardMoves':
+    case 'yardMove':
       lastYValue = 1;
       break;
     case 'driving':

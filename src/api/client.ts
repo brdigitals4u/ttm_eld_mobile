@@ -34,7 +34,7 @@ class ApiClient {
   }
 
   // Get headers with authentication
-  private async getHeaders(): Promise<Record<string, string>> {
+  private async getHeaders(options?: { idempotencyKey?: string; deviceId?: string; appVersion?: string }): Promise<Record<string, string>> {
     // Check and refresh token if needed before making request
     await tokenRefreshService.checkAndRefreshToken()
     
@@ -48,10 +48,31 @@ class ApiClient {
     }
 
     if (token) {
-      headers['Authorization'] = `Token ${token}`
+      // Support both Token and Bearer formats (Bearer is standard for JWT)
+      // Check if token looks like JWT (starts with eyJ) or use Bearer for new APIs
+      if (token.startsWith('eyJ')) {
+        headers['Authorization'] = `Bearer ${token}`
+      } else {
+        headers['Authorization'] = `Token ${token}`
+      }
       console.log('✅ API Client: Authorization header added')
     } else {
       console.log('❌ API Client: No token available, request will be unauthenticated')
+    }
+
+    // Add idempotency key if provided
+    if (options?.idempotencyKey) {
+      headers['Idempotency-Key'] = options.idempotencyKey
+    }
+
+    // Add device ID if provided
+    if (options?.deviceId) {
+      headers['X-Device-ID'] = options.deviceId
+    }
+
+    // Add app version if provided
+    if (options?.appVersion) {
+      headers['X-App-Version'] = options.appVersion
     }
 
     return headers
@@ -60,24 +81,25 @@ class ApiClient {
   // Make HTTP request
   private async makeRequest<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit & { idempotencyKey?: string; deviceId?: string; appVersion?: string } = {}
   ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseURL}${endpoint}`
-      const headers = await this.getHeaders()
+      const { idempotencyKey, deviceId, appVersion, ...requestOptions } = options
+      const headers = await this.getHeaders({ idempotencyKey, deviceId, appVersion })
 
       console.log('🌐 API Request:', {
-        method: options.method || 'GET',
+        method: requestOptions.method || 'GET',
         url,
         timeout: `${this.timeout}ms`,
-        body: options.body ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : undefined,
+        body: requestOptions.body ? (typeof requestOptions.body === 'string' ? requestOptions.body : JSON.stringify(requestOptions.body)) : undefined,
       })
 
       const config: RequestInit = {
-        ...options,
+        ...requestOptions,
         headers: {
           ...headers,
-          ...options.headers,
+          ...requestOptions.headers,
         },
       }
 
@@ -202,10 +224,11 @@ class ApiClient {
     return this.makeRequest<T>(endpoint, { method: 'GET' })
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: any, options?: { idempotencyKey?: string; deviceId?: string; appVersion?: string }): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
+      ...options,
     })
   }
 

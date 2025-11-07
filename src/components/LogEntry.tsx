@@ -50,7 +50,7 @@ function LogEntry({ log, onCertify }: LogEntryProps) {
         return '#6366F1'; // Indigo for sleeping
       case 'personalConveyance':
         return '#10B981'; // Green for personal conveyance
-      case 'yardMoves':
+      case 'yardMove':
         return colors.warning || '#F59E0B'; // Warning color
       default:
         return colors.tint; // Use tint as primary
@@ -72,7 +72,7 @@ function LogEntry({ log, onCertify }: LogEntryProps) {
         return 'Sleeper Berth';
       case 'personalConveyance':
         return 'Personal Conveyance';
-      case 'yardMoves':
+      case 'yardMove':
         return 'Yard Moves';
       default:
         return status || 'Unknown';

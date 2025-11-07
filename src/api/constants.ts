@@ -29,6 +29,35 @@ export const API_ENDPOINTS = {
     DRIVER_PROFILE_CHANGE_REQUESTS: "/driver/profile/change-requests/",
   },
 
+  // Driver-specific APIs (new mobile API endpoints)
+  DRIVER: {
+    // HOS Management
+    HOS_CURRENT_STATUS: "/driver/hos/current-status/",
+    HOS_CLOCKS: "/driver/hos/clocks/",
+    HOS_CHANGE_STATUS: "/driver/hos/change-status/",
+    HOS_LOGS: "/driver/hos/logs/",
+    HOS_VIOLATIONS: "/driver/hos/violations/",
+    HOS_CERTIFY: "/driver/hos/certify/",
+    HOS_ANNOTATE: "/driver/hos/annotate/",
+    
+    // Location Tracking
+    LOCATION_UPDATE: "/driver/location/update/",
+    LOCATION_BATCH: "/driver/location/batch/v2/",
+    
+    // Device Health
+    DEVICE_HEARTBEAT: "/driver/device/heartbeat/",
+    DEVICE_MALFUNCTION: "/driver/device/malfunction/",
+    
+    // Notifications
+    NOTIFICATIONS_REGISTER: "/driver/notifications/register/",
+    NOTIFICATIONS: "/driver/notifications/",
+    NOTIFICATIONS_READ: "/driver/notifications/read/",
+    NOTIFICATIONS_READ_ALL: "/driver/notifications/read-all/",
+    
+    // Profile
+    PROFILE: "/drivers/me/",
+  },
+
   // User Management
   USER: {
     PROFILE: "/user/profile",
@@ -183,6 +212,13 @@ export const QUERY_KEYS = {
   // DVIR
   DVIRS: ["dvirs"] as const,
   DVIR_DEFECTS: ["dvir", "defects"] as const,
+
+  // Driver APIs (new mobile endpoints)
+  DRIVER_HOS_CURRENT_STATUS: ["driver", "hos", "current-status"] as const,
+  DRIVER_HOS_CLOCKS: ["driver", "hos", "clocks"] as const,
+  DRIVER_HOS_LOGS: (date: string) => ["driver", "hos", "logs", date] as const,
+  DRIVER_HOS_VIOLATIONS: ["driver", "hos", "violations"] as const,
+  DRIVER_NOTIFICATIONS: (status?: string) => ["driver", "notifications", status || "all"] as const,
 } as const
 
 // Storage Keys

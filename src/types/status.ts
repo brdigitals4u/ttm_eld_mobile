@@ -1,4 +1,4 @@
-export type DriverStatus = 'driving' | 'onDuty' | 'offDuty' | 'sleeping' | 'sleeperBerth' | 'personalConveyance' | 'yardMoves';
+export type DriverStatus = 'driving' | 'onDuty' | 'offDuty' | 'sleeping' | 'sleeperBerth' | 'personalConveyance' | 'yardMove';
 
 export interface StatusReason {
   id: string;

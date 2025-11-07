@@ -36,6 +36,7 @@ import { Header } from "@/components/Header"
 import StatCircleCard from "@/components/StatCircleCard"
 import { useObdData } from "@/contexts/obd-data-context"
 import { getEldDevice, EldDeviceInfo } from "@/utils/eldStorage"
+import { useHOSCurrentStatus, useViolations, useDriverProfile } from "@/api/driver-hooks"
 
 const { width } = Dimensions.get("window")
 
@@ -160,10 +161,21 @@ function InfoCard({ icon, label, value, subtext, color, index }: InfoCardProps) 
 export default function ProfileScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
-  const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings } =
+  const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings, isAuthenticated } =
     useAuth()
   const { obdData, isConnected: eldConnected } = useObdData()
   const [eldDeviceInfo, setEldDeviceInfo] = useState<EldDeviceInfo | null>(null)
+  
+  // Get HOS status, violations, and profile from new driver API
+  const { data: currentHOSStatus } = useHOSCurrentStatus({
+    enabled: isAuthenticated,
+    refetchInterval: 30000,
+  })
+  const { data: violationsData } = useViolations(isAuthenticated)
+  const { data: driverProfileData } = useDriverProfile(isAuthenticated)
+  
+  // Use driver profile from API if available, otherwise fallback to auth store
+  const effectiveDriverProfile = driverProfileData || driverProfile
 
   const headerOpacity = useSharedValue(0)
   const headerTranslateY = useSharedValue(-50)
@@ -697,8 +709,46 @@ export default function ProfileScreen() {
           </ElevatedCard>
         )}
 
+        {/* Current HOS Status */}
+        {currentHOSStatus && (
+          <ElevatedCard style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Clock size={20} color={colors.palette.primary500} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Current HOS Status</Text>
+            </View>
+            <InfoCard
+              icon={<Clock size={20} color={colors.palette.primary500} />}
+              label="Duty Status"
+              value={currentHOSStatus.current_status.replace('_', ' ').toUpperCase()}
+              color={colors.palette.primary500}
+              index={0}
+            />
+            <InfoCard
+              icon={<TrendingUp size={20} color="#22C55E" />}
+              label="Drive Time Remaining"
+              value={`${Math.floor(currentHOSStatus.clocks.drive.remaining_minutes / 60)}h ${currentHOSStatus.clocks.drive.remaining_minutes % 60}m`}
+              color="#22C55E"
+              index={1}
+            />
+            <InfoCard
+              icon={<TrendingUp size={20} color="#3B82F6" />}
+              label="Shift Time Remaining"
+              value={`${Math.floor(currentHOSStatus.clocks.shift.remaining_minutes / 60)}h ${currentHOSStatus.clocks.shift.remaining_minutes % 60}m`}
+              color="#3B82F6"
+              index={2}
+            />
+            <InfoCard
+              icon={<TrendingUp size={20} color="#8B5CF6" />}
+              label="Cycle Time Remaining"
+              value={`${Math.floor(currentHOSStatus.clocks.cycle.remaining_minutes / 60)}h ${currentHOSStatus.clocks.cycle.remaining_minutes % 60}m`}
+              color="#8B5CF6"
+              index={3}
+            />
+          </ElevatedCard>
+        )}
+
         {/* Violations */}
-        {((hosStatus && hosStatus?.active_violations?.length > 0) ||
+        {((violationsData?.violations && violationsData.violations.length > 0) ||
           driverProfile?.violations_count !== undefined) && (
             <ElevatedCard style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -706,7 +756,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Compliance Status</Text>
               </View>
 
-              {hosStatus?.active_violations && hosStatus.active_violations.length > 0 && (
+              {violationsData?.violations && violationsData.violations.length > 0 && (
                 <View
                   style={[
                     styles.violationCard,
@@ -721,7 +771,7 @@ export default function ProfileScreen() {
                       Active Violations
                     </Text>
                     <Text style={[styles.violationCount, { color: colors.text }]}>
-                      {hosStatus.active_violations.length} violation(s) require attention
+                      {violationsData.violations.length} violation(s) require attention
                     </Text>
                   </View>
                 </View>

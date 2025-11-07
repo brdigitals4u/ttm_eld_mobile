@@ -16,6 +16,7 @@ import {
   BookOpen,
   Bell,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react-native"
 import * as Progress from "react-native-progress"
 import Animated, {
@@ -27,8 +28,10 @@ import Animated, {
   Easing,
 } from "react-native-reanimated"
 
-import { useHOSClock, useComplianceSettings, useHOSLogs, hosApi } from "@/api/hos"
-import { useNotifications, useMalfunctionStatus, useMarkAsRead, Notification } from "@/api/notifications"
+import { useHOSCurrentStatus, useHOSClocks, useHOSLogs, useViolations } from "@/api/driver-hooks"
+import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
+import { useHOSStatusContext } from "@/contexts/hos-status-context"
+import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 import { EldIndicator } from "@/components/EldIndicator"
 import { FuelLevelIndicator } from "@/components/FuelLevelIndicator"
 import { Header } from "@/components/Header"
@@ -68,10 +71,24 @@ export const DashboardScreen = () => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   
-  // Fetch notifications and malfunction status
-  const { data: notificationsData, refetch: refetchNotifications } = useNotifications({ enabled: isAuthenticated })
-  const { data: malfunctionStatus } = useMalfunctionStatus({ enabled: isAuthenticated })
-  const markAsReadMutation = useMarkAsRead()
+  // Fetch notifications using new driver API
+  const { data: notificationsData, refetch: refetchNotifications } = useNotifications({
+    status: 'unread',
+    limit: 50,
+    enabled: isAuthenticated,
+    refetchInterval: 60000, // 60 seconds
+  })
+  const markAllReadMutation = useMarkAllNotificationsRead()
+  
+  // Fetch violations
+  const { data: violationsData } = useViolations(isAuthenticated)
+  
+  // Get HOS status from context (polls every 30s)
+  const { hosStatus: contextHOSStatus, isLoading: isHOSLoading, error: hosError, refetch: refetchHOSClock } = useHOSStatusContext()
+  
+  // Get detailed HOS clocks when dashboard is focused
+  const [isDashboardFocused, setIsDashboardFocused] = useState(true)
+  const { data: hosClocks } = useHOSClocks(isDashboardFocused && isAuthenticated)
 
   // Request location non-blocking on mount (for fallback when ELD not available)
   useEffect(() => {
@@ -180,97 +197,60 @@ export const DashboardScreen = () => {
     }
   }, [eldConnected])
 
-  // Sync HOS Clock from backend
-  const {
-    data: hosClock,
-    isLoading: isHOSLoading,
-    error: hosError,
-    refetch: refetchHOSClock,
-  } = useHOSClock({
-    enabled: isAuthenticated,
-    refetchInterval: 60000, // Sync every 60 seconds
-    refetchIntervalInBackground: false,
-  })
-
-  // Get HOS Compliance Settings
-  const { data: complianceSettings, isLoading: isSettingsLoading, refetch: refetchSettings } = useComplianceSettings({
-    enabled: isAuthenticated,
-  }) as any
-
-  // Get today's and next day's HOS logs for chart and uncertified count
-  // IMPORTANT: Call after HOS clock is fetched, using driver ID from clock
-  // Using today and next day gives better HOS chart visualization
+  // Get today's HOS logs for chart (new API uses single date)
   const today = new Date()
   const todayStr = today.toISOString().split("T")[0] // YYYY-MM-DD
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = tomorrow.toISOString().split("T")[0] // YYYY-MM-DD
-  const correctDriverId = hosClock?.driver || driverProfile?.driver_id
   const {
     data: todayHOSLogs,
     isLoading: isHOSLogsLoading,
     refetch: refetchHOSLogs,
   } = useHOSLogs(
-    {
-      driver: correctDriverId, // Sent as driver_id to API
-      startDate: todayStr, // Sent as start_date to API
-      endDate: tomorrowStr, // Sent as end_date to API (today + next day)
-    },
-    { enabled: isAuthenticated && !!correctDriverId && !!hosClock }, // Only call after HOS clock is available
+    todayStr, // Just date string YYYY-MM-DD
+    isAuthenticated && !!driverProfile?.driver_id
   )
 
-  // Sync HOS clock data to auth store and status store when it updates
+  // Sync HOS status data to auth store and status store when it updates
   useEffect(() => {
-    if (hosClock && isAuthenticated) {
-      console.log("🔄 Dashboard: Syncing HOS clock data from backend", hosClock)
+    if (contextHOSStatus && isAuthenticated) {
+      console.log("🔄 Dashboard: Syncing HOS status data from backend", contextHOSStatus)
 
-      // Map HOSClock to HOSStatus format for auth store
-      updateHosStatus({
-        driver_id: hosClock.driver,
-        driver_name: hosClock.driver_name,
-        current_status: hosClock.current_duty_status?.toUpperCase() || "OFF_DUTY",
-        driving_time_remaining: hosClock.driving_time_remaining || 0,
-        on_duty_time_remaining: hosClock.on_duty_time_remaining || 0,
-        cycle_time_remaining: hosClock.cycle_time_remaining || 0,
-        time_remaining: {
-          driving_time_remaining: hosClock.driving_time_remaining || 0,
-          on_duty_time_remaining: hosClock.on_duty_time_remaining || 0,
-          cycle_time_remaining: hosClock.cycle_time_remaining || 0,
-        },
-      })
+      // Map HOSCurrentStatus to HOSStatus format for auth store
+      const mappedStatus = mapHOSStatusToAuthFormat(contextHOSStatus)
+      if (driverProfile?.name) {
+        mappedStatus.driver_name = driverProfile.name
+      }
+      updateHosStatus(mappedStatus)
 
-      // Sync current status from clock data
-      const appStatus = hosApi.getAppDutyStatus(hosClock.current_duty_status || "off_duty")
-      setCurrentStatus(appStatus as DriverStatus)
+      // Sync current status from new API response
+      const appStatus = mapDriverStatusToAppStatus(contextHOSStatus.current_status)
+      setCurrentStatus(appStatus)
 
       // Sync HOS times to status store
       setHoursOfService({
-        driveTimeRemaining: hosClock.driving_time_remaining || 0,
-        shiftTimeRemaining: hosClock.on_duty_time_remaining || 0,
-        cycleTimeRemaining: hosClock.cycle_time_remaining || 0,
+        driveTimeRemaining: contextHOSStatus.clocks.drive.remaining_minutes || 0,
+        shiftTimeRemaining: contextHOSStatus.clocks.shift.remaining_minutes || 0,
+        cycleTimeRemaining: contextHOSStatus.clocks.cycle.remaining_minutes || 0,
         breakTimeRemaining: hoursOfService.breakTimeRemaining, // Keep existing break time
         lastCalculated: Date.now(),
       })
-
-      // Refetch HOS logs after HOS clock is synced
-      // This ensures HOS logs are fetched with the correct driver ID from the clock
-      if (refetchHOSLogs) {
-        console.log(
-          "🔄 Dashboard: Refetching HOS logs after HOS clock sync, driver ID:",
-          hosClock.driver,
-        )
-        refetchHOSLogs()
-      }
     }
   }, [
-    hosClock,
+    contextHOSStatus,
     isAuthenticated,
     updateHosStatus,
     setCurrentStatus,
     setHoursOfService,
     hoursOfService.breakTimeRemaining,
-    refetchHOSLogs,
+    driverProfile?.name,
   ])
+  
+  // Track dashboard focus for detailed clocks
+  useFocusEffect(
+    useCallback(() => {
+      setIsDashboardFocused(true)
+      return () => setIsDashboardFocused(false)
+    }, [])
+  )
 
   // Log HOS sync errors
   useEffect(() => {
@@ -322,19 +302,19 @@ export const DashboardScreen = () => {
       }
     }
 
-    // Use clock data if available (from API), otherwise fallback to hosStatus
+    // Use new API status data, fallback to auth store hosStatus
     const drivingTimeRemaining =
-      hosClock?.driving_time_remaining ??
+      contextHOSStatus?.clocks?.drive?.remaining_minutes ??
       hosStatus.driving_time_remaining ??
       hosStatus.time_remaining?.driving_time_remaining ??
       0
     const onDutyTimeRemaining =
-      hosClock?.on_duty_time_remaining ??
+      contextHOSStatus?.clocks?.shift?.remaining_minutes ??
       hosStatus.on_duty_time_remaining ??
       hosStatus.time_remaining?.on_duty_time_remaining ??
       0
     const cycleTimeRemaining =
-      hosClock?.cycle_time_remaining ??
+      contextHOSStatus?.clocks?.cycle?.remaining_minutes ??
       hosStatus.cycle_time_remaining ??
       hosStatus.time_remaining?.cycle_time_remaining ??
       0
@@ -360,21 +340,13 @@ export const DashboardScreen = () => {
 
     // Calculate uncertified count from HOS logs API or local logEntries
     let uncertifiedLogsCount = 0
-    if (todayHOSLogs && todayHOSLogs.length > 0) {
-      // Filter logs for today only and count those that are not certified
-      const todayStart = new Date(today)
-      todayStart.setHours(0, 0, 0, 0)
-      const todayEnd = new Date(today)
-      todayEnd.setHours(23, 59, 59, 999)
-
-      uncertifiedLogsCount = todayHOSLogs.filter((log: any) => {
-        const logDate = log.start_time ? new Date(log.start_time) : null
-        if (!logDate) return false
-        // Only count logs from today (not tomorrow)
-        const isToday = logDate >= todayStart && logDate <= todayEnd
-        // Individual HOS logs are considered uncertified until aggregated into daily logs
-        return isToday && !log.is_certified
-      }).length
+    // New API returns { date, logs, summary, is_certified }
+    const logsArray = todayHOSLogs?.logs || []
+    if (logsArray.length > 0 && todayHOSLogs) {
+      // Check if daily log is certified
+      if (!todayHOSLogs.is_certified) {
+        uncertifiedLogsCount = logsArray.length
+      }
     } else {
       // Fallback to local logEntries
       const todayStart = new Date(today)
@@ -394,13 +366,15 @@ export const DashboardScreen = () => {
       coDriver: "N/A",
       truck: vehicleUnit,
       trailer: "N/A",
-      duty: hosClock?.current_duty_status?.toUpperCase() ?? hosStatus.current_status ?? "OFF_DUTY",
+      duty: contextHOSStatus?.current_status?.toUpperCase() ?? hosStatus.current_status ?? "OFF_DUTY",
       cycleLabel: (() => {
-        if (complianceSettings?.cycle_type) {
-          // Format: "70_hour_8_day" -> "USA 70 hours / 8 days"
-          const parts = complianceSettings.cycle_type.split("_")
-          const hours = parts.find((p: any) => p.includes("hour"))?.replace("hour", "") || "70"
-          const days = parts.find((p: any) => p.includes("day"))?.replace("day", "") || "8"
+        // Get cycle type from new API response
+        const cycleType = contextHOSStatus?.clocks?.cycle?.type || hosClocks?.cycle_60_70hr?.cycle_type
+        if (cycleType) {
+          // Format: "70_8" -> "USA 70 hours / 8 days"
+          const parts = cycleType.split("_")
+          const hours = parts[0] || "70"
+          const days = parts[1] || "8"
           return `USA ${hours} hours / ${days} days`
         }
         return organizationSettings?.hos_settings?.cycle_type || "USA 70 hours / 8 days"
@@ -424,21 +398,20 @@ export const DashboardScreen = () => {
     user,
     driverProfile,
     hosStatus,
-    hosClock,
+    contextHOSStatus,
     vehicleAssignment,
     organizationSettings,
     isAuthenticated,
     logEntries,
     certification,
-    complianceSettings,
     todayHOSLogs,
   ]) as any
 
   // Convert HOS logs API response to chart format
-  // HOS logs API returns individual log entries with start_time, end_time, duty_status
-  // Using today and next day gives better HOS chart visualization
+  // New API returns { date, logs, summary, is_certified }
   const logs = useMemo(() => {
-    if (!todayHOSLogs || todayHOSLogs.length === 0) {
+    const logsArray = todayHOSLogs?.logs || []
+    if (logsArray.length === 0) {
       return []
     }
 
@@ -446,9 +419,9 @@ export const DashboardScreen = () => {
     // API returns individual log entries with start_time, end_time (or null if ongoing), duty_status
     const chartLogs: Array<{ start: string; end: string; status: string; note?: string }> = []
 
-    todayHOSLogs.forEach((log: any) => {
+    logsArray.forEach((log: any) => {
       if (log.start_time && log.duty_status) {
-        const status = hosApi.getAppDutyStatus(log.duty_status)
+        const status = mapDriverStatusToAppStatus(log.duty_status)
         // If end_time is null, use current time for ongoing status
         const endTime = log.end_time || new Date().toISOString()
 
@@ -474,7 +447,6 @@ export const DashboardScreen = () => {
       // Refetch all data
       await Promise.all([
         refetchHOSClock(),
-        refetchSettings(),
         refetchHOSLogs(),
         refetchNotifications(),
         locationData.refreshLocation(),
@@ -484,7 +456,7 @@ export const DashboardScreen = () => {
     } finally {
       setIsRefreshing(false)
     }
-  }, [refetchHOSClock, refetchSettings, refetchHOSLogs, refetchNotifications, locationData])
+  }, [refetchHOSClock, refetchHOSLogs, refetchNotifications, locationData])
 
   const time = (m: number) =>
     `${String(Math.floor(Math.round(m) / 60)).padStart(2, "0")}:${String(Math.round(m) % 60).padStart(2, "0")}`
@@ -547,25 +519,27 @@ export const DashboardScreen = () => {
 
   // Handle notification bell press - navigate directly to notification destination
   const handleNotificationBellPress = useCallback(async () => {
-    if (!notificationsData?.notifications || notificationsData.notifications.length === 0) {
+    // New API returns { count, limit, results }
+    const notifications = notificationsData?.results || []
+    if (notifications.length === 0) {
       // No notifications, open panel as fallback
       setShowNotifications(true)
       return
     }
 
     // Get first unread notification, or latest notification if all are read
-    const unreadNotifications = notificationsData.notifications.filter(n => !n.is_read)
+    const unreadNotifications = notifications.filter((n: any) => !n.is_read)
     const targetNotification = unreadNotifications.length > 0 
       ? unreadNotifications[0]  // First unread
-      : notificationsData.notifications[0]  // Latest if all read
+      : notifications[0]  // Latest if all read
 
-    // Mark as read if unread
+    // Mark as read if unread (using markAllRead for simplicity, or implement single mark)
     if (!targetNotification.is_read) {
-      await markAsReadMutation.mutateAsync(targetNotification.id)
+      await markAllReadMutation.mutateAsync()
     }
 
     // Handle profile change notifications
-    if (targetNotification.type === 'profile_change_approved' || targetNotification.type === 'profile_change_rejected') {
+    if (targetNotification.notification_type === 'profile_change_approved' || targetNotification.notification_type === 'profile_change_rejected') {
       router.push({
         pathname: '/profile-requests',
         params: { notificationId: targetNotification.id },
@@ -573,15 +547,15 @@ export const DashboardScreen = () => {
       return
     }
 
-    // Navigate to action if available (but exclude profile requests action)
-    if (targetNotification.action && !targetNotification.action.includes('/driver/profile/requests')) {
-      router.push(targetNotification.action as any)
+    // Navigate to action if available (check data.action)
+    if (targetNotification.data?.action && !targetNotification.data.action.includes('/driver/profile/requests')) {
+      router.push(targetNotification.data.action as any)
       return
     }
 
     // Fallback: open notifications panel if no action
     setShowNotifications(true)
-  }, [notificationsData, markAsReadMutation])
+  }, [notificationsData, markAllReadMutation])
 
   return (
     <View style={{ flex: 1 }}>
@@ -597,7 +571,7 @@ export const DashboardScreen = () => {
               style={{ position: 'relative' }}
             >
               <Bell size={24} color={colors.PRIMARY} strokeWidth={2} />
-              {(notificationsData?.unread_count || 0) > 0 && (
+              {notificationsData && notificationsData.count > 0 && (
                 <View style={{
                   position: 'absolute',
                   top: -4,
@@ -611,7 +585,7 @@ export const DashboardScreen = () => {
                   paddingHorizontal: 4,
                 }}>
                   <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
-                    {notificationsData.unread_count}
+                    {notificationsData.count}
                   </Text>
                 </View>
               )}
@@ -649,42 +623,22 @@ export const DashboardScreen = () => {
           />
         }
       >
-        {/* Critical Malfunction Alert Banner */}
-        {malfunctionStatus?.active_malfunctions && malfunctionStatus.active_malfunctions.length > 0 && (
+        {/* Critical Violations Alert Banner */}
+        {violationsData?.violations && violationsData.violations.length > 0 && (
           <TouchableOpacity 
             style={s.criticalAlertBanner}
-            onPress={async () => {
-              // Find malfunction notification and navigate to it
-              const malfunctionNotification = notificationsData?.notifications?.find(
-                n => n.type === 'malfunction_alert' || n.type === 'eld_malfunction'
-              )
-              
-              if (malfunctionNotification) {
-                // Mark as read if unread
-                if (!malfunctionNotification.is_read) {
-                  await markAsReadMutation.mutateAsync(malfunctionNotification.id)
-                }
-                
-                // Navigate to action if available
-                if (malfunctionNotification.action) {
-                  router.push(malfunctionNotification.action as any)
-                } else {
-                  // Fallback: open notifications panel
-                  setShowNotifications(true)
-                }
-              } else {
-                // No malfunction notification found, open panel
-                setShowNotifications(true)
-              }
+            onPress={() => {
+              // Navigate to violations or open notifications
+              setShowNotifications(true)
             }}
           >
             <View style={s.alertIconContainer}>
               <AlertTriangle size={24} color="#FFF" strokeWidth={2.5} />
             </View>
             <View style={s.alertContent}>
-              <Text style={s.alertTitle}>ELD Malfunction Detected</Text>
+              <Text style={s.alertTitle}>HOS Violations Detected</Text>
               <Text style={s.alertMessage}>
-                {malfunctionStatus.active_malfunctions.length} active malfunction(s). Manual logs required.
+                {violationsData.violations.length} active violation(s) require attention.
               </Text>
             </View>
           </TouchableOpacity>
@@ -748,7 +702,7 @@ export const DashboardScreen = () => {
         </View>
 
         {/* Hours of Service - Card Style */}
-        {isHOSLoading || isSettingsLoading ? (
+        {isHOSLoading ? (
           <HOSServiceCardSkeleton />
         ) : (
           <View style={s.serviceCard}>

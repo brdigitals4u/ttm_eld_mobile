@@ -29,7 +29,8 @@ import { useStatus } from "@/contexts"
 import { useAppTheme } from "@/theme/context"
 import { DriverStatus } from "@/types/status"
 import { Header } from "@/components/Header"
-import { useHOSClock, useChangeDutyStatus, hosApi } from "@/api/hos"
+import { useHOSCurrentStatus, useChangeDutyStatus } from "@/api/driver-hooks"
+import { mapDriverStatusToAppStatus, mapAppStatusToDriverStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
@@ -95,7 +96,7 @@ export default function StatusScreen() {
     updateStatus,
     getStatusReasons,
   } = useStatus()
-  const { isAuthenticated, updateHosStatus, hosStatus, logout, driverProfile } = useAuth()
+  const { isAuthenticated, updateHosStatus, hosStatus: authHosStatus, logout, driverProfile } = useAuth()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
   const { odometer: eldOdometer } = useEldVehicleData()
   const locationData = useLocationData()
@@ -111,53 +112,42 @@ export default function StatusScreen() {
   const [isGoingOffDuty, setIsGoingOffDuty] = useState(false)
   const insets = useSafeAreaInsets()
 
-  // Get HOS clock data and sync to auth store
-  // CRITICAL: Pass driver_id to ensure we get the clock for the logged-in driver
+  // Get HOS status from new driver API (polls every 30s)
   const { 
-    data: hosClock, 
+    data: currentHosStatus, 
     isLoading: isClockLoading,
     isFetching: isClockFetching 
-  } = useHOSClock({
-    enabled: isAuthenticated && !!driverProfile?.driver_id,
-    refetchInterval: 60000, // Sync every 60 seconds
-    refetchIntervalInBackground: false,
-    driverId: driverProfile?.driver_id,  // Match clock by driver_id from auth store
+  } = useHOSCurrentStatus({
+    enabled: isAuthenticated,
+    refetchInterval: 30000, // 30 seconds per spec
   })
 
-  // Sync HOS clock data to auth store and status store when it updates
+  // Sync HOS status data to auth store and status store when it updates
   useEffect(() => {
-    if (hosClock && isAuthenticated) {
-      console.log('🔄 StatusScreen: Syncing HOS clock data from backend', hosClock)
+    if (currentHosStatus && isAuthenticated) {
+      console.log('🔄 StatusScreen: Syncing HOS status data from backend', currentHosStatus)
       
-      // Map HOSClock to HOSStatus format for auth store
-      updateHosStatus({
-        driver_id: hosClock.driver,
-        driver_name: hosClock.driver_name,
-        current_status: hosClock.current_duty_status?.toUpperCase() || 'OFF_DUTY',
-        driving_time_remaining: hosClock.driving_time_remaining || 0,
-        on_duty_time_remaining: hosClock.on_duty_time_remaining || 0,
-        cycle_time_remaining: hosClock.cycle_time_remaining || 0,
-        time_remaining: {
-          driving_time_remaining: hosClock.driving_time_remaining || 0,
-          on_duty_time_remaining: hosClock.on_duty_time_remaining || 0,
-          cycle_time_remaining: hosClock.cycle_time_remaining || 0,
-        },
-      })
+      // Map HOSCurrentStatus to HOSStatus format for auth store
+      const mappedStatus = mapHOSStatusToAuthFormat(currentHosStatus)
+      if (driverProfile?.name) {
+        mappedStatus.driver_name = driverProfile.name
+      }
+      updateHosStatus(mappedStatus)
       
-      // Sync current status from clock data
-      const appStatus = hosApi.getAppDutyStatus(hosClock.current_duty_status || 'off_duty')
-      setCurrentStatus(appStatus as DriverStatus)
+      // Sync current status from new API response
+      const appStatus = mapDriverStatusToAppStatus(currentHosStatus.current_status)
+      setCurrentStatus(appStatus)
       
       // Sync HOS times to status store
       setHoursOfService({
-        driveTimeRemaining: hosClock.driving_time_remaining || 0,
-        shiftTimeRemaining: hosClock.on_duty_time_remaining || 0,
-        cycleTimeRemaining: hosClock.cycle_time_remaining || 0,
+        driveTimeRemaining: currentHosStatus.clocks.drive.remaining_minutes || 0,
+        shiftTimeRemaining: currentHosStatus.clocks.shift.remaining_minutes || 0,
+        cycleTimeRemaining: currentHosStatus.clocks.cycle.remaining_minutes || 0,
         breakTimeRemaining: hoursOfService.breakTimeRemaining, // Keep existing break time
         lastCalculated: Date.now(),
       })
     }
-  }, [hosClock, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining])
+  }, [currentHosStatus, isAuthenticated, updateHosStatus, setCurrentStatus, setHoursOfService, hoursOfService.breakTimeRemaining, driverProfile?.name])
 
   // Mutation hook for changing duty status
   const changeDutyStatusMutation = useChangeDutyStatus()
@@ -222,125 +212,78 @@ export default function StatusScreen() {
 
 
 
-      // Validate that we have a clock ID
-      if (!hosClock?.id) {
-        console.error('❌ No HOS clock ID available!')
-        console.log('⚠️ HOS Clock data:', JSON.stringify(hosClock, null, 2))
-        toast.error("No HOS clock found. Please wait for clock to sync.")
-        setIsSubmittingStatus(false)
-        return
-      }
-
-      const apiStatus = hosApi.getAPIDutyStatus(selectedStatus)
+      // Map app status to driver API status format
+      const apiStatus = mapAppStatusToDriverStatus(selectedStatus)
       console.log('📊 API Status mapped:', apiStatus, 'from app status:', selectedStatus)
 
-      // Build payload exactly as API expects
-      // Use locationData hook which prioritizes: ELD -> Expo -> 0,0
-      const requestPayload: any = {
-        duty_status: apiStatus,
-        location: "", // Empty text as requested (no reverse geocoding)
-        notes: finalReason,
-      }
-      
-      // Include lat/lng from locationData (ELD -> Expo -> 0,0)
-      if (locationData.latitude !== 0 || locationData.longitude !== 0) {
-        requestPayload.latitude = locationData.latitude
-        requestPayload.longitude = locationData.longitude
-      }
-      
-      // Only include odometer if we have a value
-      if (odometer && odometer > 0) {
-        requestPayload.odometer = odometer
+      // Build payload for new driver API (no clockId needed)
+      // Location must have valid lat/lng (use 0,0 as fallback if needed)
+      const requestPayload = {
+        duty_status: apiStatus as any,
+        location: {
+          latitude: locationData.latitude !== 0 ? locationData.latitude : 0,
+          longitude: locationData.longitude !== 0 ? locationData.longitude : 0,
+          address: locationData.address || "",
+        },
+        odometer: odometer > 0 ? odometer : undefined,
+        remark: finalReason,
       }
 
-      console.log('📤 StatusScreen: About to call mutation')
-      console.log('📤 Endpoint will be:', `/hos/clocks/${hosClock.id}/change_duty_status/`)
+      console.log('📤 StatusScreen: About to call new driver API')
       console.log('📤 Full payload:', JSON.stringify(requestPayload, null, 2))
 
       try {
-        const driverIdForLog = hosClock.driver || driverProfile?.driver_id
-        console.log('🔄 Calling mutateAsync with:', {
-          clockId: hosClock.id,
-          request: requestPayload,
-          driverId: driverIdForLog,
-          hasDriverId: !!driverIdForLog,
-        })
+        const result = await changeDutyStatusMutation.mutateAsync(requestPayload)
         
-        const result = await changeDutyStatusMutation.mutateAsync({
-          clockId: hosClock.id,
-          request: requestPayload,
-          driverId: driverIdForLog,  // For log entry creation
-          previousClock: hosClock,  // Previous clock state for start_time
-        })
-   // Show success toast
-          toast.success("Status updated successfully")
-          
-          // Update HOS status immediately with the response data (if available)
-          if (result.clock) {
-            console.log('✅ StatusScreen: Clock data in response, updating immediately')
-            updateHosStatus({
-              driver_id: result.clock.driver,
-              driver_name: result.clock.driver_name,
-              current_status: result.clock.current_duty_status?.toUpperCase() || 'OFF_DUTY',
-              driving_time_remaining: result.clock.driving_time_remaining || 0,
-              on_duty_time_remaining: result.clock.on_duty_time_remaining || 0,
-              cycle_time_remaining: result.clock.cycle_time_remaining || 0,
-              time_remaining: {
-                driving_time_remaining: result.clock.driving_time_remaining || 0,
-                on_duty_time_remaining: result.clock.on_duty_time_remaining || 0,
-                cycle_time_remaining: result.clock.cycle_time_remaining || 0,
-              },
-            })
-            
-            // Sync status from result to local store
-            const appStatus = hosApi.getAppDutyStatus(result.clock.current_duty_status || 'off_duty')
-            setCurrentStatus(appStatus as DriverStatus)
-            
-            // Update hours of service from result
-            setHoursOfService({
-              driveTimeRemaining: result.clock.driving_time_remaining || 0,
-              shiftTimeRemaining: result.clock.on_duty_time_remaining || 0,
-              cycleTimeRemaining: result.clock.cycle_time_remaining || 0,
-              breakTimeRemaining: hoursOfService.breakTimeRemaining, // Keep existing
-              lastCalculated: Date.now(),
-            })
-            
-            console.log('✅ StatusScreen: Updated local state from API response')
-          } else {
-            console.log('⚠️ StatusScreen: No clock data in response, updating from selected status')
-            // API returned success but no clock data - update local state from selected status
-            // The query invalidation will trigger a refetch to get updated clock data
-            setCurrentStatus(selectedStatus as DriverStatus)
-            console.log('✅ StatusScreen: Updated local status, clock data will be refetched')
-          }
-          
-          // Close modal after success
-          setShowReasonModal(false)
-          setSelectedStatus(null)
-          setSelectedReason("")
-          setIsOtherSelected(false)
-          setOtherReasonText("")
-        } catch (error: any) {
-
-          // Handle 404 - clock might not exist
-          if (error?.status === 404) {
-            toast.error("HOS clock not found. Please refresh or contact support.")
-            console.error('❌ Clock ID was:', hosClock?.id)
-          } else {
-            toast.error(error?.message || `Error ${error?.status || 'unknown'}: Failed to update status`)
-          }
-          
-          // Update local state only (don't make duplicate API calls)
-          setCurrentStatus(selectedStatus as DriverStatus)
-          console.log('⚠️ StatusScreen: Updated local state only due to API error')
-          
-          // Close modal on error
-          setShowReasonModal(false)
-          setSelectedStatus(null)
-          setSelectedReason("")
-          setIsOtherSelected(false)
-          setOtherReasonText("")
+        // Show success toast
+        toast.success("Status updated successfully")
+        
+        // Show warnings if any
+        if (result.warnings && result.warnings.length > 0) {
+          toast.warning(result.warnings.join(", "))
         }
+        
+        // Update local state from selected status (HOS status will be refetched automatically)
+        setCurrentStatus(selectedStatus)
+        
+        // Update hours of service from response if available
+        // Note: new_clocks.remaining is in "HH:mm" format, convert to minutes
+        if (result.new_clocks) {
+          const parseTimeToMinutes = (timeStr: string): number => {
+            const [hours, minutes] = timeStr.split(':').map(Number)
+            return (hours || 0) * 60 + (minutes || 0)
+          }
+          
+          setHoursOfService({
+            driveTimeRemaining: result.new_clocks.drive?.remaining ? parseTimeToMinutes(result.new_clocks.drive.remaining) : hoursOfService.driveTimeRemaining,
+            shiftTimeRemaining: result.new_clocks.shift?.remaining ? parseTimeToMinutes(result.new_clocks.shift.remaining) : hoursOfService.shiftTimeRemaining,
+            cycleTimeRemaining: hoursOfService.cycleTimeRemaining,
+            breakTimeRemaining: hoursOfService.breakTimeRemaining,
+            lastCalculated: Date.now(),
+          })
+        }
+        
+        // Close modal after success
+        setShowReasonModal(false)
+        setSelectedStatus(null)
+        setSelectedReason("")
+        setIsOtherSelected(false)
+        setOtherReasonText("")
+      } catch (error: any) {
+        // Handle errors
+        if (error?.status === 403) {
+          toast.error("Cannot change status: " + (error.message || "Insufficient time remaining"))
+        } else {
+          toast.error(error?.message || `Error ${error?.status || 'unknown'}: Failed to update status`)
+        }
+        
+        // Close modal on error
+        setShowReasonModal(false)
+        setSelectedStatus(null)
+        setSelectedReason("")
+        setIsOtherSelected(false)
+        setOtherReasonText("")
+      }
     } catch (error: any) {
 
       toast.error("Failed to update status. Please try again.")
@@ -364,76 +307,47 @@ export default function StatusScreen() {
 
 
 
-      // Call HOS API if we have a clock ID
-      if (hosClock?.id) {
-        try {
-          const apiStatus = hosApi.getAPIDutyStatus("offDuty")
-          
-          // Use locationData hook which prioritizes: ELD -> Expo -> 0,0
-          const requestPayload: any = {
-            duty_status: apiStatus,
-            location: "", // Empty text as requested
-            notes: reason,
-          }
-          
-          // Include lat/lng from locationData (ELD -> Expo -> 0,0)
-          if (locationData.latitude !== 0 || locationData.longitude !== 0) {
-            requestPayload.latitude = locationData.latitude
-            requestPayload.longitude = locationData.longitude
-          }
-          
-          // Only include odometer if we have a value
-          if (odometer > 0) {
-            requestPayload.odometer = odometer
-          }
-
-          const driverIdForLog = hosClock.driver || driverProfile?.driver_id
-          console.log('🔄 Off duty: Calling mutateAsync with driverId:', driverIdForLog)
-          
-          const result = await changeDutyStatusMutation.mutateAsync({
-            clockId: hosClock.id,
-            request: requestPayload,
-            driverId: driverIdForLog,  // For log entry creation
-            previousClock: hosClock,  // Previous clock state for start_time
-          })
-
-          console.log('✅ StatusScreen: Off duty status synced to backend', result)
-          toast.success("Status updated successfully")
-          
-          // Update local status store (without making API calls - they're already done)
-          setCurrentStatus("offDuty" as DriverStatus)
-          
-          // Update HOS status with response data
-          if (result.clock) {
-            updateHosStatus({
-              driver_id: result.clock.driver,
-              driver_name: result.clock.driver_name,
-              current_status: result.clock.current_duty_status?.toUpperCase() || 'OFF_DUTY',
-              driving_time_remaining: result.clock.driving_time_remaining || 0,
-              on_duty_time_remaining: result.clock.on_duty_time_remaining || 0,
-              cycle_time_remaining: result.clock.cycle_time_remaining || 0,
-              time_remaining: {
-                driving_time_remaining: result.clock.driving_time_remaining || 0,
-                on_duty_time_remaining: result.clock.on_duty_time_remaining || 0,
-                cycle_time_remaining: result.clock.cycle_time_remaining || 0,
-              },
-            })
-          } else {
-            // No clock in response - update from selected status
-            setCurrentStatus("offDuty" as DriverStatus)
-            console.log('✅ StatusScreen: Updated local status, clock data will be refetched')
-          }
-        } catch (error: any) {
-          console.error('❌ StatusScreen: Failed to sync off duty status:', error)
-          toast.error(error?.message || "Failed to update status. Please try again.")
-          // Update local state only (don't make duplicate API calls)
-          setCurrentStatus("offDuty" as DriverStatus)
+      // Call new driver API (no clockId needed)
+      try {
+        const requestPayload = {
+          duty_status: 'off_duty' as any,
+          location: {
+            latitude: locationData.latitude !== 0 ? locationData.latitude : 0,
+            longitude: locationData.longitude !== 0 ? locationData.longitude : 0,
+            address: locationData.address || "",
+          },
+          odometer: odometer > 0 ? odometer : undefined,
+          remark: reason,
         }
-      } else {
-        // No clock ID - update local state only
-        console.warn('⚠️ StatusScreen: No clock ID available, cannot make API call')
+        
+        const result = await changeDutyStatusMutation.mutateAsync(requestPayload)
+
+        console.log('✅ StatusScreen: Off duty status synced to backend', result)
+        toast.success("Status updated successfully")
+        
+        // Update local status store
         setCurrentStatus("offDuty" as DriverStatus)
-        toast.success("Status updated (no API sync - no clock ID)")
+        
+        // Update hours of service from response if available
+        if (result.new_clocks) {
+          const parseTimeToMinutes = (timeStr: string): number => {
+            const [hours, minutes] = timeStr.split(':').map(Number)
+            return (hours || 0) * 60 + (minutes || 0)
+          }
+          
+          setHoursOfService({
+            driveTimeRemaining: result.new_clocks.drive?.remaining ? parseTimeToMinutes(result.new_clocks.drive.remaining) : hoursOfService.driveTimeRemaining,
+            shiftTimeRemaining: result.new_clocks.shift?.remaining ? parseTimeToMinutes(result.new_clocks.shift.remaining) : hoursOfService.shiftTimeRemaining,
+            cycleTimeRemaining: hoursOfService.cycleTimeRemaining,
+            breakTimeRemaining: hoursOfService.breakTimeRemaining,
+            lastCalculated: Date.now(),
+          })
+        }
+      } catch (error: any) {
+        console.error('❌ StatusScreen: Failed to sync off duty status:', error)
+        toast.error(error?.message || "Failed to update status. Please try again.")
+        // Update local state only
+        setCurrentStatus("offDuty" as DriverStatus)
       }
       
       // Close modal after API call completes (success or error)
@@ -587,14 +501,14 @@ export default function StatusScreen() {
         />
 
         <StatusButton
-          status="yardMoves"
+          status="yardMove"
           label="Yard Moves"
-          isActive={currentStatus === "yardMoves"}
-          onPress={() => handleStatusChange("yardMoves")}
+          isActive={currentStatus === "yardMove"}
+          onPress={() => handleStatusChange("yardMove")}
           icon={
             <MoreHorizontal
               size={20}
-              color={currentStatus === "yardMoves" ? (isDark ? "#000" : "#fff") : colors.warning}
+              color={currentStatus === "yardMove" ? (isDark ? "#000" : "#fff") : colors.warning}
             />
           }
         />
@@ -630,25 +544,25 @@ export default function StatusScreen() {
             style={[
               styles.hosValue,
               {
-                color: (hosClock?.driving_time_remaining ?? hoursOfService.driveTimeRemaining) < 60 ? colors.error : colors.text,
+                color: (currentHosStatus?.clocks?.drive?.remaining_minutes ?? hoursOfService.driveTimeRemaining) < 60 ? colors.error : colors.text,
               },
             ]}
           >
-            {formatDuration(hosClock?.driving_time_remaining ?? hoursOfService.driveTimeRemaining)}
+            {formatDuration(currentHosStatus?.clocks?.drive?.remaining_minutes ?? hoursOfService.driveTimeRemaining)}
           </Text>
         </View>
 
         <View style={styles.hosRow}>
           <Text style={[styles.hosLabel, { color: colors.textDim }]}>Shift Time Remaining:</Text>
           <Text style={[styles.hosValue, { color: colors.text }]}>
-            {formatDuration(hosClock?.on_duty_time_remaining ?? hoursOfService.shiftTimeRemaining)}
+            {formatDuration(currentHosStatus?.clocks?.shift?.remaining_minutes ?? hoursOfService.shiftTimeRemaining)}
           </Text>
         </View>
 
         <View style={styles.hosRow}>
           <Text style={[styles.hosLabel, { color: colors.textDim }]}>Cycle Time Remaining:</Text>
           <Text style={[styles.hosValue, { color: colors.text }]}>
-            {formatDuration(hosClock?.cycle_time_remaining ?? hoursOfService.cycleTimeRemaining)}
+            {formatDuration(currentHosStatus?.clocks?.cycle?.remaining_minutes ?? hoursOfService.cycleTimeRemaining)}
           </Text>
         </View>
 
