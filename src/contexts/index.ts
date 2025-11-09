@@ -6,6 +6,7 @@ export { useAssets } from './assets-context';
 export { useCoDriver } from './codriver-context';
 export { useInspection } from './inspection-context';
 export { useObdData } from './obd-data-context';
+export { usePermissions } from './permissions-context';
 
 // Export the main context provider
 export { AllContextsProvider } from './AllContextsProvider';

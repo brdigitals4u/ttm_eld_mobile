@@ -26,7 +26,7 @@ import { FuelPurchasesList } from "@/components/FuelPurchasesList"
 import { useLocation } from "@/contexts/location-context"
 
 import { toast } from "@/components/Toast"
-import { useFuel, useAuth } from "@/contexts"
+import { useFuel, useAuth, usePermissions } from "@/contexts"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useAppTheme } from "@/theme/context"
@@ -64,6 +64,7 @@ export default function EnhancedFuelScreen() {
   const { colors, isDark } = theme
   const { receipts, addFuelReceipt, deleteFuelReceipt, isLoading } = useFuel()
   const { user, driverProfile, vehicleAssignment } = useAuth()
+  const { requestPermissions } = usePermissions()
   const { odometer: eldOdometer, isConnected: eldConnected } = useEldVehicleData()
   const locationData = useLocationData()
   const { requestLocation, hasPermission } = useLocation()
@@ -99,6 +100,12 @@ export default function EnhancedFuelScreen() {
       })
     }
   }, [showAddForm, hasPermission, requestLocation])
+
+  useEffect(() => {
+    requestPermissions({ skipIfGranted: true }).catch((error) =>
+      console.warn("📍 FuelScreen: Permission request failed:", error),
+    )
+  }, [requestPermissions])
 
   // Auto-populate odometer and location from ELD device (priority) or fallback sources
   useEffect(() => {
@@ -454,7 +461,7 @@ export default function EnhancedFuelScreen() {
             longitude = vehicleAssignment.vehicle_info.current_location.longitude
           }
           if (vehicleAssignment.vehicle_info.current_location.state) {
-            state = vehicleAssignment.vehicle_info.current_location.state
+            state = formData.purchaseState || vehicleAssignment.vehicle_info.current_location.state
           }
         } else {
           // Location is required - but allow user to enter manually
@@ -564,7 +571,7 @@ export default function EnhancedFuelScreen() {
         latitude: latitude || undefined,
         longitude: longitude || undefined,
         // State (extracted from location)
-        state: state || undefined,
+        state: formData.purchaseState || undefined,
         // Optional fields (but we're sending them as they're now mandatory in our form)
         merchant_name: transactionLocation.split(",")[0]?.trim() || "Unknown",
         merchantName: transactionLocation.split(",")[0]?.trim() || "Unknown",

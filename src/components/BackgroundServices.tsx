@@ -1,45 +1,111 @@
 /**
  * Background Services Component
- * 
+ *
  * Handles background services that run when authenticated:
  * - Device heartbeat (every 5 minutes)
+ * - Background location tracking via expo-location
  * - Notification polling (every 60 seconds)
  */
 
 import { useEffect } from 'react'
-import { useAuth } from '@/stores/authStore'
-import { deviceHeartbeatService } from '@/services/device-heartbeat-service'
+import { Platform } from 'react-native'
+import * as Location from 'expo-location'
+
 import { useNotifications } from '@/api/driver-hooks'
 import { driverApi } from '@/api/driver'
+import { usePermissions } from '@/contexts'
 import { NotificationService } from '@/services/NotificationService'
-import { Platform } from 'react-native'
-import { getDeviceId, getAppVersion } from '@/utils/device'
+import { deviceHeartbeatService } from '@/services/device-heartbeat-service'
+import { BACKGROUND_LOCATION_TASK } from '@/tasks/location-task'
+import { useAuth } from '@/stores/authStore'
+import { getAppVersion, getDeviceId } from '@/utils/device'
 
 export const BackgroundServices: React.FC = () => {
   const { isAuthenticated } = useAuth()
+  const { permissions } = usePermissions()
+  const locationPermissionGranted = permissions.find((perm) => perm.name === 'location')?.granted ?? false
 
   // Poll notifications every 60 seconds
   const { data: notifications } = useNotifications({
     status: 'unread',
     limit: 50,
     enabled: isAuthenticated,
-    refetchInterval: 60000, // 60 seconds
+    refetchInterval: 60000,
   })
 
   // Start/stop device heartbeat based on authentication
   useEffect(() => {
-    if (isAuthenticated) {
-      deviceHeartbeatService.start()
-      console.log('💓 BackgroundServices: Device heartbeat started')
-    } else {
+    if (!isAuthenticated) {
       deviceHeartbeatService.stop()
       console.log('💓 BackgroundServices: Device heartbeat stopped')
+      return
     }
+
+    deviceHeartbeatService.start()
+    console.log('💓 BackgroundServices: Device heartbeat started')
 
     return () => {
       deviceHeartbeatService.stop()
+      console.log('💓 BackgroundServices: Device heartbeat stopped')
     }
   }, [isAuthenticated])
+
+  // Background location lifecycle using expo-location
+  useEffect(() => {
+    const stopUpdates = async () => {
+      try {
+        const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)
+        if (started) {
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)
+          console.log('🛑 BackgroundServices: Background location updates stopped')
+        }
+      } catch (error) {
+        console.error('❌ BackgroundServices: Failed to stop background location updates:', error)
+      }
+    }
+
+    if (isAuthenticated && locationPermissionGranted) {
+      const startUpdates = async () => {
+        try {
+          const hasStarted = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)
+          if (!hasStarted) {
+            await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
+              accuracy: Location.Accuracy.Highest,
+              distanceInterval: 25,
+              timeInterval: 15000,
+              deferredUpdatesInterval: 60000,
+              deferredUpdatesDistance: 50,
+              pausesUpdatesAutomatically: false,
+              showsBackgroundLocationIndicator: true,
+              foregroundService: {
+                notificationTitle: 'TTM Konnect',
+                notificationBody: 'Tracking location to keep HOS compliant.',
+              },
+            })
+            console.log('✅ BackgroundServices: Background location updates started')
+          }
+
+          if (Platform.OS === 'android') {
+            try {
+              await Location.enableNetworkProviderAsync()
+            } catch (error) {
+              console.log('ℹ️ BackgroundServices: enableNetworkProviderAsync result:', error)
+            }
+          }
+        } catch (error) {
+          console.error('❌ BackgroundServices: Failed to start background location updates:', error)
+        }
+      }
+
+      startUpdates()
+
+      return () => {
+        stopUpdates()
+      }
+    }
+
+    stopUpdates()
+  }, [isAuthenticated, locationPermissionGranted])
 
   // Register push token on mount if authenticated
   useEffect(() => {
@@ -50,7 +116,7 @@ export const BackgroundServices: React.FC = () => {
           if (pushToken) {
             const deviceId = await getDeviceId()
             const appVersion = getAppVersion()
-            
+
             await driverApi.registerPushToken({
               device_token: pushToken,
               platform: Platform.OS as 'ios' | 'android',
@@ -71,12 +137,10 @@ export const BackgroundServices: React.FC = () => {
   // Handle notifications when received
   useEffect(() => {
     if (notifications?.results && notifications.results.length > 0) {
-      // Notifications are handled by the notification service
-      // This just ensures they're polled regularly
       console.log(`📬 BackgroundServices: ${notifications.results.length} unread notifications`)
     }
   }, [notifications])
 
-  return null // This component doesn't render anything
+  return null
 }
 

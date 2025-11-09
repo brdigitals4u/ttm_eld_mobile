@@ -42,7 +42,7 @@ import { HOSComponent } from "@/components/HOSComponent"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { Text } from "@/components/Text"
 import HOSChart from "@/components/VictoryHOS"
-import { useStatus } from "@/contexts"
+import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
 import { useLocationData } from "@/hooks/useLocationData"
@@ -62,6 +62,7 @@ export const DashboardScreen = () => {
     updateHosStatus,
   } = useAuth()
   const { logEntries, certification, hoursOfService } = useStatus()
+  const { requestPermissions } = usePermissions()
   const { currentLocation } = useLocation()
   const locationData = useLocationData()
   const { obdData, isConnected: eldConnected, recentAutoDutyChanges } = useObdData()
@@ -77,6 +78,15 @@ export const DashboardScreen = () => {
   const [hosSectionY, setHosSectionY] = useState<number | null>(null)
   
   // Fetch notifications using new driver API
+  useFocusEffect(
+    useCallback(() => {
+      requestPermissions({ skipIfGranted: true }).catch((error) =>
+        console.warn("⚠️ Dashboard: Permission request failed:", error),
+      )
+      return undefined
+    }, [requestPermissions]),
+  )
+
   const { data: notificationsData, refetch: refetchNotifications } = useNotifications({
     status: 'unread',
     limit: 50,

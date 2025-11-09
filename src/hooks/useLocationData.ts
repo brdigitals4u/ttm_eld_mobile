@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useStatusStore } from '@/stores/statusStore'
 import { useLocation } from '@/contexts/location-context'
 
@@ -12,7 +12,8 @@ import { useLocation } from '@/contexts/location-context'
  */
 export const useLocationData = () => {
   const { eldLocation, currentLocation } = useStatusStore()
-  const { requestLocation } = useLocation()
+  const { requestLocation, hasPermission } = useLocation()
+  const hasRequestedOnceRef = useRef(false)
 
   // Get location with priority: ELD -> Expo -> 0,0
   const locationData = useMemo(() => {
@@ -55,10 +56,25 @@ export const useLocationData = () => {
     }
   }, [eldLocation, currentLocation])
 
+  useEffect(() => {
+    if (hasRequestedOnceRef.current) {
+      return
+    }
+    // Only attempt to fetch when permission is granted and we don't have a meaningful fix yet
+    if (hasPermission && locationData.source === 'fallback') {
+      hasRequestedOnceRef.current = true
+      requestLocation()
+        .catch((error) => {
+          console.warn('📍 useLocationData: Initial location request failed:', error)
+          hasRequestedOnceRef.current = false
+        })
+    }
+  }, [hasPermission, locationData.source, requestLocation])
+
   return {
     latitude: locationData.latitude || 0,
     longitude: locationData.longitude || 0,
-    address: 'address' in locationData ? locationData.address : 'fallback location',
+    address: 'address' in locationData ? locationData.address : '',
     source: locationData.source || 'fallback_source',
     // Non-blocking function to refresh expo location (doesn't block if called)
     refreshLocation: async () => {

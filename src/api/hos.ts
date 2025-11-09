@@ -446,10 +446,28 @@ export const hosApi = {
       }
     }
     
-    const response = await apiClient.get<HOSDailyLog[]>(endpoint)
-    if (response.success && response.data) {
-      return Array.isArray(response.data) ? response.data : [response.data]
+    const response = await apiClient.get<any>(endpoint)
+    if (!response.success || !response.data) {
+      return []
     }
+
+    const { data } = response
+
+    // Handle paginated responses: { count, next, previous, results: [...] }
+    if (Array.isArray(data?.results)) {
+      return data.results as HOSDailyLog[]
+    }
+
+    // Handle standard array response
+    if (Array.isArray(data)) {
+      return data as HOSDailyLog[]
+    }
+
+    // Handle single object response
+    if (data?.id) {
+      return [data as HOSDailyLog]
+    }
+
     return []
   },
 

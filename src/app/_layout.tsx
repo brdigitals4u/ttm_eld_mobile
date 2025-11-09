@@ -77,6 +77,7 @@ export default function Root() {
     }
   }, [loaded])
 
+
   // Safety: ensure splash hides even if something hangs in dev
   useEffect(() => {
     const t = setTimeout(() => setSplashSafeTimeoutDone(true), 4000)

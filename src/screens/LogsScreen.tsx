@@ -92,11 +92,13 @@ export const LogsScreen = () => {
       endDate: selectedDateStr,
       driver: correctDriverId,
     },
-    { enabled: isAuthenticated && !!correctDriverId && !!hosClock && !isToday }, // Only for past dates
+    { enabled: isAuthenticated && !!correctDriverId && !isToday }, // Only for past dates
   )
 
   const certifyLogMutation = useCertifyHOSLog()
   const certifyAllUncertifiedMutation = useCertifyAllUncertifiedLogs()
+
+  const isLoadingLogs = isToday ? isHOSLogsLoading : isDailyLogsLoading
 
   const handleTransferLogs = async () => {
     try {
@@ -465,12 +467,16 @@ export const LogsScreen = () => {
 
   // Refetch logs when date changes or driver ID changes
   useEffect(() => {
-    if (isAuthenticated && correctDriverId && hosClock) {
-      if (isToday) {
+    if (!isAuthenticated || !correctDriverId) {
+      return
+    }
+
+    if (isToday) {
+      if (hosClock) {
         refetchHOSLogs() // Today: Use individual HOS logs
-      } else {
-        refetchDailyLogs() // Past dates: Use daily logs (certified summaries)
       }
+    } else {
+      refetchDailyLogs() // Past dates: Use daily logs (certified summaries)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateStr, isAuthenticated, correctDriverId, hosClock?.driver, isToday])
@@ -907,7 +913,51 @@ export const LogsScreen = () => {
           </View>
         </Modal>
 
-        {filteredLogs.length === 0 ? (
+        {isLoadingLogs ? (
+          <>
+            <View style={styles.skeletonWrapper}>
+              <HOSChartSkeleton />
+            </View>
+            <View style={styles.logsContainer}>
+              {[1, 2, 3].map((item) => (
+                <View
+                  key={`log-skeleton-${item}`}
+                  style={[
+                    styles.logSkeleton,
+                    {
+                      backgroundColor: isDark ? "rgba(87, 80, 241, 0.08)" : "#F3F4F6",
+                      borderColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB",
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.logSkeletonBar,
+                      { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E5E7EB" },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.logSkeletonBarSmall,
+                      { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB" },
+                    ]}
+                  />
+                  <View style={styles.logSkeletonMeta}>
+                    {[1, 2, 3].map((meta) => (
+                      <View
+                        key={`log-skeleton-meta-${item}-${meta}`}
+                        style={[
+                          styles.logSkeletonDot,
+                          { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E5E7EB" },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : filteredLogs.length === 0 ? (
           <ElevatedCard style={styles.emptyContainer}>
             <View style={styles.emptyIconContainer}>
               <FileText size={48} color={colors.text} />
@@ -1051,6 +1101,33 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  logSkeleton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 16,
+  },
+  logSkeletonBar: {
+    borderRadius: 6,
+    height: 16,
+    marginBottom: 12,
+    width: "60%",
+  },
+  logSkeletonBarSmall: {
+    borderRadius: 6,
+    height: 12,
+    marginBottom: 12,
+    width: "40%",
+  },
+  logSkeletonMeta: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  logSkeletonDot: {
+    borderRadius: 6,
+    height: 12,
+    width: 36,
+  },
   logsListContent: {
     paddingBottom: 20,
   },
@@ -1092,6 +1169,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  skeletonWrapper: {
+    paddingHorizontal: 4,
   },
   signatureInput: {
     borderRadius: 8,
