@@ -3,19 +3,36 @@
  * Settings for integrating Chatwoot chat widget into the mobile app
  */
 
+const DEFAULT_BASE_URL = "https://chat.ttmkonnect.com"
+const DEFAULT_WEBSITE_TOKEN = "S6Mz2mJKTm9poMN9ap5njB6f"
+
+const envOrDefault = (envValue: string | undefined, fallback: string) => {
+  if (!envValue || envValue.trim().length === 0) return fallback
+  return envValue.trim()
+}
+
+const normaliseUrl = (value: string) => value.replace(/\/+$/, "")
+
+const BASE_URL = normaliseUrl(
+  envOrDefault(process.env.EXPO_PUBLIC_CHATWOOT_BASE_URL, DEFAULT_BASE_URL),
+)
+
 export const CHATWOOT_CONFIG = {
-  // Chatwoot Server URL
-  BASE_URL: 'https://213.210.13.196:8084',
+  BASE_URL,
+  WEBSITE_TOKEN: envOrDefault(
+    process.env.EXPO_PUBLIC_CHATWOOT_WEBSITE_TOKEN,
+    DEFAULT_WEBSITE_TOKEN,
+  ),
 
-  // Website Token - Replace with your actual token from Chatwoot
-  // Get it from: Chatwoot Dashboard > Settings > Inboxes > Website Inbox
-  WEBSITE_TOKEN: 'S6Mz2mJKTm9poMN9ap5njB6f',
+  SECURE_IFRAME_URL: envOrDefault(
+    process.env.EXPO_PUBLIC_CHATWOOT_SECURE_IFRAME_URL,
+    `${BASE_URL}/api/secure-iframe?api_key=ttm_admin_key_001`,
+  ),
 
-  // Integration API Secure iFrame URL (for admin panel)
-  SECURE_IFRAME_URL: 'https://213.210.13.196:8088/api/secure-iframe?api_key=ttm_admin_key_001',
-
-  // Integration API Base URL (optional - for advanced features)
-  INTEGRATION_API_URL: 'http://213.210.13.196:8088',
+  INTEGRATION_API_URL: envOrDefault(
+    process.env.EXPO_PUBLIC_CHATWOOT_INTEGRATION_API_URL,
+    BASE_URL,
+  ),
 
   // Widget Configuration
   WIDGET_CONFIG: {
@@ -27,7 +44,10 @@ export const CHATWOOT_CONFIG = {
   },
 
   // SDK Script URLs
-  SDK_SCRIPT_URL: 'http://213.210.13.196:8084/packs/js/sdk.js',
+  SDK_SCRIPT_URL: `${BASE_URL.replace(/^https?:/, "https:")}/packs/js/sdk.js`.replace(
+    /^https:\/\/https:\/\//,
+    "https://",
+  ),
 
   // Timeout for WebView message communication (ms)
   MESSAGE_TIMEOUT: 30000,
@@ -79,7 +99,7 @@ export const generateChatwootHTML = (
       <script>
         // Chatwoot Widget Integration
         (function(d, t) {
-          var BASE_URL = "http://213.210.13.196:8084";
+          var BASE_URL = "${BASE_URL}";
           var g = d.createElement(t);
           var s = d.getElementsByTagName(t)[0];
           g.src = BASE_URL + "/packs/js/sdk.js";

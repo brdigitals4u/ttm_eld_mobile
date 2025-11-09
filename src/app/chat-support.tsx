@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import ChatWootWidget from '@chatwoot/react-native-widget';
+import { CHATWOOT_CONFIG } from "@/utils/chatwootConfig"
 
 import { useChatSupport } from '../contexts/ChatSupportContext';
 
@@ -86,9 +87,9 @@ const ChatSupportScreen: React.FC = () => {
       {showWidget && (
         <ChatWootWidget
           key={remountKey}
-          websiteToken="S6Mz2mJKTm9poMN9ap5njB6f"
-          baseUrl="http://213.210.13.196:8084"
-          locale="en"
+          websiteToken={CHATWOOT_CONFIG.WEBSITE_TOKEN}
+          baseUrl={CHATWOOT_CONFIG.BASE_URL}
+          locale={CHATWOOT_CONFIG.WIDGET_CONFIG.locale}
           user={user}
           customAttributes={customAttributes}
           isModalVisible={showWidget}
