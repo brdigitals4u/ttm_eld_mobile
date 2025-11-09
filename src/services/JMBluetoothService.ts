@@ -78,6 +78,8 @@ class JMBluetoothService {
   private disconnectionReasons: string[] = [];
   private lastConnectedDeviceAddress: string | null = null;
   private lastKnownDeviceId: string | null = null;
+  private lastPermissionRequestTime: number | null = null;
+  private lastPermissionResult: { granted: boolean; message?: string } | null = null;
 
   constructor() {
     this.eventEmitter = new NativeEventEmitter(JMBluetoothModule);
@@ -98,17 +100,37 @@ class JMBluetoothService {
   }
 
   // Request permissions with improved response handling
-  async requestPermissions(): Promise<{granted: boolean; message?: string}> {
+  async requestPermissions(): Promise<{ granted: boolean; message?: string }> {
     try {
+      const now = Date.now();
+      if (this.lastPermissionRequestTime && this.lastPermissionResult) {
+        const elapsed = now - this.lastPermissionRequestTime;
+        if (elapsed < 30000) {
+          logger.info('Returning cached Bluetooth permission result', {
+            elapsedMs: elapsed,
+            granted: this.lastPermissionResult.granted,
+          });
+          return this.lastPermissionResult;
+        }
+      }
+
       logger.info('Requesting Bluetooth permissions...');
       const result = await JMBluetoothModule.requestPermissions();
       // Handle both old boolean response and new object response
       if (typeof result === 'boolean') {
         logger.info('Permission request result (boolean):', { granted: result });
-        return { granted: result };
+        this.lastPermissionRequestTime = now;
+        this.lastPermissionResult = { granted: result };
+        return this.lastPermissionResult;
       }
       logger.info('Permission request result (object):', result);
-      return result;
+      const normalizedResult = {
+        granted: !!result?.granted,
+        message: result?.message,
+      };
+      this.lastPermissionRequestTime = now;
+      this.lastPermissionResult = normalizedResult;
+      return this.lastPermissionResult;
     } catch (error: any) {
       logger.error('Failed to request permissions:', { error: error?.message, stack: error?.stack });
       throw error;

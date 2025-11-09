@@ -1,4 +1,5 @@
-import { Linking, Platform } from "react-native"
+// permissions.ts
+import { Linking } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import * as Location from "expo-location"
 
@@ -17,161 +18,176 @@ export interface RequestPermissionsOptions {
    * Defaults to true.
    */
   skipIfGranted?: boolean
+  /**
+   * If true (default), request independent permissions in parallel.
+   * If false, runs the permission requests sequentially in media->camera->location->bluetooth order.
+   */
+  parallel?: boolean
 }
 
-const isAndroid = Platform.OS === "android"
+/* ----- small helpers ----- */
 
-const combineLocationStatus = (
-  foregroundStatus?: Location.PermissionStatus,
-  backgroundStatus?: Location.PermissionStatus,
-): { granted: boolean; status?: string } => {
-  if (backgroundStatus === "granted") {
-    return { granted: true, status: backgroundStatus }
-  }
-
-  if (!backgroundStatus && foregroundStatus === "granted") {
-    return { granted: true, status: foregroundStatus }
-  }
-
-  return {
-    granted: false,
-    status: backgroundStatus ?? foregroundStatus,
+async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn()
+  } catch {
+    return fallback
   }
 }
 
-async function requestMediaLibraryPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+function mkResult(
+  name: PermissionResult["name"],
+  granted: boolean,
+  status?: string,
+  error?: string,
+): PermissionResult {
+  return { name, granted, status, error }
+}
+
+/* ----- Media / Camera generic helper ----- */
+
+async function checkThenRequest<TCheck extends { status?: string } | undefined, TReq extends { status?: string }>(
+  name: PermissionResult["name"],
+  checkFn: () => Promise<TCheck>,
+  requestFn: () => Promise<TReq>,
+  skipIfGranted: boolean,
+  errorMessage: string,
+): Promise<PermissionResult> {
   try {
     if (skipIfGranted) {
-      const { status } = await ImagePicker.getMediaLibraryPermissionsAsync()
-      if (status === "granted") {
-        return { name: "mediaLibrary", granted: true, status }
-      }
+      const checkRes = await safe(checkFn, undefined)
+      const status = (checkRes as any)?.status
+      if (status === "granted") return mkResult(name, true, status)
     }
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    return {
-      name: "mediaLibrary",
-      granted: status === "granted",
-      status,
-    }
-  } catch (error: any) {
-    return {
-      name: "mediaLibrary",
-      granted: false,
-      error: error?.message ?? "Unable to request media library permission",
-    }
+    const reqRes = await requestFn()
+    const status = (reqRes as any)?.status
+    return mkResult(name, status === "granted", status)
+  } catch (err: any) {
+    return mkResult(name, false, undefined, err?.message ?? errorMessage)
   }
+}
+
+/* ----- Media / Camera implementations ----- */
+
+async function requestMediaLibraryPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+  return checkThenRequest(
+    "mediaLibrary",
+    () => ImagePicker.getMediaLibraryPermissionsAsync(),
+    () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+    skipIfGranted,
+    "Unable to request media library permission",
+  )
 }
 
 async function requestCameraPermission(skipIfGranted: boolean): Promise<PermissionResult> {
-  try {
-    if (skipIfGranted) {
-      const { status } = await ImagePicker.getCameraPermissionsAsync()
-      if (status === "granted") {
-        return { name: "camera", granted: true, status }
-      }
-    }
-
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-    return {
-      name: "camera",
-      granted: status === "granted",
-      status,
-    }
-  } catch (error: any) {
-    return {
-      name: "camera",
-      granted: false,
-      error: error?.message ?? "Unable to request camera permission",
-    }
-  }
+  return checkThenRequest(
+    "camera",
+    () => ImagePicker.getCameraPermissionsAsync(),
+    () => ImagePicker.requestCameraPermissionsAsync(),
+    skipIfGranted,
+    "Unable to request camera permission",
+  )
 }
+
+/* ----- Location (foreground only) ----- */
 
 async function requestLocationPermission(skipIfGranted: boolean): Promise<PermissionResult> {
   try {
     if (skipIfGranted) {
-      const foreground = await Location.getForegroundPermissionsAsync()
-      const background = await Location.getBackgroundPermissionsAsync()
-      const combined = combineLocationStatus(foreground.status, background.status)
-      if (combined.granted) {
-        return { name: "location", granted: true, status: combined.status }
+      const check = await Location.getForegroundPermissionsAsync()
+      if (check.status === "granted") {
+        return mkResult("location", true, check.status)
       }
     }
 
     const foreground = await Location.requestForegroundPermissionsAsync()
-    let backgroundStatus: Location.PermissionStatus | undefined
-
-    if (foreground.status === "granted") {
-      try {
-        const background = await Location.requestBackgroundPermissionsAsync()
-        backgroundStatus = background.status
-      } catch (error) {
-        console.warn("⚠️ requestLocationPermission: background permission request failed:", error)
-      }
-    }
-
-    const combined = combineLocationStatus(foreground.status, backgroundStatus)
-    return {
-      name: "location",
-      granted: combined.granted,
-      status: combined.status,
-    }
+    return mkResult("location", foreground.status === "granted", foreground.status)
   } catch (error: any) {
-    return {
-      name: "location",
-      granted: false,
-      error: error?.message ?? "Unable to request location permission",
+    return mkResult("location", false, undefined, error?.message ?? "Unable to request location permission")
+  }
+}
+
+/* ----- Bluetooth (native module) ----- */
+
+/**
+ * Expectations (JS side):
+ * - JMBluetoothService.requestPermissions({ checkOnly: true }) should return a "check-only" response
+ *   without showing any permission dialogs (native short-circuit).
+ * - Fallback: if native does not accept an options object, the JS code will still call it with undefined
+ *   and treat boolean or object responses identically.
+ */
+
+type JBRequestPermsArg = { checkOnly?: boolean } | undefined
+type JBResult = boolean | { granted: boolean; message?: string; status?: string } | undefined
+
+async function callJMBluetoothRequest(arg?: JBRequestPermsArg): Promise<JBResult> {
+  // Defensive wrapper: if native accepts an object, pass it. If not, passing an object may be ignored by native layer.
+  // If your native implementation requires different signature, adjust here.
+  try {
+    // Some native bridges may not like an undefined arg; explicitly pass arg when provided.
+    if (typeof arg !== "undefined") {
+      // @ts-ignore - allow passing object if native supports it
+      return await JMBluetoothService.requestPermissions(arg)
     }
+    // @ts-ignore
+    return await JMBluetoothService.requestPermissions()
+  } catch (err) {
+    // If native throws, propagate up to caller to handle
+    throw err
   }
 }
 
 async function requestBluetoothPermission(skipIfGranted: boolean): Promise<PermissionResult> {
   try {
-    if (skipIfGranted && !isAndroid) {
-      // iOS exposes status via JMBluetoothService -> assume granted check handled natively.
-      // For now always request; native layer can short-circuit.
-    }
+    // When skipIfGranted is requested, first try a check-only invocation to avoid dialogs.
+    const result = await safe<JBResult>(() => callJMBluetoothRequest(skipIfGranted ? { checkOnly: true } : undefined), undefined)
 
-    const result = (await JMBluetoothService.requestPermissions()) as
-      | boolean
-      | { granted: boolean; message?: string; status?: string }
-      | undefined
-    return {
-      name: "bluetooth",
-      granted: typeof result === "boolean" ? result : !!result?.granted,
-      status:
-        typeof result === "object" && result
-          ? result.status ?? (result.granted ? "granted" : "denied")
-          : undefined,
-    }
+    const granted = typeof result === "boolean" ? result : !!(result && (result as any).granted)
+    const status =
+      typeof result === "object" && result ? (result as any).status ?? (granted ? "granted" : "denied") : undefined
+
+    return mkResult("bluetooth", granted, status)
   } catch (error: any) {
-    return {
-      name: "bluetooth",
-      granted: false,
-      error: error?.message ?? "Unable to request bluetooth permission",
-    }
+    return mkResult("bluetooth", false, undefined, error?.message ?? "Unable to request bluetooth permission")
   }
 }
+
+/* ----- Public high-level API (optimized: parallel where possible) ----- */
 
 /**
  * Requests gallery (media library), camera, location, and bluetooth permissions.
  * Returns an array describing individual results.
  *
- * @param options optional settings, currently only supports skipIfGranted
+ * @param options optional settings, currently supports skipIfGranted and parallel
  */
 export async function requestCorePermissions(
   options: RequestPermissionsOptions = {},
 ): Promise<PermissionResult[]> {
   const skipIfGranted = options.skipIfGranted ?? true
+  const parallel = options.parallel ?? true
 
-  const [mediaLibrary, camera, location, bluetooth] = await Promise.all([
-    requestMediaLibraryPermission(skipIfGranted),
-    requestCameraPermission(skipIfGranted),
-    requestLocationPermission(skipIfGranted),
-    requestBluetoothPermission(skipIfGranted),
-  ])
+  const tasks = [
+    () => requestMediaLibraryPermission(skipIfGranted),
+    () => requestCameraPermission(skipIfGranted),
+    () => requestLocationPermission(skipIfGranted),
+    () => requestBluetoothPermission(skipIfGranted),
+  ]
 
-  return [mediaLibrary, camera, location, bluetooth]
+  if (parallel) {
+    // run all at once (each helper already handles its own errors)
+    const results = await Promise.all(tasks.map((t) => t()))
+    return results
+  }
+
+  // sequential: useful when you explicitly want ordered dialogs
+  const results: PermissionResult[] = []
+  for (const t of tasks) {
+    // do not throw — helpers return a PermissionResult with error field if something went wrong
+    const r = await t()
+    results.push(r)
+  }
+  return results
 }
 
 /**
@@ -182,90 +198,45 @@ export async function ensureCorePermissions(options?: RequestPermissionsOptions)
   return results.every((permission) => permission.granted)
 }
 
+/* ----- Check-only flows (no dialogs when possible) ----- */
+
 async function checkMediaLibraryPermission(): Promise<PermissionResult> {
   try {
     const { status } = await ImagePicker.getMediaLibraryPermissionsAsync()
-    return {
-      name: "mediaLibrary",
-      granted: status === "granted",
-      status,
-    }
+    return mkResult("mediaLibrary", status === "granted", status)
   } catch (error: any) {
-    return {
-      name: "mediaLibrary",
-      granted: false,
-      error: error?.message ?? "Unable to check media library permission",
-    }
+    return mkResult("mediaLibrary", false, undefined, error?.message ?? "Unable to check media library permission")
   }
 }
 
 async function checkCameraPermission(): Promise<PermissionResult> {
   try {
     const { status } = await ImagePicker.getCameraPermissionsAsync()
-    return {
-      name: "camera",
-      granted: status === "granted",
-      status,
-    }
+    return mkResult("camera", status === "granted", status)
   } catch (error: any) {
-    return {
-      name: "camera",
-      granted: false,
-      error: error?.message ?? "Unable to check camera permission",
-    }
+    return mkResult("camera", false, undefined, error?.message ?? "Unable to check camera permission")
   }
 }
 
 async function checkLocationPermission(): Promise<PermissionResult> {
   try {
     const foreground = await Location.getForegroundPermissionsAsync()
-    let backgroundStatus: Location.PermissionStatus | undefined
-
-    try {
-      const background = await Location.getBackgroundPermissionsAsync()
-      backgroundStatus = background.status
-    } catch (error) {
-      console.log("ℹ️ checkLocationPermission: background permission check failed:", error)
-    }
-
-    const combined = combineLocationStatus(foreground.status, backgroundStatus)
-    return {
-      name: "location",
-      granted: combined.granted,
-      status: combined.status,
-    }
+    return mkResult("location", foreground.status === "granted", foreground.status)
   } catch (error: any) {
-    return {
-      name: "location",
-      granted: false,
-      error: error?.message ?? "Unable to check location permission",
-    }
+    return mkResult("location", false, undefined, error?.message ?? "Unable to check location permission")
   }
 }
 
 async function checkBluetoothPermission(): Promise<PermissionResult> {
   try {
-    // No dedicated "get status" API exposed by the native module yet.
-    // Call requestPermissions with skip=true to allow native side to short circuit
-    // without re-triggering dialogs when already granted.
-    const result = (await JMBluetoothService.requestPermissions()) as
-      | boolean
-      | { granted: boolean; message?: string; status?: string }
-      | undefined
-    return {
-      name: "bluetooth",
-      granted: typeof result === "boolean" ? result : !!result?.granted,
-      status:
-        typeof result === "object" && result
-          ? result.status ?? (result.granted ? "granted" : "denied")
-          : undefined,
-    }
+    // Use checkOnly to avoid dialogs when possible
+    const result = await safe<JBResult>(() => callJMBluetoothRequest({ checkOnly: true }), undefined)
+    const granted = typeof result === "boolean" ? result : !!(result && (result as any).granted)
+    const status =
+      typeof result === "object" && result ? (result as any).status ?? (granted ? "granted" : "denied") : undefined
+    return mkResult("bluetooth", granted, status)
   } catch (error: any) {
-    return {
-      name: "bluetooth",
-      granted: false,
-      error: error?.message ?? "Unable to check bluetooth permission",
-    }
+    return mkResult("bluetooth", false, undefined, error?.message ?? "Unable to check bluetooth permission")
   }
 }
 
@@ -283,6 +254,8 @@ export async function checkCorePermissions(): Promise<PermissionResult[]> {
   return [mediaLibrary, camera, location, bluetooth]
 }
 
+/* ----- Settings helper ----- */
+
 export async function openPermissionSettings(): Promise<void> {
   try {
     await Linking.openSettings()
@@ -290,4 +263,3 @@ export async function openPermissionSettings(): Promise<void> {
     console.error("Failed to open app settings:", error)
   }
 }
-

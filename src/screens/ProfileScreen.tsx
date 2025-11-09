@@ -15,9 +15,9 @@ import {
   TrendingUp,
   ChevronRight,
 } from "lucide-react-native"
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { router } from "expo-router"
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Image } from "react-native"
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Image, Pressable, Linking } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import Animated, {
   useAnimatedStyle,
@@ -36,7 +36,7 @@ import { Header } from "@/components/Header"
 import StatCircleCard from "@/components/StatCircleCard"
 import { useObdData } from "@/contexts/obd-data-context"
 import { getEldDevice, EldDeviceInfo } from "@/utils/eldStorage"
-import { useHOSCurrentStatus, useViolations, useDriverProfile } from "@/api/driver-hooks"
+import { useHOSCurrentStatus, useViolations } from "@/api/driver-hooks"
 import { useStatusStore } from "@/stores/statusStore"
 
 const { width } = Dimensions.get("window")
@@ -191,11 +191,9 @@ export default function ProfileScreen() {
     if (!violationsData?.violations) return []
     return violationsData.violations.filter((v: any) => v.resolved === false)
   }, [violationsData])
-  const { data: driverProfileData } = useDriverProfile(isAuthenticated)
   const { currentStatus } = useStatusStore()
   
-  // Use driver profile from API if available, otherwise fallback to auth store
-  const effectiveDriverProfile = driverProfileData || driverProfile
+  const effectiveDriverProfile = driverProfile
   
   // Format status for display - use synced status from store for consistency
   const formatStatus = (status: string) => {
@@ -263,6 +261,12 @@ export default function ProfileScreen() {
   }, [obdData])
 
   const menuItems = [
+  const handleLogoPress = useCallback(() => {
+    Linking.openURL("https://ttmkonnect.com").catch((error) =>
+      console.warn("Failed to open ttmkonnect.com", error),
+    )
+  }, [])
+
     {
       title: "Settings",
       subtitle: "Manage CoDrivers and Others",
@@ -299,10 +303,12 @@ export default function ProfileScreen() {
         onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
         RightActionComponent={
           <View style={{ paddingRight: 4 }}>
-            <Image
-              source={require('assets/images/ttm-logo.png')}
-              style={{ width: 120, height: 32, resizeMode: 'contain' }}
-            />
+            <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Image
+                source={require('assets/images/ttm-logo.png')}
+                style={{ width: 120, height: 32, resizeMode: 'contain' }}
+              />
+            </Pressable>
           </View>
         }
         containerStyle={{

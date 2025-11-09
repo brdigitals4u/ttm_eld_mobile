@@ -1,20 +1,3 @@
-    @ReactMethod
-    fun getCurrentDeviceId(promise: Promise) {
-        try {
-            val deviceId = lastExtractedDeviceId ?: currentDevice?.address
-            if (deviceId != null) {
-                val result = Arguments.createMap().apply {
-                    putString("deviceId", deviceId)
-                    putBoolean("isExtracted", lastExtractedDeviceId != null)
-                }
-                promise.resolve(result)
-            } else {
-                promise.reject("DEVICE_ID_UNAVAILABLE", "No ELD identifier captured yet")
-            }
-        } catch (e: Exception) {
-            promise.reject("DEVICE_ID_ERROR", e.message)
-        }
-    }
 package com.ttmkonnect.eld
 
 
@@ -45,8 +28,7 @@ import com.jimi.ble.utils.InstructionAnalysis
 import com.jimi.ble.command.startReportEldData
 import com.jimi.ble.command.replyReceivedObdData
 import com.jimi.ble.command.replyReceivedEldData
-import com.jimi.ble.decode.OBDDecodeKt
-import com.jimi.ble.command.OBDExpandKt
+import com.jimi.ble.utils.BtEncDecUtil
 
 import java.text.SimpleDateFormat
 import java.util.*
@@ -65,6 +47,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val BLUETOOTH_ENABLE_REQUEST_CODE = 1002
+        private const val TERMINAL_COMMAND_CATEGORY = 23041
     }
 
     override fun getName(): String {
@@ -195,6 +178,90 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
     }
 
+    private fun sendTerminalCommand(subCommand: Int, payload: ByteArray = ByteArray(0)): Boolean {
+        return try {
+            val command = BtEncDecUtil.generateTerminalCommand(TERMINAL_COMMAND_CATEGORY, subCommand, payload)
+            BluetoothLESDK.write(command)
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to send terminal command $subCommand", error)
+            false
+        }
+    }
+
+    private fun buildPasswordPayload(password: String, flag: Int? = null): ByteArray {
+        val trimmed = password.trim()
+        val effective = when {
+            trimmed.length == 8 -> trimmed
+            trimmed.length > 8 -> trimmed.substring(0, 8)
+            trimmed.isNotEmpty() -> trimmed.padEnd(8, '0')
+            else -> "00000000"
+        }
+        val passwordBytes = effective.toByteArray(Charsets.UTF_8)
+        return if (flag != null) {
+            byteArrayOf(flag.toByte()) + passwordBytes
+        } else {
+            passwordBytes
+        }
+    }
+
+    private data class HistoryProgressInfo(
+        val progress: Int,
+        val count: Long,
+        val success: Boolean,
+    )
+
+    private fun extractHistoryProgress(data: BtParseData): HistoryProgressInfo? {
+        val source = data.getOBDDataSource()
+        if (source.isEmpty()) {
+            return null
+        }
+
+        val success = byteValue(source, 0) == 0
+        val count = if (source.size >= 4) {
+            var total = 0L
+            for (index in 0..3) {
+                total += (byteValue(source, index).toLong() shl (index * 8))
+            }
+            total
+        } else {
+            0L
+        }
+        val progress = if (source.size >= 5) source[4].toInt() and 0xFF else 0
+
+        if (progress == 0 && count == 0L && !success) {
+            return null
+        }
+
+        return HistoryProgressInfo(progress, count, success)
+    }
+
+    private fun extractUpdateProgress(data: BtParseData): Int {
+        val source = data.getOBDDataSource()
+        if (source.isEmpty()) {
+            return 0
+        }
+        return byteValue(source, 0)
+    }
+
+    private fun byteValue(source: ByteArray, index: Int): Int {
+        return if (index in source.indices) {
+            source[index].toInt() and 0xFF
+        } else {
+            0
+        }
+    }
+
+    private fun hexStringToByteArray(hex: String): ByteArray {
+        val sanitized = if (hex.length % 2 == 0) hex else "0$hex"
+        val length = sanitized.length / 2
+        val result = ByteArray(length)
+        for (i in 0 until length) {
+            val start = i * 2
+            result[i] = sanitized.substring(start, start + 2).toInt(16).toByte()
+        }
+        return result
+    }
+
 
 
 
@@ -202,13 +269,10 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     @ReactMethod
     fun requestPermissions(promise: Promise) {
         val activity = reactApplicationContext.currentActivity
-        if (activity == null) {
-            promise.reject("ACTIVITY_NULL", "Activity is null - ensure the app is in foreground")
-            return
-        }
+        val context = activity ?: reactApplicationContext
 
         Log.i(TAG, "Checking Bluetooth permissions...")
-        
+
         val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Log.i(TAG, "Using Android 12+ permissions")
             arrayOf(
@@ -235,7 +299,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
 
         val deniedPermissions = permissions.filter {
-            val granted = ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
+            val granted = ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
             Log.i(TAG, "Permission $it: ${if (granted) "GRANTED" else "DENIED"}")
             !granted
         }.toTypedArray()
@@ -248,6 +312,18 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
             promise.resolve(resultMap)
         } else {
+            if (activity == null) {
+                Log.w(TAG, "Cannot request Bluetooth permissions - no foreground activity")
+                val resultMap = Arguments.createMap().apply {
+                    putBoolean("granted", false)
+                    putArray("requested", Arguments.fromArray(deniedPermissions))
+                    putString("message", "Unable to request permissions without an active activity")
+                    putString("status", "activity_unavailable")
+                }
+                promise.resolve(resultMap)
+                return
+            }
+
             Log.i(TAG, "Requesting ${deniedPermissions.size} denied permissions: ${deniedPermissions.joinToString()}")
             try {
                 ActivityCompat.requestPermissions(activity, deniedPermissions, PERMISSION_REQUEST_CODE)
@@ -665,8 +741,16 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Sending UTC time to device")
-            OBDExpandKt.sendUTCTime(BluetoothLESDK.INSTANCE)
-            promise.resolve(true)
+            val formatter = SimpleDateFormat("yyMMddHHmmss", Locale.getDefault()).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val utcString = formatter.format(Date())
+            val payload = hexStringToByteArray(utcString)
+            if (sendTerminalCommand(11, payload)) {
+                promise.resolve(true)
+            } else {
+                promise.reject("SEND_UTC_ERROR", "Failed to send command")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send UTC time: ${e.message}")
             promise.reject("SEND_UTC_ERROR", e.message)
@@ -682,8 +766,11 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Checking password enable state")
-            OBDExpandKt.checkPasswordEnable(BluetoothLESDK.INSTANCE)
-            promise.resolve(true)
+            if (sendTerminalCommand(16)) {
+                promise.resolve(true)
+            } else {
+                promise.reject("CHECK_PASSWORD_ERROR", "Failed to send command")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check password enable: ${e.message}")
             promise.reject("CHECK_PASSWORD_ERROR", e.message)
@@ -703,8 +790,16 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Validating password")
-            OBDExpandKt.validatePassword(BluetoothLESDK.INSTANCE, password)
-            promise.resolve(true)
+            if (password.length != 8) {
+                throw IllegalArgumentException("Password must be exactly 8 characters")
+            }
+
+            val payload = password.toByteArray(Charsets.UTF_8)
+            if (sendTerminalCommand(17, payload)) {
+                promise.resolve(true)
+            } else {
+                promise.reject("VALIDATE_PASSWORD_ERROR", "Failed to send command")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to validate password: ${e.message}")
             promise.reject("VALIDATE_PASSWORD_ERROR", e.message)
@@ -724,8 +819,16 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Enabling password protection")
-            OBDExpandKt.enablePassword(BluetoothLESDK.INSTANCE, password)
-            promise.resolve(true)
+            if (password.length != 8) {
+                throw IllegalArgumentException("Password must be exactly 8 characters")
+            }
+
+            val payload = buildPasswordPayload(password, flag = 1)
+            if (sendTerminalCommand(15, payload)) {
+                promise.resolve(true)
+            } else {
+                promise.reject("ENABLE_PASSWORD_ERROR", "Failed to send command")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to enable password: ${e.message}")
             promise.reject("ENABLE_PASSWORD_ERROR", e.message)
@@ -745,7 +848,10 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Disabling password protection")
-            OBDExpandKt.disablePassword(BluetoothLESDK.INSTANCE, password)
+            val payload = buildPasswordPayload(password, flag = 0)
+            if (!sendTerminalCommand(15, payload)) {
+                throw IllegalStateException("Failed to disable password")
+            }
             promise.resolve(true)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to disable password: ${e.message}")
@@ -1014,7 +1120,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     fun acknowledgeCustomCommand(promise: Promise) {
         try {
             Log.i(TAG, "Acknowledging custom command response")
-            OBDExpandKt.replyReceiveCustomCommandReply(BluetoothLESDK.INSTANCE)
+            sendTerminalCommand(24)
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("ACK_CUSTOM_COMMAND_ERROR", e.message)
@@ -1068,7 +1174,10 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Setting DPF regeneration: mode=$mode enable=$enable")
-            OBDExpandKt.setDpfRegeneration(BluetoothLESDK.INSTANCE, mode, enable)
+            val payload = byteArrayOf(mode.toByte(), if (enable) 0 else 1)
+            if (!sendTerminalCommand(30, payload)) {
+                throw IllegalStateException("Failed to send DPF regeneration command")
+            }
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("SET_DPF_ERROR", e.message)
@@ -1079,7 +1188,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     fun replyDpfRegenerationUploadState(promise: Promise) {
         try {
             Log.i(TAG, "Acknowledging DPF regeneration upload state")
-            OBDExpandKt.replyDpfRegenerationUploadState(BluetoothLESDK.INSTANCE)
+            sendTerminalCommand(31)
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("ACK_DPF_UPLOAD_ERROR", e.message)
@@ -1095,7 +1204,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             }
 
             Log.i(TAG, "Querying DPF regeneration state")
-            OBDExpandKt.checkDpfRegenerationState(BluetoothLESDK.INSTANCE)
+            sendTerminalCommand(32)
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("CHECK_DPF_ERROR", e.message)
@@ -1501,36 +1610,29 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
 
         try {
-            val historyProgress = OBDDecodeKt.getHistoryDataProgress(data)
-            val historyCount = OBDDecodeKt.getHistoryDataCount(data)
-            val historySuccess = OBDDecodeKt.queryHistoryDataSuccess(data)
-
-            if (historyProgress > 0 || historyCount > 0 || historySuccess) {
+            val historyInfo = extractHistoryProgress(data)
+            if (historyInfo != null) {
                 val historyMap = Arguments.createMap().apply {
-                    putInt("progress", historyProgress)
-                    putDouble("count", historyCount.toDouble())
-                    putBoolean("success", historySuccess)
+                    putInt("progress", historyInfo.progress)
+                    putDouble("count", historyInfo.count.toDouble())
+                    putBoolean("success", historyInfo.success)
                     putString("timestamp", System.currentTimeMillis().toString())
                 }
                 sendEvent("onHistoryProgress", historyMap)
-                try {
-                    OBDExpandKt.replyReceivedHistoryProgress(BluetoothLESDK.INSTANCE)
-                } catch (ackError: Exception) {
-                    Log.w(TAG, "⚠️ Failed to acknowledge history progress: ${ackError.message}")
+                if (!sendTerminalCommand(19, byteArrayOf(0))) {
+                    Log.w(TAG, "⚠️ Failed to acknowledge history progress")
                 }
             }
 
-            val updateProgress = OBDDecodeKt.getUpdateProgress(data)
+            val updateProgress = extractUpdateProgress(data)
             if (updateProgress > 0) {
                 val updateMap = Arguments.createMap().apply {
                     putInt("progress", updateProgress)
                     putString("timestamp", System.currentTimeMillis().toString())
                 }
                 sendEvent("onUpdateProgress", updateMap)
-                try {
-                    OBDExpandKt.replyReceiveUpdateProgress(BluetoothLESDK.INSTANCE)
-                } catch (ackError: Exception) {
-                    Log.w(TAG, "⚠️ Failed to acknowledge update progress: ${ackError.message}")
+                if (!sendTerminalCommand(28)) {
+                    Log.w(TAG, "⚠️ Failed to acknowledge update progress")
                 }
             }
         } catch (progressError: Exception) {

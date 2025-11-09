@@ -199,3 +199,37 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+def ensure16kScript = new File(rootProject.projectDir, "scripts/ensure_16k_page.py")
+
+if (ensure16kScript.exists()) {
+    android.applicationVariants.all { variant ->
+        def capName = variant.name.capitalize()
+        ["merge${capName}NativeLibs", "package${capName}"].each { taskName ->
+            tasks.matching { it.name == taskName }.all { task ->
+                task.doLast {
+                    def candidateDirs = []
+                    if (task.hasProperty("outputDir") && task.outputDir) {
+                        candidateDirs << (task.outputDir instanceof File ? task.outputDir : task.outputDir.get().asFile)
+                    }
+                    if (task.hasProperty("outputDirectory") && task.outputDirectory) {
+                        candidateDirs << task.outputDirectory.get().asFile
+                    }
+                    if (task.hasProperty("outFolder") && task.outFolder) {
+                        candidateDirs << task.outFolder
+                    }
+                    candidateDirs.findAll { it instanceof File && it.exists() }.unique().each { dir ->
+                        fileTree(dir: dir, include: "**/*.so").files.each { soFile ->
+                            exec {
+                                commandLine "python3", ensure16kScript.absolutePath, soFile.absolutePath
+                                ignoreExitValue true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+} else {
+    println "⚠️ 16 KB alignment script not found at ${ensure16kScript.absolutePath}; skipping ELF patch step."
+}

@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useCallback, useRef, useState } from "react"
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal } from "react-native"
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Pressable, Linking } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { router, useFocusEffect } from "expo-router"
 import {
@@ -71,6 +71,12 @@ export const DashboardScreen = () => {
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const handleLogoPress = useCallback(() => {
+    Linking.openURL("https://ttmkonnect.com").catch((error) =>
+      console.warn("Failed to open ttmkonnect.com", error),
+    )
+  }, [])
+
   
   // ScrollView ref for scrolling to HOS section
   const scrollViewRef = useRef<ScrollView>(null)
@@ -612,10 +618,12 @@ export const DashboardScreen = () => {
                 </View>
               )}
             </TouchableOpacity>
-            <Image
-              source={require("assets/images/ttm-logo.png")}
-              style={{ width: 120, height: 32, resizeMode: "contain" }}
-            />
+            <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Image
+                source={require("assets/images/ttm-logo.png")}
+                style={{ width: 120, height: 32, resizeMode: "contain" }}
+              />
+            </Pressable>
           </View>
         }
         containerStyle={{

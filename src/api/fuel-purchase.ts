@@ -215,8 +215,9 @@ export const fuelPurchaseApi = {
     fuelPurchaseId: string,
     fileUri: string,
     filename?: string,
-    contentType: string = 'image/jpeg',
-    metadata?: Record<string, string | number | null | undefined>
+    contentType: string = 'application/octet-stream',
+    metadata?: Record<string, string | number | null | undefined>,
+    clientOptions?: { contentType?: string }
   ): Promise<ConfirmReceiptUploadResponse> {
     console.log("📤 Uploading receipt image to backend...", {
       fuelPurchaseId,
@@ -258,7 +259,11 @@ export const fuelPurchaseApi = {
       console.log("📤 Sending multipart request to confirm receipt upload...")
       const response = await apiClient.upload<ConfirmReceiptUploadResponse>(
         API_ENDPOINTS.FUEL.CONFIRM_RECEIPT_UPLOAD,
-        formData
+        formData,
+        {
+          contentType,
+          ...(clientOptions ?? {}),
+        },
       )
 
       console.log("📤 Upload response:", response)

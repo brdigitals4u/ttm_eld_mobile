@@ -9,12 +9,7 @@ import React, {
 } from "react"
 import { Alert, AppState, AppStateStatus, Platform } from "react-native"
 
-import {
-  checkCorePermissions,
-  ensureCorePermissions,
-  openPermissionSettings,
-  requestCorePermissions,
-} from "@/utils/permissions"
+import { checkCorePermissions, openPermissionSettings, requestCorePermissions } from "@/utils/permissions"
 
 type CorePermissionName = "bluetooth" | "mediaLibrary" | "camera" | "location"
 
@@ -60,10 +55,16 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const lastDeniedRef = useRef<CorePermissionName[]>([])
   const appStateRef = useRef(AppState.currentState)
   const isMountedRef = useRef(true)
+  const permissionsRef = useRef<PermissionStatus[]>([])
 
   const showDeniedAlert = useCallback((denied: CorePermissionName[]) => {
     if (denied.length === 0) {
       lastDeniedRef.current = []
+      return
+    }
+
+    if (AppState.currentState !== "active") {
+      lastDeniedRef.current = denied
       return
     }
 
@@ -101,6 +102,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const updatePermissions = useCallback(
     (results: any[]) => {
       const nextPermissions = results.map(toPermissionStatus)
+      permissionsRef.current = nextPermissions
       setPermissions(nextPermissions)
       const deniedPermissions = nextPermissions.filter((item) => !item.granted).map((item) => item.name)
       showDeniedAlert(deniedPermissions)
@@ -117,14 +119,14 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return updatePermissions(results)
       } catch (error) {
         console.error("Failed to request permissions:", error)
-        return permissions
+        return permissionsRef.current
       } finally {
         if (isMountedRef.current) {
           setIsRequesting(false)
         }
       }
     },
-    [permissions, updatePermissions],
+    [updatePermissions],
   )
 
   const refreshPermissions = useCallback(async () => {
@@ -133,16 +135,16 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return updatePermissions(results)
     } catch (error) {
       console.error("Failed to refresh permissions:", error)
-      return permissions
+      return permissionsRef.current
     }
-  }, [permissions, updatePermissions])
+  }, [updatePermissions])
 
   const promptToEnablePermissions = useCallback(() => {
-    const denied = permissions.filter((item) => !item.granted).map((item) => item.name)
+    const denied = permissionsRef.current.filter((item) => !item.granted).map((item) => item.name)
     if (denied.length > 0) {
       showDeniedAlert(denied)
     }
-  }, [permissions, showDeniedAlert])
+  }, [showDeniedAlert])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -158,15 +160,16 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     let cancelled = false
     const init = async () => {
       try {
-        const results = await ensureCorePermissions({ skipIfGranted: false })
+        const results = await requestCorePermissions({ skipIfGranted: false, parallel: false })
+        if (!cancelled) {
+          updatePermissions(results)
+          setInitialRequestComplete(true)
+        }
+      } catch (error) {
+        console.error("Initial permission request failed:", error)
         if (!cancelled) {
           setInitialRequestComplete(true)
         }
-        // ensureCorePermissions returns boolean, need actual statuses -> refresh afterwards
-        await refreshPermissions()
-      } catch (error) {
-        console.error("Initial permission request failed:", error)
-        await refreshPermissions()
       }
     }
 
@@ -175,7 +178,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => {
       cancelled = true
     }
-  }, [initialRequestComplete, refreshPermissions])
+  }, [initialRequestComplete, updatePermissions])
 
   // Re-check when app returns to foreground
   useEffect(() => {

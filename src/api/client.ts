@@ -251,25 +251,43 @@ class ApiClient {
   }
 
   // Upload file
-  async upload<T>(endpoint: string, file: File | FormData): Promise<ApiResponse<T>> {
+  async upload<T>(
+    endpoint: string,
+    payload: File | FormData | Blob,
+    options?: {
+      contentType?: string
+      headers?: Record<string, string>
+    },
+  ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseURL}${endpoint}`
-      const headers: Record<string, string> = {}
-      
-      // Don't set Content-Type for FormData, let browser set it with boundary
-      if (!(file instanceof FormData)) {
-        headers['Content-Type'] = file.type || 'application/octet-stream'
+      const headers: Record<string, string> = { ...(options?.headers ?? {}) }
+      const isFormData =
+        (typeof FormData !== "undefined" && payload instanceof FormData) ||
+        (payload &&
+          typeof payload === "object" &&
+          typeof (payload as any).append === "function" &&
+          !(payload as any).uri)
+
+      // Don't set Content-Type for FormData, let runtime include the boundary
+      if (!isFormData) {
+        const inferredType =
+          typeof payload === "object" && payload !== null && "type" in payload
+            ? ((payload as any).type as string | undefined)
+            : undefined
+        const finalType = options?.contentType && options.contentType.length > 0 ? options.contentType : inferredType
+        headers["Content-Type"] = finalType && finalType.length > 0 ? finalType : "application/octet-stream"
       }
 
       const token = await getStoredToken()
       if (token) {
-        headers['Authorization'] = `Token ${token}`
+        headers["Authorization"] = token.startsWith("eyJ") ? `Bearer ${token}` : `Token ${token}`
       }
 
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: file,
+        body: payload as any,
       })
 
       const data = await response.json()

@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react'
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native'
+import React, { useState, useMemo, useCallback } from 'react'
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Pressable, Linking } from 'react-native'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
 import { Screen } from '@/components/Screen'
@@ -37,6 +37,10 @@ export const HOSScreen: React.FC = () => {
   const currentHOS = currentHOSStatus || {} as any
   const clocks = hosClocks || {} as any
   const currentDriver = driverProfile || {} as any
+
+  const handleLogoPress = useCallback(() => {
+    Linking.openURL('https://ttmkonnect.com').catch((error) => console.warn('Failed to open ttmkonnect.com', error))
+  }, [])
 
   const formatTime = (minutes: number) => {
     if (!minutes && minutes !== 0) return '00:00'
@@ -87,10 +91,12 @@ export const HOSScreen: React.FC = () => {
           safeAreaEdges={["top"]}
           RightActionComponent={
             <View style={{ paddingRight: 4 }}>
-              <Image
-                source={require('assets/images/ttm-logo.png')}
-                style={{ width: 120, height: 32, resizeMode: 'contain' }}
-              />
+              <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Image
+                  source={require('assets/images/ttm-logo.png')}
+                  style={{ width: 120, height: 32, resizeMode: 'contain' }}
+                />
+              </Pressable>
             </View>}
         />
 
@@ -139,10 +145,12 @@ export const HOSScreen: React.FC = () => {
           safeAreaEdges={["top"]}
           RightActionComponent={
             <View style={{ paddingRight: 4 }}>
-              <Image
-                source={require('assets/images/ttm-logo.png')}
-                style={{ width: 120, height: 32, resizeMode: 'contain' }}
-              />
+              <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Image
+                  source={require('assets/images/ttm-logo.png')}
+                  style={{ width: 120, height: 32, resizeMode: 'contain' }}
+                />
+              </Pressable>
             </View>}
         />
       <Screen
