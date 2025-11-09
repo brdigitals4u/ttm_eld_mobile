@@ -1,3 +1,20 @@
+    @ReactMethod
+    fun getCurrentDeviceId(promise: Promise) {
+        try {
+            val deviceId = lastExtractedDeviceId ?: currentDevice?.address
+            if (deviceId != null) {
+                val result = Arguments.createMap().apply {
+                    putString("deviceId", deviceId)
+                    putBoolean("isExtracted", lastExtractedDeviceId != null)
+                }
+                promise.resolve(result)
+            } else {
+                promise.reject("DEVICE_ID_UNAVAILABLE", "No ELD identifier captured yet")
+            }
+        } catch (e: Exception) {
+            promise.reject("DEVICE_ID_ERROR", e.message)
+        }
+    }
 package com.ttmkonnect.eld
 
 
@@ -28,6 +45,8 @@ import com.jimi.ble.utils.InstructionAnalysis
 import com.jimi.ble.command.startReportEldData
 import com.jimi.ble.command.replyReceivedObdData
 import com.jimi.ble.command.replyReceivedEldData
+import com.jimi.ble.decode.OBDDecodeKt
+import com.jimi.ble.command.OBDExpandKt
 
 import java.text.SimpleDateFormat
 import java.util.*
@@ -41,6 +60,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     private var upgradeManager: FirmwareUpgradeManager? = null
     private var isActivatingDevice = false // Prevent multiple activation threads
     private var isAuthenticatedSuccessfully = false // Track authentication success
+    private var lastExtractedDeviceId: String? = null
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
@@ -154,6 +174,24 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         } catch (e: Exception) {
             Log.e(TAG, "Error getting connection status: ${e.message}")
             promise.reject("CONNECTION_STATUS_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun getCurrentDeviceId(promise: Promise) {
+        try {
+            val deviceId = lastExtractedDeviceId ?: currentDevice?.address
+            if (deviceId != null && deviceId.isNotEmpty()) {
+                val resultMap = Arguments.createMap().apply {
+                    putString("deviceId", deviceId)
+                    putBoolean("isExtracted", lastExtractedDeviceId != null)
+                }
+                promise.resolve(resultMap)
+            } else {
+                promise.reject("DEVICE_ID_UNAVAILABLE", "No ELD identifier captured yet")
+            }
+        } catch (e: Exception) {
+            promise.reject("DEVICE_ID_ERROR", e.message)
         }
     }
 
@@ -386,6 +424,14 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         
                         // Create a BtParseData object from raw data with proper ACK
                         val btParseData = BtParseData(ack, data)
+                    val deviceId = extractDeviceIdFromRawData(data)
+                    if (deviceId != null) {
+                        val deviceIdMap = Arguments.createMap().apply {
+                            putString("deviceId", deviceId)
+                            putString("timestamp", System.currentTimeMillis().toString())
+                        }
+                        sendEvent("onEldDeviceIdDetected", deviceIdMap)
+                    }
                         Log.d(TAG, "🔍 Attempting to parse raw data as BtParseData with ACK: $ack")
                         handleDataReceived(btParseData)
                     } catch (e: Exception) {
@@ -413,6 +459,9 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         putString("timestamp", System.currentTimeMillis().toString())
                         putString("reason", "Authentication successful")
                         putBoolean("authenticationComplete", true)
+                        lastExtractedDeviceId?.let {
+                            putString("deviceId", it)
+                        }
                     }
                     sendEvent("onAuthenticationPassed", authInfo)
                     
@@ -497,6 +546,9 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                                 putString("timestamp", System.currentTimeMillis().toString())
                                 putString("reason", "Authentication successful - Status 8 is expected")
                                 putBoolean("status8Expected", true)
+                                lastExtractedDeviceId?.let {
+                                    putString("deviceId", it)
+                                }
                             }
                             sendEvent("onAuthenticationPassed", authSuccessMap)
                             
@@ -601,6 +653,103 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         } catch (e: Exception) {
             Log.e(TAG, "Error disconnecting: ${e.message}")
             promise.reject("DISCONNECT_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun sendUtcTime(promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+
+            Log.i(TAG, "Sending UTC time to device")
+            OBDExpandKt.sendUTCTime(BluetoothLESDK.INSTANCE)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send UTC time: ${e.message}")
+            promise.reject("SEND_UTC_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun checkPasswordEnable(promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+
+            Log.i(TAG, "Checking password enable state")
+            OBDExpandKt.checkPasswordEnable(BluetoothLESDK.INSTANCE)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check password enable: ${e.message}")
+            promise.reject("CHECK_PASSWORD_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun validatePassword(password: String, promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+            if (password.isBlank()) {
+                promise.reject("INVALID_PASSWORD", "Password cannot be empty")
+                return
+            }
+
+            Log.i(TAG, "Validating password")
+            OBDExpandKt.validatePassword(BluetoothLESDK.INSTANCE, password)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to validate password: ${e.message}")
+            promise.reject("VALIDATE_PASSWORD_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun enablePassword(password: String, promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+            if (password.isBlank()) {
+                promise.reject("INVALID_PASSWORD", "Password cannot be empty")
+                return
+            }
+
+            Log.i(TAG, "Enabling password protection")
+            OBDExpandKt.enablePassword(BluetoothLESDK.INSTANCE, password)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enable password: ${e.message}")
+            promise.reject("ENABLE_PASSWORD_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun disablePassword(password: String, promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+            if (password.isBlank()) {
+                promise.reject("INVALID_PASSWORD", "Password cannot be empty")
+                return
+            }
+
+            Log.i(TAG, "Disabling password protection")
+            OBDExpandKt.disablePassword(BluetoothLESDK.INSTANCE, password)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disable password: ${e.message}")
+            promise.reject("DISABLE_PASSWORD_ERROR", e.message)
         }
     }
 
@@ -862,6 +1011,17 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     }
 
     @ReactMethod
+    fun acknowledgeCustomCommand(promise: Promise) {
+        try {
+            Log.i(TAG, "Acknowledging custom command response")
+            OBDExpandKt.replyReceiveCustomCommandReply(BluetoothLESDK.INSTANCE)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("ACK_CUSTOM_COMMAND_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
     fun saveDriverAuthInfo(info: String, promise: Promise) {
         try {
             if (!isConnected) {
@@ -896,6 +1056,49 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             promise.resolve(success)
         } catch (e: Exception) {
             promise.reject("READ_DRIVER_AUTH_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun setDpfRegeneration(mode: Int, enable: Boolean, promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+
+            Log.i(TAG, "Setting DPF regeneration: mode=$mode enable=$enable")
+            OBDExpandKt.setDpfRegeneration(BluetoothLESDK.INSTANCE, mode, enable)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("SET_DPF_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun replyDpfRegenerationUploadState(promise: Promise) {
+        try {
+            Log.i(TAG, "Acknowledging DPF regeneration upload state")
+            OBDExpandKt.replyDpfRegenerationUploadState(BluetoothLESDK.INSTANCE)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("ACK_DPF_UPLOAD_ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun checkDpfRegenerationState(promise: Promise) {
+        try {
+            if (!isConnected) {
+                promise.reject("NOT_CONNECTED", "Device not connected")
+                return
+            }
+
+            Log.i(TAG, "Querying DPF regeneration state")
+            OBDExpandKt.checkDpfRegenerationState(BluetoothLESDK.INSTANCE)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("CHECK_DPF_ERROR", e.message)
         }
     }
 
@@ -1161,8 +1364,46 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                             putInt("msgSubtype", bean.msgSubtype)
                             putInt("ecuCount", list?.size ?: 0)
                             putString("timestamp", System.currentTimeMillis().toString())
+
+                            if (list != null && list.isNotEmpty()) {
+                                val ecuArray = Arguments.createArray()
+                                list.forEach { ecu ->
+                                    val ecuMap = Arguments.createMap().apply {
+                                        putString("ecuIdHex", String.format("0x%X", ecu.ecuId))
+                                        putString("ecuId", ecu.ecuId.toString())
+                                        val codesArray = Arguments.createArray()
+                                        ecu.errorCodeList?.forEach { code ->
+                                            codesArray.pushString(code)
+                                        }
+                                        putArray("codes", codesArray)
+                                    }
+                                    ecuArray.pushMap(ecuMap)
+                                }
+                                putArray("ecuList", ecuArray)
+                            }
                         }
                         sendEvent("onObdErrorDataReceived", errorMap)
+                        if (list != null && list.isNotEmpty()) {
+                            val faultMap = Arguments.createMap().apply {
+                                putString("timestamp", errorMap.getString("timestamp"))
+                                putInt("ecuCount", list.size)
+                                val ecuArray = Arguments.createArray()
+                                list.forEach { ecu ->
+                                    val ecuMap = Arguments.createMap().apply {
+                                        putString("ecuIdHex", String.format("0x%X", ecu.ecuId))
+                                        putString("ecuId", ecu.ecuId.toString())
+                                        val codesArray = Arguments.createArray()
+                                        ecu.errorCodeList?.forEach { code ->
+                                            codesArray.pushString(code)
+                                        }
+                                        putArray("codes", codesArray)
+                                    }
+                                    ecuArray.pushMap(ecuMap)
+                                }
+                                putArray("ecuList", ecuArray)
+                            }
+                            sendEvent("onFaultDataReceived", faultMap)
+                        }
                         Log.i(TAG, "✅ ErrorBean processed: ${list?.size ?: 0} ECU items")
                     }
                     is BaseObdData.VinBean -> {
@@ -1257,6 +1498,43 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             } catch (fallbackException: Exception) {
                 Log.e(TAG, "Fallback parsing also failed: ${fallbackException.message}")
             }
+        }
+
+        try {
+            val historyProgress = OBDDecodeKt.getHistoryDataProgress(data)
+            val historyCount = OBDDecodeKt.getHistoryDataCount(data)
+            val historySuccess = OBDDecodeKt.queryHistoryDataSuccess(data)
+
+            if (historyProgress > 0 || historyCount > 0 || historySuccess) {
+                val historyMap = Arguments.createMap().apply {
+                    putInt("progress", historyProgress)
+                    putDouble("count", historyCount.toDouble())
+                    putBoolean("success", historySuccess)
+                    putString("timestamp", System.currentTimeMillis().toString())
+                }
+                sendEvent("onHistoryProgress", historyMap)
+                try {
+                    OBDExpandKt.replyReceivedHistoryProgress(BluetoothLESDK.INSTANCE)
+                } catch (ackError: Exception) {
+                    Log.w(TAG, "⚠️ Failed to acknowledge history progress: ${ackError.message}")
+                }
+            }
+
+            val updateProgress = OBDDecodeKt.getUpdateProgress(data)
+            if (updateProgress > 0) {
+                val updateMap = Arguments.createMap().apply {
+                    putInt("progress", updateProgress)
+                    putString("timestamp", System.currentTimeMillis().toString())
+                }
+                sendEvent("onUpdateProgress", updateMap)
+                try {
+                    OBDExpandKt.replyReceiveUpdateProgress(BluetoothLESDK.INSTANCE)
+                } catch (ackError: Exception) {
+                    Log.w(TAG, "⚠️ Failed to acknowledge update progress: ${ackError.message}")
+                }
+            }
+        } catch (progressError: Exception) {
+            Log.w(TAG, "⚠️ History/update progress parsing failed: ${progressError.message}")
         }
     }
     
@@ -1411,6 +1689,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                     if (data[i] == 0x43.toByte() && data[i + 1] == 0x34.toByte() && data[i + 2] == 0x41.toByte()) {
                         // Potential device ID found (C4A8...)
                         val deviceId = data.sliceArray(i..i + 5).joinToString("") { "%02X".format(it) }
+                        lastExtractedDeviceId = deviceId
                         return deviceId
                     }
                 }

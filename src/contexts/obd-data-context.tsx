@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { BatteryState, useBatteryLevel, useBatteryState, useLowPowerMode } from 'expo-battery'
 import JMBluetoothService from '@/services/JMBluetoothService'
-import { ObdEldData } from '@/types/JMBluetooth'
+import { ObdEldData, HistoryProgress } from '@/types/JMBluetooth'
 import { handleData } from '@/services/handleData'
 import { useAuth } from '@/stores/authStore'
 import { useStatusStore } from '@/stores/statusStore'
@@ -12,7 +12,69 @@ import { awsApiService, AwsObdPayload } from '@/services/AwsApiService'
 import { awsConfig } from '@/config/aws-config'
 import { locationQueueService } from '@/services/location-queue'
 import { setBatteryGetter } from '@/services/device-heartbeat-service'
+import { decodeObdCode, ObdCodeDetails } from '@/utils/obd-code-decoder'
 
+const SPEED_THRESHOLD_DRIVING = 5 // mph
+
+type ActivityState = 'driving' | 'idling' | 'inactive' | 'disconnected'
+
+const SYNC_STRATEGY: Record<
+  ActivityState,
+  { localIntervalMs: number; localBatchSize: number; awsIntervalMs: number; awsBatchSize: number }
+> = {
+  driving: {
+    localIntervalMs: 20000,
+    localBatchSize: 5,
+    awsIntervalMs: 20000,
+    awsBatchSize: 5,
+  },
+  idling: {
+    localIntervalMs: 90000,
+    localBatchSize: 3,
+    awsIntervalMs: 90000,
+    awsBatchSize: 3,
+  },
+  inactive: {
+    localIntervalMs: 180000,
+    localBatchSize: 10,
+    awsIntervalMs: 180000,
+    awsBatchSize: 10,
+  },
+  disconnected: {
+    localIntervalMs: 300000,
+    localBatchSize: 10,
+    awsIntervalMs: 300000,
+    awsBatchSize: 10,
+  },
+}
+
+interface MalfunctionRecord {
+  id: string
+  timestamp: Date
+  ecuId: string
+  ecuIdHex: string
+  codes: ObdCodeDetails[]
+}
+
+interface EldHistoryRecord {
+  id: string
+  deviceId: string | null
+  receivedAt: Date
+  eventTime?: string
+  eventType?: number
+  eventId?: number
+  latitude?: number
+  longitude?: number
+  gpsSpeed?: number
+  raw: any
+  displayData: OBDDataItem[]
+}
+
+interface EldHistoryRequest {
+  type: number
+  start: Date
+  end: Date
+}
 interface OBDDataItem {
   id: string
   name: string
@@ -43,6 +105,14 @@ interface ObdDataContextType {
   isLowPowerMode: boolean
   isSyncThrottled: boolean
   eldBatteryVoltage: number | null
+  currentSpeedMph: number
+  activityState: ActivityState
+  recentMalfunctions: MalfunctionRecord[]
+  eldDeviceId: string | null
+  eldHistoryRecords: EldHistoryRecord[]
+  isFetchingHistory: boolean
+  historyFetchProgress: HistoryProgress | null
+  fetchEldHistory: (request: EldHistoryRequest) => Promise<void>
 }
 
 const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
@@ -59,6 +129,14 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [lastAwsSync, setLastAwsSync] = useState<Date | null>(null)
   const [recentAutoDutyChanges, setRecentAutoDutyChanges] = useState<AutoDutyChange[]>([])
   const [eldBatteryVoltage, setEldBatteryVoltage] = useState<number | null>(null)
+  const [currentSpeedMph, setCurrentSpeedMph] = useState<number>(0)
+  const [activityState, setActivityState] = useState<ActivityState>('inactive')
+  const [recentMalfunctions, setRecentMalfunctions] = useState<MalfunctionRecord[]>([])
+  const [eldDeviceId, setEldDeviceId] = useState<string | null>(null)
+  
+  const [eldHistoryRecords, setEldHistoryRecords] = useState<EldHistoryRecord[]>([])
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false)
+  const [historyFetchProgress, setHistoryFetchProgress] = useState<HistoryProgress | null>(null)
 
   const rawBatteryLevel = useBatteryLevel()
   const batteryState = useBatteryState()
@@ -72,20 +150,141 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const isBatteryLow = batteryLevel !== null && batteryLevel <= 0.2
   const isSyncThrottled = isLowPowerMode || isBatteryLow
   const batteryStateValue = batteryState ?? BatteryState.UNKNOWN
-
-  const localSyncIntervalMs = isSyncThrottled ? 120000 : 60000
-  const awsConfiguredIntervalMs = awsConfig.features.awsSyncInterval ?? 60000
-  const awsSyncIntervalMs = isSyncThrottled
-    ? Math.max(awsConfiguredIntervalMs * 2, awsConfiguredIntervalMs + 30000)
-    : awsConfiguredIntervalMs
+  const activeSyncStrategy = SYNC_STRATEGY[activityState] ?? SYNC_STRATEGY.inactive
+  const baseLocalIntervalMs = activeSyncStrategy.localIntervalMs
+  const baseAwsIntervalMs = activeSyncStrategy.awsIntervalMs
+  const localBatchSize = activeSyncStrategy.localBatchSize
+  const awsBatchSize = activeSyncStrategy.awsBatchSize
+  const localSyncIntervalMs = isSyncThrottled ? baseLocalIntervalMs * 2 : baseLocalIntervalMs
+  const awsSyncIntervalMs = isSyncThrottled ? baseAwsIntervalMs * 2 : baseAwsIntervalMs
   
   // Store data buffers for batch API sync
   const dataBufferRef = useRef<ObdDataPayload[]>([]) // Local API buffer
   const awsBufferRef = useRef<AwsObdPayload[]>([]) // AWS buffer
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const awsSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const localSyncInFlightRef = useRef(false)
+  const awsSyncInFlightRef = useRef(false)
   const eldReportingStartedRef = useRef<boolean>(false) // Track if ELD reporting has been started
+  const historyRecordsRef = useRef<EldHistoryRecord[]>([])
+  const isFetchingHistoryRef = useRef(false)
   
+  const resolveDeviceId = (source: any): string | null => {
+    if (!source || typeof source !== 'object') {
+      return null
+    }
+
+    const candidates = [
+      source.deviceId,
+      source.device_id,
+      source.DeviceId,
+      source.macAddress,
+      source.mac,
+      source.address,
+    ]
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate.trim()
+      }
+    }
+
+    return null
+  }
+
+  const resetHistoryState = useCallback(() => {
+    historyRecordsRef.current = []
+    setEldHistoryRecords([])
+    setHistoryFetchProgress(null)
+  }, [])
+
+  const completeHistoryFetch = useCallback(() => {
+    if (!isFetchingHistoryRef.current) {
+      return
+    }
+    isFetchingHistoryRef.current = false
+    setIsFetchingHistory(false)
+    setHistoryFetchProgress((prev: any) => {
+      const count = historyRecordsRef.current.length
+      if (prev) {
+        return {
+          progress: count,
+          count,
+        }
+      }
+      return count > 0
+        ? {
+            progress: count,
+            count,
+          }
+        : null
+    })
+    JMBluetoothService.stopReportHistoryData().catch((error) => {
+      console.log('⚠️ OBD Data Context: Failed to stop history reporting', error?.message ?? error)
+    })
+  }, [])
+
+  const fetchEldHistory = useCallback(
+    async ({ type, start, end }: EldHistoryRequest) => {
+      if (!isConnected) {
+        throw new Error('ELD device is not connected')
+      }
+
+      if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+        throw new Error('Invalid start time provided')
+      }
+
+      if (!(end instanceof Date) || Number.isNaN(end.getTime())) {
+        throw new Error('Invalid end time provided')
+      }
+
+      if (start >= end) {
+        throw new Error('Start time must be earlier than end time')
+      }
+
+      if (isFetchingHistoryRef.current) {
+        console.warn('⚠️ OBD Data Context: History fetch already in progress, skipping new request')
+        return
+      }
+
+      const startTime = JMBluetoothService.formatTimeForHistory(start)
+      const endTime = JMBluetoothService.formatTimeForHistory(end)
+
+      resetHistoryState()
+      setIsFetchingHistory(true)
+      isFetchingHistoryRef.current = true
+
+      try {
+        await JMBluetoothService.queryHistoryData(type, startTime, endTime)
+      } catch (error) {
+        console.error('❌ OBD Data Context: Failed to query history data', error)
+        isFetchingHistoryRef.current = false
+        setIsFetchingHistory(false)
+        setHistoryFetchProgress(null)
+        throw error
+      }
+    },
+    [isConnected],
+  )
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setEldDeviceId(null)
+      return
+    }
+
+    JMBluetoothService.getCurrentDeviceId()
+      .then((deviceId) => {
+        if (deviceId && deviceId.trim().length > 0) {
+          setEldDeviceId(deviceId.trim())
+        }
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error)
+        console.log('ℹ️ OBD Data Context: No current device ID available', message)
+      })
+  }, [isAuthenticated])
+
   // Set up battery getter for heartbeat service
   useEffect(() => {
     setBatteryGetter(() => {
@@ -116,6 +315,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!isAuthenticated) {
       console.log('📡 OBD Data Context: User not authenticated, skipping setup')
+      setActivityState('inactive')
+      setCurrentSpeedMph(0)
+      resetHistoryState()
       return
     }
 
@@ -130,12 +332,67 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.log('📊 OBD Data Context: Has dataFlowList?', !!data.dataFlowList, 'Length:', data.dataFlowList?.length || 0)
         console.log('📊 OBD Data Context: driverProfile exists?', !!driverProfile, 'driver_id:', driverProfile?.driver_id)
         console.log('📊 OBD Data Context: vehicleAssignment exists?', !!vehicleAssignment)
-        const displayData = handleData(data)
-        console.log('📊 OBD Data Context: Processed display data', { 
+        const incomingDeviceId = resolveDeviceId(data)
+        const deviceIdentifier = incomingDeviceId ?? eldDeviceId ?? null
+
+        if (deviceIdentifier) {
+          setEldDeviceId(deviceIdentifier)
+        }
+
+        const payloadWithDeviceId = {
+          ...data,
+          deviceId: deviceIdentifier ?? undefined,
+          device_id: deviceIdentifier ?? undefined,
+        }
+
+        const displayData = handleData(payloadWithDeviceId)
+        console.log('📊 OBD Data Context: Processed display data', {
           displayDataLength: displayData.length,
-          displayDataItems: displayData.map(item => ({ name: item.name, value: item.value }))
+          displayDataItems: displayData.map(item => ({ name: item.name, value: item.value })),
         })
+
+        const isLiveEventFlag =
+          typeof (payloadWithDeviceId as any).isLiveEvent === 'number'
+            ? (payloadWithDeviceId as any).isLiveEvent
+            : undefined
+
+        const isHistoryEvent =
+          isFetchingHistoryRef.current || isLiveEventFlag === 0
+
+        if (isHistoryEvent) {
+          const historyRecord: EldHistoryRecord = {
+            id: `${payloadWithDeviceId.eventTime ?? payloadWithDeviceId.timestamp ?? Date.now()}-${payloadWithDeviceId.eventId ?? historyRecordsRef.current.length}`,
+            deviceId: deviceIdentifier ?? null,
+            receivedAt: new Date(),
+            eventTime: payloadWithDeviceId.eventTime,
+            eventType: payloadWithDeviceId.eventType,
+            eventId: payloadWithDeviceId.eventId,
+            latitude: payloadWithDeviceId.latitude,
+            longitude: payloadWithDeviceId.longitude,
+            gpsSpeed: payloadWithDeviceId.gpsSpeed,
+            raw: payloadWithDeviceId,
+            displayData,
+          }
+          historyRecordsRef.current = [...historyRecordsRef.current, historyRecord]
+          setEldHistoryRecords([...historyRecordsRef.current])
+          setHistoryFetchProgress({
+            progress: historyRecordsRef.current.length,
+            count: historyRecordsRef.current.length,
+          })
+          return
+        }
+
+        const speedItem = displayData.find(item =>
+          item.name.includes('Vehicle Speed') || item.name.includes('Wheel-Based Vehicle Speed'),
+        )
+        let speedMph = speedItem ? parseFloat(speedItem.value) || 0 : 0
+        if (speedItem?.unit && speedItem.unit.toLowerCase().includes('km')) {
+          speedMph = parseFloat((speedMph * 0.621371).toFixed(2))
+        }
+
         setObdData(displayData)
+        setCurrentSpeedMph(speedMph)
+        setActivityState(speedMph >= SPEED_THRESHOLD_DRIVING ? 'driving' : 'idling')
 
         // Capture ELD (vehicle) battery voltage if available
         const vehicleVoltageItem = displayData.find((item) => item.name.toLowerCase().includes('voltage'))
@@ -150,31 +407,26 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsConnected(true)
 
         // Store ELD location in global state (non-blocking)
-        if (data.latitude !== undefined && data.longitude !== undefined && 
-            !isNaN(data.latitude) && !isNaN(data.longitude)) {
+        if (payloadWithDeviceId.latitude !== undefined && payloadWithDeviceId.longitude !== undefined &&
+            !isNaN(payloadWithDeviceId.latitude) && !isNaN(payloadWithDeviceId.longitude)) {
           setEldLocation({
-            latitude: data.latitude,
-            longitude: data.longitude,
+            latitude: payloadWithDeviceId.latitude,
+            longitude: payloadWithDeviceId.longitude,
             timestamp: Date.now(),
           })
-          console.log('📍 OBD Data Context: Stored ELD location:', data.latitude, data.longitude)
+          console.log('📍 OBD Data Context: Stored ELD location:', payloadWithDeviceId.latitude, payloadWithDeviceId.longitude)
           
           // Add location to queue for batch upload (new driver API)
-          const speedItem = displayData.find(item => 
-            item.name.includes('Vehicle Speed') || item.name.includes('Wheel-Based Vehicle Speed')
-          )
-          const speedMph = speedItem ? parseFloat(speedItem.value) || 0 : 0
-          
           const odometerItem = displayData.find(item => 
             item.name.includes('Total Vehicle Distance') || item.name.includes('Odometer')
           )
           const odometer = odometerItem ? parseFloat(odometerItem.value) || undefined : undefined
           
           locationQueueService.addLocation({
-            latitude: data.latitude,
-            longitude: data.longitude,
+            latitude: payloadWithDeviceId.latitude,
+            longitude: payloadWithDeviceId.longitude,
             speed_mph: speedMph,
-            heading: data.gpsRotation,
+            heading: payloadWithDeviceId.gpsRotation,
             odometer: odometer,
             accuracy_m: undefined, // ObdEldData doesn't have accuracy field, can be added later if available
           }).catch(error => {
@@ -190,12 +442,16 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
 
         // Local API payload
+        const rawPayload = payloadWithDeviceId
+
         const localPayload: ObdDataPayload = {
           driver_id: driverProfile.driver_id,
           timestamp: new Date().toISOString(),
-          latitude: data.latitude,
-          longitude: data.longitude,
-          raw_data: data,
+          latitude: payloadWithDeviceId.latitude,
+          longitude: payloadWithDeviceId.longitude,
+          raw_data: rawPayload,
+          device_id: deviceIdentifier ?? undefined,
+          deviceId: deviceIdentifier ?? undefined,
         }
 
         // AWS Lambda payload - ensure required fields are always valid
@@ -211,22 +467,26 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             driverId: driverProfile.driver_id,
             timestamp: timestamp,
             dataType: 'engine_data',
-            latitude: data.latitude,
-            longitude: data.longitude,
-            gpsSpeed: data.gpsSpeed,
-            gpsTime: data.gpsTime,
-            gpsRotation: data.gpsRotation,
-            eventTime: data.eventTime,
-            eventType: data.eventType,
-            eventId: data.eventId,
-            isLiveEvent: data.isLiveEvent,
+            latitude: payloadWithDeviceId.latitude,
+            longitude: payloadWithDeviceId.longitude,
+            gpsSpeed: payloadWithDeviceId.gpsSpeed,
+            gpsTime: payloadWithDeviceId.gpsTime,
+            gpsRotation: payloadWithDeviceId.gpsRotation,
+            eventTime: payloadWithDeviceId.eventTime,
+            eventType: payloadWithDeviceId.eventType,
+            eventId: payloadWithDeviceId.eventId,
+            isLiveEvent: payloadWithDeviceId.isLiveEvent as any,
             allData: displayData,
+            deviceId: deviceIdentifier ?? undefined,
           }
 
           // Extract specific values from display data for both payloads
           displayData.forEach((item) => {
             if (item.name.includes('Vehicle Speed')) {
-              const value = parseFloat(item.value) || 0
+              let value = parseFloat(item.value) || 0
+              if (item.unit && item.unit.toLowerCase().includes('km')) {
+                value = parseFloat((value * 0.621371).toFixed(2))
+              }
               localPayload.vehicle_speed = value
               awsPayload.vehicleSpeed = value
             } else if (item.name.includes('Engine Speed')) {
@@ -265,6 +525,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.log('❌ OBD Data Context: Device disconnected')
         console.log('🔄 OBD Data Context: Setting isConnected to false')
         setIsConnected(false)
+        setActivityState('disconnected')
+        setCurrentSpeedMph(0)
+        setEldBatteryVoltage(null)
         eldReportingStartedRef.current = false // Reset flag on disconnect
       }
     )
@@ -275,6 +538,8 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.log('✅ OBD Data Context: Device connected')
         console.log('🔄 OBD Data Context: Setting isConnected to true')
         setIsConnected(true)
+        setActivityState('idling')
+        setCurrentSpeedMph(0)
         
         // Prevent duplicate calls
         if (eldReportingStartedRef.current) {
@@ -464,8 +729,11 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         })
         
-        locationQueueService.startAutoFlush(30000) // Every 30 seconds
-        console.log('📍 OBD Data Context: Location queue service initialized and started')
+        const locationFlushIntervalMs = Math.min(Math.max(localSyncIntervalMs, 20000), 180000)
+        locationQueueService.startAutoFlush(locationFlushIntervalMs)
+        console.log('📍 OBD Data Context: Location queue service initialized and started', {
+          locationFlushIntervalSeconds: locationFlushIntervalMs / 1000,
+        })
       }).catch(error => {
         console.error('❌ OBD Data Context: Failed to initialize location queue:', error)
       })
@@ -484,6 +752,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       'onObdEldFinish',
       () => {
         console.log('📊 OBD Data Context: OBD ELD finished')
+        if (isFetchingHistoryRef.current) {
+          completeHistoryFetch()
+        }
       }
     )
 
@@ -513,6 +784,197 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     )
 
+    const deviceIdListener = JMBluetoothService.addEventListener(
+      'onEldDeviceIdDetected',
+      (payload) => {
+        if (payload?.deviceId) {
+          const normalizedId = payload.deviceId.trim()
+          if (normalizedId.length > 0) {
+            console.log('🆔 OBD Data Context: Detected ELD device ID', normalizedId)
+            setEldDeviceId(normalizedId)
+          }
+        }
+      },
+    )
+
+    const historyProgressListener = JMBluetoothService.addEventListener(
+      'onHistoryProgress',
+      (progress) => {
+        if (progress && typeof progress === 'object') {
+          const normalizedProgress = {
+            progress: Number((progress as any).progress) || 0,
+            count: Number((progress as any).count) || 0,
+          }
+          setHistoryFetchProgress(normalizedProgress)
+        }
+      },
+    )
+
+    const obdErrorDataListener = JMBluetoothService.addEventListener(
+      'onObdErrorDataReceived',
+      (errorData: any) => {
+        try {
+          const ecuList = Array.isArray(errorData?.ecuList) ? errorData.ecuList : []
+          if (!driverProfile?.driver_id) {
+            console.warn('⚠️ OBD Data Context: Malfunction event received without driver profile')
+            return
+          }
+          if (ecuList.length === 0) {
+            console.log('ℹ️ OBD Data Context: Malfunction event had no ECU entries, skipping')
+            return
+          }
+
+          const incomingFaultDeviceId = resolveDeviceId(errorData)
+          const faultDeviceIdentifier = incomingFaultDeviceId ?? eldDeviceId ?? null
+
+          if (faultDeviceIdentifier) {
+            setEldDeviceId(faultDeviceIdentifier)
+          }
+
+          const eventTimestamp = errorData?.timestamp
+            ? Number.parseInt(errorData.timestamp, 10)
+            : Date.now()
+          const timestamp = Number.isFinite(eventTimestamp) ? new Date(eventTimestamp) : new Date()
+
+          const malfunctionRecords = (ecuList as Array<any>)
+            .map<MalfunctionRecord | null>((ecu, index: number) => {
+              const codeList = Array.isArray(ecu?.codes)
+                ? (ecu.codes as string[]).filter((code) => typeof code === 'string' && code.trim() !== '')
+                : []
+              if (codeList.length === 0) {
+                return null
+              }
+
+              const codes = codeList.map((code) => decodeObdCode(code))
+
+              const ecuIdHex =
+                typeof ecu?.ecuIdHex === 'string' && ecu.ecuIdHex.trim().length > 0
+                  ? ecu.ecuIdHex
+                  : typeof ecu?.ecuId === 'string' && ecu.ecuId.trim().length > 0
+                    ? `0x${parseInt(ecu.ecuId, 10).toString(16).toUpperCase()}`
+                    : `ECU_${index}`
+
+              const ecuId =
+                typeof ecu?.ecuId === 'string' && ecu.ecuId.trim().length > 0 ? ecu.ecuId : ecuIdHex
+
+              return {
+                id: `${timestamp.getTime()}-${ecuId}-${index}`,
+                timestamp,
+                ecuId,
+                ecuIdHex,
+                codes,
+              }
+            })
+            .filter((record): record is MalfunctionRecord => record !== null)
+
+          if (malfunctionRecords.length === 0) {
+            console.log('ℹ️ OBD Data Context: Malfunction event had no valid codes after filtering')
+            return
+          }
+
+          setRecentMalfunctions((prev) => {
+            const combined = [...prev, ...malfunctionRecords]
+            return combined.slice(-20)
+          })
+
+          const faultCodesPayload = malfunctionRecords.map((record) => ({
+            ecu_id: record.ecuId,
+            ecu_id_hex: record.ecuIdHex,
+            codes: record.codes.map((code) => code.code),
+            details: record.codes,
+          }))
+
+          const rawFaultDetails = {
+            dataType: 'fault_data' as const,
+            faultCodes: malfunctionRecords.map((record) => ({
+              ecuId: record.ecuId,
+              ecuIdHex: record.ecuIdHex,
+              codes: record.codes.map((code) => code.code),
+              details: record.codes,
+            })),
+          deviceId: faultDeviceIdentifier ?? undefined,
+          device_id: faultDeviceIdentifier ?? undefined,
+            ack: errorData?.ack,
+            ackDescription: errorData?.ackDescription,
+            dataTypeCode: errorData?.dataType,
+            vehicleType: errorData?.vehicleType,
+            msgSubtype: errorData?.msgSubtype,
+            eventTime: errorData?.time,
+          }
+
+          const faultPayload: ObdDataPayload = {
+            driver_id: driverProfile.driver_id,
+            timestamp: new Date().toISOString(),
+            raw_data: rawFaultDetails,
+            data_type: 'fault_data',
+            fault_codes: faultCodesPayload,
+            device_id: faultDeviceIdentifier ?? undefined,
+            deviceId: faultDeviceIdentifier ?? undefined,
+          }
+
+          if (typeof errorData?.latitude === 'number') {
+            faultPayload.latitude = errorData.latitude
+          }
+          if (typeof errorData?.longitude === 'number') {
+            faultPayload.longitude = errorData.longitude
+          }
+
+          dataBufferRef.current.push(faultPayload)
+          console.log(
+            `🚨 OBD Data Context: Recorded malfunction event with ${faultCodesPayload.length} ECU entries`,
+          )
+
+          if (awsConfig.features.enableAwsSync) {
+            const vehicleId =
+              vehicleAssignment?.vehicle_info?.vin ||
+              vehicleAssignment?.vehicle_info?.vehicle_unit ||
+              'UNKNOWN_VEHICLE'
+
+            if (vehicleId === 'UNKNOWN_VEHICLE') {
+              console.warn(
+                '⚠️ OBD Data Context: Skipping AWS fault sync - unknown vehicle identifier',
+              )
+            } else {
+              const awsFaultPayload: AwsObdPayload = {
+                vehicleId,
+                driverId: driverProfile.driver_id,
+                timestamp: timestamp.getTime(),
+                dataType: 'fault_data',
+                deviceId: faultDeviceIdentifier ?? undefined,
+                faultCodes: malfunctionRecords.map((record) => ({
+                  ecuId: record.ecuId,
+                  ecuIdHex: record.ecuIdHex,
+                  codes: record.codes.map((code) => code.code),
+                  details: record.codes,
+                })),
+                allData: malfunctionRecords.map((record) => ({
+                  ecuId: record.ecuId,
+                  ecuIdHex: record.ecuIdHex,
+                  codes: record.codes.map((code) => code.code),
+                  details: record.codes,
+                })),
+              }
+
+              if (typeof errorData?.latitude === 'number') {
+                awsFaultPayload.latitude = errorData.latitude
+              }
+              if (typeof errorData?.longitude === 'number') {
+                awsFaultPayload.longitude = errorData.longitude
+              }
+
+              awsBufferRef.current.push(awsFaultPayload)
+              console.log(
+                '🚨 AWS Buffer: Added malfunction payload for synchronization',
+                awsFaultPayload,
+              )
+            }
+          }
+        } catch (error) {
+          console.error('❌ OBD Data Context: Failed to process malfunction event', error)
+        }
+      },
+    )
+
     // Listen for any data received event
     const obdDataReceivedListener = JMBluetoothService.addEventListener(
       'onDataReceived',
@@ -530,14 +992,18 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       JMBluetoothService.removeEventListener(obdEldFinishListener)
       JMBluetoothService.removeEventListener(obdDataFlowListener)
       JMBluetoothService.removeEventListener(obdRawDataListener)
+      JMBluetoothService.removeEventListener(deviceIdListener)
+      JMBluetoothService.removeEventListener(historyProgressListener)
+      JMBluetoothService.removeEventListener(obdErrorDataListener)
       JMBluetoothService.removeEventListener(obdDataReceivedListener)
       
       // Stop location queue auto-flush
       locationQueueService.stopAutoFlush()
+      resetHistoryState()
     }
-  }, [isAuthenticated, driverProfile?.driver_id, localSyncIntervalMs])
+  }, [isAuthenticated, driverProfile?.driver_id, vehicleAssignment?.vehicle_info?.vin, localSyncIntervalMs, eldDeviceId, completeHistoryFetch])
 
-  // Set up periodic Local API sync (every 1 minute)
+  // Set up periodic Local API sync using adaptive cadence
   useEffect(() => {
     if (!isAuthenticated || !driverProfile?.driver_id) {
       return
@@ -551,25 +1017,43 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     console.log('⏰ OBD Data Context: Setting up Local API sync interval', {
       intervalSeconds: localSyncIntervalMs / 1000,
       isSyncThrottled,
+      activityState,
+      batchSize: localBatchSize,
     })
 
-    syncIntervalRef.current = setInterval(async () => {
+    const runLocalSync = async () => {
+      if (localSyncInFlightRef.current) {
+        console.log('⏳ Local API: Previous sync still in flight, skipping this tick')
+        return
+      }
+
       if (dataBufferRef.current.length === 0) {
         console.log('⏭️  Local API: No data to sync, skipping (buffer empty)')
         console.log('⏭️  Local API: Debug - isAuthenticated:', isAuthenticated, 'driverProfile:', !!driverProfile, 'isConnected:', isConnected)
         return
       }
 
+      const payload = dataBufferRef.current.slice(0, Math.max(1, localBatchSize))
+
+      if (payload.length === 0) {
+        console.log('⏭️  Local API: Computed payload empty after slicing, skipping')
+        return
+      }
+
       try {
+        localSyncInFlightRef.current = true
         setIsSyncing(true)
-        console.log(`🔄 Local API: Syncing ${dataBufferRef.current.length} records...`)
+        console.log(
+          `🔄 Local API: Syncing ${payload.length} records (buffer size ${dataBufferRef.current.length})`,
+        )
         
-        await sendObdDataBatch(dataBufferRef.current)
+        await sendObdDataBatch(payload)
         
-        console.log(`✅ Local API: Successfully synced ${dataBufferRef.current.length} records`)
-        dataBufferRef.current = [] // Clear buffer after successful sync
+        console.log(`✅ Local API: Successfully synced ${payload.length} records`)
+        dataBufferRef.current = dataBufferRef.current.slice(payload.length)
       } catch (error) {
         console.error('❌ Local API: Failed to sync data:', error)
+
         // Keep data in buffer for next sync attempt
         // Limit buffer size to prevent memory issues
         if (dataBufferRef.current.length > 1000) {
@@ -578,17 +1062,36 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       } finally {
         setIsSyncing(false)
+        localSyncInFlightRef.current = false
       }
+    }
+
+    runLocalSync().catch((error) => {
+      console.error('❌ Local API: Immediate sync failed:', error)
+    })
+
+    syncIntervalRef.current = setInterval(() => {
+      runLocalSync().catch((error) => {
+        console.error('❌ Local API: Interval sync failed:', error)
+      })
     }, localSyncIntervalMs)
 
     return () => {
       if (syncIntervalRef.current) {
         clearInterval(syncIntervalRef.current)
+        syncIntervalRef.current = null
       }
     }
-  }, [isAuthenticated, driverProfile?.driver_id])
+  }, [
+    isAuthenticated,
+    driverProfile?.driver_id,
+    localSyncIntervalMs,
+    localBatchSize,
+    isSyncThrottled,
+    activityState,
+  ])
 
-  // Set up periodic AWS sync (every 1 minute)
+  // Set up periodic AWS sync using adaptive cadence
   useEffect(() => {
     if (!isAuthenticated || !driverProfile?.driver_id) {
       return
@@ -602,24 +1105,41 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     console.log('⏰ OBD Data Context: Setting up AWS sync interval', {
       intervalSeconds: awsSyncIntervalMs / 1000,
       isSyncThrottled,
+      activityState,
+      batchSize: awsBatchSize,
     })
 
-    awsSyncIntervalRef.current = setInterval(async () => {
+    const runAwsSync = async () => {
+      if (awsSyncInFlightRef.current) {
+        console.log('⏳ AWS: Previous sync still in flight, skipping this tick')
+        return
+      }
+
       if (awsBufferRef.current.length === 0) {
         console.log('⏭️  AWS: No data to sync, skipping (buffer empty)')
         console.log('⏭️  AWS: Debug - isAuthenticated:', isAuthenticated, 'driverProfile:', !!driverProfile, 'vehicleAssignment:', !!vehicleAssignment)
         return
       }
 
+      const payload = awsBufferRef.current.slice(0, Math.max(1, awsBatchSize))
+
+      if (payload.length === 0) {
+        console.log('⏭️  AWS: Computed payload empty after slicing, skipping')
+        return
+      }
+
       try {
+        awsSyncInFlightRef.current = true
         setAwsSyncStatus('syncing')
-        console.log(`🔄 AWS: Syncing ${awsBufferRef.current.length} records to Lambda...`)
+        console.log(
+          `🔄 AWS: Syncing ${payload.length} records to Lambda (buffer size ${awsBufferRef.current.length})`,
+        )
         
-        const response = await awsApiService.saveObdDataBatch(awsBufferRef.current)
+        const response = await awsApiService.saveObdDataBatch(payload)
         
         if (response.success) {
-          console.log(`✅ AWS: Successfully synced ${awsBufferRef.current.length} records`)
-          awsBufferRef.current = [] // Clear buffer after successful sync
+          console.log(`✅ AWS: Successfully synced ${payload.length} records`)
+          awsBufferRef.current = awsBufferRef.current.slice(payload.length)
           setAwsSyncStatus('success')
           setLastAwsSync(new Date())
           
@@ -650,15 +1170,35 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         // Reset to idle after 3 seconds
         setTimeout(() => setAwsSyncStatus('idle'), 3000)
+      } finally {
+        awsSyncInFlightRef.current = false
       }
+    }
+
+    runAwsSync().catch((error) => {
+      console.error('❌ AWS: Immediate sync failed:', error)
+    })
+
+    awsSyncIntervalRef.current = setInterval(() => {
+      runAwsSync().catch((error) => {
+        console.error('❌ AWS: Interval sync failed:', error)
+      })
     }, awsSyncIntervalMs)
 
     return () => {
       if (awsSyncIntervalRef.current) {
         clearInterval(awsSyncIntervalRef.current)
+        awsSyncIntervalRef.current = null
       }
     }
-  }, [isAuthenticated, driverProfile?.driver_id, awsSyncIntervalMs])
+  }, [
+    isAuthenticated,
+    driverProfile?.driver_id,
+    awsSyncIntervalMs,
+    awsBatchSize,
+    isSyncThrottled,
+    activityState,
+  ])
 
   const value: ObdDataContextType = {
     obdData,
@@ -674,6 +1214,14 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isLowPowerMode,
     isSyncThrottled,
     eldBatteryVoltage,
+    currentSpeedMph,
+    activityState,
+    recentMalfunctions,
+    eldDeviceId,
+    eldHistoryRecords,
+    isFetchingHistory,
+    historyFetchProgress,
+    fetchEldHistory,
   }
 
   return <ObdDataContext.Provider value={value}>{children}</ObdDataContext.Provider>

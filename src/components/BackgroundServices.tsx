@@ -20,6 +20,7 @@ import { BACKGROUND_LOCATION_TASK } from '@/tasks/location-task'
 import { registerBackgroundFetchAsync, unregisterBackgroundFetchAsync } from '@/tasks/background-fetch-task'
 import { useAuth } from '@/stores/authStore'
 import { getAppVersion, getDeviceId } from '@/utils/device'
+import { isBatteryOptimizationEnabled } from '@/services/background-sync-service'
 
 export const BackgroundServices: React.FC = () => {
   const { isAuthenticated } = useAuth()
@@ -135,26 +136,40 @@ export const BackgroundServices: React.FC = () => {
       return
     }
 
-    batteryPromptedRef.current = true
+    const promptIfNeeded = async () => {
+      batteryPromptedRef.current = true
 
-    Alert.alert(
-      'Optimize Background Tracking',
-      'To keep HOS tracking accurate, please exclude TTM Konnect from battery optimization.',
-      [
-        {
-          text: 'Later',
-          style: 'cancel',
-        },
-        {
-          text: 'Open Settings',
-          onPress: () => {
-            Linking.openSettings().catch((error: any) =>
-              console.error('❌ BackgroundServices: Failed to open app settings:', error),
-            )
+      try {
+        const optimizationEnabled = await isBatteryOptimizationEnabled()
+        if (optimizationEnabled === false) {
+          console.log('⚡ BackgroundServices: Battery optimization already disabled')
+          return
+        }
+      } catch (error) {
+        console.warn('⚡ BackgroundServices: Unable to determine battery optimization state', error)
+      }
+
+      Alert.alert(
+        'Optimize Background Tracking',
+        'To keep HOS tracking accurate, please exclude TTM Konnect from battery optimization.',
+        [
+          {
+            text: 'Later',
+            style: 'cancel',
           },
-        },
-      ],
-    )
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              Linking.openSettings().catch((error: any) =>
+                console.error('❌ BackgroundServices: Failed to open app settings:', error),
+              )
+            },
+          },
+        ],
+      )
+    }
+
+    promptIfNeeded()
   }, [isAuthenticated])
 
   // Register push token on mount if authenticated

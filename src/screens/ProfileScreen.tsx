@@ -164,8 +164,20 @@ export default function ProfileScreen() {
   const { colors, isDark } = theme
   const { user, logout, driverProfile, hosStatus, vehicleAssignment, organizationSettings, isAuthenticated } =
     useAuth()
-  const { obdData, isConnected: eldConnected } = useObdData()
+  const { obdData, isConnected: eldConnected, eldDeviceId } = useObdData()
   const [eldDeviceInfo, setEldDeviceInfo] = useState<EldDeviceInfo | null>(null)
+  const formatEldIdentifier = (value: string | null | undefined) => {
+    if (!value) return ''
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return ''
+    if (trimmed.includes(':') || trimmed.includes('-')) {
+      return trimmed.toUpperCase()
+    }
+    if (/^[0-9A-Fa-f]{12}$/.test(trimmed)) {
+      return (trimmed.match(/.{1,2}/g) ?? [trimmed]).join(':').toUpperCase()
+    }
+    return trimmed.toUpperCase()
+  }
   
   // Get HOS status, violations, and profile from new driver API
   const { data: currentHOSStatus } = useHOSCurrentStatus({
@@ -682,26 +694,35 @@ export default function ProfileScreen() {
             />
 
             {/* ELD Device ID - from profile, saved device, or connected device */}
-            {(driverProfile.eld_device_id || eldDeviceInfo || eldConnected) && (
-              <InfoCard
-                icon={<Bluetooth size={20} color="#3b82f6" />}
-                label="ELD Device MAC Address"
-                value={
-                  driverProfile.eld_device_id ||
-                  eldDeviceInfo?.address ||
-                  'Connected'
-                }
-                subtext={
-                  eldConnected
-                    ? 'Currently Connected'
-                    : eldDeviceInfo?.name
-                      ? `Device: ${eldDeviceInfo.name}`
-                      : undefined
-                }
-                color="#3b82f6"
-                index={5}
-              />
-            )}
+            {(() => {
+              const resolvedEldIdRaw =
+                (eldDeviceId && eldDeviceId.trim()) ||
+                (typeof driverProfile?.eld_device_id === 'string' ? driverProfile.eld_device_id : '') ||
+                (eldDeviceInfo?.address ?? '')
+
+              const eldSubtext = eldConnected
+                ? 'Currently Connected'
+                : eldDeviceInfo?.name
+                  ? `Device: ${eldDeviceInfo.name}`
+                  : undefined
+
+              if (!resolvedEldIdRaw && !eldDeviceInfo && !eldConnected) {
+                return null
+              }
+
+              const formattedId = formatEldIdentifier(resolvedEldIdRaw) || 'Unavailable'
+
+              return (
+                <InfoCard
+                  icon={<Bluetooth size={20} color="#3b82f6" />}
+                  label="ELD Device ID"
+                  value={formattedId}
+                  subtext={eldSubtext}
+                  color="#3b82f6"
+                  index={5}
+                />
+              )
+            })()}
 
             {/* Current Odometer from live ELD data */}
             {currentOdometer !== null && (

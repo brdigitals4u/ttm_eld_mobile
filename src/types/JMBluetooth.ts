@@ -95,6 +95,11 @@ export interface ObdErrorData {
   msgSubtype: number;
   ecuCount: number;
   timestamp: string;
+  ecuList?: Array<{
+    ecuId: string;
+    ecuIdHex: string;
+    codes: string[];
+  }>;
 }
 
 export interface ObdVinData {
@@ -143,7 +148,13 @@ export interface ObdUnknownData {
 }
 
 export interface FaultData {
-  ecuList: any[];
+  ecuCount?: number;
+  timestamp?: string;
+  ecuList: Array<{
+    ecuId: string;
+    ecuIdHex: string;
+    codes: string[];
+  }>;
 }
 
 export interface VinData {
@@ -179,11 +190,18 @@ export interface AuthenticationPassedData {
   reason: string;
   status8Expected?: boolean;
   authenticationComplete?: boolean;
+  deviceId?: string;
 }
 
 export interface RawDataReceived {
   rawData: string;
   timestamp: string;
+}
+
+export interface DeviceIdDetected {
+  deviceId: string;
+  timestamp: string;
+  source?: string;
 }
 
 // Define OBDDataItem interface for display
@@ -221,6 +239,7 @@ export interface JMBluetoothEvents {
   onObdCollectReady: () => void;
   onObdCollectFinish: () => void;
   onRawDataReceived: (data: RawDataReceived) => void;
+  onEldDeviceIdDetected: (data: DeviceIdDetected) => void;
   onFaultDataReceived: (data: FaultData) => void;
   onVinDataReceived: (data: VinData) => void;
   onHistoryProgress: (progress: HistoryProgress) => void;

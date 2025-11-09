@@ -77,6 +77,7 @@ class JMBluetoothService {
   private lastDisconnectionTime: number | null = null;
   private disconnectionReasons: string[] = [];
   private lastConnectedDeviceAddress: string | null = null;
+  private lastKnownDeviceId: string | null = null;
 
   constructor() {
     this.eventEmitter = new NativeEventEmitter(JMBluetoothModule);
@@ -213,6 +214,19 @@ class JMBluetoothService {
       return result;
     } catch (error: any) {
       logger.error('Failed to disconnect:', { error: error?.message, stack: error?.stack });
+      throw error;
+    }
+  }
+
+  // Send UTC time to device
+  async sendUtcTime(): Promise<boolean> {
+    try {
+      logger.info('Sending UTC time to ELD');
+      const result = await JMBluetoothModule.sendUtcTime();
+      logger.info('UTC sync command sent', { result });
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to send UTC time', { error: error?.message, stack: error?.stack });
       throw error;
     }
   }
@@ -468,6 +482,19 @@ class JMBluetoothService {
     }
   }
 
+  // Acknowledge custom command reply
+  async acknowledgeCustomCommand(): Promise<boolean> {
+    try {
+      logger.info('Acknowledging custom command reply');
+      const result = await JMBluetoothModule.acknowledgeCustomCommand();
+      logger.info('Custom command acknowledgement result:', { result });
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to acknowledge custom command reply:', { error: error?.message, stack: error?.stack });
+      throw error;
+    }
+  }
+
   // Save driver authentication info
   async saveDriverAuthInfo(info: string): Promise<boolean> {
     try {
@@ -490,6 +517,45 @@ class JMBluetoothService {
       return result;
     } catch (error: any) {
       logger.error('Failed to read driver auth info:', { error: error?.message, stack: error?.stack });
+      throw error;
+    }
+  }
+
+  // Set DPF regeneration mode
+  async setDpfRegeneration(mode: number, enable: boolean): Promise<boolean> {
+    try {
+      logger.info('Configuring DPF regeneration', { mode, enable });
+      const result = await JMBluetoothModule.setDpfRegeneration(mode, enable);
+      logger.info('DPF regeneration command result', { result });
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to set DPF regeneration', { error: error?.message, stack: error?.stack });
+      throw error;
+    }
+  }
+
+  // Acknowledge DPF regeneration upload state
+  async replyDpfRegenerationUploadState(): Promise<boolean> {
+    try {
+      logger.info('Acknowledging DPF regeneration upload state');
+      const result = await JMBluetoothModule.replyDpfRegenerationUploadState();
+      logger.info('DPF upload acknowledgement result', { result });
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to acknowledge DPF upload state', { error: error?.message, stack: error?.stack });
+      throw error;
+    }
+  }
+
+  // Check the DPF regeneration state
+  async checkDpfRegenerationState(): Promise<boolean> {
+    try {
+      logger.info('Checking DPF regeneration state');
+      const result = await JMBluetoothModule.checkDpfRegenerationState();
+      logger.info('DPF regeneration state command result', { result });
+      return result;
+    } catch (error: any) {
+      logger.error('Failed to check DPF regeneration state', { error: error?.message, stack: error?.stack });
       throw error;
     }
   }
@@ -517,6 +583,28 @@ class JMBluetoothService {
     const wrappedListener = (data: any) => {
       logger.info(`Event received: ${event}`, { data, timestamp: new Date().toISOString() });
       
+      if (event === 'onObdEldDataReceived' && data?.dataFlowList) {
+        const extractedId = data.dataFlowList
+          .map((item: any) => item?.deviceId || item?.device_id)
+          .find((value: any) => typeof value === 'string' && value.trim().length > 0)
+        if (typeof extractedId === 'string') {
+          this.lastKnownDeviceId = extractedId.trim()
+        }
+      }
+
+      if (event === 'onEldDeviceIdDetected' && data?.deviceId) {
+        if (typeof data.deviceId === 'string' && data.deviceId.trim().length > 0) {
+          this.lastKnownDeviceId = data.deviceId.trim()
+        }
+      }
+
+      if (event === 'onAuthenticationPassed' && (data as any)?.deviceId) {
+        const authDeviceId = (data as any).deviceId
+        if (typeof authDeviceId === 'string' && authDeviceId.trim().length > 0) {
+          this.lastKnownDeviceId = authDeviceId.trim()
+        }
+      }
+
       // Special handling for disconnection events
       if (event === 'onDisconnected') {
         this.lastDisconnectionTime = Date.now();
@@ -583,7 +671,8 @@ class JMBluetoothService {
       disconnectionReasons: [...this.disconnectionReasons],
       currentConnectionDuration: this.lastConnectionTime && !this.lastDisconnectionTime ? 
         Date.now() - this.lastConnectionTime : null,
-      lastConnectedDeviceAddress: this.lastConnectedDeviceAddress
+      lastConnectedDeviceAddress: this.lastConnectedDeviceAddress,
+      lastKnownDeviceId: this.lastKnownDeviceId,
     };
   }
 
@@ -671,6 +760,29 @@ class JMBluetoothService {
       startTime: this.formatTimeForHistory(yesterday),
       endTime: this.formatTimeForHistory(now)
     };
+  }
+
+  async getCurrentDeviceId(): Promise<string | null> {
+    try {
+      const response = await JMBluetoothModule.getCurrentDeviceId();
+      const deviceId =
+        typeof response === 'string'
+          ? response
+          : response?.deviceId ??
+            response?.device_id ??
+            response?.address ??
+            response?.macAddress;
+
+      if (typeof deviceId === 'string' && deviceId.trim().length > 0) {
+        const normalized = deviceId.trim();
+        this.lastKnownDeviceId = normalized;
+        return normalized;
+      }
+    } catch (error: any) {
+      logger.warn('Failed to get current device ID', { error: error?.message });
+    }
+
+    return this.lastKnownDeviceId || this.lastConnectedDeviceAddress;
   }
 }
 

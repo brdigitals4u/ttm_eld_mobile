@@ -78,29 +78,6 @@ export interface CreateFuelPurchaseRequest {
   purchase_state?: string
 }
 
-export interface UploadFileResponse {
-  document_id: number
-  file_url: string
-}
-
-// New 3-step S3 upload flow interfaces
-export interface GenerateReceiptUploadUrlRequest {
-  fuel_purchase_id: string
-  filename: string
-  content_type: string
-}
-
-export interface GenerateReceiptUploadUrlResponse {
-  upload_url: string
-  s3_key: string
-  expires_in?: number
-}
-
-export interface ConfirmReceiptUploadRequest {
-  fuel_purchase_id: string
-  s3_key: string
-}
-
 export interface ConfirmReceiptUploadResponse {
   message: string
   receiptUrl: string
@@ -230,161 +207,73 @@ export interface PaginatedFuelPurchaseResponse {
 // ============================================================================
 
 export const fuelPurchaseApi = {
-  async generateReceiptUploadUrl(
-    fuelPurchaseId: string,
-    filename: string,
-    contentType: string = 'image/jpeg'
-  ): Promise<GenerateReceiptUploadUrlResponse> {
-    console.log("📤 Step 1: Generating upload URL...", {
-      fuelPurchaseId,
-      filename,
-      contentType,
-      endpoint: API_ENDPOINTS.FUEL.GENERATE_RECEIPT_UPLOAD_URL
-    })
-    
-    const response = await apiClient.post<GenerateReceiptUploadUrlResponse>(
-      API_ENDPOINTS.FUEL.GENERATE_RECEIPT_UPLOAD_URL,
-      {
-        fuel_purchase_id: fuelPurchaseId,
-        filename,
-        content_type: contentType,
-      }
-    )
-    
-    console.log("📤 Step 1: Upload URL response:", response)
-    
-    if (response.success && response.data) {
-      console.log("✅ Step 1: Upload URL generated successfully:", {
-        upload_url: response.data.upload_url?.substring(0, 100) + '...',
-        s3_key: response.data.s3_key
-      })
-      return response.data
-    }
-    throw new ApiError({ message: 'Failed to generate upload URL', status: 400 })
-  },
-
   /**
-   * Step 2: Upload Image to S3
-   * PUT to S3 upload_url
-   */
-  async uploadImageToS3(
-    uploadUrl: string,
-    fileUri: string,
-    contentType: string = 'image/jpeg'
-  ): Promise<void> {
-    console.log("📤 Step 2: Uploading image to S3...", {
-      uploadUrl: uploadUrl.substring(0, 100) + '...',
-      fileUri: fileUri.substring(0, 100) + '...',
-      contentType
-    })
-    // For React Native, we need to handle file URIs differently
-    // Convert file URI to blob for upload
-    let blob: Blob
-    
-    if (Platform.OS === 'web') {
-      // Web: fetch and get blob
-      const response = await fetch(fileUri)
-      blob = await response.blob()
-    } else {
-      // React Native: Use FormData with file object
-      // The fileUri is a local file path, we'll create a FormData-like structure
-      // But for PUT to S3, we need to read the file content
-      const response = await fetch(fileUri)
-      blob = await response.blob()
-    }
-    
-    // Upload to S3 using PUT
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType,
-      },
-      body: blob,
-    })
-    
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text().catch(() => uploadResponse.statusText)
-      throw new ApiError({
-        message: `Failed to upload image to S3: ${errorText}`,
-        status: uploadResponse.status,
-      })
-    }
-  },
-
-  /**
-   * Step 3: Confirm Receipt Upload
+   * Upload receipt image directly to backend (multipart/form-data)
    * POST /api/fuel-purchase/confirm-receipt-upload/
-   */
-  async confirmReceiptUpload(
-    fuelPurchaseId: string,
-    s3Key: string
-  ): Promise<ConfirmReceiptUploadResponse> {
-    console.log("📤 Step 3: Confirming receipt upload...", {
-      fuelPurchaseId,
-      s3Key,
-      endpoint: API_ENDPOINTS.FUEL.CONFIRM_RECEIPT_UPLOAD
-    })
-    
-    const response = await apiClient.post<ConfirmReceiptUploadResponse>(
-      API_ENDPOINTS.FUEL.CONFIRM_RECEIPT_UPLOAD,
-      {
-        fuel_purchase_id: fuelPurchaseId,
-        s3_key: s3Key,
-      }
-    )
-    
-    console.log("📤 Step 3: Confirm upload response:", response)
-    
-    if (response.success && response.data) {
-      console.log("✅ Step 3: Receipt upload confirmed, URL:", response.data.receiptUrl)
-      return response.data
-    }
-    throw new ApiError({ message: 'Failed to confirm receipt upload', status: 400 })
-  },
-
-  /**
-   * Complete 3-step receipt upload flow
-   * Helper function that combines all three steps
    */
   async uploadReceiptImage(
     fuelPurchaseId: string,
     fileUri: string,
     filename?: string,
-    contentType: string = 'image/jpeg'
+    contentType: string = 'image/jpeg',
+    metadata?: Record<string, string | number | null | undefined>
   ): Promise<ConfirmReceiptUploadResponse> {
-    console.log("📤 Starting 3-step S3 upload flow...", {
+    console.log("📤 Uploading receipt image to backend...", {
       fuelPurchaseId,
-      fileUri: fileUri.substring(0, 100) + '...',
+      fileUri: fileUri ? fileUri.substring(0, 100) + '...' : undefined,
       filename,
-      contentType
+      contentType,
+      metadataKeys: metadata ? Object.keys(metadata) : []
     })
-    
-    // Extract filename from URI or use provided filename
+
     const uriParts = fileUri.split('/')
     const defaultFilename = uriParts[uriParts.length - 1] || 'fuel_receipt.jpg'
     const finalFilename = filename || defaultFilename
-    
+
     try {
-      // Step 1: Generate upload URL
-      console.log("📤 Step 1: Calling generateReceiptUploadUrl...")
-      const { upload_url, s3_key } = await this.generateReceiptUploadUrl(
-        fuelPurchaseId,
-        finalFilename,
-        contentType
+      const formData = new FormData()
+      formData.append('fuel_purchase_id', fuelPurchaseId)
+
+      if (metadata) {
+        Object.entries(metadata).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formData.append(key, String(value))
+          }
+        })
+      }
+
+      if (Platform.OS === 'web') {
+        const response = await fetch(fileUri)
+        const blob = await response.blob()
+        const file = new File([blob], finalFilename, { type: contentType })
+        formData.append('file', file)
+      } else {
+        formData.append('file', {
+          uri: fileUri,
+          name: finalFilename,
+          type: contentType,
+        } as any)
+      }
+
+      console.log("📤 Sending multipart request to confirm receipt upload...")
+      const response = await apiClient.upload<ConfirmReceiptUploadResponse>(
+        API_ENDPOINTS.FUEL.CONFIRM_RECEIPT_UPLOAD,
+        formData
       )
-      
-      // Step 2: Upload to S3
-      console.log("📤 Step 2: Calling uploadImageToS3...")
-      await this.uploadImageToS3(upload_url, fileUri, contentType)
-      
-      // Step 3: Confirm upload
-      console.log("📤 Step 3: Calling confirmReceiptUpload...")
-      const result = await this.confirmReceiptUpload(fuelPurchaseId, s3_key)
-      
-      console.log("✅ All 3 steps completed successfully!")
-      return result
+
+      console.log("📤 Upload response:", response)
+
+      if (response.success && response.data) {
+        console.log("✅ Receipt upload completed successfully:", response.data.receiptUrl)
+        return response.data
+      }
+
+      throw new ApiError({
+        message: response.message || 'Failed to upload receipt',
+        status: 400,
+      })
     } catch (error: any) {
-      console.error("❌ Error in 3-step upload flow:", error)
+      console.error("❌ Error uploading receipt:", error)
       throw error
     }
   },

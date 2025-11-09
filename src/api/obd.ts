@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import { awsApiService, AwsObdPayload } from '@/services/AwsApiService'
 import { awsConfig } from '@/config/aws-config'
+import { ObdCodeDetails } from '@/utils/obd-code-decoder'
 
 export interface ObdDataPayload {
   driver_id: string
@@ -13,6 +14,15 @@ export interface ObdDataPayload {
   latitude?: number
   longitude?: number
   raw_data: any
+  data_type?: 'engine_data' | 'location' | 'hos_status' | 'fault_data'
+  fault_codes?: Array<{
+    ecu_id: string
+    ecu_id_hex: string
+    codes: string[]
+    details?: ObdCodeDetails[]
+  }>
+  device_id?: string
+  deviceId?: string
 }
 
 /**
@@ -35,13 +45,19 @@ const convertToAwsPayload = (payload: ObdDataPayload, vehicleId: string): AwsObd
   
   // Extract allData from raw_data if available
   const allData = payload.raw_data?.allData || []
-  
-  // Build AWS payload
+  const dataType = payload.data_type || payload.raw_data?.dataType || 'engine_data'
+  const deviceId =
+    payload.deviceId ||
+    payload.device_id ||
+    payload.raw_data?.deviceId ||
+    payload.raw_data?.device_id ||
+    undefined
+
   const awsPayload: AwsObdPayload = {
     vehicleId: vin,
     driverId: payload.driver_id,
     timestamp: timestamp,
-    dataType: 'engine_data',
+    dataType: dataType,
     latitude: payload.latitude,
     longitude: payload.longitude,
     vehicleSpeed: payload.vehicle_speed,
@@ -50,6 +66,7 @@ const convertToAwsPayload = (payload: ObdDataPayload, vehicleId: string): AwsObd
     fuelLevel: payload.fuel_level,
     odometer: payload.odometer,
     allData: allData,
+    deviceId,
   }
   
   // Copy additional fields from raw_data if available
@@ -62,6 +79,27 @@ const convertToAwsPayload = (payload: ObdDataPayload, vehicleId: string): AwsObd
     if (payload.raw_data.eventId !== undefined) awsPayload.eventId = payload.raw_data.eventId
     if (payload.raw_data.isLiveEvent !== undefined) awsPayload.isLiveEvent = payload.raw_data.isLiveEvent
     if (payload.raw_data.batteryVoltage !== undefined) awsPayload.batteryVoltage = payload.raw_data.batteryVoltage
+    if (Array.isArray(payload.raw_data.faultCodes)) {
+      awsPayload.faultCodes = payload.raw_data.faultCodes
+      if (!awsPayload.allData || awsPayload.allData.length === 0) {
+        awsPayload.allData = payload.raw_data.faultCodes
+      }
+    }
+    if (!awsPayload.deviceId && typeof payload.raw_data.deviceId === 'string') {
+      awsPayload.deviceId = payload.raw_data.deviceId.trim()
+    }
+  }
+
+  if (payload.fault_codes && payload.fault_codes.length > 0) {
+    awsPayload.faultCodes = payload.fault_codes.map((fault) => ({
+      ecuId: fault.ecu_id,
+      ecuIdHex: fault.ecu_id_hex,
+      codes: fault.codes,
+      details: fault.details,
+    }))
+    if (!awsPayload.allData || awsPayload.allData.length === 0) {
+      awsPayload.allData = awsPayload.faultCodes
+    }
   }
   
   return awsPayload

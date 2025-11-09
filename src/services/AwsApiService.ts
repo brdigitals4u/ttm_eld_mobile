@@ -7,6 +7,7 @@
 
 import { awsConfig } from '@/config/aws-config'
 import { useAuthStore } from '@/stores/authStore'
+import { ObdCodeDetails } from '@/utils/obd-code-decoder'
 
 export interface AwsObdPayload {
   vehicleId: string
@@ -37,6 +38,13 @@ export interface AwsObdPayload {
   
   // Raw data
   allData?: any[]
+  faultCodes?: Array<{
+    ecuId: string
+    ecuIdHex: string
+    codes: string[]
+    details?: ObdCodeDetails[]
+  }>
+  deviceId?: string
 }
 
 export interface AwsApiResponse {
