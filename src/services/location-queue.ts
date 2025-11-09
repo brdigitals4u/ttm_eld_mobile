@@ -13,7 +13,6 @@
 
 import { asyncStorage } from '@/utils/storage'
 import { driverApi, LocationBatchItem, LocationBatchResponse } from '@/api/driver'
-import { getEldDeviceId } from '@/utils/device'
 import { mapDriverStatusToAppStatus } from '@/utils/hos-status-mapper'
 
 const LOCATION_QUEUE_KEY = '@ttm_eld_location_queue'
@@ -33,6 +32,8 @@ class LocationQueueService {
   private flushInterval: ReturnType<typeof setInterval> | null = null
   private isFlushing: boolean = false
   private autoDutyChangeHandler: AutoDutyChangeHandler | null = null
+  private initialized: boolean = false
+  private initializingPromise: Promise<void> | null = null
 
   /**
    * Set handler for auto-duty status changes
@@ -45,39 +46,65 @@ class LocationQueueService {
    * Initialize the queue from storage
    */
   async initialize(): Promise<void> {
-    try {
-      // Load queue from storage
-      const queueData = await asyncStorage.getItem(LOCATION_QUEUE_KEY)
-      if (queueData) {
-        this.queue = JSON.parse(queueData)
-      }
-
-      // Load last sequence number
-      const lastSeqData = await asyncStorage.getItem(LAST_SEQ_KEY)
-      if (lastSeqData) {
-        this.lastSeq = parseInt(lastSeqData, 10)
-      }
-
-      // Load last applied sequence
-      const lastAppliedSeqData = await asyncStorage.getItem(LAST_APPLIED_SEQ_KEY)
-      if (lastAppliedSeqData) {
-        this.lastAppliedSeq = parseInt(lastAppliedSeqData, 10)
-      }
-
-      // Remove any entries that were already processed
-      this.queue = this.queue.filter(loc => loc.seq > this.lastAppliedSeq)
-
-      console.log('📍 LocationQueue: Initialized', {
-        queueSize: this.queue.length,
-        lastSeq: this.lastSeq,
-        lastAppliedSeq: this.lastAppliedSeq,
-      })
-    } catch (error) {
-      console.error('❌ LocationQueue: Failed to initialize', error)
-      this.queue = []
-      this.lastSeq = 0
-      this.lastAppliedSeq = 0
+    if (this.initialized) {
+      return
     }
+
+    if (this.initializingPromise) {
+      return this.initializingPromise
+    }
+
+    this.initializingPromise = (async () => {
+      try {
+        // Load queue from storage
+        const queueData = await asyncStorage.getItem(LOCATION_QUEUE_KEY)
+        if (queueData) {
+          this.queue = JSON.parse(queueData)
+        }
+
+        // Load last sequence number
+        const lastSeqData = await asyncStorage.getItem(LAST_SEQ_KEY)
+        if (lastSeqData) {
+          this.lastSeq = parseInt(lastSeqData, 10)
+        }
+
+        // Load last applied sequence
+        const lastAppliedSeqData = await asyncStorage.getItem(LAST_APPLIED_SEQ_KEY)
+        if (lastAppliedSeqData) {
+          this.lastAppliedSeq = parseInt(lastAppliedSeqData, 10)
+        }
+
+        // Remove any entries that were already processed
+        this.queue = this.queue.filter(loc => loc.seq > this.lastAppliedSeq)
+
+        console.log('📍 LocationQueue: Initialized', {
+          queueSize: this.queue.length,
+          lastSeq: this.lastSeq,
+          lastAppliedSeq: this.lastAppliedSeq,
+        })
+      } catch (error) {
+        console.error('❌ LocationQueue: Failed to initialize', error)
+        this.queue = []
+        this.lastSeq = 0
+        this.lastAppliedSeq = 0
+      } finally {
+        this.initialized = true
+        this.initializingPromise = null
+      }
+    })()
+
+    return this.initializingPromise
+  }
+
+  async ensureInitialized(): Promise<void> {
+    if (this.initialized) {
+      return
+    }
+    await this.initialize()
+  }
+
+  isInitialized(): boolean {
+    return this.initialized
   }
 
   /**
@@ -91,6 +118,8 @@ class LocationQueueService {
     odometer?: number
     accuracy_m?: number
   }): Promise<void> {
+    await this.ensureInitialized()
+
     // Increment sequence number
     this.lastSeq += 1
 
@@ -127,6 +156,8 @@ class LocationQueueService {
    * Flush the queue to the server
    */
   async flush(): Promise<LocationBatchResponse | null> {
+    await this.ensureInitialized()
+
     if (this.isFlushing) {
       console.log('📍 LocationQueue: Already flushing, skipping')
       return null
@@ -196,6 +227,10 @@ class LocationQueueService {
    * Start automatic flushing (every 30 seconds)
    */
   startAutoFlush(intervalMs: number = 30000): void {
+    this.ensureInitialized().catch((error) => {
+      console.error('❌ LocationQueue: Failed to ensure initialization before auto-flush', error)
+    })
+
     if (this.flushInterval) {
       this.stopAutoFlush()
     }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { BatteryState, useBatteryLevel, useBatteryState, useLowPowerMode } from 'expo-battery'
 import JMBluetoothService from '@/services/JMBluetoothService'
 import { ObdEldData } from '@/types/JMBluetooth'
 import { handleData } from '@/services/handleData'
@@ -36,6 +37,12 @@ interface ObdDataContextType {
   awsSyncStatus: 'idle' | 'syncing' | 'success' | 'error'
   lastAwsSync: Date | null
   recentAutoDutyChanges: AutoDutyChange[]
+  batteryLevel: number | null
+  batteryLevelPercent: number | null
+  batteryState: BatteryState | null
+  isLowPowerMode: boolean
+  isSyncThrottled: boolean
+  eldBatteryVoltage: number | null
 }
 
 const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
@@ -51,6 +58,26 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [awsSyncStatus, setAwsSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
   const [lastAwsSync, setLastAwsSync] = useState<Date | null>(null)
   const [recentAutoDutyChanges, setRecentAutoDutyChanges] = useState<AutoDutyChange[]>([])
+  const [eldBatteryVoltage, setEldBatteryVoltage] = useState<number | null>(null)
+
+  const rawBatteryLevel = useBatteryLevel()
+  const batteryState = useBatteryState()
+  const isLowPowerMode = useLowPowerMode()
+
+  const batteryLevel =
+    typeof rawBatteryLevel === 'number' && rawBatteryLevel >= 0 && rawBatteryLevel <= 1
+      ? rawBatteryLevel
+      : null
+  const batteryLevelPercent = batteryLevel !== null ? Math.round(batteryLevel * 100) : null
+  const isBatteryLow = batteryLevel !== null && batteryLevel <= 0.2
+  const isSyncThrottled = isLowPowerMode || isBatteryLow
+  const batteryStateValue = batteryState ?? BatteryState.UNKNOWN
+
+  const localSyncIntervalMs = isSyncThrottled ? 120000 : 60000
+  const awsConfiguredIntervalMs = awsConfig.features.awsSyncInterval ?? 60000
+  const awsSyncIntervalMs = isSyncThrottled
+    ? Math.max(awsConfiguredIntervalMs * 2, awsConfiguredIntervalMs + 30000)
+    : awsConfiguredIntervalMs
   
   // Store data buffers for batch API sync
   const dataBufferRef = useRef<ObdDataPayload[]>([]) // Local API buffer
@@ -62,21 +89,28 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Set up battery getter for heartbeat service
   useEffect(() => {
     setBatteryGetter(() => {
-      // Find battery/voltage in OBD data
-      const voltageItem = obdData.find(item => 
-        item.name.includes('Voltage') || item.name.includes('Battery')
-      )
-      if (voltageItem) {
-        const voltage = parseFloat(voltageItem.value)
-        // Convert voltage to percentage (assuming 12V = 100%, 10V = 0%)
-        if (voltage > 0) {
-          const percent = Math.max(0, Math.min(100, ((voltage - 10) / 2) * 100))
-          return percent
-        }
+      if (batteryLevelPercent !== null) {
+        return batteryLevelPercent
       }
       return undefined
     })
-  }, [obdData])
+  }, [batteryLevelPercent])
+
+  useEffect(() => {
+    if (isSyncThrottled) {
+      console.warn('⚠️ OBD Data Context: Sync throttled due to battery state', {
+        batteryLevelPercent,
+        isLowPowerMode,
+        eldBatteryVoltage,
+      })
+    } else {
+      console.log('✅ OBD Data Context: Sync running at full frequency', {
+        batteryLevelPercent,
+        isLowPowerMode,
+        eldBatteryVoltage,
+      })
+    }
+  }, [isSyncThrottled, batteryLevelPercent, isLowPowerMode, eldBatteryVoltage])
 
     // Listen for OBD data updates
   useEffect(() => {
@@ -102,6 +136,16 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           displayDataItems: displayData.map(item => ({ name: item.name, value: item.value }))
         })
         setObdData(displayData)
+
+        // Capture ELD (vehicle) battery voltage if available
+        const vehicleVoltageItem = displayData.find((item) => item.name.toLowerCase().includes('voltage'))
+        if (vehicleVoltageItem) {
+          const parsedVoltage = parseFloat(vehicleVoltageItem.value)
+          if (!Number.isNaN(parsedVoltage)) {
+            setEldBatteryVoltage(parsedVoltage)
+          }
+        }
+
         setLastUpdate(new Date())
         setIsConnected(true)
 
@@ -354,7 +398,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       checkConnectionStatus()
       
       // Initialize location queue service
-      locationQueueService.initialize().then(() => {
+      locationQueueService.ensureInitialized().then(() => {
         // Set up auto-duty change handler
         locationQueueService.setAutoDutyChangeHandler((changes) => {
           if (changes && changes.length > 0) {
@@ -491,7 +535,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Stop location queue auto-flush
       locationQueueService.stopAutoFlush()
     }
-  }, [isAuthenticated, driverProfile?.driver_id])
+  }, [isAuthenticated, driverProfile?.driver_id, localSyncIntervalMs])
 
   // Set up periodic Local API sync (every 1 minute)
   useEffect(() => {
@@ -504,7 +548,10 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return
     }
 
-    console.log('⏰ OBD Data Context: Setting up 1-minute Local API sync interval')
+    console.log('⏰ OBD Data Context: Setting up Local API sync interval', {
+      intervalSeconds: localSyncIntervalMs / 1000,
+      isSyncThrottled,
+    })
 
     syncIntervalRef.current = setInterval(async () => {
       if (dataBufferRef.current.length === 0) {
@@ -532,7 +579,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } finally {
         setIsSyncing(false)
       }
-    }, 60000) // 1 minute = 60000ms
+    }, localSyncIntervalMs)
 
     return () => {
       if (syncIntervalRef.current) {
@@ -552,7 +599,10 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return
     }
 
-    console.log('⏰ OBD Data Context: Setting up 1-minute AWS sync interval')
+    console.log('⏰ OBD Data Context: Setting up AWS sync interval', {
+      intervalSeconds: awsSyncIntervalMs / 1000,
+      isSyncThrottled,
+    })
 
     awsSyncIntervalRef.current = setInterval(async () => {
       if (awsBufferRef.current.length === 0) {
@@ -601,14 +651,14 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Reset to idle after 3 seconds
         setTimeout(() => setAwsSyncStatus('idle'), 3000)
       }
-    }, awsConfig.features.awsSyncInterval)
+    }, awsSyncIntervalMs)
 
     return () => {
       if (awsSyncIntervalRef.current) {
         clearInterval(awsSyncIntervalRef.current)
       }
     }
-  }, [isAuthenticated, driverProfile?.driver_id])
+  }, [isAuthenticated, driverProfile?.driver_id, awsSyncIntervalMs])
 
   const value: ObdDataContextType = {
     obdData,
@@ -618,6 +668,12 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     awsSyncStatus,
     lastAwsSync,
     recentAutoDutyChanges,
+    batteryLevel,
+    batteryLevelPercent,
+    batteryState: batteryStateValue,
+    isLowPowerMode,
+    isSyncThrottled,
+    eldBatteryVoltage,
   }
 
   return <ObdDataContext.Provider value={value}>{children}</ObdDataContext.Provider>

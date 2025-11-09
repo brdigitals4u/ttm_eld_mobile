@@ -7,8 +7,8 @@
  * - Notification polling (every 60 seconds)
  */
 
-import { useEffect } from 'react'
-import { Platform } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Alert, Linking, Platform } from 'react-native'
 import * as Location from 'expo-location'
 
 import { useNotifications } from '@/api/driver-hooks'
@@ -17,6 +17,7 @@ import { usePermissions } from '@/contexts'
 import { NotificationService } from '@/services/NotificationService'
 import { deviceHeartbeatService } from '@/services/device-heartbeat-service'
 import { BACKGROUND_LOCATION_TASK } from '@/tasks/location-task'
+import { registerBackgroundFetchAsync, unregisterBackgroundFetchAsync } from '@/tasks/background-fetch-task'
 import { useAuth } from '@/stores/authStore'
 import { getAppVersion, getDeviceId } from '@/utils/device'
 
@@ -24,6 +25,7 @@ export const BackgroundServices: React.FC = () => {
   const { isAuthenticated } = useAuth()
   const { permissions } = usePermissions()
   const locationPermissionGranted = permissions.find((perm) => perm.name === 'location')?.granted ?? false
+  const batteryPromptedRef = useRef(false)
 
   // Poll notifications every 60 seconds
   const { data: notifications } = useNotifications({
@@ -105,7 +107,55 @@ export const BackgroundServices: React.FC = () => {
     }
 
     stopUpdates()
+    return undefined
   }, [isAuthenticated, locationPermissionGranted])
+
+  // Background fetch lifecycle
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerBackgroundFetchAsync().catch((error) =>
+        console.error('❌ BackgroundServices: Failed to register background fetch task:', error),
+      )
+      return () => {
+        unregisterBackgroundFetchAsync().catch((error) =>
+          console.error('❌ BackgroundServices: Failed to unregister background fetch task:', error),
+        )
+      }
+    }
+
+    unregisterBackgroundFetchAsync().catch((error) =>
+      console.error('❌ BackgroundServices: Failed to unregister background fetch task:', error),
+    )
+    return undefined
+  }, [isAuthenticated])
+
+  // Prompt to disable battery optimizations on Android
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !isAuthenticated || batteryPromptedRef.current) {
+      return
+    }
+
+    batteryPromptedRef.current = true
+
+    Alert.alert(
+      'Optimize Background Tracking',
+      'To keep HOS tracking accurate, please exclude TTM Konnect from battery optimization.',
+      [
+        {
+          text: 'Later',
+          style: 'cancel',
+        },
+        {
+          text: 'Open Settings',
+          onPress: () => {
+            Linking.openSettings().catch((error: any) =>
+              console.error('❌ BackgroundServices: Failed to open app settings:', error),
+            )
+          },
+        },
+      ],
+    )
+  }, [isAuthenticated])
 
   // Register push token on mount if authenticated
   useEffect(() => {

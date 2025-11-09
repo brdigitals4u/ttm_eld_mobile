@@ -101,6 +101,14 @@ class DeviceHeartbeatService {
   getIsRunning(): boolean {
     return this.isRunning
   }
+
+  /**
+   * Trigger a one-off heartbeat without changing the running state.
+   * Useful for background fetch scenarios.
+   */
+  async sendHeartbeatNow(): Promise<void> {
+    await this.sendHeartbeat()
+  }
 }
 
 // Export singleton instance
