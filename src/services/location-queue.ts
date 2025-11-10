@@ -55,38 +55,38 @@ class LocationQueueService {
     }
 
     this.initializingPromise = (async () => {
-      try {
-        // Load queue from storage
-        const queueData = await asyncStorage.getItem(LOCATION_QUEUE_KEY)
-        if (queueData) {
-          this.queue = JSON.parse(queueData)
-        }
+    try {
+      // Load queue from storage
+      const queueData = await asyncStorage.getItem(LOCATION_QUEUE_KEY)
+      if (queueData) {
+        this.queue = JSON.parse(queueData)
+      }
 
-        // Load last sequence number
-        const lastSeqData = await asyncStorage.getItem(LAST_SEQ_KEY)
-        if (lastSeqData) {
-          this.lastSeq = parseInt(lastSeqData, 10)
-        }
+      // Load last sequence number
+      const lastSeqData = await asyncStorage.getItem(LAST_SEQ_KEY)
+      if (lastSeqData) {
+        this.lastSeq = parseInt(lastSeqData, 10)
+      }
 
-        // Load last applied sequence
-        const lastAppliedSeqData = await asyncStorage.getItem(LAST_APPLIED_SEQ_KEY)
-        if (lastAppliedSeqData) {
-          this.lastAppliedSeq = parseInt(lastAppliedSeqData, 10)
-        }
+      // Load last applied sequence
+      const lastAppliedSeqData = await asyncStorage.getItem(LAST_APPLIED_SEQ_KEY)
+      if (lastAppliedSeqData) {
+        this.lastAppliedSeq = parseInt(lastAppliedSeqData, 10)
+      }
 
-        // Remove any entries that were already processed
-        this.queue = this.queue.filter(loc => loc.seq > this.lastAppliedSeq)
+      // Remove any entries that were already processed
+      this.queue = this.queue.filter(loc => loc.seq > this.lastAppliedSeq)
 
-        console.log('📍 LocationQueue: Initialized', {
-          queueSize: this.queue.length,
-          lastSeq: this.lastSeq,
-          lastAppliedSeq: this.lastAppliedSeq,
-        })
-      } catch (error) {
-        console.error('❌ LocationQueue: Failed to initialize', error)
-        this.queue = []
-        this.lastSeq = 0
-        this.lastAppliedSeq = 0
+      console.log('📍 LocationQueue: Initialized', {
+        queueSize: this.queue.length,
+        lastSeq: this.lastSeq,
+        lastAppliedSeq: this.lastAppliedSeq,
+      })
+    } catch (error) {
+      console.error('❌ LocationQueue: Failed to initialize', error)
+      this.queue = []
+      this.lastSeq = 0
+      this.lastAppliedSeq = 0
       } finally {
         this.initialized = true
         this.initializingPromise = null

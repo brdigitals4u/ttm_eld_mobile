@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -10,40 +10,90 @@ import {
   Modal,
   ScrollView,
   TextInput,
-  Dimensions,
+  Platform,
 } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  useAnimatedScrollHandler,
-  withSpring,
-  withTiming,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated'
-import { Calendar, ChevronDown, X } from 'lucide-react-native'
+import { Calendar, ChevronDown, X, Plus } from 'lucide-react-native'
 import { useAppTheme } from '@/theme/context'
 import { FuelPurchaseCard } from '@/components/FuelPurchaseCard'
 import { FuelPurchaseSummary } from '@/components/FuelPurchaseSummary'
-import { useDriverFuelPurchases, DriverFuelPurchasesParams } from '@/api/fuel-purchase'
+import {
+  useDriverFuelPurchases,
+  DriverFuelPurchasesParams,
+  DriverFuelPurchaseListItem,
+} from '@/api/fuel-purchase'
 import { useAuth } from '@/contexts'
 import { toast } from '@/components/Toast'
-
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
-const { height: SCREEN_HEIGHT } = Dimensions.get('window')
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 interface FuelPurchasesListProps {
   showFilters?: boolean
   onFilterPress?: () => void
+  onAddPress?: () => void
+}
+
+// FlatList optimizations
+const ITEM_HEIGHT = 100 // Estimated card height
+const keyExtractor = (item: DriverFuelPurchaseListItem, index: number) =>
+  String(item?.id || `fuel-${index}`)
+
+const getItemLayout = (_: any, index: number) => ({
+  length: ITEM_HEIGHT,
+  offset: ITEM_HEIGHT * index,
+  index,
+})
+
+// Date grouping helper
+const groupByDate = (
+  items: DriverFuelPurchaseListItem[]
+): { [key: string]: DriverFuelPurchaseListItem[] } => {
+  const groups: { [key: string]: DriverFuelPurchaseListItem[] } = {}
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  items.forEach((item) => {
+    if (!item.transaction_time) return
+    const itemDate = new Date(item.transaction_time)
+    itemDate.setHours(0, 0, 0, 0)
+
+    let groupKey: string
+    if (itemDate.getTime() === today.getTime()) {
+      groupKey = 'Today'
+    } else if (itemDate.getTime() === yesterday.getTime()) {
+      groupKey = 'Yesterday'
+    } else {
+      groupKey = itemDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: itemDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+      })
+    }
+
+    if (!groups[groupKey]) {
+      groups[groupKey] = []
+    }
+    groups[groupKey].push(item)
+  })
+
+  return groups
+}
+
+// Format date for display
+const formatDateHeader = (dateStr: string): string => {
+  if (dateStr === 'Today' || dateStr === 'Yesterday') return dateStr
+  return dateStr
 }
 
 export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
   showFilters: externalShowFilters,
   onFilterPress,
+  onAddPress,
 }) => {
   const { theme } = useAppTheme()
-  const { colors } = theme
+  const { colors, isDark } = theme
   const { vehicleAssignment } = useAuth()
+  const insets = useSafeAreaInsets()
 
   const [filters, setFilters] = useState<DriverFuelPurchasesParams>({
     limit: 50,
@@ -53,20 +103,52 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | undefined>()
+  const [selectedPreset, setSelectedPreset] = useState<string>('thisMonth')
+  const [sortBy, setSortBy] = useState<'transactions' | 'fuel' | 'total' | null>(null)
+  const [showCustomRange, setShowCustomRange] = useState(false)
 
-  // Get current month dates as default
-  const getCurrentMonthDates = () => {
+  // Get date presets
+  const getDatePreset = useCallback((preset: string) => {
     const now = new Date()
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0],
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    let start: Date, end: Date
+
+    switch (preset) {
+      case 'today':
+        start = new Date(today)
+        end = new Date(today)
+        break
+      case 'yesterday':
+        start = new Date(today)
+        start.setDate(start.getDate() - 1)
+        end = new Date(start)
+        break
+      case 'last7Days':
+        start = new Date(today)
+        start.setDate(start.getDate() - 7)
+        end = new Date(today)
+        break
+      case 'thisMonth':
+        start = new Date(now.getFullYear(), now.getMonth(), 1)
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        break
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        end = new Date(now.getFullYear(), now.getMonth(), 0)
+        break
+      default:
+        start = new Date(now.getFullYear(), now.getMonth(), 1)
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
     }
-  }
+
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
+    }
+  }, [])
 
   // Initialize with current month
-  const defaultDates = useMemo(() => getCurrentMonthDates(), [])
+  const defaultDates = useMemo(() => getDatePreset('thisMonth'), [getDatePreset])
 
   const queryParams: DriverFuelPurchasesParams = useMemo(() => {
     const params: DriverFuelPurchasesParams = {
@@ -98,80 +180,91 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
   const {
     data: purchasesData,
     isLoading,
-    isPending:isRefreshing,
+    isPending: isRefreshing,
     refetch,
     error,
   } = useDriverFuelPurchases(queryParams)
 
-  // Animation values
-  const scrollY = useSharedValue(0)
-  const modalTranslateY = useSharedValue(SCREEN_HEIGHT)
-  const modalOpacity = useSharedValue(0)
+  // Memoize sorted and grouped data
+  const sortedAndGroupedData = useMemo(() => {
+    if (!purchasesData?.results) return []
 
-  // Scroll handler for parallax effect
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y
-    },
-  })
+    let sorted = [...purchasesData.results]
 
-  // Modal animations
-  useEffect(() => {
-    const isVisible = externalShowFilters !== undefined ? externalShowFilters : showFilters
-    if (isVisible) {
-      modalOpacity.value = withTiming(1, { duration: 300 })
-      modalTranslateY.value = withSpring(0, {
-        damping: 20,
-        stiffness: 90,
+    // Sort based on selected tile
+    if (sortBy === 'fuel') {
+      sorted.sort((a, b) => {
+        const aGal = Number(a.fuel_quantity_liters) / 3.78541
+        const bGal = Number(b.fuel_quantity_liters) / 3.78541
+        return bGal - aGal
       })
-    } else {
-      modalOpacity.value = withTiming(0, { duration: 200 })
-      modalTranslateY.value = withSpring(SCREEN_HEIGHT, {
-        damping: 20,
-        stiffness: 90,
+    } else if (sortBy === 'total') {
+      sorted.sort((a, b) => {
+        const aAmount = Number(a.transaction_price_amount) || 0
+        const bAmount = Number(b.transaction_price_amount) || 0
+        return bAmount - aAmount
       })
     }
-  }, [externalShowFilters, showFilters])
-
-  const modalOverlayStyle = useAnimatedStyle(() => {
-    return {
-      opacity: modalOpacity.value,
+    // Default: sort by date (newest first)
+    else {
+      sorted.sort((a, b) => {
+        const aDate = new Date(a.transaction_time).getTime()
+        const bDate = new Date(b.transaction_time).getTime()
+        return bDate - aDate
+      })
     }
-  })
 
-  const modalContentStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: modalTranslateY.value }],
-    }
-  })
+    const grouped = groupByDate(sorted)
+    // Convert to array format for FlatList
+    const sections: Array<{ type: 'header' | 'item'; data: any }> = []
+    const sortedKeys = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Today') return -1
+      if (b === 'Today') return 1
+      if (a === 'Yesterday') return -1
+      if (b === 'Yesterday') return 1
+      return b.localeCompare(a)
+    })
 
-  // Parallax effect for summary
-  const summaryAnimatedStyle = useAnimatedStyle(() => {
-    const parallax = interpolate(
-      scrollY.value,
-      [0, 200],
-      [0, -50],
-      Extrapolate.CLAMP
-    )
-    return {
-      transform: [{ translateY: parallax }],
-    }
-  })
+    sortedKeys.forEach((key) => {
+      sections.push({ type: 'header', data: key })
+      grouped[key].forEach((item) => {
+        sections.push({ type: 'item', data: item })
+      })
+    })
 
-  const handleRefresh = () => {
+    return sections
+  }, [purchasesData?.results, sortBy])
+
+  // Handlers
+  const handleRefresh = useCallback(() => {
     refetch()
-  }
+  }, [refetch])
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (purchasesData && (purchasesData as any)?.has_more && !isLoading) {
       setFilters((prev) => ({
         ...prev,
         offset: (prev.offset || 0) + (prev.limit || 50),
       }))
     }
-  }
+  }, [purchasesData, isLoading])
 
-  const applyFilters = () => {
+  const handlePresetSelect = useCallback(
+    (preset: string) => {
+      setSelectedPreset(preset)
+      if (preset === 'custom') {
+        setShowCustomRange(true)
+      } else {
+        const dates = getDatePreset(preset)
+        setStartDate(dates.start)
+        setEndDate(dates.end)
+        setShowCustomRange(false)
+      }
+    },
+    [getDatePreset]
+  )
+
+  const applyFilters = useCallback(() => {
     setFilters({
       ...filters,
       start_date: startDate || defaultDates.start,
@@ -181,70 +274,100 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
     })
     setShowFilters(false)
     if (onFilterPress) onFilterPress()
-  }
+  }, [filters, startDate, endDate, selectedVehicleId, defaultDates, onFilterPress])
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setStartDate('')
     setEndDate('')
     setSelectedVehicleId(undefined)
+    setSelectedPreset('thisMonth')
+    setShowCustomRange(false)
     setFilters({
       limit: 50,
       offset: 0,
     })
     setShowFilters(false)
     if (onFilterPress) onFilterPress()
-  }
+  }, [onFilterPress])
 
-  const handleReceiptPress = (receiptUrl: string) => {
+  const handleReceiptPress = useCallback((receiptUrl: string) => {
     toast.info('Receipt viewer coming soon')
-  }
+  }, [])
 
-  const renderPurchaseItem = ({ item, index }: { item: any; index: number }) => {
-    if (!item || !item.id) {
-      console.warn('⚠️ Invalid item in fuel purchases list:', item)
-      return null
-    }
-    
-    return (
-      <FuelPurchaseCard
-        purchase={item}
-        index={index}
-        onReceiptPress={() => item.receipt_image_url && handleReceiptPress(item.receipt_image_url)}
-      />
-    )
-  }
-
-  const renderEmptyState = () => (
-    <View style={[styles.emptyContainer, { backgroundColor: colors.cardBackground }]}>
-      <View style={[styles.emptyIconContainer, { backgroundColor: colors.background }]}>
-        <Calendar size={56} color={colors.PRIMARY} strokeWidth={1.5} />
-      </View>
-      <Text style={[styles.emptyText, { color: colors.text }]}>No fuel purchases found</Text>
-      <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
-        {filters.start_date || filters.end_date
-          ? 'Try adjusting your filters to see more results'
-          : 'Your fuel purchase history will appear here'}
-      </Text>
-    </View>
+  const handleSummaryTilePress = useCallback(
+    (type: 'transactions' | 'fuel' | 'total') => {
+      setSortBy(type === 'transactions' ? null : type)
+    },
+    []
   )
 
-  const renderFooter = () => {
-    if (!isLoading || !purchasesData || !(purchasesData as any)?.has_more) return <View style={{ marginBottom: 140 }} />
+  const handleAddPress = useCallback(() => {
+    if (onAddPress) {
+      onAddPress()
+    } else {
+      toast.info('Add fuel purchase feature coming soon')
+    }
+  }, [onAddPress])
+
+  // Memoized render functions
+  const renderItem = useCallback(
+    ({ item }: { item: { type: string; data: any } }) => {
+      if (item.type === 'header') {
+        return (
+          <View style={styles.dateHeader}>
+            <Text style={[styles.dateHeaderText, { color: colors.text }]}>
+              {formatDateHeader(item.data)}
+            </Text>
+          </View>
+        )
+      }
+
+      return (
+        <FuelPurchaseCard
+          purchase={item.data}
+          onReceiptPress={() =>
+            item.data.receipt_image_url && handleReceiptPress(item.data.receipt_image_url)
+          }
+        />
+      )
+    },
+    [colors, handleReceiptPress]
+  )
+
+  const renderEmptyState = useCallback(() => {
     return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.PRIMARY} />
+      <View style={[styles.emptyContainer, { backgroundColor: colors.cardBackground }]}>
+        <View style={[styles.emptyIconContainer, { backgroundColor: colors.background }]}>
+          <Calendar size={56} color={colors.tint} strokeWidth={1.5} />
+        </View>
+        <Text style={[styles.emptyText, { color: colors.text }]}>No fuel purchases found</Text>
+        <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+          {filters.start_date || filters.end_date
+            ? 'Try adjusting your filters to see more results'
+            : 'Your fuel purchase history will appear here'}
+        </Text>
       </View>
     )
-  }
+  }, [colors, filters])
+
+  const renderFooter = useCallback(() => {
+    if (!isLoading || !purchasesData || !(purchasesData as any)?.has_more)
+      return <View style={{ marginBottom: 100 }} />
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.tint} />
+      </View>
+    )
+  }, [isLoading, purchasesData, colors])
 
   const isModalVisible = externalShowFilters !== undefined ? externalShowFilters : showFilters
-  const handleFilterToggle = () => {
+  const handleFilterToggle = useCallback(() => {
     if (onFilterPress) {
       onFilterPress()
     } else {
       setShowFilters(!showFilters)
     }
-  }
+  }, [onFilterPress, showFilters])
 
   if (error) {
     return (
@@ -253,7 +376,7 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
           Failed to load fuel purchases
         </Text>
         <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: colors.PRIMARY }]}
+          style={[styles.retryButton, { backgroundColor: colors.tint }]}
           onPress={() => refetch()}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
@@ -264,47 +387,43 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
 
   return (
     <>
-      {/* Always show summary - with zeros if no data */}
-      {purchasesData ? (
-        <Animated.View style={summaryAnimatedStyle}>
-          <FuelPurchaseSummary 
-            summary={purchasesData.summary || {
-              total_purchases: purchasesData.count || 0,
-              total_liters: 0,
-              total_amount: 0,
-              currency: 'usd',
-            }} 
+      {/* Sticky Summary */}
+      {purchasesData && (
+        <View style={styles.stickySummary}>
+          <FuelPurchaseSummary
+            summary={
+              purchasesData.summary || {
+                total_purchases: purchasesData.count || 0,
+                total_liters: 0,
+                total_amount: 0,
+                currency: 'usd',
+              }
+            }
+            onTilePress={handleSummaryTilePress}
+            sortBy={sortBy}
           />
-        </Animated.View>
-      ) : !isLoading ? (
-        <Animated.View style={summaryAnimatedStyle}>
-          <FuelPurchaseSummary 
-            summary={{
-              total_purchases: 0,
-              total_liters: 0,
-              total_amount: 0,
-              currency: 'usd',
-            }} 
-          />
-        </Animated.View>
-      ) : null}
+        </View>
+      )}
 
-      {/* Show loading state */}
+      {/* Loading State */}
       {isLoading && !purchasesData ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.PRIMARY} />
+          <ActivityIndicator size="large" color={colors.tint} />
           <Text style={[styles.loadingText, { color: colors.textDim }]}>
             Loading fuel purchases...
           </Text>
         </View>
       ) : (
-        <AnimatedFlatList
-          data={purchasesData?.results || []}
-          renderItem={renderPurchaseItem}
-          keyExtractor={(item: any, index) => item?.id || `fuel-purchase-${index}`}
+        <FlatList
+          data={sortedAndGroupedData}
+          renderItem={renderItem}
+          keyExtractor={(item, index) =>
+            item.type === 'header' ? `header-${item.data}` : keyExtractor(item.data, index)
+          }
           contentContainerStyle={[
             styles.listContent,
-            (!purchasesData?.results || purchasesData.results.length === 0) && styles.listContentEmpty,
+            (!purchasesData?.results || purchasesData.results.length === 0) &&
+              styles.listContentEmpty,
           ]}
           ListEmptyComponent={!isLoading && purchasesData ? renderEmptyState : null}
           ListFooterComponent={renderFooter}
@@ -312,31 +431,42 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
             <RefreshControl
               refreshing={isRefreshing || false}
               onRefresh={handleRefresh}
-              tintColor={colors.PRIMARY}
+              tintColor={colors.tint}
             />
           }
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
+          // Performance optimizations
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={11}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={50}
+          getItemLayout={getItemLayout}
         />
       )}
 
-      {/* Filters Modal */}
+      {/* Filters Modal with Quick Presets */}
       <Modal
         visible={isModalVisible}
         transparent
-        animationType="none"
+        animationType="slide"
         onRequestClose={handleFilterToggle}
       >
-        <Animated.View style={[styles.modalOverlay, modalOverlayStyle]}>
+        <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
             onPress={handleFilterToggle}
           />
-          <Animated.View style={[styles.modalContent, { backgroundColor: colors.cardBackground }, modalContentStyle]}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.cardBackground },
+              { paddingBottom: insets.bottom + 20 },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Filter Purchases</Text>
               <TouchableOpacity onPress={handleFilterToggle}>
@@ -344,34 +474,107 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.filterSection}>
-                <Text style={[styles.filterLabel, { color: colors.text }]}>Start Date</Text>
-                <TextInput
-                  style={[styles.dateInput, { backgroundColor: colors.background, color: colors.text }]}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textDim}
-                  value={startDate || defaultDates.start}
-                  onChangeText={setStartDate}
-                />
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.presetSection}>
+                <Text style={[styles.sectionLabel, { color: colors.text }]}>
+                  Show me fuel from...
+                </Text>
+                <View style={styles.presetButtons}>
+                  {[
+                    { key: 'today', label: 'Today' },
+                    { key: 'yesterday', label: 'Yesterday' },
+                    { key: 'last7Days', label: 'Last 7 Days' },
+                    { key: 'thisMonth', label: 'This Month' },
+                    { key: 'lastMonth', label: 'Last Month' },
+                    { key: 'custom', label: 'Custom Range 📅' },
+                  ].map((preset) => (
+                    <TouchableOpacity
+                      key={preset.key}
+                      style={[
+                        styles.presetButton,
+                        {
+                          backgroundColor:
+                            selectedPreset === preset.key
+                              ? colors.tint
+                              : isDark
+                              ? '#242830'
+                              : '#F3F4F6',
+                          borderColor:
+                            selectedPreset === preset.key
+                              ? colors.tint
+                              : isDark
+                              ? '#242830'
+                              : '#E5E7EB',
+                        },
+                      ]}
+                      onPress={() => handlePresetSelect(preset.key)}
+                    >
+                      <Text
+                        style={[
+                          styles.presetButtonText,
+                          {
+                            color:
+                              selectedPreset === preset.key
+                                ? '#fff'
+                                : colors.text,
+                          },
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
-              <View style={styles.filterSection}>
-                <Text style={[styles.filterLabel, { color: colors.text }]}>End Date</Text>
-                <TextInput
-                  style={[styles.dateInput, { backgroundColor: colors.background, color: colors.text }]}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textDim}
-                  value={endDate || defaultDates.end}
-                  onChangeText={setEndDate}
-                />
-              </View>
+              {showCustomRange && (
+                <View style={styles.customRangeSection}>
+                  <View style={styles.filterSection}>
+                    <Text style={[styles.filterLabel, { color: colors.text }]}>Start Date</Text>
+                    <TextInput
+                      style={[
+                        styles.dateInput,
+                        { backgroundColor: colors.background, color: colors.text },
+                      ]}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={colors.textDim}
+                      value={startDate}
+                      onChangeText={setStartDate}
+                    />
+                  </View>
+
+                  <View style={styles.filterSection}>
+                    <Text style={[styles.filterLabel, { color: colors.text }]}>End Date</Text>
+                    <TextInput
+                      style={[
+                        styles.dateInput,
+                        { backgroundColor: colors.background, color: colors.text },
+                      ]}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={colors.textDim}
+                      value={endDate}
+                      onChangeText={setEndDate}
+                    />
+                  </View>
+                </View>
+              )}
 
               {vehicleAssignment?.vehicle_info && (
                 <View style={styles.filterSection}>
                   <Text style={[styles.filterLabel, { color: colors.text }]}>Vehicle</Text>
                   <TouchableOpacity
-                    style={[styles.selectButton, { backgroundColor: colors.background }]}
+                    style={[
+                      styles.selectButton,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor:
+                          selectedVehicleId === parseInt(vehicleAssignment.vehicle_info.id)
+                            ? colors.tint
+                            : isDark
+                            ? '#242830'
+                            : '#E5E7EB',
+                      },
+                    ]}
                     onPress={() => {
                       const vehicleId = vehicleAssignment.vehicle_info?.id
                       if (vehicleId) {
@@ -384,7 +587,8 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
                     }}
                   >
                     <Text style={[styles.selectButtonText, { color: colors.text }]}>
-                      {vehicleAssignment.vehicle_info && selectedVehicleId === parseInt(vehicleAssignment.vehicle_info.id)
+                      {vehicleAssignment.vehicle_info &&
+                      selectedVehicleId === parseInt(vehicleAssignment.vehicle_info.id)
                         ? vehicleAssignment.vehicle_info.vehicle_unit
                         : 'All Vehicles'}
                     </Text>
@@ -402,22 +606,25 @@ export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
                 <Text style={[styles.modalButtonText, { color: colors.text }]}>Clear</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.applyButton, { backgroundColor: colors.PRIMARY }]}
+                style={[styles.modalButton, styles.applyButton, { backgroundColor: colors.tint }]}
                 onPress={applyFilters}
               >
-                <Text style={styles.applyButtonText}>Apply</Text>
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
               </TouchableOpacity>
             </View>
-          </Animated.View>
-        </Animated.View>
+          </View>
+        </View>
       </Modal>
     </>
   )
 }
 
 const styles = StyleSheet.create({
+  stickySummary: {
+    zIndex: 10,
+  },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   listContentEmpty: {
     flexGrow: 1,
@@ -493,6 +700,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: -0.2,
   },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1000,
+  },
+  dateHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 20,
+  },
+  dateHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -501,8 +734,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '80%',
-    paddingBottom: 24,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -515,7 +747,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   modalTitle: {
     fontSize: 22,
@@ -525,8 +757,37 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 24,
   },
-  filterSection: {
+  presetSection: {
     marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  presetButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  presetButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  presetButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  customRangeSection: {
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  filterSection: {
+    marginBottom: 20,
   },
   filterLabel: {
     fontSize: 13,
@@ -550,7 +811,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   selectButtonText: {
     fontSize: 15,
@@ -559,10 +819,11 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   modalButton: {
     flex: 1,
@@ -582,6 +843,7 @@ const styles = StyleSheet.create({
   applyButton: {},
   modalButtonText: {
     fontSize: 16,
+    fontWeight: '600',
   },
   applyButtonText: {
     color: '#fff',
@@ -590,4 +852,3 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 })
-

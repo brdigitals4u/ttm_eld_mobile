@@ -1,46 +1,35 @@
 import React, { useMemo, useEffect, useCallback, useRef, useState } from "react"
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Pressable, Linking } from "react-native"
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetModalProvider, BottomSheetView } from "@gorhom/bottom-sheet"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { LinearGradient } from "expo-linear-gradient"
 import { router, useFocusEffect } from "expo-router"
 import {
   MapPin,
   Truck,
-  Clock,
-  FileText,
-  TrendingUp,
-  CheckCircle,
-  AlertCircle,
   FileCheck,
   Gauge,
   BookOpen,
   Bell,
-  RefreshCw,
-  AlertTriangle,
 } from "lucide-react-native"
-import * as Progress from "react-native-progress"
-import Animated, {
+import {
   useSharedValue,
-  useAnimatedStyle,
   withTiming,
   withRepeat,
   withSequence,
   Easing,
 } from "react-native-reanimated"
 
-import { useHOSCurrentStatus, useHOSClocks, useHOSLogs, useViolations } from "@/api/driver-hooks"
+import { useHOSClocks, useHOSLogs, useViolations } from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
 import { useHOSStatusContext } from "@/contexts/hos-status-context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 import { EldIndicator } from "@/components/EldIndicator"
 import { Header } from "@/components/Header"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
-import HOSChartSkeleton from "@/components/HOSChartSkeleton"
-import HOSServiceCardSkeleton from "@/components/HOSServiceCardSkeleton"
-import HOSCircle from "@/components/HOSSvg"
-import { HOSComponent } from "@/components/HOSComponent"
+import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { Text } from "@/components/Text"
-import HOSChart from "@/components/VictoryHOS"
 import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
@@ -48,7 +37,6 @@ import { useLocationData } from "@/hooks/useLocationData"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { colors } from "@/theme/colors"
-import { DriverStatus } from "@/types/status"
 
 export const DashboardScreen = () => {
   const {
@@ -81,6 +69,8 @@ export const DashboardScreen = () => {
   const scrollViewRef = useRef<ScrollView>(null)
   const hosSectionRef = useRef<View>(null)
   const [hosSectionY, setHosSectionY] = useState<number | null>(null)
+  const driverInfoSheetRef = useRef<BottomSheetModal>(null)
+  const driverInfoSnapPoints = useMemo(() => ["75%"], [])
   
   // Fetch notifications using new driver API
   useFocusEffect(
@@ -434,6 +424,63 @@ export const DashboardScreen = () => {
     todayHOSLogs,
   ]) as any
 
+  const currentLocationLabel = useMemo(() => {
+    const address = currentLocation?.address || locationData.address
+    if (address) {
+      const parts = address.split(",").map((part) => part.trim())
+      return parts.slice(0, 2).join(", ")
+    }
+    if (currentLocation?.latitude && currentLocation?.longitude) {
+      return `${currentLocation.latitude.toFixed(2)}, ${currentLocation.longitude.toFixed(2)}`
+    }
+    return "Location unavailable"
+  }, [
+    currentLocation?.address,
+    currentLocation?.latitude,
+    currentLocation?.longitude,
+    locationData.address,
+  ])
+
+  const vehicleInfo = vehicleAssignment?.vehicle_info
+  const vehicleNameLabel = useMemo(() => {
+    if (vehicleInfo) {
+      const makeModel = [vehicleInfo.make, vehicleInfo.model].filter(Boolean).join(" ")
+      const parts = [vehicleInfo.vehicle_unit, makeModel].filter(
+        (value) => value && value.length > 0,
+      )
+      if (parts.length > 0) {
+        return parts.join(" • ")
+      }
+    }
+    return data.vehicleUnit && data.vehicleUnit !== "N/A" ? data.vehicleUnit : "No vehicle assigned"
+  }, [vehicleInfo, data.vehicleUnit])
+
+  const driverName = useMemo(() => {
+    if (driverProfile?.name) return driverProfile.name
+    if (user?.name) return user.name
+    return data.driver
+  }, [driverProfile?.name, user?.name, data.driver])
+
+  const renderDriverBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        pressBehavior="close"
+      />
+    ),
+    [],
+  )
+
+  const handleOpenDriverSheet = useCallback(() => {
+    driverInfoSheetRef.current?.present()
+  }, [])
+
+  const handleCloseDriverSheet = useCallback(() => {
+    driverInfoSheetRef.current?.dismiss()
+  }, [])
+
   // Convert HOS logs API response to chart format
   // New API returns { date, logs, summary, is_certified }
   const logs = useMemo(() => {
@@ -585,7 +632,9 @@ export const DashboardScreen = () => {
   }, [notificationsData, markAllReadMutation])
 
   return (
-    <View style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <View style={{ flex: 1 }}>
       <Header
         leftText="Welcome Back!"
         titleMode="flex"
@@ -654,7 +703,7 @@ export const DashboardScreen = () => {
         }
       >
         {/* Critical Violations Alert Banner */}
-        {unresolvedViolations.length > 0 && (
+        {/* {unresolvedViolations.length > 0 && (
           <TouchableOpacity 
             style={s.criticalAlertBanner}
             onPress={() => {
@@ -672,7 +721,71 @@ export const DashboardScreen = () => {
               </Text>
             </View>
           </TouchableOpacity>
-        )}
+        )} */}
+
+
+        {/* Greeting Section */}
+        <View style={s.greetingSection}>
+          <View style={s.greetingRow}>
+            <Text style={s.greetingText}>Hi {driverName.split(" ")[0]},</Text>
+            <EldIndicator />
+          </View>
+          <Text style={s.greetingQuestion}>How's your day going?</Text>
+
+          <View style={s.greetingMetaRow}>
+            <View style={s.metaItem}>
+              <View style={s.metaIcon}>
+                <MapPin size={14} color={colors.PRIMARY} />
+              </View>
+              <Text style={s.metaText} numberOfLines={1}>
+                {currentLocationLabel}
+              </Text>
+            </View>
+            <View style={s.metaItem}>
+              <View style={s.metaIcon}>
+                <Truck size={14} color={colors.PRIMARY} />
+              </View>
+              <Text style={s.metaText} numberOfLines={1}>
+                {vehicleNameLabel}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity style={s.viewMoreButton} onPress={handleOpenDriverSheet}>
+            <Text style={s.viewMoreText}>View more details</Text>
+          </TouchableOpacity>
+        </View>
+
+
+
+        {/* Unified Smart HOS Card */}
+        <View 
+          ref={hosSectionRef}
+          onLayout={(event) => {
+            // onLayout gives position relative to parent (ScrollView content)
+            const { y } = event.nativeEvent.layout
+            setHosSectionY(y)
+          }}
+        >
+          <UnifiedHOSCard 
+            onScrollToTop={() => {
+              if (hosSectionY !== null && hosSectionY > 0) {
+                scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
+              } else {
+                // Fallback: approximate position based on typical layout
+                scrollViewRef.current?.scrollTo({ y: 600, animated: true })
+              }
+            }}
+          />
+        </View>
+        {/* ELD Data - Speed & Fuel */}
+        {eldConnected && <LiveVehicleData
+          eldConnected={eldConnected}
+          obdData={obdData}
+          currentSpeed={currentSpeed}
+          fuelLevel={fuelLevel}
+          recentAutoDutyChanges={recentAutoDutyChanges}
+        />}
 
         {/* Hero Card - Are you ready */}
         <LinearGradient
@@ -684,9 +797,6 @@ export const DashboardScreen = () => {
           <View style={s.heroContent}>
             <Text style={s.heroTitle}>Ready to hit</Text>
             <Text style={s.heroTitle}>the road with TTM Konnect?</Text>
-            <TouchableOpacity style={s.heroButton} onPress={() => router.push("/status")}>
-              <Text style={s.heroButtonText}>Start Driving</Text>
-            </TouchableOpacity>
           </View>
           <View style={s.heroIllustration}>
             <Image
@@ -696,14 +806,6 @@ export const DashboardScreen = () => {
             />
           </View>
         </LinearGradient>
-                {/* Greeting Section */}
-                <View style={s.greetingSection}>
-          <View style={s.greetingRow}>
-            <Text style={s.greetingText}>Hi {data.driver.split(" ")[0]},</Text>
-            <EldIndicator />
-          </View>
-          <Text style={s.greetingQuestion}>How's your day going?</Text>
-        </View>
 
         <View style={s.categoriesSection}>
           <View style={s.sectionHeader}>
@@ -745,154 +847,13 @@ export const DashboardScreen = () => {
           </ScrollView>
         </View>
 
-        {/* Hours of Service - Separate Component */}
-        <View 
-          ref={hosSectionRef}
-          onLayout={(event) => {
-            // onLayout gives position relative to parent (ScrollView content)
-            const { y } = event.nativeEvent.layout
-            setHosSectionY(y)
-          }}
-        >
-          <HOSComponent 
-            onScrollToTop={() => {
-              if (hosSectionY !== null && hosSectionY > 0) {
-                scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
-              } else {
-                // Fallback: approximate position based on typical layout
-                scrollViewRef.current?.scrollTo({ y: 600, animated: true })
-              }
-            }}
-          />
-        </View>
-
-        {/* Daily Activity Chart */}
-        <View style={s.activityCard}>
-          <View style={s.activityHeader}>
-            <Text style={s.activityTitle}>{data.dateTitle}</Text>
-            <Text style={s.activitySubtitle}>Daily Activity</Text>
-          </View>
-
-          {isHOSLogsLoading ? (
-            <HOSChartSkeleton />
-          ) : (
-            <HOSChart data={logs} dayStartIso={todayStr} />
-          )}
-        </View>
-        {/* ELD Data - Speed & Fuel */}
-        {eldConnected && <LiveVehicleData
-          eldConnected={eldConnected}
-          obdData={obdData}
-          currentSpeed={currentSpeed}
-          fuelLevel={fuelLevel}
-          recentAutoDutyChanges={recentAutoDutyChanges}
-        />}
-
-        {/* Quick Status Cards */}
-        <View style={s.statusCardsRow}>
-          <TouchableOpacity
-            style={[s.quickCard, { backgroundColor: data.connected ? "#ECFDF5" : "#FEF3C7" }]}
-          >
-            <View
-              style={[s.quickCardIcon, { backgroundColor: data.connected ? "#10B981" : "#F59E0B" }]}
-            >
-              {data.connected ? (
-                <CheckCircle size={20} color="#FFF" strokeWidth={2.5} />
-              ) : (
-                <AlertCircle size={20} color="#FFF" strokeWidth={2.5} />
-              )}
-            </View>
-            <Text style={s.quickCardLabel}>Status</Text>
-            <Text style={[s.quickCardValue, { color: data.connected ? "#059669" : "#D97706" }]}>
-              {data.connected ? "Connected" : "Offline"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.quickCard, { backgroundColor: "#EFF6FF" }]}
-            onPress={() => router.push("/logs/transfer")}
-          >
-            <View style={[s.quickCardIcon, { backgroundColor: colors.PRIMARY }]}>
-              <FileText size={20} color="#FFF" strokeWidth={2.5} />
-            </View>
-            <Text style={s.quickCardLabel}>Logs</Text>
-            <Text style={[s.quickCardValue, { color: colors.palette.primary700 }]}>
-              {data.isCertified ? "Certified" : `${data.uncertifiedLogsCount} Pending`}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-
-
      
-
-        {/* Vehicle Information Card */}
-        <View style={s.vehicleInfoCard}>
-          <View style={s.vehicleInfoHeader}>
-            <View style={s.vehicleIconContainer}>
-              <Truck size={28} color="#FFFFFF" strokeWidth={2.5} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.vehicleInfoTitle}>Vehicle Information</Text>
-              <Text style={s.vehicleInfoSubtitle}>{data.vehicleUnit}</Text>
-            </View>
-          </View>
-
-          <View style={s.vehicleDivider} />
-
-          <View style={s.vehicleDetails}>
-            {currentLocation?.address && (
-              <View style={s.vehicleDetailSection}>
-                <View style={s.vehicleDetailHeader}>
-                  <MapPin size={16} color={colors.PRIMARY} strokeWidth={2.5} />
-                  <Text style={s.vehicleSectionTitle}>Current Location</Text>
-                </View>
-                <Text style={s.vehicleAddressText}>{currentLocation.address}</Text>
-              </View>
-            )}
-
-            <View style={s.vehicleDetailSection}>
-              <View style={s.vehicleDetailHeader}>
-                <Gauge size={16} color={colors.PRIMARY} strokeWidth={2.5} />
-                <Text style={s.vehicleSectionTitle}>Vehicle Details</Text>
-              </View>
-
-              <View style={s.vehicleDetailGrid}>
-                <View style={s.vehicleDetailItem}>
-                  <Text style={s.vehicleDetailLabel}>Make & Model</Text>
-                  <Text style={s.vehicleDetailValue}>
-                    {data.truckMake} {data.truckModel}
-                  </Text>
-                </View>
-
-                <View style={s.vehicleDetailItem}>
-                  <Text style={s.vehicleDetailLabel}>Year</Text>
-                  <Text style={s.vehicleDetailValue}>{data.truckYear}</Text>
-                </View>
-              </View>
-
-              <View style={s.vehicleDetailGrid}>
-                <View style={s.vehicleDetailItem}>
-                  <Text style={s.vehicleDetailLabel}>License Plate</Text>
-                  <Text style={s.vehicleDetailValue}>{data.licensePlate}</Text>
-                </View>
-
-                {data.vin && data.vin !== "N/A" && (
-                  <View style={s.vehicleDetailItem}>
-                    <Text style={s.vehicleDetailLabel}>VIN</Text>
-                    <Text style={[s.vehicleDetailValue, s.vehicleVinText]}>
-                      {data.vin.substring(0, 8)}...
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-        </View>
 
         {/* Bottom Spacer */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+        </View>
 
       {/* Notifications Modal */}
       <Modal
@@ -907,7 +868,51 @@ export const DashboardScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+
+        <BottomSheetModal
+          ref={driverInfoSheetRef}
+          index={0}
+          snapPoints={driverInfoSnapPoints}
+          backdropComponent={renderDriverBackdrop}
+          enablePanDownToClose
+        >
+          <BottomSheetView style={s.driverSheet}>
+            <Text style={s.driverSheetTitle}>Driver & Vehicle</Text>
+
+            <View style={s.driverSheetSection}>
+              <Text style={s.driverSheetLabel}>Driver</Text>
+              <Text style={s.driverSheetValue}>{driverName}</Text>
+              {(driverProfile?.license_number || driverProfile?.license_state) && (
+                <Text style={s.driverSheetSubValue}>
+                  CDL: {driverProfile?.license_number || "—"}{" "}
+                  {driverProfile?.license_state ? `(${driverProfile.license_state})` : ""}
+                </Text>
+              )}
+            </View>
+
+            <View style={s.driverSheetSection}>
+              <Text style={s.driverSheetLabel}>Current Location</Text>
+              <Text style={s.driverSheetValue}>{currentLocationLabel}</Text>
+            </View>
+
+            <View style={s.driverSheetSection}>
+              <Text style={s.driverSheetLabel}>Vehicle</Text>
+              <Text style={s.driverSheetValue}>{vehicleNameLabel}</Text>
+              {vehicleInfo?.license_plate && (
+                <Text style={s.driverSheetSubValue}>Plate: {vehicleInfo.license_plate}</Text>
+              )}
+              {vehicleInfo?.vin && (
+                <Text style={s.driverSheetSubValue}>VIN: {vehicleInfo.vin}</Text>
+              )}
+            </View>
+
+            <TouchableOpacity style={[s.driverSheetButton, { marginBottom: 150 }]} onPress={handleCloseDriverSheet}>
+              <Text style={s.driverSheetButtonText}>Close</Text>
+            </TouchableOpacity>
+          </BottomSheetView>
+        </BottomSheetModal>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   )
 }
 
@@ -1075,6 +1080,48 @@ const s = StyleSheet.create({
     fontSize: 24,
     fontWeight: "400",
     marginTop: 4,
+  },
+  greetingMetaRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  metaItem: {
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  metaIcon: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 113, 206, 0.12)",
+    borderRadius: 8,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  metaText: {
+    color: "#1F2937",
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  viewMoreButton: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.PRIMARY,
+    borderRadius: 12,
+    marginTop: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  viewMoreText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
   },
 
   // Service Card (Hours of Service)
@@ -1853,6 +1900,48 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 8,
+  },
+  driverSheet: {
+    gap: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  driverSheetTitle: {
+    color: "#111827",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  driverSheetSection: {
+    gap: 4,
+  },
+  driverSheetLabel: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  driverSheetValue: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  driverSheetSubValue: {
+    color: "#4B5563",
+    fontSize: 13,
+  },
+  driverSheetButton: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.PRIMARY,
+    borderRadius: 12,
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  driverSheetButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   vehicleDetailLabel: {
     color: "#6B7280",

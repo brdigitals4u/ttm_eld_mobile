@@ -1,16 +1,7 @@
-import React, { useEffect } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
-import { TrendingUp, Fuel, DollarSign, Receipt } from 'lucide-react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withDelay,
-} from 'react-native-reanimated'
+import React, { useMemo, useCallback } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { Receipt, Fuel, DollarSign } from 'lucide-react-native'
 import { useAppTheme } from '@/theme/context'
-import { LinearGradient } from 'expo-linear-gradient'
-import { COLORS } from '@/constants'
 
 interface FuelPurchaseSummaryProps {
   summary: {
@@ -19,214 +10,196 @@ interface FuelPurchaseSummaryProps {
     total_amount: number
     currency: string
   }
+  onTilePress?: (type: 'transactions' | 'fuel' | 'total') => void
+  sortBy?: 'transactions' | 'fuel' | 'total' | null
 }
 
-interface AnimatedStatItemProps {
-  stat: {
-    icon: React.ComponentType<{ size: number; color: string }>
-    label: string
-    value: string
-    subtext: string
-    color: string
-  }
-  index: number
-  Icon: React.ComponentType<{ size: number; color: string }>
-}
-
-const AnimatedStatItem: React.FC<AnimatedStatItemProps> = ({ stat, index, Icon }) => {
-  const translateX = useSharedValue(-30)
-  const opacity = useSharedValue(0)
-  const scale = useSharedValue(0.8)
-
-  useEffect(() => {
-    const delay = index * 150
-    translateX.value = withDelay(
-      delay,
-      withSpring(0, {
-        damping: 15,
-        stiffness: 100,
-      })
-    )
-    opacity.value = withDelay(delay, withTiming(1, { duration: 400 }))
-    scale.value = withDelay(
-      delay,
-      withSpring(1, {
-        damping: 15,
-        stiffness: 100,
-      })
-    )
-  }, [index])
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateX: translateX.value },
-        { scale: scale.value },
-      ],
-      opacity: opacity.value,
-    }
-  })
-
-  return (
-    <Animated.View style={[styles.statItem, animatedStyle]}>
-      <View style={styles.iconContainer}>
-        <Icon size={24} color="#fff"  />
-      </View>
-      <View style={styles.statContent}>
-        <Text style={styles.statValue}>{stat.value}</Text>
-        <Text style={styles.statSubtext}>{stat.subtext}</Text>
-      </View>
-    </Animated.View>
-  )
-}
-
-export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({ summary }) => {
-  const { theme } = useAppTheme()
-  const { colors, isDark } = theme
-
-  // Animation values
-  const scale = useSharedValue(0.8)
-  const opacity = useSharedValue(0)
-  const translateY = useSharedValue(-20)
-
-  useEffect(() => {
-    scale.value = withSpring(1, {
-      damping: 15,
-      stiffness: 100,
-    })
-    opacity.value = withTiming(1, { duration: 600 })
-    translateY.value = withSpring(0, {
-      damping: 15,
-      stiffness: 100,
-    })
-  }, [])
-
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scale: scale.value },
-        { translateY: translateY.value },
-      ],
-      opacity: opacity.value,
-    }
-  })
-
-  const formatCurrency = (amount: number, currency: string = 'usd') => {
+// Memoized formatters
+const formatCurrency = (amount: number, currency: string = 'USD'): string => {
+  const num = Number(amount) || 0
+  try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),
-    }).format(amount)
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(num)
+  } catch {
+    return `$${Math.round(num)}`
   }
+}
 
-  const litersToGallons = (liters: number) => {
-    return (liters / 3.78541).toFixed(2)
-  }
+const litersToGallons = (liters: number): string => {
+  const num = Number(liters) || 0
+  return (num / 3.78541).toFixed(0)
+}
 
-  const stats = [
-    {
-      icon: Receipt,
-      label: 'Total Purchases',
-      value: summary.total_purchases.toString(),
-      subtext: 'transactions',
-      color: colors.PRIMARY,
-    },
-    {
-      icon: Fuel,
-      label: 'Total Fuel',
-      value: litersToGallons(summary.total_liters),
-      subtext: `${summary.total_liters.toFixed(2)} L`,
-      color: '#10B981',
-    },
-    {
-      icon: DollarSign,
-      label: 'Total Amount',
-      value: formatCurrency(summary.total_amount, summary.currency),
-      subtext: summary.currency.toUpperCase(),
-      color: '#F59E0B',
-    },
-  ]
+interface SummaryTileProps {
+  icon: React.ComponentType<{ size: number; color: string }>
+  label: string
+  value: string
+  isSelected: boolean
+  onPress: () => void
+  colors: any
+  isDark: boolean
+}
+
+const SummaryTile: React.FC<SummaryTileProps> = ({
+  icon: Icon,
+  label,
+  value,
+  isSelected,
+  onPress,
+  colors,
+  isDark,
+}) => {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.tile,
+        {
+          backgroundColor: isDark ? '#181B20' : '#F9FAFB',
+          borderColor: isSelected
+            ? colors.tint
+            : isDark
+            ? '#242830'
+            : 'rgba(0,0,0,0.06)',
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      accessibilityState={{ selected: isSelected }}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: `${colors.tint}15` }]}>
+        <Icon size={20} color={colors.tint} strokeWidth={2} />
+      </View>
+      <Text style={[styles.tileValue, { color: colors.text }]}>{value}</Text>
+      <Text style={[styles.tileLabel, { color: colors.textDim }]}>{label}</Text>
+    </TouchableOpacity>
+  )
+}
+
+export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
+  summary,
+  onTilePress,
+  sortBy = null,
+}) => {
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+
+  // Memoize computed values
+  const gallons = useMemo(
+    () => litersToGallons(summary.total_liters),
+    [summary.total_liters]
+  )
+
+  const totalAmount = useMemo(
+    () => formatCurrency(summary.total_amount, summary.currency),
+    [summary.total_amount, summary.currency]
+  )
+
+  const transactions = useMemo(
+    () => summary.total_purchases.toString(),
+    [summary.total_purchases]
+  )
+
+  // Handlers
+  const handleTransactionsPress = useCallback(() => {
+    onTilePress?.('transactions')
+  }, [onTilePress])
+
+  const handleFuelPress = useCallback(() => {
+    onTilePress?.('fuel')
+  }, [onTilePress])
+
+  const handleTotalPress = useCallback(() => {
+    onTilePress?.('total')
+  }, [onTilePress])
 
   return (
-    <Animated.View style={animatedContainerStyle}>
-      <LinearGradient
-        colors={isDark ? ['#004a99', '#003366'] : ['#0071ce', '#0056a3']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.container}
-      >
-      <View style={styles.content}>
-        <View style={styles.statsContainer}>
-          {stats.map((stat, index) => {
-            const Icon = stat.icon
-            return (
-              <AnimatedStatItem key={index} stat={stat} index={index} Icon={Icon} />
-            )
-          })}
-        </View>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark ? '#101215' : '#F9FAFB',
+          borderBottomColor: isDark ? '#242830' : 'rgba(0,0,0,0.06)',
+        },
+      ]}
+    >
+      <View style={styles.tilesContainer}>
+        <SummaryTile
+          icon={Receipt}
+          label="TRANSACTIONS"
+          value={transactions}
+          isSelected={sortBy === 'transactions'}
+          onPress={handleTransactionsPress}
+          colors={colors}
+          isDark={isDark}
+        />
+        <SummaryTile
+          icon={Fuel}
+          label="FUEL"
+          value={`${gallons} gal`}
+          isSelected={sortBy === 'fuel'}
+          onPress={handleFuelPress}
+          colors={colors}
+          isDark={isDark}
+        />
+        <SummaryTile
+          icon={DollarSign}
+          label="TOTAL"
+          value={totalAmount}
+          isSelected={sortBy === 'total'}
+          onPress={handleTotalPress}
+          colors={colors}
+          isDark={isDark}
+        />
       </View>
-    </LinearGradient>
-    </Animated.View>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
-  content: {
-    padding: 14,
-  },
-  statsContainer: {
+  tilesContainer: {
     flexDirection: 'row',
     gap: 10,
   },
-  statItem: {
+  tile: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 8,
     borderRadius: 12,
+    borderWidth: 1,
     gap: 6,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 4,
   },
-  statContent: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
+  tileValue: {
+    fontSize: 22,
     fontWeight: '800',
-    color: '#fff',
     letterSpacing: -0.5,
+    lineHeight: 26,
   },
-  statLabel: {
+  tileLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  statSubtext: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 0.5,
+    marginTop: -2,
   },
 })
-

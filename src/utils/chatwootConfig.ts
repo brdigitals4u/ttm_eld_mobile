@@ -3,7 +3,7 @@
  * Settings for integrating Chatwoot chat widget into the mobile app
  */
 
-const DEFAULT_BASE_URL = "https://chat.ttmkonnect.com"
+const DEFAULT_BASE_URL = "http://213.210.13.196:8084"
 const DEFAULT_WEBSITE_TOKEN = "S6Mz2mJKTm9poMN9ap5njB6f"
 
 const envOrDefault = (envValue: string | undefined, fallback: string) => {

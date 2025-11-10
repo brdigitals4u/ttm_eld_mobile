@@ -42,7 +42,7 @@ function mkResult(
   error?: string,
 ): PermissionResult {
   return { name, granted, status, error }
-}
+  }
 
 /* ----- Media / Camera generic helper ----- */
 
@@ -88,7 +88,7 @@ async function requestCameraPermission(skipIfGranted: boolean): Promise<Permissi
     skipIfGranted,
     "Unable to request camera permission",
   )
-}
+  }
 
 /* ----- Location (foreground only) ----- */
 
@@ -150,8 +150,8 @@ async function requestBluetoothPermission(skipIfGranted: boolean): Promise<Permi
     return mkResult("bluetooth", granted, status)
   } catch (error: any) {
     return mkResult("bluetooth", false, undefined, error?.message ?? "Unable to request bluetooth permission")
+    }
   }
-}
 
 /* ----- Public high-level API (optimized: parallel where possible) ----- */
 

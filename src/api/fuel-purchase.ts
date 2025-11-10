@@ -226,11 +226,11 @@ export const fuelPurchaseApi = {
       contentType,
       metadataKeys: metadata ? Object.keys(metadata) : []
     })
-
+    
     const uriParts = fileUri.split('/')
     const defaultFilename = uriParts[uriParts.length - 1] || 'fuel_receipt.jpg'
     const finalFilename = filename || defaultFilename
-
+    
     try {
       const formData = new FormData()
       formData.append('fuel_purchase_id', fuelPurchaseId)

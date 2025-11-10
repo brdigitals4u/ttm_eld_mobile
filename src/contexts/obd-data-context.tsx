@@ -284,7 +284,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.log('ℹ️ OBD Data Context: No current device ID available', message)
       })
   }, [isAuthenticated])
-
+  
   // Set up battery getter for heartbeat service
   useEffect(() => {
     setBatteryGetter(() => {
@@ -346,7 +346,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
 
         const displayData = handleData(payloadWithDeviceId)
-        console.log('📊 OBD Data Context: Processed display data', {
+        console.log('📊 OBD Data Context: Processed display data', { 
           displayDataLength: displayData.length,
           displayDataItems: displayData.map(item => ({ name: item.name, value: item.value })),
         })

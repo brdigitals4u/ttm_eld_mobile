@@ -626,7 +626,7 @@ class JMBluetoothService {
           this.lastKnownDeviceId = authDeviceId.trim()
         }
       }
-
+      
       // Special handling for disconnection events
       if (event === 'onDisconnected') {
         this.lastDisconnectionTime = Date.now();

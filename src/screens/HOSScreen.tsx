@@ -92,10 +92,10 @@ export const HOSScreen: React.FC = () => {
           RightActionComponent={
             <View style={{ paddingRight: 4 }}>
               <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Image
-                  source={require('assets/images/ttm-logo.png')}
-                  style={{ width: 120, height: 32, resizeMode: 'contain' }}
-                />
+              <Image
+                source={require('assets/images/ttm-logo.png')}
+                style={{ width: 120, height: 32, resizeMode: 'contain' }}
+              />
               </Pressable>
             </View>}
         />
@@ -146,10 +146,10 @@ export const HOSScreen: React.FC = () => {
           RightActionComponent={
             <View style={{ paddingRight: 4 }}>
               <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Image
-                  source={require('assets/images/ttm-logo.png')}
-                  style={{ width: 120, height: 32, resizeMode: 'contain' }}
-                />
+              <Image
+                source={require('assets/images/ttm-logo.png')}
+                style={{ width: 120, height: 32, resizeMode: 'contain' }}
+              />
               </Pressable>
             </View>}
         />

@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react"
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from "react-native"
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, FlatList, Animated } from "react-native"
 import { router } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { Calendar, Download, FileText, Lock, Share2 } from "lucide-react-native"
+import { Calendar, Download, FileText, Lock, Share2, CheckCircle2, AlertCircle, Clock, Shield, ChevronRight } from "lucide-react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import Constants from "expo-constants"
 
 import {
@@ -28,6 +31,7 @@ export const LogsScreen = () => {
   const { theme, themeContext } = useAppTheme()
   const isDark = themeContext === "dark"
   const colors = theme.colors
+  const insets = useSafeAreaInsets()
   const { logEntries, certification, certifyLogs, uncertifyLogs } = useStatus()
   const { carrierInfo } = useCarrier()
   const { user, driverProfile, vehicleAssignment, isAuthenticated, organizationSettings, hosStatus } = useAuth()
@@ -36,6 +40,20 @@ export const LogsScreen = () => {
   const [showCertifyAllModal, setShowCertifyAllModal] = useState(false)
   const [signature, setSignature] = useState("")
   const [isCertifiedInStorage, setIsCertifiedInStorage] = useState(false)
+  const [selectedAction, setSelectedAction] = useState<string | null>(null)
+  
+  // Bottom sheet refs for certification flow
+  const certifyBottomSheetRef = useRef<BottomSheetModal>(null)
+  const certifySnapPoints = useMemo(() => ["50%", "75%"], [])
+  
+  // Bottom nav height + safe area padding
+  const BOTTOM_PADDING = useMemo(() => {
+    const bottomNavHeight = Platform.OS === "ios" ? 88 : 64
+    return bottomNavHeight + insets.bottom + 20
+  }, [insets.bottom])
+  
+  // Pulse animation for current status
+  const pulseAnim = useRef(new Animated.Value(1)).current
 
   // Get HOS clock to get correct driver ID
   // CRITICAL: Pass driver_id to ensure we get the clock for the logged-in driver
@@ -47,13 +65,19 @@ export const LogsScreen = () => {
   // Get logs based on date:
   // - Current date (today) → Use /logs API (individual entries, available immediately)
   // - Past dates → Use /daily-logs API (certified summaries)
-  const selectedDateStr = selectedDate.toISOString().split("T")[0] // YYYY-MM-DD
-  const todayStr = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+  const selectedDateStr = useMemo(
+    () => selectedDate.toISOString().split("T")[0],
+    [selectedDate]
+  )
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], [])
   const isToday = selectedDateStr === todayStr
   const correctDriverId = hosClock?.driver || driverProfile?.driver_id
 
-  // Storage key for tracking certified all logs per date
-  const CERTIFIED_ALL_STORAGE_KEY = `certified_all_logs_${selectedDateStr}`
+  // Storage key for tracking certified all logs per date - memoized for stability
+  const CERTIFIED_ALL_STORAGE_KEY = useMemo(
+    () => `certified_all_logs_${selectedDateStr}`,
+    [selectedDateStr]
+  )
 
   // For today: Use individual HOS logs (available immediately after status changes)
   const {
@@ -118,38 +142,13 @@ export const LogsScreen = () => {
     setSignature("")
   }
 
-  const handleCertifyIndividualLog = async (logId: string, signature: string) => {
-    try {
-      // Find the log entry to get the daily log ID
-      const logEntry = filteredLogs.find((log) => log.logId === logId || log.id === logId)
-
-      // Use dailyLogId if available, otherwise fallback to logId
-      // Per spec: PATCH /api/hos/daily-logs/{id}/ to certify daily logs
-      const dailyLogId = (logEntry as any)?.dailyLogId || logId
-
-      if (!dailyLogId) {
-        throw new Error("Daily log ID not found")
-      }
-
-      // Call HOS API to certify the daily log
-      await certifyLogMutation.mutateAsync(dailyLogId)
-
-      // Refetch daily logs to update UI
-      if (isToday) {
-        refetchHOSLogs()
-      } else {
-        refetchDailyLogs()
-      }
-
-      toast.success("Log entry certified successfully")
-    } catch (error: any) {
-      console.error("Failed to certify individual log:", error)
-      toast.error(error?.message || "Failed to certify log entry")
-      throw error
-    }
-  }
 
   const handleCertifyAllUncertifiedLogs = async () => {
+    if (!signature.trim()) {
+      toast.error("Please enter your signature")
+      return
+    }
+
     try {
       // Store count before mutation (it will change after refetch)
       const countBeforeCertification = uncertifiedLogsCount
@@ -167,12 +166,18 @@ export const LogsScreen = () => {
         refetchDailyLogs()
       }
 
+      // Close bottom sheet and clear signature
+      certifyBottomSheetRef.current?.dismiss()
+      setSignature("")
       setShowCertifyAllModal(false)
+
       toast.success(
-        `All ${countBeforeCertification} uncertified log${countBeforeCertification !== 1 ? "s" : ""} have been certified successfully`,
+        `✅ Certified! ${countBeforeCertification} log${countBeforeCertification !== 1 ? "s" : ""} locked and synced.`,
       )
     } catch (error: any) {
-      console.error("Failed to certify all uncertified logs:", error)
+      if (__DEV__) {
+        console.error("Failed to certify all uncertified logs:", error)
+      }
       toast.error(error?.message || "Failed to certify all uncertified logs")
     }
   }
@@ -286,7 +291,8 @@ export const LogsScreen = () => {
     return convertedLogs
   }, [hosLogsData, dailyLogsData, isToday])
 
-  const getFilteredLogs = () => {
+  // Memoized filtered logs - prevents recalculation on every render
+  const filteredLogs = useMemo(() => {
     // Use API logs if available, otherwise fallback to local logEntries
     if (apiLogs.length > 0) {
       return apiLogs
@@ -306,7 +312,7 @@ export const LogsScreen = () => {
         return logDate >= startOfDay && logDate <= endOfDay
       })
       .sort((a, b) => b.startTime - a.startTime)
-  }
+  }, [apiLogs, logEntries, selectedDateStr])
 
   const handlePreviousDay = () => {
     const prevDay = new Date(selectedDate)
@@ -328,8 +334,6 @@ export const LogsScreen = () => {
     setSelectedDate(new Date())
   }
 
-  const filteredLogs = getFilteredLogs()
-
   // Check if all logs for the selected date are certified
   const allLogsCertified = useMemo(() => {
     if (filteredLogs.length === 0) return false
@@ -344,6 +348,192 @@ export const LogsScreen = () => {
   // Check if certify all button should be enabled
   // Hide button if: all logs are certified OR we've already certified all logs for this date (in storage)
   const hasUncertifiedLogs = uncertifiedLogsCount > 0 && !isCertifiedInStorage
+
+  // Compliance status calculation
+  const complianceStatus = useMemo(() => {
+    if (allLogsCertified) {
+      return { type: "compliant", message: "Compliant • All logs certified", color: "#22C55E", icon: CheckCircle2 }
+    }
+    if (hasUncertifiedLogs) {
+      return { type: "attention", message: `Attention needed • ${uncertifiedLogsCount} uncertified logs`, color: "#F59E0B", icon: AlertCircle }
+    }
+    // Check for violations from hosStatus if available
+    if (hosStatus?.active_violations && hosStatus.active_violations.length > 0) {
+      return { type: "violation", message: "Violation risk • Check HOS limits", color: "#EF4444", icon: AlertCircle }
+    }
+    return { type: "compliant", message: "Compliant", color: "#22C55E", icon: CheckCircle2 }
+  }, [allLogsCertified, hasUncertifiedLogs, uncertifiedLogsCount, hosStatus?.active_violations])
+
+  // HOS clocks summary for mini strip
+  const hosSummary = useMemo(() => {
+    if (!hosClock) return null
+    const formatTime = (minutes: number) => {
+      if (minutes < 0) return "0h 0m"
+      const hours = Math.floor(minutes / 60)
+      const mins = minutes % 60
+      return `${hours}h ${mins}m`
+    }
+    // Use hosClock data if available
+    if (hosClock.driving_time_remaining !== undefined && hosClock.on_duty_time_remaining !== undefined) {
+      return {
+        driveLeft: formatTime(hosClock.driving_time_remaining),
+        shiftLeft: formatTime(hosClock.on_duty_time_remaining),
+      }
+    }
+    // Fallback to hosStatus if available
+    if (hosStatus?.driving_time_remaining !== undefined && hosStatus?.on_duty_time_remaining !== undefined) {
+      return {
+        driveLeft: formatTime(hosStatus.driving_time_remaining),
+        shiftLeft: formatTime(hosStatus.on_duty_time_remaining),
+      }
+    }
+    return null
+  }, [hosClock, hosStatus])
+
+  // Get status color for timeline
+  const getStatusColor = useCallback((status: string) => {
+    const statusMap: Record<string, string> = {
+      onDuty: "#F59E0B", // Amber
+      driving: "#EF4444", // Red
+      offDuty: "#3B82F6", // Blue
+      sleeperBerth: "#A855F7", // Purple
+      sleeping: "#A855F7", // Purple
+    }
+    return statusMap[status] || "#6B7280"
+  }, [])
+
+  // Handle certifying individual log entry
+  const handleCertifyIndividualLog = useCallback(async (logId: string, signature?: string) => {
+    try {
+      // Find the log entry to get the daily log ID
+      const logEntry = filteredLogs.find((log) => log.logId === logId || log.id === logId)
+
+      if (!logEntry) {
+        throw new Error("Log not found")
+      }
+
+      // Use dailyLogId if available, otherwise fallback to logId
+      // Per spec: PATCH /api/hos/daily-logs/{id}/ to certify daily logs
+      const dailyLogId = (logEntry as any)?.dailyLogId || logEntry.logId || logEntry.id
+
+      if (!dailyLogId) {
+        throw new Error("No daily log ID available for certification")
+      }
+
+      // Call HOS API to certify the daily log (API expects just the ID string)
+      await certifyLogMutation.mutateAsync(dailyLogId)
+
+      // Refetch daily logs to update UI
+      if (isToday) {
+        refetchHOSLogs()
+      } else {
+        refetchDailyLogs()
+      }
+
+      toast.success("Log entry certified successfully")
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error("Failed to certify individual log:", error)
+      }
+      toast.error(error?.message || "Failed to certify log entry")
+      throw error
+    }
+  }, [filteredLogs, certifyLogMutation, isToday, refetchHOSLogs, refetchDailyLogs])
+
+  // Format time for timeline
+  const formatTime = useCallback((timestamp: number) => {
+    const date = new Date(timestamp)
+    const hours = date.getHours()
+    const minutes = date.getMinutes()
+    const ampm = hours >= 12 ? "PM" : "AM"
+    const displayHours = hours % 12 || 12
+    return `${displayHours}:${minutes.toString().padStart(2, "0")} ${ampm}`
+  }, [])
+
+  // Format duration
+  const formatDuration = useCallback((minutes: number) => {
+    if (minutes < 60) return `${minutes}m`
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  }, [])
+
+  // Memoized render function for log entries with timeline visualization
+  const renderLogEntry = useCallback(
+    ({ item, index }: { item: any; index: number }) => {
+      const statusColor = getStatusColor(item.status)
+      const isLast = index === filteredLogs.length - 1
+      const isCurrent = isToday && isLast
+      const duration = item.duration ? formatDuration(item.duration) : null
+
+      return (
+        <View style={styles.timelineRow}>
+          {/* Timeline Rail */}
+          <View style={styles.timelineRail}>
+            <View style={[styles.timelineLine, { backgroundColor: statusColor }]} />
+            {!isLast && <View style={[styles.timelineLineConnector, { backgroundColor: statusColor }]} />}
+          </View>
+
+          {/* Timeline Dot */}
+          <Animated.View
+            style={[
+              styles.timelineDot,
+              {
+                backgroundColor: statusColor,
+                transform: [{ scale: isCurrent ? pulseAnim : 1 }],
+              },
+            ]}
+          >
+            {item.isCertified && (
+              <Lock size={10} color="#fff" style={styles.timelineLock} />
+            )}
+          </Animated.View>
+
+          {/* Log Content */}
+          <View style={[styles.timelineContent, item.isCertified && styles.timelineContentCertified]}>
+            <View style={styles.timelineHeader}>
+              <View style={styles.timelineStatusRow}>
+                <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
+                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                    {item.status === "onDuty" ? "On Duty" : 
+                     item.status === "driving" ? "Driving" :
+                     item.status === "offDuty" ? "Off Duty" :
+                     item.status === "sleeperBerth" || item.status === "sleeping" ? "Sleeper" : item.status}
+                  </Text>
+                </View>
+                {item.isCertified && (
+                  <View style={styles.certifiedPill}>
+                    <Lock size={10} color="#22C55E" />
+                    <Text style={styles.certifiedPillText}>CERTIFIED</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.timelineTime, { color: colors.text }]}>
+                {formatTime(item.startTime)}
+              </Text>
+            </View>
+            {duration && (
+              <Text style={[styles.timelineDuration, { color: colors.textDim }]}>
+                Duration: {duration}
+              </Text>
+            )}
+            {item.reason && (
+              <Text style={[styles.timelineReason, { color: colors.textDim }]} numberOfLines={1}>
+                {item.reason}
+              </Text>
+            )}
+          </View>
+        </View>
+      )
+    },
+    [handleCertifyIndividualLog, getStatusColor, formatTime, formatDuration, isToday, filteredLogs.length, colors, pulseAnim]
+  )
+
+  // Memoized key extractor
+  const keyExtractor = useCallback(
+    (item: any) => item?.id?.toString() || item?.timestamp?.toString() || item?.logId || `log-${Math.random()}`,
+    []
+  )
 
   // Check local storage for certification status when date changes
   useEffect(() => {
@@ -369,74 +559,103 @@ export const LogsScreen = () => {
     }
   }, [uncertifiedLogsCount, isCertifiedInStorage, CERTIFIED_ALL_STORAGE_KEY])
 
-  // Refetch logs when date changes or driver ID changes
+  // Pulse animation for current status
+  useEffect(() => {
+    if (isToday && filteredLogs.length > 0) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      )
+      pulse.start()
+      return () => pulse.stop()
+    }
+    return undefined
+  }, [isToday, filteredLogs.length, pulseAnim])
+
+  // Refetch logs when date changes or driver ID changes - debounced to prevent rapid refetches
   useEffect(() => {
     if (!isAuthenticated || !correctDriverId) {
       return
     }
 
-    if (isToday) {
-      if (hosClock) {
-        refetchHOSLogs() // Today: Use individual HOS logs
+    const timeoutId = setTimeout(() => {
+      if (isToday) {
+        if (hosClock) {
+          refetchHOSLogs() // Today: Use individual HOS logs
+        }
+      } else {
+        refetchDailyLogs() // Past dates: Use daily logs (certified summaries)
       }
-    } else {
-      refetchDailyLogs() // Past dates: Use daily logs (certified summaries)
-    }
+    }, 200) // Small debounce to coalesce rapid changes
+
+    return () => clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateStr, isAuthenticated, correctDriverId, hosClock?.driver, isToday])
 
-  // Debug: Log the filtered logs to understand what's happening
-  console.log("Filtered logs for date:", selectedDate.toDateString(), "Count:", filteredLogs.length)
+  const StatusIcon = complianceStatus.icon
 
   return (
-    <View style={styles.container}>
-      <Header
-        title={"HOS LOGS"}
-        titleMode="center"
-        backgroundColor={colors.background}
-        titleStyle={{
-          fontSize: 22,
-          fontWeight: "800",
-          color: colors.text,
-          letterSpacing: 0.3,
-          paddingLeft: 20,
-        }}
-        leftIcon="back"
-        leftIconColor={colors.tint}
-        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
-        containerStyle={{
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-          shadowColor: colors.tint,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 6,
-        }}
-        style={{
-          paddingHorizontal: 16,
-        }}
-        safeAreaEdges={["top"]}
-        rightText={certification.isCertified ? "CERTIFIED" : ""}
-        rightTextStyle={{
-          backgroundColor: colors.success,
-          color: "#fff",
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          borderRadius: 16,
-          fontSize: 12,
-          fontWeight: "600",
-          overflow: "hidden",
-        }}
-      />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <View style={styles.container}>
+          <Header
+            title={"HOS LOGS"}
+            titleMode="center"
+            backgroundColor={colors.background}
+            titleStyle={{
+              fontSize: 22,
+              fontWeight: "800",
+              color: colors.text,
+              letterSpacing: 0.3,
+              paddingLeft: 20,
+            }}
+            leftIcon="back"
+            leftIconColor={colors.tint}
+            onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+            containerStyle={{
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+              shadowColor: colors.tint,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+            style={{
+              paddingHorizontal: 16,
+            }}
+            safeAreaEdges={["top"]}
+          />
+          
+          {/* Compliance Status Indicator */}
+          <View style={[styles.complianceBanner, { backgroundColor: `${complianceStatus.color}15` }]}>
+            <StatusIcon size={16} color={complianceStatus.color} />
+            <Text style={[styles.complianceText, { color: complianceStatus.color }]}>
+              {complianceStatus.message}
+            </Text>
+          </View>
       <ScrollView
         style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: BOTTOM_PADDING }]}
         showsVerticalScrollIndicator={true}
       >
         <View style={styles.header}>
+          {/* Large Date Display */}
           <View style={styles.dateSelector}>
-            <TouchableOpacity onPress={handlePreviousDay} style={styles.dateButton}>
+            <TouchableOpacity 
+              onPress={handlePreviousDay} 
+              style={[styles.dateButton, { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" }]}
+            >
               <Text style={[styles.dateButtonText, { color: colors.tint }]}>◀</Text>
             </TouchableOpacity>
 
@@ -444,21 +663,36 @@ export const LogsScreen = () => {
               onPress={handleSelectToday}
               style={[
                 styles.dateDisplay,
-                { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" },
+                { 
+                  backgroundColor: isToday ? colors.tint : (isDark ? colors.cardBackground : "#F3F4F6"),
+                  borderWidth: isToday ? 0 : 1,
+                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                },
               ]}
             >
-              <Calendar size={16} color={colors.tint} style={styles.calendarIcon} />
-              <Text style={[styles.dateText, { color: colors.text }]}>
-                {selectedDate.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-                {isToday ? " (Today)" : ""}
-              </Text>
+              <Calendar size={20} color={isToday ? "#fff" : colors.tint} style={styles.calendarIcon} />
+              <View>
+                <Text style={[styles.dateTextLarge, { color: isToday ? "#fff" : colors.text }]}>
+                  {selectedDate.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </Text>
+                {isToday && (
+                  <Text style={styles.dateTextSecondary}>Today</Text>
+                )}
+              </View>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleNextDay} style={styles.dateButton} disabled={isToday}>
+            <TouchableOpacity 
+              onPress={handleNextDay} 
+              style={[styles.dateButton, { 
+                backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                opacity: isToday ? 0.4 : 1,
+              }]} 
+              disabled={isToday}
+            >
               <Text
                 style={[
                   styles.dateButtonText,
@@ -471,92 +705,145 @@ export const LogsScreen = () => {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Tabs */}
-        <View style={styles.actionTiles}>
-          <TouchableOpacity
-            style={[styles.actionTile, { backgroundColor: colors.tint }]}
-            onPress={handleTransferNavigate}
-            activeOpacity={0.85}
-          >
-            <View style={styles.actionTileHeader}>
-              <Share2 size={20} color="#fff" />
-              <Text style={styles.actionTileTitlePrimary}>Transfer Logs</Text>
+          {/* Mini Summary Strip */}
+          {(hosSummary || hasUncertifiedLogs) && (
+            <View style={[styles.summaryStrip, { backgroundColor: isDark ? colors.cardBackground : "#F9FAFB" }]}>
+              {allLogsCertified ? (
+                <View style={styles.summaryRow}>
+                  <CheckCircle2 size={14} color="#22C55E" />
+                  <Text style={[styles.summaryText, { color: colors.text }]}>
+                    Certified through: {selectedDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.summaryRow}>
+                  <AlertCircle size={14} color="#F59E0B" />
+                  <Text style={[styles.summaryText, { color: colors.text }]}>
+                    {uncertifiedLogsCount} uncertified logs
+                  </Text>
+                </View>
+              )}
+              {hosSummary && (
+                <>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryRow}>
+                    <Clock size={14} color={colors.tint} />
+                    <Text style={[styles.summaryText, { color: colors.text }]}>
+                      Drive: {hosSummary.driveLeft} • Shift: {hosSummary.shiftLeft}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
-            <Text style={styles.actionTileSubtitlePrimary}>Send logs instantly to DOT or email</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionTile, { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" }]}
-            onPress={() => toast.info("Driver manuals and transfer instructions are listed below.")}
-            activeOpacity={0.85}
-          >
-            <View style={styles.actionTileHeader}>
-              <FileText size={20} color={colors.tint} />
-              <Text style={[styles.actionTileTitle, { color: colors.text }]}>ELD Material</Text>
-            </View>
-            <Text style={[styles.actionTileSubtitle, { color: colors.textDim }]}>Open driver manuals & instructions</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionTile, { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" }]}
-            onPress={handleInspectorMode}
-            activeOpacity={0.85}
-          >
-            <View style={styles.actionTileHeader}>
-              <Download size={20} color={colors.tint} />
-              <Text style={[styles.actionTileTitle, { color: colors.text }]}>Inspector Mode</Text>
-            </View>
-            <Text style={[styles.actionTileSubtitle, { color: colors.textDim }]}>Launch roadside inspection view</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.tabContent}>
-          <View style={styles.eldMaterials}>
-            <TouchableOpacity
-              style={[styles.eldMaterialItem, { backgroundColor: colors.cardBackground }]}
-              onPress={() => {
-                toast.info("This would open the driver manual PDF or documentation.")
-              }}
-            >
-              <FileText size={24} color={colors.tint} />
-              <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
-                Driver Manual
-              </Text>
-              <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
-                Complete ELD operation guide
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.eldMaterialItem, { backgroundColor: colors.cardBackground }]}
-              onPress={() => {
-                toast.info("Transfer instructions would open here.")
-              }}
-            >
-              <Share2 size={24} color={colors.tint} />
-              <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
-                Transfer Page Instructions
-              </Text>
-              <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
-                Step-by-step transfer guide
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.certificationContainer}>
-          {hasUncertifiedLogs && (
-            <LoadingButton
-              title={`Certify All Uncertified (${uncertifiedLogsCount})`}
-              onPress={() => setShowCertifyAllModal(true)}
-              variant="primary"
-              icon={<Lock size={18} color="#fff" />}
-              disabled={certifyAllUncertifiedMutation.isPending}
-              loading={certifyAllUncertifiedMutation.isPending}
-            />
           )}
+        </View>
+
+        {/* Action Grid - Square Buttons */}
+        <View style={styles.actionGrid}>
+          <TouchableOpacity
+            style={[
+              styles.actionGridItem,
+              {
+                backgroundColor: selectedAction === "transfer" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
+                borderWidth: selectedAction === "transfer" ? 0 : 1,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+              },
+            ]}
+            onPress={() => {
+              setSelectedAction("transfer")
+              handleTransferNavigate()
+            }}
+            activeOpacity={0.85}
+          >
+            <Share2 size={24} color={selectedAction === "transfer" ? "#fff" : colors.tint} />
+            <Text style={[styles.actionGridText, { color: selectedAction === "transfer" ? "#fff" : colors.text }]}>
+              Transfer
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionGridItem,
+              {
+                backgroundColor: selectedAction === "certify" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
+                borderWidth: selectedAction === "certify" ? 0 : 1,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                opacity: !hasUncertifiedLogs && selectedAction !== "certify" ? 0.6 : 1,
+              },
+            ]}
+            onPress={() => {
+              if (hasUncertifiedLogs) {
+                setSelectedAction("certify")
+                certifyBottomSheetRef.current?.present()
+              }
+            }}
+            activeOpacity={0.85}
+            disabled={!hasUncertifiedLogs || certifyAllUncertifiedMutation.isPending}
+          >
+            {hasUncertifiedLogs ? (
+              <>
+                <Lock size={24} color={selectedAction === "certify" ? "#fff" : colors.tint} />
+                <Text style={[styles.actionGridText, { color: selectedAction === "certify" ? "#fff" : colors.text }]}>
+                  Certify
+                </Text>
+                {uncertifiedLogsCount > 0 && (
+                  <Text style={[styles.actionGridSubtext, { color: selectedAction === "certify" ? "rgba(255,255,255,0.9)" : colors.textDim }]}>
+                    ({uncertifiedLogsCount})
+                  </Text>
+                )}
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={24} color={selectedAction === "certify" ? "#fff" : colors.textDim} />
+                <Text style={[styles.actionGridText, { color: selectedAction === "certify" ? "#fff" : colors.textDim }]}>
+                  Certified
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionGridItem,
+              {
+                backgroundColor: selectedAction === "inspector" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
+                borderWidth: selectedAction === "inspector" ? 0 : 1,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+              },
+            ]}
+            onPress={() => {
+              setSelectedAction("inspector")
+              handleInspectorMode()
+            }}
+            activeOpacity={0.85}
+          >
+            <Shield size={24} color={selectedAction === "inspector" ? "#fff" : colors.tint} />
+            <Text style={[styles.actionGridText, { color: selectedAction === "inspector" ? "#fff" : colors.text }]}>
+              Inspector
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionGridItem,
+              {
+                backgroundColor: selectedAction === "manual" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
+                borderWidth: selectedAction === "manual" ? 0 : 1,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+              },
+            ]}
+            onPress={() => {
+              setSelectedAction("manual")
+              toast.info("Driver manuals and instructions are available here.")
+            }}
+            activeOpacity={0.85}
+          >
+            <FileText size={24} color={selectedAction === "manual" ? "#fff" : colors.tint} />
+            <Text style={[styles.actionGridText, { color: selectedAction === "manual" ? "#fff" : colors.text }]}>
+              Manual
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Certify All Uncertified Logs Modal */}
@@ -719,21 +1006,100 @@ export const LogsScreen = () => {
           <>
             {/* HOS Chart - Only show if not all logs are certified */}
 
-            {/* Log Entries - Compact mode when certified */}
+            {/* Log Entries - Using FlatList for performance */}
             <View style={styles.logsContainer}>
-              {filteredLogs.map((item: any) => (
-                <LogEntry
-                  key={item?.id?.toString() || item?.timestamp?.toString() || item?.logId}
-                  log={item}
-                  onCertify={handleCertifyIndividualLog}
-                />
-              ))}
+              <FlatList
+                data={filteredLogs}
+                keyExtractor={keyExtractor}
+                renderItem={renderLogEntry}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={false}
+                contentContainerStyle={{ paddingBottom: 0 }}
+                ListEmptyComponent={
+                  <ElevatedCard style={styles.emptyContainer}>
+                    <View style={styles.emptyIconContainer}>
+                      <FileText size={48} color={colors.text} />
+                    </View>
+                    <Text style={[styles.emptyText, { color: colors.text }]}>
+                      No logs recorded for this date
+                    </Text>
+                    <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+                      Status changes will appear here
+                    </Text>
+                  </ElevatedCard>
+                }
+              />
             </View>
           </>
         )}
       </ScrollView>
+        </View>
 
-    </View>
+          {/* Certification Bottom Sheet */}
+          <BottomSheetModal
+            ref={certifyBottomSheetRef}
+            index={0}
+            snapPoints={certifySnapPoints}
+            enablePanDownToClose
+            backdropComponent={(props) => (
+              <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} />
+            )}
+          >
+            <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: colors.cardBackground }]}>
+              <View style={styles.bottomSheetHeader}>
+                <Lock size={24} color={colors.tint} />
+                <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>Certify Your Logs</Text>
+              </View>
+              <Text style={[styles.bottomSheetSubtitle, { color: colors.textDim }]}>
+                You are certifying {uncertifiedLogsCount} logs for {selectedDate.toLocaleDateString(undefined, { month: "long", day: "numeric" })}.
+                By certifying, you confirm these logs are accurate and final.
+              </Text>
+              <Text style={[styles.bottomSheetLabel, { color: colors.text }]}>
+                Enter your signature:
+              </Text>
+              <TextInput
+                style={[
+                  styles.signatureInput,
+                  {
+                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                    color: colors.text,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                  },
+                ]}
+                placeholder="Your digital signature"
+                placeholderTextColor={colors.textDim}
+                value={signature}
+                onChangeText={setSignature}
+              />
+              <View style={styles.bottomSheetActions}>
+                <TouchableOpacity
+                  style={[styles.bottomSheetButton, styles.bottomSheetButtonCancel]}
+                  onPress={() => {
+                    certifyBottomSheetRef.current?.dismiss()
+                    setSignature("")
+                  }}
+                >
+                  <Text style={[styles.bottomSheetButtonText, { color: colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.bottomSheetButton,
+                    styles.bottomSheetButtonPrimary,
+                    { backgroundColor: colors.tint },
+                    (!signature.trim() || certifyAllUncertifiedMutation.isPending) && styles.bottomSheetButtonDisabled,
+                  ]}
+                  onPress={handleCertifyAllUncertifiedLogs}
+                  disabled={!signature.trim() || certifyAllUncertifiedMutation.isPending}
+                >
+                  <Text style={styles.bottomSheetButtonTextPrimary}>
+                    {certifyAllUncertifiedMutation.isPending ? "Certifying..." : "Certify All"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </BottomSheetView>
+          </BottomSheetModal>
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
   )
 }
 
@@ -772,7 +1138,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
   dateButtonText: {
     fontSize: 18,
@@ -780,20 +1150,28 @@ const styles = StyleSheet.create({
   },
   dateDisplay: {
     alignItems: "center",
-    borderRadius: 20,
+    borderRadius: 12,
     flexDirection: "row",
     marginHorizontal: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minWidth: 180,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   dateSelector: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 20,
+    paddingHorizontal: 20,
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600" as const,
   },
   eldMaterialItem: {
@@ -929,45 +1307,317 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     marginBottom: 16,
   },
-  actionTiles: {
-    gap: 12,
-    paddingHorizontal: 20,
+  // Action Row - Horizontal Scrollable
+  actionRowScroll: {
     marginBottom: 20,
   },
-  actionTile: {
+  actionRowContainer: {
+    paddingHorizontal: 20,
+    gap: 12,
+    paddingRight: 32,
+  },
+  actionRowCard: {
+    width: 140,
     borderRadius: 16,
     padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    minHeight: 160,
+  },
+  actionRowIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    position: "relative",
+  },
+  actionRowBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#FF4444",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  actionRowBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700" as const,
+  },
+  actionRowTitle: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  actionRowSubtitle: {
+    fontSize: 12,
+    textAlign: "center",
+  },
+  // Compliance Banner
+  complianceBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 8,
   },
-  actionTileHeader: {
+  complianceText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+  },
+  // Date Display
+  dateTextLarge: {
+    fontSize: 22,
+    fontWeight: "700" as const,
+  },
+  dateTextSecondary: {
+    fontSize: 12,
+    fontWeight: "500" as const,
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  // Summary Strip
+  summaryStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+  summaryText: {
+    fontSize: 13,
+    fontWeight: "500" as const,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+  },
+  // Action Grid - Square Buttons
+  actionGrid: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  actionGridItem: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    padding: 12,
+    position: "relative",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  actionGridText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  actionGridSubtext: {
+    fontSize: 11,
+    fontWeight: "500" as const,
+    marginTop: 2,
+    textAlign: "center",
+  },
+  actionGridBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  actionGridBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700" as const,
+  },
+  // Timeline
+  timelineRow: {
+    flexDirection: "row",
+    paddingLeft: 20,
+    paddingRight: 20,
+    marginBottom: 16,
+  },
+  timelineRail: {
+    width: 24,
+    alignItems: "center",
+    marginRight: 12,
+  },
+  timelineLine: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
+  },
+  timelineLineConnector: {
+    width: 2,
+    flex: 1,
+    marginTop: 2,
+    borderRadius: 1,
+  },
+  timelineDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -2,
+    borderWidth: 3,
+    borderColor: "#fff",
+  },
+  timelineLock: {
+    position: "absolute",
+  },
+  timelineContent: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#F9FAFB",
+  },
+  timelineContentCertified: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#22C55E20",
+  },
+  timelineHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
+  timelineStatusRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flex: 1,
   },
-  actionTileTitlePrimary: {
-    fontSize: 16,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+  },
+  certifiedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: "#22C55E",
+    borderRadius: 10,
+  },
+  certifiedPillText: {
+    fontSize: 10,
     fontWeight: "700" as const,
     color: "#fff",
+    letterSpacing: 0.5,
   },
-  actionTileSubtitlePrimary: {
-    fontSize: 13,
-    color: "#EFF6FF",
+  timelineTime: {
+    fontSize: 14,
+    fontWeight: "600" as const,
   },
-  actionTileTitle: {
-    fontSize: 16,
+  timelineDuration: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  timelineReason: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  // Bottom Sheet
+  bottomSheetContent: {
+    flex: 1,
+    padding: 24,
+  },
+  bottomSheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  bottomSheetTitle: {
+    fontSize: 20,
     fontWeight: "700" as const,
   },
-  actionTileSubtitle: {
-    fontSize: 13,
-    marginLeft: 28,
-  },
-  tabContent: {
-    paddingHorizontal: 20,
+  bottomSheetSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 20,
+  },
+  bottomSheetLabel: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    marginBottom: 8,
+  },
+  bottomSheetActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+  },
+  bottomSheetButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetButtonCancel: {
+    backgroundColor: "#F3F4F6",
+  },
+  bottomSheetButtonPrimary: {
+    // backgroundColor set inline
+  },
+  bottomSheetButtonDisabled: {
+    opacity: 0.5,
+  },
+  bottomSheetButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+  },
+  bottomSheetButtonTextPrimary: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: "#fff",
   },
 })

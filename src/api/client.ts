@@ -268,7 +268,7 @@ class ApiClient {
           typeof payload === "object" &&
           typeof (payload as any).append === "function" &&
           !(payload as any).uri)
-
+      
       // Don't set Content-Type for FormData, let runtime include the boundary
       if (!isFormData) {
         const inferredType =
