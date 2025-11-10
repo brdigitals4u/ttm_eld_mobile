@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { ArrowLeft, Clock, FileText, Lock, Share2, Unlock } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Modal, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { toast } from '@/components/Toast';
 import LoadingButton from '@/components/LoadingButton';
 import ElevatedCard from '@/components/EvevatedCard';
@@ -74,47 +74,12 @@ export default function InspectorModeScreen() {
     setIsCreatingPin(false);
   };
 
-  const handleShareLogs = async () => {
-    try {
-      // Format logs for sharing
-      const today = new Date().toLocaleDateString();
-      const driverName = driverProfile?.name || user?.name || 'Driver';
-      const vehicleId = vehicleAssignment?.vehicle_info?.vehicle_unit || vehicleInfo?.vehicle_unit || 'Unknown';
-      const companyName = organizationSettings?.organization_name || user?.organizationName || 'Unknown Company';
-      const driverId = driverProfile?.company_driver_id || 'Unknown ID';
-      const licenseNumber = driverProfile?.license_number || user?.licenseNumber || 'Unknown License';
-      
-      const logsText = statusHistory
-        .map(log => {
-          const date = new Date(log.timestamp).toLocaleString();
-          return `${date} - ${log.status.toUpperCase()}: ${log.reason}`;
-        })
-        .join('\n');
-      
-      const shareText = `Driver Logs - ${today}
-====================
-Driver: ${driverName}
-Driver ID: ${driverId}
-License: ${licenseNumber}
-Vehicle: ${vehicleId}
-Company: ${companyName}
-Date: ${today}
-====================
-
-${logsText}`;
-      
-      const result = await Share.share({
-        message: shareText,
-        title: `Driver Logs - ${today}`,
-      });
-      
-      if (result.action === Share.sharedAction) {
-        toast.success('Logs shared successfully');
-      }
-    } catch (error) {
-      toast.error('Failed to share logs');
-      console.error('Share error:', error);
+  const handleShareLogs = () => {
+    if (isLocked) {
+      toast.warning('Unlock screen to access transfer logs.');
+      return;
     }
+    router.push('/logs/transfer?source=inspector');
   };
 
   // Sort logs by timestamp (newest first)

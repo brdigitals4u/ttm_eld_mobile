@@ -12,7 +12,6 @@ import {
   AlertCircle,
   FileCheck,
   Gauge,
-  Shield,
   BookOpen,
   Bell,
   RefreshCw,
@@ -732,13 +731,9 @@ export const DashboardScreen = () => {
               <Gauge size={32} color="#FFF" strokeWidth={2} />
               <Text style={s.categoryTextActive}>HOS</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/(tabs)/logs")}>
+            <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/logs/transfer")}>
               <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
-              <Text style={s.categoryText}>Logs</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/(tabs)/dvir" as any)}>
-              <Shield size={32} color={colors.PRIMARY} strokeWidth={2} />
-              <Text style={s.categoryText}>DVIR</Text>
+              <Text style={s.categoryText}>Logs Transfer</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={s.categoryBox}
@@ -815,7 +810,7 @@ export const DashboardScreen = () => {
 
           <TouchableOpacity
             style={[s.quickCard, { backgroundColor: "#EFF6FF" }]}
-            onPress={() => router.push("/(tabs)/logs")}
+            onPress={() => router.push("/logs/transfer")}
           >
             <View style={[s.quickCardIcon, { backgroundColor: colors.PRIMARY }]}>
               <FileText size={20} color="#FFF" strokeWidth={2.5} />

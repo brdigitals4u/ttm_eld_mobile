@@ -10,6 +10,7 @@ import { tokenRefreshService } from '@/services/token-refresh-service'
 export interface OrganizationDriverLoginCredentials {
   email: string
   password: string
+  tenant_code: string
 }
 
 export interface DriverProfile {
@@ -169,7 +170,7 @@ export const organizationApi = {
         isEmailVerified: true,
         createdAt: new Date(response.data.user.driver_profile.created_at),
         updatedAt: new Date(response.data.user.driver_profile.updated_at),
-      })
+      } as any)
       
       // Store auth session in Realm
       await RealmService.createAuthSession({
@@ -203,7 +204,7 @@ export const organizationApi = {
         isEmailVerified: true,
         createdAt: new Date(response.data.driver_profile.created_at),
         updatedAt: new Date(response.data.driver_profile.updated_at),
-      })
+      } as any)
     }
     
     return response.data!

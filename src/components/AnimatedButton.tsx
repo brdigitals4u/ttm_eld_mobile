@@ -7,12 +7,12 @@ interface AnimatedButtonProps {
   title: string
   onPress: () => Promise<void> | void
   onSuccess?: () => void
-  loadingAnimation: any 
+  loadingAnimation: any
   successAnimation: any
   disabled?: boolean
   style?: ViewStyle
   textStyle?: TextStyle
-  successDuration?: number // How long to show success animation (ms)
+  successDuration?: number
 }
 
 type ButtonState = "idle" | "loading" | "success"

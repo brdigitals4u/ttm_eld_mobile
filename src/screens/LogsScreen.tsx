@@ -1,17 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react"
-import {
-  Modal,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from "react-native"
 import { router } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { Calendar, Download, FileText, Lock, Mail, Share2, Wifi } from "lucide-react-native"
+import { Calendar, Download, FileText, Lock, Share2 } from "lucide-react-native"
+import Constants from "expo-constants"
 
 import {
   hosApi,
@@ -28,7 +20,7 @@ import HOSChartSkeleton from "@/components/HOSChartSkeleton"
 import LoadingButton from "@/components/LoadingButton"
 import LogEntry from "@/components/LogEntry"
 import { toast } from "@/components/Toast"
-import { useStatus } from "@/contexts"
+import { useStatus, useCarrier } from "@/contexts"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
 
@@ -37,16 +29,12 @@ export const LogsScreen = () => {
   const isDark = themeContext === "dark"
   const colors = theme.colors
   const { logEntries, certification, certifyLogs, uncertifyLogs } = useStatus()
-  const { user, driverProfile, vehicleAssignment, isAuthenticated } = useAuth()
+  const { carrierInfo } = useCarrier()
+  const { user, driverProfile, vehicleAssignment, isAuthenticated, organizationSettings, hosStatus } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [showCertificationModal, setShowCertificationModal] = useState(false)
   const [showCertifyAllModal, setShowCertifyAllModal] = useState(false)
-  const [showTransferModal, setShowTransferModal] = useState(false)
-  const [showEldMaterialsModal, setShowEldMaterialsModal] = useState(false)
-  const [showEmailDialog, setShowEmailDialog] = useState(false)
-  const [emailDialogType, setEmailDialogType] = useState<"wireless" | "email-dot" | null>(null)
   const [signature, setSignature] = useState("")
-  const [transferEmail, setTransferEmail] = useState("")
   const [isCertifiedInStorage, setIsCertifiedInStorage] = useState(false)
 
   // Get HOS clock to get correct driver ID
@@ -100,93 +88,9 @@ export const LogsScreen = () => {
 
   const isLoadingLogs = isToday ? isHOSLogsLoading : isDailyLogsLoading
 
-  const handleTransferLogs = async () => {
-    try {
-      console.log("Transfer logs clicked")
-    } catch (error) {
-      console.error("Transfer logs error:", error)
-    }
-    setShowTransferModal(true)
-  }
-
-  const handleEldMaterials = async () => {
-    try {
-      console.log("ELD materials clicked")
-    } catch (error) {
-      console.error("ELD materials error:", error)
-    }
-    setShowEldMaterialsModal(true)
-  }
-
-  const handleTransferOption = async (option: "wireless" | "email-dot" | "email-self") => {
-    setShowTransferModal(false)
-
-    if (option === "wireless") {
-      setEmailDialogType("wireless")
-      setShowEmailDialog(true)
-    } else if (option === "email-dot") {
-      setEmailDialogType("email-dot")
-      setShowEmailDialog(true)
-    } else if (option === "email-self") {
-      await shareLogsViaEmail(user?.email || "", "Self Transfer")
-    }
-  }
-
-  const handleEmailDialogSubmit = async () => {
-    if (!transferEmail || !emailDialogType) return
-
-    setShowEmailDialog(false)
-    
-    if (emailDialogType === "wireless") {
-      await shareLogsViaEmail(transferEmail, "Wireless Web Services Transfer")
-    } else if (emailDialogType === "email-dot") {
-      await shareLogsViaEmail(transferEmail, "DOT Transfer")
-    }
-    
-    setTransferEmail("")
-    setEmailDialogType(null)
-  }
-
-  const handleEmailDialogCancel = () => {
-    setShowEmailDialog(false)
-    setTransferEmail("")
-    setEmailDialogType(null)
-  }
-
-  const shareLogsViaEmail = async (email: string, transferType: string) => {
-    try {
-      const formattedDate = selectedDate.toLocaleDateString()
-      const driverName = driverProfile?.name || user?.name || "Driver"
-      const vehicleId = vehicleAssignment?.vehicle_info?.vehicle_unit || "Unknown"
-
-      const filteredLogs = getFilteredLogs()
-
-      const logsText = filteredLogs
-        .map((log) => {
-          const date = new Date(log.startTime).toLocaleString()
-          return `${date} - ${log.status.toUpperCase()}: ${log.reason}`
-        })
-        .join("\n")
-
-      const certificationText = certification.isCertified
-        ? `\n\nCERTIFIED by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}\nSignature: ${certification.certificationSignature}`
-        : "\n\nNOT CERTIFIED"
-
-      const shareText = `${transferType} - Driver Logs\nDate: ${formattedDate}\nDriver: ${driverName}\nVehicle: ${vehicleId}\nEmail: ${email}\n\n${logsText}${certificationText}`
-
-      const result = await Share.share({
-        message: shareText,
-        title: `${transferType} - Driver Logs`,
-      })
-
-      if (result.action === Share.sharedAction) {
-        toast.success(`Logs transferred successfully via ${transferType}`)
-      }
-    } catch (error) {
-      toast.error("Failed to transfer logs")
-      console.error("Transfer error:", error)
-    }
-  }
+  const handleTransferNavigate = useCallback(() => {
+    router.push("/logs/transfer")
+  }, [])
 
   const handleInspectorMode = () => {
     router.push("/inspector-mode")
@@ -569,32 +473,76 @@ export const LogsScreen = () => {
           </View>
         </View>
 
-        <View style={styles.actionsContainer}>
-          <View style={styles.actionButton}>
-            <LoadingButton
-              title="Transfer Logs"
-              onPress={handleTransferLogs}
-              variant="outline"
-              icon={<Share2 size={18} color={colors.tint} />}
-              fullWidth
-            />
-          </View>
-          <View style={styles.actionButton}>
-            <LoadingButton
-              title="ELD Materials"
-              onPress={handleEldMaterials}
-              variant="outline"
-              icon={<FileText size={18} color={colors.tint} />}
-              fullWidth
-            />
-          </View>
-          <View style={styles.actionButton}>
-            <LoadingButton
-              title="Inspector Mode"
-              onPress={handleInspectorMode}
-              icon={<Download size={18} color={isDark ? colors.text : "#fff"} />}
-              fullWidth
-            />
+        {/* Tabs */}
+        <View style={styles.actionTiles}>
+          <TouchableOpacity
+            style={[styles.actionTile, { backgroundColor: colors.tint }]}
+            onPress={handleTransferNavigate}
+            activeOpacity={0.85}
+          >
+            <View style={styles.actionTileHeader}>
+              <Share2 size={20} color="#fff" />
+              <Text style={styles.actionTileTitlePrimary}>Transfer Logs</Text>
+            </View>
+            <Text style={styles.actionTileSubtitlePrimary}>Send logs instantly to DOT or email</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionTile, { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" }]}
+            onPress={() => toast.info("Driver manuals and transfer instructions are listed below.")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.actionTileHeader}>
+              <FileText size={20} color={colors.tint} />
+              <Text style={[styles.actionTileTitle, { color: colors.text }]}>ELD Material</Text>
+            </View>
+            <Text style={[styles.actionTileSubtitle, { color: colors.textDim }]}>Open driver manuals & instructions</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionTile, { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" }]}
+            onPress={handleInspectorMode}
+            activeOpacity={0.85}
+          >
+            <View style={styles.actionTileHeader}>
+              <Download size={20} color={colors.tint} />
+              <Text style={[styles.actionTileTitle, { color: colors.text }]}>Inspector Mode</Text>
+            </View>
+            <Text style={[styles.actionTileSubtitle, { color: colors.textDim }]}>Launch roadside inspection view</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.tabContent}>
+          <View style={styles.eldMaterials}>
+            <TouchableOpacity
+              style={[styles.eldMaterialItem, { backgroundColor: colors.cardBackground }]}
+              onPress={() => {
+                toast.info("This would open the driver manual PDF or documentation.")
+              }}
+            >
+              <FileText size={24} color={colors.tint} />
+              <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                Driver Manual
+              </Text>
+              <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
+                Complete ELD operation guide
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.eldMaterialItem, { backgroundColor: colors.cardBackground }]}
+              onPress={() => {
+                toast.info("Transfer instructions would open here.")
+              }}
+            >
+              <Share2 size={24} color={colors.tint} />
+              <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
+                Transfer Page Instructions
+              </Text>
+              <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
+                Step-by-step transfer guide
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -710,208 +658,6 @@ export const LogsScreen = () => {
           </View>
         </Modal>
 
-        {/* Transfer Logs Modal */}
-        <Modal
-          visible={showTransferModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowTransferModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Transfer Logs</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                Select transfer method as per FMCSA standard:
-              </Text>
-
-              <View style={styles.transferOptions}>
-                <TouchableOpacity
-                  style={[
-                    styles.transferOption,
-                    styles.preferredOption,
-                    { backgroundColor: colors.tint },
-                  ]}
-                  onPress={() => handleTransferOption("wireless")}
-                >
-                  <Wifi size={24} color="#fff" />
-                  <View style={styles.transferOptionText}>
-                    <Text style={[styles.transferOptionTitle, { color: "#fff" }]}>
-                      Wireless Web Services
-                    </Text>
-                    <Text style={[styles.transferOptionSubtitle, { color: "#fff" }]}>
-                      Preferred method
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.transferOption,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                      borderWidth: 1,
-                    },
-                  ]}
-                  onPress={() => handleTransferOption("email-dot")}
-                >
-                  <Mail size={24} color={colors.text} />
-                  <View style={styles.transferOptionText}>
-                    <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
-                      Email to DOT
-                    </Text>
-                    <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
-                      Send to DOT inspector
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.transferOption,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                      borderWidth: 1,
-                    },
-                  ]}
-                  onPress={() => handleTransferOption("email-self")}
-                >
-                  <Mail size={24} color={colors.text} />
-                  <View style={styles.transferOptionText}>
-                    <Text style={[styles.transferOptionTitle, { color: colors.text }]}>
-                      Email to Myself
-                    </Text>
-                    <Text style={[styles.transferOptionSubtitle, { color: colors.textDim }]}>
-                      Send to your email
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <LoadingButton
-                title="Cancel"
-                onPress={() => setShowTransferModal(false)}
-                variant="outline"
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* ELD Materials Modal */}
-        <Modal
-          visible={showEldMaterialsModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowEldMaterialsModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>ELD in Cab Materials</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                Required documentation and instructions:
-              </Text>
-
-              <View style={styles.eldMaterials}>
-                <TouchableOpacity
-                  style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
-                  onPress={() => {
-                    toast.info("This would open the driver manual PDF or documentation.")
-                  }}
-                >
-                  <FileText size={24} color={colors.tint} />
-                  <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
-                    Driver Manual
-                  </Text>
-                  <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
-                    Complete ELD operation guide
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.eldMaterialItem, { backgroundColor: colors.background }]}
-                  onPress={() => {
-                    toast.info(
-                      "Transfer Instructions, This would open the transfer page instruction sheet.",
-                    )
-                  }}
-                >
-                  <Share2 size={24} color={colors.tint} />
-                  <Text style={[styles.eldMaterialTitle, { color: colors.text }]}>
-                    Transfer Page Instructions
-                  </Text>
-                  <Text style={[styles.eldMaterialSubtitle, { color: colors.textDim }]}>
-                    Step-by-step transfer guide
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <LoadingButton
-                title="Close"
-                onPress={() => setShowEldMaterialsModal(false)}
-                variant="outline"
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Email Input Dialog */}
-        <Modal
-          visible={showEmailDialog}
-          transparent
-          animationType="fade"
-          onRequestClose={handleEmailDialogCancel}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {emailDialogType === "wireless" ? "Wireless Transfer" : "Email to DOT"}
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                {emailDialogType === "wireless" 
-                  ? "Enter email address for wireless web services transfer:"
-                  : "Enter DOT email address:"}
-              </Text>
-
-              <TextInput
-                style={[
-                  styles.emailInput,
-                  {
-                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                    color: colors.text,
-                    borderColor: isDark ? "transparent" : "#E5E7EB",
-                  },
-                ]}
-                placeholder="Enter email address"
-                placeholderTextColor={colors.textDim}
-                value={transferEmail}
-                onChangeText={setTransferEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <View style={styles.modalButtons}>
-                <View style={styles.modalButton}>
-                  <LoadingButton
-                    title="Cancel"
-                    onPress={handleEmailDialogCancel}
-                    variant="outline"
-                    fullWidth
-                  />
-                </View>
-                <View style={styles.modalButton}>
-                  <LoadingButton
-                    title="Submit"
-                    onPress={handleEmailDialogSubmit}
-                    fullWidth
-                    disabled={!transferEmail.trim()}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {isLoadingLogs ? (
           <>
@@ -986,6 +732,7 @@ export const LogsScreen = () => {
           </>
         )}
       </ScrollView>
+
     </View>
   )
 }
@@ -1160,10 +907,6 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     marginBottom: 8,
   },
-  preferredOption: {
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    borderWidth: 2,
-  },
   scrollContainer: {
     flex: 1,
   },
@@ -1181,40 +924,50 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 16,
   },
-  emailInput: {
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 16,
-    height: 50,
-    marginBottom: 16,
-    marginTop: 12,
-    paddingHorizontal: 16,
-  },
   title: {
     fontSize: 24,
     fontWeight: "700" as const,
     marginBottom: 16,
   },
-  transferOption: {
-    alignItems: "center",
-    borderRadius: 8,
-    flexDirection: "row",
-    marginBottom: 12,
+  actionTiles: {
+    gap: 12,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  actionTile: {
+    borderRadius: 16,
     padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+    gap: 8,
   },
-  transferOptionSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
+  actionTileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  transferOptionText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  transferOptionTitle: {
+  actionTileTitlePrimary: {
     fontSize: 16,
-    fontWeight: "600" as const,
+    fontWeight: "700" as const,
+    color: "#fff",
   },
-  transferOptions: {
+  actionTileSubtitlePrimary: {
+    fontSize: 13,
+    color: "#EFF6FF",
+  },
+  actionTileTitle: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
+  actionTileSubtitle: {
+    fontSize: 13,
+    marginLeft: 28,
+  },
+  tabContent: {
+    paddingHorizontal: 20,
     marginBottom: 20,
   },
 })

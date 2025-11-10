@@ -80,6 +80,7 @@ export interface AuthSessionType {
 export interface LoginCredentials {
   email: string
   password: string
+  tenant_code: string
 }
 
 export interface RegisterCredentials {

@@ -10,17 +10,26 @@ import {
   ScrollView,
   Image,
   Pressable,
+  Modal,
+  SafeAreaView,
 } from "react-native"
 import { router } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import { useDriverLogin } from "@/api/organization"
-import { AnimatedButton } from "@/components/AnimatedButton"
 import { Text } from "@/components/Text"
 import { COLORS } from "@/constants/colors"
 import { LoginCredentials } from "@/database/schemas"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
+
+const loadingAnimation = require("assets/animations/loading.json")
+const successAnimation = require("assets/animations/success.json")
+import { AnimatedButton } from "@/components/AnimatedButton"
+
+const TENANT_OPTIONS = [
+  { value: "TTM_001", label: "OmVahana Fleet" },
+]
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth()
@@ -30,27 +39,40 @@ export const LoginScreen: React.FC = () => {
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: "",
     password: "",
+    tenant_code: "TTM_001",
   })
 
-  const [errors, setErrors] = useState({ email: "", password: "" })
+  const [errors, setErrors] = useState({ email: "", password: "", tenant_code: "" })
   const [showPassword, setShowPassword] = useState(false)
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false)
   const [privacyError, setPrivacyError] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
+  const [tenantPickerVisible, setTenantPickerVisible] = useState(false)
+
+  const selectedTenant = useMemo(
+    () => TENANT_OPTIONS.find((tenant) => tenant.value === credentials.tenant_code),
+    [credentials.tenant_code],
+  )
 
   // Check if button should be disabled
   const isButtonDisabled = useMemo(() => {
-    return !credentials.email.trim() || !credentials.password || !agreedToPrivacy
-  }, [credentials.email, credentials.password, agreedToPrivacy])
+    return (
+      !credentials.email.trim() ||
+      !credentials.password ||
+      !credentials.tenant_code?.trim() ||
+      !agreedToPrivacy
+    )
+  }, [credentials.email, credentials.password, credentials.tenant_code, agreedToPrivacy])
 
   // Load saved credentials if Remember Me was enabled
   useEffect(() => {
     const loadSavedCredentials = async () => {
       try {
         const savedEmail = await AsyncStorage.getItem("rememberedEmail")
+        const savedTenant = await AsyncStorage.getItem("rememberedTenant")
         const savedRememberMe = await AsyncStorage.getItem("rememberMe")
-        if (savedEmail && savedRememberMe === "true") {
-          setCredentials((prev) => ({ ...prev, email: savedEmail }))
+        if (savedEmail && savedTenant && savedRememberMe === "true") {
+          setCredentials((prev) => ({ ...prev, email: savedEmail, tenant_code: savedTenant }))
           setRememberMe(true)
         }
       } catch (error) {
@@ -62,7 +84,11 @@ export const LoginScreen: React.FC = () => {
 
   const validateForm = () => {
     let valid = true
-    const newErrors = { email: "", password: "" }
+    const newErrors = { email: "", password: "", tenant_code: "" }
+    if (!credentials.tenant_code) {
+      newErrors.tenant_code = "Tenant code is required"
+      valid = false
+    }
 
     if (!credentials.email) {
       newErrors.email = "Email is required"
@@ -94,16 +120,19 @@ export const LoginScreen: React.FC = () => {
       const result = await driverLoginMutation.mutateAsync({
         email: credentials.email,
         password: credentials.password,
+        tenant_code: credentials.tenant_code,
       })
 
       // Save email if Remember Me is enabled
-      if (rememberMe) {
-        await AsyncStorage.setItem("rememberedEmail", credentials.email)
-        await AsyncStorage.setItem("rememberMe", "true")
-      } else {
-        await AsyncStorage.removeItem("rememberedEmail")
-        await AsyncStorage.removeItem("rememberMe")
-      }
+          if (rememberMe) {
+            await AsyncStorage.setItem("rememberedEmail", credentials.email)
+            await AsyncStorage.setItem("rememberedTenant", credentials.tenant_code || "")
+            await AsyncStorage.setItem("rememberMe", "true")
+          } else {
+            await AsyncStorage.removeItem("rememberedEmail")
+            await AsyncStorage.removeItem("rememberedTenant")
+            await AsyncStorage.removeItem("rememberMe")
+          }
 
       await login(result)
       toast.success("Login successful!", 2000)
@@ -135,37 +164,51 @@ export const LoginScreen: React.FC = () => {
   }
 
   // Lottie animations (import your own JSON files or use existing ones)
-  const loadingAnimation = require("assets/animations/loading.json")
-  const successAnimation = require("assets/animations/success.json")
-
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            {/* You can add your own image here */}
-            <Image
-              source={require("assets/images/trident_logo.png")}
-              style={styles.loginHeaderImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          <Text style={styles.welcomeTitle}>Welcome to TTM Family</Text>
+          <Image
+            source={require("assets/images/trident_logo.png")}
+            style={styles.loginHeaderImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.welcomeTitle}>Welcome to TTM Fleet</Text>
           <Text style={styles.welcomeSubtitle}>Sign in to continue your journey</Text>
         </View>
 
         {/* Form Container */}
         <View style={styles.formContainer}>
           {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tenant</Text>
+            <Pressable
+              style={[
+                styles.inputWrapper,
+                styles.tenantWrapper,
+                errors.tenant_code && styles.inputError,
+              ]}
+              onPress={() => setTenantPickerVisible(true)}
+            >
+              <View style={styles.tenantContent}>
+                <Text style={styles.tenantSelectedText}>
+                  {selectedTenant?.label || credentials.tenant_code || "Select tenant"}
+                </Text>
+                <Text style={styles.tenantChevron}>▾</Text>
+              </View>
+            </Pressable>
+            {!!errors.tenant_code && <Text style={styles.errorText}>{errors.tenant_code}</Text>}
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
@@ -269,24 +312,72 @@ export const LoginScreen: React.FC = () => {
           />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      <Modal
+        visible={tenantPickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTenantPickerVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setTenantPickerVisible(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Choose tenant</Text>
+            <View style={styles.modalDivider} />
+            {TENANT_OPTIONS.map((tenant) => {
+              const isActive = tenant.value === credentials.tenant_code
+              return (
+                <Pressable
+                  key={tenant.value}
+                  style={[styles.modalOption, isActive && styles.modalOptionActive]}
+                  onPress={() => {
+                    setCredentials((prev) => ({ ...prev, tenant_code: tenant.value }))
+                    setErrors((prev) => ({ ...prev, tenant_code: "" }))
+                    setTenantPickerVisible(false)
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalOptionLabel,
+                      isActive && styles.modalOptionLabelActive,
+                    ]}
+                  >
+                    {tenant.label}
+                  </Text>
+                  {isActive && <Text style={styles.modalOptionCheck}>✓</Text>}
+                </Pressable>
+              )
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: COLORS.white,
+    flex: 1,
+  },
   container: {
     backgroundColor: COLORS.white,
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 96,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 64,
   },
 
   /* Header */
   header: {
+    alignItems: "center",
+    gap: 12,
     marginBottom: 48,
     marginTop: 48,
   },
@@ -295,7 +386,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "bold",
     lineHeight: 35,
-    marginBottom: 12,
     textAlign: "center",
   },
   welcomeSubtitle: {
@@ -492,8 +582,76 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   loginHeaderImage: {
-    height: 140,
-    marginBottom: 20,
+    height: 72,
+    marginBottom: 8,
+    width: 72,
+  },
+  tenantWrapper: {
+    justifyContent: "center",
+  },
+  tenantContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     width: "100%",
+  },
+  tenantSelectedText: {
+    color: COLORS.ink700,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  tenantChevron: {
+    color: COLORS.ink500,
+    fontSize: 18,
+  },
+  modalOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    width: "100%",
+  },
+  modalTitle: {
+    color: COLORS.black,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  modalDivider: {
+    backgroundColor: COLORS.border,
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+    opacity: 0.6,
+  },
+  modalOption: {
+    alignItems: "center",
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  modalOptionActive: {
+    backgroundColor: COLORS.indigo + "10",
+  },
+  modalOptionLabel: {
+    color: COLORS.ink700,
+    fontSize: 16,
+  },
+  modalOptionLabelActive: {
+    color: COLORS.indigo,
+    fontWeight: "600",
+  },
+  modalOptionCheck: {
+    color: COLORS.indigo,
+    fontSize: 16,
+    fontWeight: "700",
   },
 })

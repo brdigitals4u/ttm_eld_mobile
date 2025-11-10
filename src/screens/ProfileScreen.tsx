@@ -260,13 +260,13 @@ export default function ProfileScreen() {
     return odometerItem ? parseFloat(odometerItem.value) || 0 : null
   }, [obdData])
 
-  const menuItems = [
   const handleLogoPress = useCallback(() => {
     Linking.openURL("https://ttmkonnect.com").catch((error) =>
       console.warn("Failed to open ttmkonnect.com", error),
     )
   }, [])
 
+  const menuItems = [
     {
       title: "Settings",
       subtitle: "Manage CoDrivers and Others",

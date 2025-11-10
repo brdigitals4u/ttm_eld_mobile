@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, BackHandler } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, BackHandler, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import ChatWootWidget from '@chatwoot/react-native-widget';
 import { CHATWOOT_CONFIG } from "@/utils/chatwootConfig"
+import { useAppTheme } from '@/theme/context';
+import { toast } from '@/components/Toast';
 
 import { useChatSupport } from '../contexts/ChatSupportContext';
 
@@ -15,8 +17,11 @@ if (typeof BackHandler.removeEventListener !== 'function') {
 
 const ChatSupportScreen: React.FC = () => {
   const router = useRouter();
+  const { theme } = useAppTheme();
+  const colors = theme.colors;
   const [showWidget, setShowWidget] = useState(true);
   const [remountKey, setRemountKey] = useState(0);
+  const [hasError, setHasError] = useState(false);
   const chatSupport = useChatSupport();
 
   // Destructure stable functions/values from context
@@ -76,6 +81,49 @@ const ChatSupportScreen: React.FC = () => {
     return () => clearTimeout(t);
   }, [setIsLoading]);
 
+  // Validate Chatwoot URL on mount
+  useEffect(() => {
+    const validateUrl = async () => {
+      try {
+        // Check if URL is valid format
+        const url = new URL(CHATWOOT_CONFIG.BASE_URL);
+        if (!url.hostname || url.hostname === 'undefined') {
+          console.error('❌ Chatwoot: Invalid base URL:', CHATWOOT_CONFIG.BASE_URL);
+          setHasError(true);
+          toast.error('Chatwoot configuration error. Please contact support.');
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Chatwoot: URL validation failed:', error);
+        setHasError(true);
+        toast.error('Chatwoot URL is invalid. Please contact support.');
+      }
+    };
+    validateUrl();
+  }, []);
+
+  const handleWidgetError = useCallback((error: any) => {
+    console.error('❌ Chatwoot Widget Error:', error);
+    setHasError(true);
+    toast.error('Failed to load chat support. Please check your connection.');
+  }, []);
+
+  if (hasError) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load Chat Support</Text>
+          <Text style={[styles.errorMessage, { color: colors.textDim }]}>
+            The chat service is currently unavailable. Please try again later or contact support directly.
+          </Text>
+          <Text style={[styles.errorUrl, { color: colors.textDim }]}>
+            URL: {CHATWOOT_CONFIG.BASE_URL}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {isLoading && (
@@ -84,7 +132,7 @@ const ChatSupportScreen: React.FC = () => {
         </View>
       )}
 
-      {showWidget && (
+      {showWidget && !hasError && (
         <ChatWootWidget
           key={remountKey}
           websiteToken={CHATWOOT_CONFIG.WEBSITE_TOKEN}
@@ -94,6 +142,7 @@ const ChatSupportScreen: React.FC = () => {
           customAttributes={customAttributes}
           isModalVisible={showWidget}
           closeModal={handleCloseModal}
+          onError={handleWidgetError}
         />
       )}
     </SafeAreaView>
@@ -106,6 +155,29 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.9)', zIndex: 1000,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  errorUrl: {
+    fontSize: 12,
+    fontFamily: 'monospace',
+    marginTop: 8,
   },
 });
 
