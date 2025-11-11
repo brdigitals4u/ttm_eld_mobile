@@ -639,10 +639,6 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
           <HOSChart
             data={chartLogs}
             dayStartIso={`${todayStr}T00:00:00Z`}
-            header={{
-              driverName: driverProfile?.name || user?.name || "Driver",
-              driverId: driverProfile?.driver_id || "",
-            }}
           />
         ) : (
           <View style={styles.chartPlaceholder}>

@@ -9,6 +9,7 @@ import  LogEntry  from '@/components/LogEntry';
 import { useAuth, useStatus } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { Text } from '@/components/Text';
+import { translate } from '@/i18n/translate';
 
 export default function InspectorModeScreen() {
   const { theme } = useAppTheme();
@@ -23,12 +24,12 @@ export default function InspectorModeScreen() {
 
   const handleExitInspectorMode = () => {
     if (isLocked) {
-      toast.warning('Please unlock the screen first to exit inspector mode.');
+      toast.warning(translate("inspectorMode.unlockToExit" as any));
       return;
     }
     
     router.back();
-    toast.success('Exited inspector mode');
+    toast.success(translate("inspectorMode.exited" as any));
   };
 
   const handleToggleLock = () => {
@@ -50,9 +51,9 @@ export default function InspectorModeScreen() {
         setIsLocked(true);
         setShowPinModal(false);
         setPin('');
-        toast.success('Inspector mode screen has been locked with your PIN.');
+        toast.success(translate("inspectorMode.screenLocked" as any));
       } else {
-        toast.error('PIN must be at least 4 digits.');
+        toast.error(translate("inspectorMode.pinRequired" as any));
       }
     } else {
       if (pin === tempPin) {
@@ -60,9 +61,9 @@ export default function InspectorModeScreen() {
         setShowPinModal(false);
         setPin('');
         setTempPin('');
-        toast.success('Inspector mode screen has been unlocked.');
+        toast.success(translate("inspectorMode.screenUnlocked" as any));
       } else {
-        toast.error('Please enter the correct PIN to unlock.');
+        toast.error(translate("inspectorMode.incorrectPin" as any));
         setPin('');
       }
     }
@@ -76,7 +77,7 @@ export default function InspectorModeScreen() {
 
   const handleShareLogs = () => {
     if (isLocked) {
-      toast.warning('Unlock screen to access transfer logs.');
+      toast.warning(translate("inspectorMode.unlockToAccess" as any));
       return;
     }
     router.push('/logs/transfer?source=inspector');
@@ -96,26 +97,26 @@ export default function InspectorModeScreen() {
         <Pressable onPress={handleExitInspectorMode} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Inspector Mode</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{translate("inspectorMode.title" as any)}</Text>
         <View style={styles.placeholder} />
       </View>
 
       <View style={styles.content}>
         <ElevatedCard style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.textDim }]}>Driver:</Text>
+            <Text style={[styles.infoLabel, { color: colors.textDim }]}>{translate("inspectorMode.driver" as any)}:</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{driverProfile?.name || user?.name || 'N/A'}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.textDim }]}>License:</Text>
+            <Text style={[styles.infoLabel, { color: colors.textDim }]}>{translate("inspectorMode.license" as any)}:</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{driverProfile?.license_number || user?.licenseNumber || 'N/A'}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.textDim }]}>Vehicle:</Text>
+            <Text style={[styles.infoLabel, { color: colors.textDim }]}>{translate("inspectorMode.vehicle" as any)}:</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{vehicleAssignment?.vehicle_info?.vehicle_unit || vehicleInfo?.vehicle_unit || 'N/A'}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.textDim }]}>Company:</Text>
+            <Text style={[styles.infoLabel, { color: colors.textDim }]}>{translate("inspectorMode.company" as any)}:</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{organizationSettings?.organization_name || user?.organizationName || 'N/A'}</Text>
           </View>
           
@@ -123,13 +124,13 @@ export default function InspectorModeScreen() {
 
         <View style={styles.actionsContainer}>
           <LoadingButton
-            title="Share Logs"
+            title={translate("transferLogs.share" as any)}
             onPress={handleShareLogs}
             icon={<Share2 size={18} color={isDark ? colors.text : '#fff'} />}
             style={{ flex: 1, marginRight: 8 }}
           />
           <LoadingButton
-            title={isLocked ? 'Unlock Screen' : 'Lock Screen'}
+            title={isLocked ? translate("inspectorMode.unlock" as any) : translate("inspectorMode.lock" as any)}
             onPress={handleToggleLock}
             variant={isLocked ? 'outline' : 'secondary'}
             icon={isLocked ? <Unlock size={18} color={colors.tint} /> : <Lock size={18} color={isDark ? colors.text : '#fff'} />}
@@ -139,7 +140,7 @@ export default function InspectorModeScreen() {
         <View style={styles.logsHeader}>
           <View style={styles.logsHeaderLeft}>
             <Clock size={20} color={colors.tint} />
-            <Text style={[styles.logsTitle, { color: colors.text }]}>Today's Logs</Text>
+            <Text style={[styles.logsTitle, { color: colors.text }]}>{translate("inspectorMode.todayLogs" as any)}</Text>
           </View>
           <Text style={[styles.logsCount, { color: colors.textDim }]}>
             {todayLogs.length} entries
@@ -181,12 +182,12 @@ export default function InspectorModeScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {isCreatingPin ? 'Create PIN' : 'Enter PIN'}
+              {isCreatingPin ? translate("inspectorMode.createPin" as any) : translate("inspectorMode.enterPin" as any)}
             </Text>
             <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
               {isCreatingPin 
-                ? 'Create a 4-digit PIN to lock the screen' 
-                : 'Enter your PIN to unlock the screen'
+                ? translate("inspectorMode.createPin" as any) + ' - ' + translate("inspectorMode.pinRequired" as any)
+                : translate("inspectorMode.enterPin" as any)
               }
             </Text>
             
@@ -198,7 +199,7 @@ export default function InspectorModeScreen() {
               }]}
               value={pin}
               onChangeText={setPin}
-              placeholder="Enter PIN"
+              placeholder={translate("inspectorMode.enterPin" as any)}
               placeholderTextColor={colors.textDim}
               secureTextEntry
               keyboardType="numeric"
@@ -208,12 +209,12 @@ export default function InspectorModeScreen() {
             
             <View style={styles.modalButtons}>
               <LoadingButton
-                title="Cancel"
+                title={translate("common.cancel" as any)}
                 onPress={handlePinCancel}
                 variant="outline"
               />
               <LoadingButton
-                title={isCreatingPin ? 'Create PIN' : 'Unlock'}
+                title={isCreatingPin ? translate("inspectorMode.createPin" as any) : translate("inspectorMode.unlock" as any)}
                 onPress={handlePinSubmit}
                 disabled={pin.length < 4}
               />

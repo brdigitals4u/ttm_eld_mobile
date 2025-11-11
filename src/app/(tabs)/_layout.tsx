@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Platform } from 'react-native'
 import { Icon } from '@/components/Icon'
 import { COLORS } from '@/constants/colors'
 import { Text } from '@/components/Text'
+import { translate } from '@/i18n/translate'
+import { useLanguage } from '@/hooks/useLanguage'
 
 function CustomTabButton({ isFocused, icon, label, ...props }: any) {
   return (
@@ -20,25 +22,28 @@ function CustomTabButton({ isFocused, icon, label, ...props }: any) {
 }
 
 export default function Layout() {
+  // Use language hook to trigger re-render when language changes
+  useLanguage()
+  
   return (
     <Tabs>
       <TabSlot /> {/* Renders the selected screen */}
       <TabList style={styles.tabBarContainer}>
         <TabTrigger name="dashboard" href="/dashboard" asChild>
-          <CustomTabButton icon="menu" label="Home" />
+          <CustomTabButton icon="menu" label={translate("tabs.home" as any)} />
         </TabTrigger>
 
         <TabTrigger name="fuel" href="/fuel" asChild>
-          <CustomTabButton icon="bell" label="Fuel" />
+          <CustomTabButton icon="bell" label={translate("tabs.fuel" as any)} />
         </TabTrigger>
         <TabTrigger name="logs" href="/logs" asChild>
-          <CustomTabButton icon="view" label="Logs" />
+          <CustomTabButton icon="view" label={translate("tabs.logs" as any)} />
         </TabTrigger>
         <TabTrigger name="support" href="/support" asChild>
-          <CustomTabButton icon="bell" label="Support" />
+          <CustomTabButton icon="bell" label={translate("tabs.support" as any)} />
         </TabTrigger>
         <TabTrigger name="profile" href="/profile" asChild>
-          <CustomTabButton icon="user" label="Profile" />
+          <CustomTabButton icon="user" label={translate("tabs.profile" as any)} />
         </TabTrigger>
       </TabList>
     </Tabs>

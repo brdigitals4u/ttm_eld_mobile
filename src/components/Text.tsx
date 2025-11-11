@@ -5,6 +5,7 @@ import { TOptions } from "i18next"
 
 import { isRTL, TxKeyPath } from "@/i18n"
 import { translate } from "@/i18n/translate"
+import { useLanguage } from "@/hooks/useLanguage"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle, ThemedStyleArray } from "@/theme/types"
 import { typography } from "@/theme/typography"
@@ -59,6 +60,8 @@ export interface TextProps extends RNTextProps {
 export const Text = forwardRef(function Text(props: TextProps, ref: ForwardedRef<RNText>) {
   const { weight, size, tx, txOptions, text, children, style: $styleOverride, ...rest } = props
   const { themed } = useAppTheme()
+  // Trigger re-render when language changes
+  useLanguage()
 
   const i18nText = tx && translate(tx, txOptions)
   const content = i18nText || text || children

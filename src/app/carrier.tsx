@@ -7,6 +7,7 @@ import ElevatedCard from "@/components/EvevatedCard"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
 import { Text } from "@/components/Text"
+import { translate } from "@/i18n/translate"
 
 export default function CarrierScreen() {
   const { theme } = useAppTheme()
@@ -36,7 +37,7 @@ export default function CarrierScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Carrier Info</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{translate("carrier.title" as any)}</Text>
         <View style={styles.placeholder} />
       </View>
 

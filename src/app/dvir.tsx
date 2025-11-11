@@ -19,6 +19,7 @@ import { useCreateDVIR, useAddDVIRDefect } from "@/api/dvirs"
 import { useAuth } from "@/stores/authStore"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
+import { translate } from "@/i18n/translate"
 
 type InspectionType = "pre-trip" | "post-trip"
 type SafetyStatus = "safe" | "unsafe" | null
@@ -141,13 +142,13 @@ export default function DVIRScreen() {
       }
 
       setShowCertifyModal(false)
-      toast.success("Your Driver Vehicle Inspection Report has been submitted successfully.")
+      toast.success(translate("dvir.saved" as any))
       setTimeout(() => {
         router.back()
       }, 1500)
     } catch (error: any) {
       console.error("Failed to create DVIR:", error)
-      toast.error(error?.message || "Failed to submit DVIR")
+      toast.error(error?.message || translate("dvir.submit" as any))
     }
   }
 
@@ -172,7 +173,7 @@ export default function DVIRScreen() {
     <>
       <View style={{ flex: 1 }}>
         <Header
-          title="Create DVIR"
+          title={translate("dvir.createDVIR" as any)}
           titleMode="center"
           backgroundColor={colors.background}
           titleStyle={{
@@ -257,7 +258,7 @@ export default function DVIRScreen() {
 
         {/* Vehicle Defects Section */}
         <ElevatedCard style={styles.defectsCard}>
-          <Text style={[styles.defectsTitle, { color: colors.text }]}>Add new vehicle defects</Text>
+          <Text style={[styles.defectsTitle, { color: colors.text }]}>{translate("dvir.addDefect" as any)}</Text>
           <Text style={[styles.defectsSubtitle, { color: colors.textDim }]}>
             Any vehicle attributes not displayed are certified safe by the driver
           </Text>

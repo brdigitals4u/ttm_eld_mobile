@@ -38,6 +38,8 @@ import { useObdData } from "@/contexts/obd-data-context"
 import { getEldDevice, EldDeviceInfo } from "@/utils/eldStorage"
 import { useHOSCurrentStatus, useViolations } from "@/api/driver-hooks"
 import { useStatusStore } from "@/stores/statusStore"
+import { translate } from "@/i18n/translate"
+import { toast } from "@/components/Toast"
 
 const { width } = Dimensions.get("window")
 
@@ -268,7 +270,7 @@ export default function ProfileScreen() {
 
   const menuItems = [
     {
-      title: "Settings",
+      title: translate("profile.settings" as any),
       subtitle: "Manage CoDrivers and Others",
       icon: <Settings size={24} color={colors.tint} />,
       onPress: () => router.navigate("/more"),
@@ -289,7 +291,7 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Header
-        title={"Profile"}
+        title={translate("profile.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
         titleStyle={{
@@ -397,8 +399,8 @@ export default function ProfileScreen() {
             ]}
           />
                       <LoadingButton
-              title="Edit Profile"
-              onPress={() => router.navigate("/profile-edit")}
+              title={translate("profileEdit.title" as any)}
+              onPress={() => toast.info("Please contact your administrator to edit your profile.", 2000)}
               variant="primary"
               style={styles.editButton}
             />
@@ -852,7 +854,7 @@ export default function ProfileScreen() {
 
         {/* Logout Button */}
         <LoadingButton
-          title="Log Out"
+          title={translate("profile.logout" as any)}
           onPress={handleLogout}
           variant="danger"
           style={styles.logoutButton}

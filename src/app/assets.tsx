@@ -9,6 +9,7 @@ import { useAssets } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { Asset } from '@/types/assets';
 import { Text } from '@/components/Text';
+import { translate } from '@/i18n/translate';
 
 export default function AssetsScreen() {
   const { theme } = useAppTheme();
@@ -142,13 +143,13 @@ export default function AssetsScreen() {
           <Pressable onPress={handleCancelAdd} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.text} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>Add Asset</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{translate("assets.addAsset" as any)}</Text>
           <View style={styles.placeholder} />
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Asset Type</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{translate("assets.assetType" as any)}</Text>
             <View style={styles.typeSelector}>
               {[
                 { key: 'truck', label: 'Truck' },
@@ -330,7 +331,7 @@ export default function AssetsScreen() {
         <ElevatedCard style={styles.emptyContainer}>
           <Truck size={48} color={colors.textDim} />
           <Text style={[styles.emptyText, { color: colors.text }]}>
-            No assets added
+            {translate("assets.noAssets" as any)}
           </Text>
           <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
             Add trucks and trailers to manage your fleet

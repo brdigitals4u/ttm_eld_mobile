@@ -26,6 +26,7 @@ import { toast } from "@/components/Toast"
 import { useStatus, useCarrier } from "@/contexts"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
+import { translate } from "@/i18n/translate"
 
 export const LogsScreen = () => {
   const { theme, themeContext } = useAppTheme()
@@ -211,7 +212,7 @@ export const LogsScreen = () => {
             startTime: startTime,
             endTime: endTime,
             duration: duration,
-            reason: log.remark || "Status change",
+            reason: log.remark || translate("logs.statusChange" as any),
             location: log.start_location
               ? {
                   address: log.start_location,
@@ -243,7 +244,7 @@ export const LogsScreen = () => {
                 startTime: startTime,
                 endTime: endTime,
                 duration: duration,
-                reason: entry.remark || entry.notes || "Status change",
+                reason: entry.remark || entry.notes || translate("logs.statusChange" as any),
                 location: entry.start_location
                   ? {
                       address: entry.start_location,
@@ -270,7 +271,7 @@ export const LogsScreen = () => {
             startTime: startTime,
             endTime: endTime,
             duration: duration,
-            reason: dailyLog.remark || dailyLog.notes || "Status change",
+            reason: dailyLog.remark || dailyLog.notes || translate("logs.statusChange" as any),
             location: dailyLog.start_location
               ? {
                   address: dailyLog.start_location,

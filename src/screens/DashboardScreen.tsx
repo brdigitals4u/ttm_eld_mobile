@@ -11,6 +11,11 @@ import {
   Gauge,
   BookOpen,
   Bell,
+  Calendar,
+  User,
+  CheckCircle2,
+  Star,
+  BluetoothConnectedIcon,
 } from "lucide-react-native"
 import {
   useSharedValue,
@@ -27,6 +32,7 @@ import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/ho
 import { EldIndicator } from "@/components/EldIndicator"
 import { Header } from "@/components/Header"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
+import TTMKonnectLogo from "@/components/TTMKonnectLogo"
 import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { Text } from "@/components/Text"
@@ -37,8 +43,16 @@ import { useLocationData } from "@/hooks/useLocationData"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { colors } from "@/theme/colors"
+import { translate } from "@/i18n/translate"
+import { format } from "date-fns/format"
+import i18n from "i18next"
+import { useLanguage } from "@/hooks/useLanguage"
+import { COLORS } from "@/constants"
 
 export const DashboardScreen = () => {
+  // Trigger re-render when language changes
+  useLanguage()
+  
   const {
     user,
     driverProfile,
@@ -433,7 +447,7 @@ export const DashboardScreen = () => {
     if (currentLocation?.latitude && currentLocation?.longitude) {
       return `${currentLocation.latitude.toFixed(2)}, ${currentLocation.longitude.toFixed(2)}`
     }
-    return "Location unavailable"
+    return translate("dashboard.locationUnavailable" as any)
   }, [
     currentLocation?.address,
     currentLocation?.latitude,
@@ -456,10 +470,65 @@ export const DashboardScreen = () => {
   }, [vehicleInfo, data.vehicleUnit])
 
   const driverName = useMemo(() => {
-    if (driverProfile?.name) return driverProfile.name
     if (user?.name) return user.name
     return data.driver
   }, [driverProfile?.name, user?.name, data.driver])
+
+  const driverInitials = useMemo(() => {
+    const name = driverName || "Driver"
+    const parts = name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+    const initials = parts
+      .map((part: string) => part.charAt(0).toUpperCase())
+      .join("")
+    return initials || "DR"
+  }, [driverName])
+
+  // Time-based greeting with translations
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours()
+    if (hour < 12) return { text: translate("dashboard.greeting.morning" as any), emoji: "🌅" }
+    if (hour < 17) return { text: translate("dashboard.greeting.afternoon" as any), emoji: "☀️" }
+    return { text: translate("dashboard.greeting.evening" as any), emoji: "🌙" }
+  }, [])
+
+  // Formatted date with locale support
+  const formattedDate = useMemo(() => {
+    const date = new Date()
+    // Get locale from i18n
+    const locale = i18n.language?.split("-")[0] || "en"
+    let dateFnsLocale
+    try {
+      switch (locale) {
+        case "es":
+          dateFnsLocale = require("date-fns/locale/es").default
+          break
+        case "en":
+        default:
+          dateFnsLocale = require("date-fns/locale/en-US").default
+          break
+      }
+    } catch {
+      dateFnsLocale = require("date-fns/locale/en-US").default
+    }
+    return format(date, "EEE, d MMM yyyy", { locale: dateFnsLocale })
+  }, [])
+
+  // Notification count
+  const notificationCount = useMemo(() => {
+    if (!notificationsData) return 0
+    // Check if it's the driver API format (has results array)
+    if ('results' in notificationsData && Array.isArray(notificationsData.results)) {
+      return notificationsData.results.length
+    }
+    // Check if it's the notifications API format (has notifications array)
+    if ('notifications' in notificationsData && Array.isArray((notificationsData as any).notifications)) {
+      return (notificationsData as any).notifications.length
+    }
+    return 0
+  }, [notificationsData])
 
   const renderDriverBackdrop = useCallback(
     (props: any) => (
@@ -636,48 +705,68 @@ export const DashboardScreen = () => {
       <BottomSheetModalProvider>
         <View style={{ flex: 1 }}>
       <Header
-        leftText="Welcome Back!"
         titleMode="flex"
-        title=""
-        backgroundColor={colors.background}
-        RightActionComponent={
-          <View style={{ flexDirection: 'row', gap: 12, paddingRight: 4, alignItems: 'center' }}>
-            <TouchableOpacity 
-              onPress={handleNotificationBellPress}
-              style={{ position: 'relative' }}
-            >
-              <Bell size={24} color={colors.PRIMARY} strokeWidth={2} />
-              {notificationsData && notificationsData.count > 0 && (
-                <View style={{
-                  position: 'absolute',
-                  top: -4,
-                  right: -4,
-                  backgroundColor: '#EF4444',
-                  borderRadius: 10,
-                  minWidth: 20,
-                  height: 20,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                }}>
-                  <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
-                    {notificationsData.count}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Image
-                source={require("assets/images/ttm-logo.png")}
-                style={{ width: 120, height: 32, resizeMode: "contain" }}
-              />
-            </Pressable>
+        title={formattedDate}
+        titleStyle={{ color: COLORS.white, fontWeight: "700" }}
+        leftTextStyle={{ color: COLORS.white }}
+        LeftActionComponent={
+          <View
+            style={{
+              backgroundColor: "#E6F1FA",
+              borderRadius: 20,
+              height: 40,
+              width: 40,
+              justifyContent: "center",
+              alignItems: "center",
+              borderWidth: 2,
+              borderColor: "rgba(255,255,255,0.25)",
+            }}
+          >
+            <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: "700" }}>{driverInitials}</Text>
           </View>
         }
+        leftIconColor={COLORS.white}
+        backgroundColor={colors.PRIMARY}
+        RightActionComponent={       
+        
+            
+            <TouchableOpacity 
+          onPress={handleNotificationBellPress}
+          style={{ position: 'relative' ,
+            alignItems: "center",
+            backgroundColor: '#E6F1FA',
+            borderRadius: 20,
+            gap: 8,
+            height: 40,
+            justifyContent: "center",
+            width: 40,
+
+          }}
+        >
+          <Bell size={24} color={COLORS.primary} strokeWidth={2} />
+          {notificationCount > 0 && (
+            <View style={{
+              position: 'absolute',
+              top: -4,
+              right: -4,
+              backgroundColor: 'transparent',
+              borderRadius: 12,
+              minWidth: 22,
+              height: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 2,
+            }}>
+              <Text style={{ color: COLORS.white, fontSize: 11, fontWeight: '700' }}>
+                {notificationCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>}
         containerStyle={{
-          borderBottomWidth: 1,
-          borderBottomColor: "rgba(0,0,0,0.06)",
-          shadowColor: colors.tint,
+          borderBottomWidth: 0,
+          borderBottomColor: COLORS.white,
+          shadowColor: COLORS.white,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.15,
           shadowRadius: 8,
@@ -702,58 +791,49 @@ export const DashboardScreen = () => {
           />
         }
       >
-        {/* Critical Violations Alert Banner */}
-        {/* {unresolvedViolations.length > 0 && (
-          <TouchableOpacity 
-            style={s.criticalAlertBanner}
-            onPress={() => {
-              // Navigate to violations or open notifications
-              setShowNotifications(true)
-            }}
-          >
-            <View style={s.alertIconContainer}>
-              <AlertTriangle size={24} color="#FFF" strokeWidth={2.5} />
-            </View>
-            <View style={s.alertContent}>
-              <Text style={s.alertTitle}>HOS Violations Detected</Text>
-              <Text style={s.alertMessage}>
-                {unresolvedViolations.length} active violation(s) require attention.
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )} */}
 
-
-        {/* Greeting Section */}
+        {/* Professional Header with Greeting Section */}
         <View style={s.greetingSection}>
-          <View style={s.greetingRow}>
-            <Text style={s.greetingText}>Hi {driverName.split(" ")[0]},</Text>
-            <EldIndicator />
-          </View>
-          <Text style={s.greetingQuestion}>How's your day going?</Text>
-
-          <View style={s.greetingMetaRow}>
-            <View style={s.metaItem}>
-              <View style={s.metaIcon}>
-                <MapPin size={14} color={colors.PRIMARY} />
-              </View>
-              <Text style={s.metaText} numberOfLines={1}>
-                {currentLocationLabel}
+          <View style={[s.greetingRow, { paddingBottom: 30 }]}>
+            <View style={s.greetingLeft}>
+              <Text style={s.greetingText}>
+                {greeting.text}, {driverName.split(" ")[0]}! {greeting.emoji}
               </Text>
             </View>
-            <View style={s.metaItem}>
-              <View style={s.metaIcon}>
-                <Truck size={14} color={colors.PRIMARY} />
-              </View>
-              <Text style={s.metaText} numberOfLines={1}>
-                {vehicleNameLabel}
+           
+          </View>
+
+          {/* Badges Row */}
+          <View style={s.badgesRow}>
+            <View style={[s.badge, { backgroundColor: COLORS.white, justifyContent: 'center' }]}>
+              <Text style={s.badgeText}>
+              <View style={{ flexDirection: 'row', gap: 12, paddingRight: 4, alignItems: 'center' }}>
+            <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Image
+                source={require("assets/images/ttm-logo.png")}
+                style={{ width: 120, height: 32, resizeMode: "contain" }}
+              />
+            </Pressable>
+          </View>
+              </Text>
+            </View>
+            <View style={[s.badge, s.badgeOrange]}>
+              <BluetoothConnectedIcon size={16} color={colors.warning} />
+              <Text style={s.badgeText}>
+                {eldConnected 
+                  ? translate("dashboard.badges.eldConnected" as any) 
+                  : translate("dashboard.badges.eldNotConnected" as any)}
               </Text>
             </View>
           </View>
-
-          <TouchableOpacity style={s.viewMoreButton} onPress={handleOpenDriverSheet}>
-            <Text style={s.viewMoreText}>View more details</Text>
-          </TouchableOpacity>
+        
+          <View style={[s.badgesRow, { marginTop: 10 }]}>
+            <View style={[s.badge, { backgroundColor: COLORS.white, justifyContent: 'center' }]}>
+              <Text style={s.badgeText}>
+                {translate("dashboard.collaborationWith" as any)} {driverProfile?.organization_name}
+              </Text>
+            </View>
+          </View>
         </View>
 
 
@@ -819,20 +899,6 @@ export const DashboardScreen = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={s.categoriesScroll}
           >
-            <TouchableOpacity
-              style={[s.categoryBox, s.categoryBoxActive]}
-              onPress={() => {
-                if (hosSectionY !== null && hosSectionY > 0) {
-                  scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
-                } else {
-                  // Fallback: approximate position based on typical layout
-                  scrollViewRef.current?.scrollTo({ y: 600, animated: true })
-                }
-              }}
-            >
-              <Gauge size={32} color="#FFF" strokeWidth={2} />
-              <Text style={s.categoryTextActive}>HOS</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/logs/transfer")}>
               <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
               <Text style={s.categoryText}>Logs Transfer</Text>
@@ -935,14 +1001,6 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
-  avatarContainer: {
-    alignItems: "center",
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    width: 50,
-  },
   avatarText: {
     color: "#FFF",
     fontSize: 20,
@@ -974,17 +1032,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
     width: 68,
-  },
-  notificationBadge: {
-    backgroundColor: "#EF4444",
-    borderColor: "#FFF",
-    borderRadius: 5,
-    borderWidth: 2,
-    height: 10,
-    position: "absolute",
-    right: 10,
-    top: 10,
-    width: 10,
   },
 
   // Hero Card
@@ -1059,68 +1106,113 @@ const s = StyleSheet.create({
     fontWeight: "800",
   },
 
-  // Greeting
+  // Professional Header with Greeting
   greetingSection: {
-    marginBottom: 16,
-    marginTop: 24,
+    marginBottom: 20,
+    paddingTop: 16,
     paddingHorizontal: 20,
+    backgroundColor: COLORS.primary,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  headerTopRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  avatarContainer: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: 28,
+    height: 56,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 56,
+    shadowColor: colors.palette.neutral900,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarLogo: {
+    width: 56,
+    height: 56,
+  },
+  dateContainer: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+  },
+  dateText: {
+    color: colors.textDim,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  notificationButton: {
+    alignItems: "center",
+    height: 44,
+    justifyContent: "center",
+    position: "relative",
+    width: 44,
+  },
+  notificationBadge: {
+    alignItems: "center",
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    height: 20,
+    justifyContent: "center",
+    minWidth: 20,
+    paddingHorizontal: 5,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  notificationBadgeText: {
+    color: colors.background,
+    fontSize: 11,
+    fontWeight: "700",
   },
   greetingRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  greetingLeft: {
+    flex: 1,
   },
   greetingText: {
-    color: "#1F2937",
-    fontSize: 24,
-    fontWeight: "900",
+    color: COLORS.white,
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 32,
   },
-  greetingQuestion: {
-    color: "#1F2937",
-    fontSize: 24,
-    fontWeight: "400",
-    marginTop: 4,
-  },
-  greetingMetaRow: {
+  badgesRow: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
+    gap: 10,
   },
-  metaItem: {
+  badge: {
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
+    borderRadius: 20,
     flex: 1,
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
-  metaIcon: {
-    alignItems: "center",
-    backgroundColor: "rgba(0, 113, 206, 0.12)",
-    borderRadius: 8,
-    height: 28,
-    justifyContent: "center",
-    width: 28,
+  badgeGreen: {
+    backgroundColor: colors.successBackground,
   },
-  metaText: {
-    color: "#1F2937",
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "500",
+  badgeOrange: {
+    backgroundColor: colors.warningBackground,
   },
-  viewMoreButton: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 12,
-    marginTop: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  viewMoreText: {
-    color: "#FFFFFF",
-    fontSize: 13,
+  badgeText: {
+    color: colors.text,
+    fontSize: 12,
     fontWeight: "600",
   },
 

@@ -20,6 +20,7 @@ import { useVehicles } from "@/api/vehicles"
 import { useTrailerAssignments, useAssignTrailer, useRemoveTrailer } from "@/api/trailers"
 import { useAuth } from "@/stores/authStore"
 import { useLocationData } from "@/hooks/useLocationData"
+import { translate } from "@/i18n/translate"
 
 export default function AssignmentsScreen() {
   const { theme } = useAppTheme()
@@ -141,7 +142,7 @@ export default function AssignmentsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "Assignments",
+          title: translate("assignments.title" as any),
           headerRight: () => (
             <TouchableOpacity onPress={() => router.back()}>
               <Text style={{ color: colors.tint, fontSize: 16 }}>Sign Out</Text>
@@ -153,10 +154,10 @@ export default function AssignmentsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>My Assets</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{translate("assignments.title" as any)}</Text>
         <LoadingButton
           loading={vehiclesLoading}
-          title={selectedVehicle ? `Vehicle ${selectedVehicle}` : "No Vehicle Assigned"}
+          title={selectedVehicle ? `${translate("assignments.vehicle" as any)} ${selectedVehicle}` : translate("assignments.noAssignments" as any)}
           onPress={() => toast.info("Vehicle assignment is managed by organization admin")}
           disabled={true}
           variant="secondary"
@@ -170,7 +171,7 @@ export default function AssignmentsScreen() {
         {/* Vehicle Section - Show assigned vehicle */}
         {vehicles.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Assigned Vehicle</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{translate("assignments.vehicle" as any)}</Text>
             {vehicles.map((vehicle) => (
               <ElevatedCard key={vehicle.id} style={styles.itemCard}>
                 <View style={styles.itemRow}>
@@ -190,7 +191,7 @@ export default function AssignmentsScreen() {
 
         {/* Trailers Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Trailers</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{translate("assignments.trailer" as any)}</Text>
 
           {trailerAssignments && trailerAssignments.length > 0 ? (
             trailerAssignments.map((assignment) => (
@@ -215,7 +216,7 @@ export default function AssignmentsScreen() {
             ))
           ) : (
             <Text style={[styles.emptyText, { color: colors.textDim }]}>
-              No trailers assigned
+              {translate("assignments.noAssignments" as any)}
             </Text>
           )}
 
@@ -224,7 +225,7 @@ export default function AssignmentsScreen() {
             onPress={() => setShowTrailerModal(true)}
           >
             <Plus size={20} color={colors.tint} />
-            <Text style={[styles.addButtonText, { color: colors.tint }]}>Add a Trailer</Text>
+            <Text style={[styles.addButtonText, { color: colors.tint }]}>{translate("assignments.addTrailer" as any)}</Text>
           </TouchableOpacity>
         </View>
 
@@ -277,7 +278,7 @@ export default function AssignmentsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Add Trailer</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{translate("assignments.addTrailer" as any)}</Text>
 
             <TextInput
               style={[

@@ -5,6 +5,7 @@ import { router } from 'expo-router'
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect, Circle } from 'react-native-svg'
 import { settingsStorage } from '@/utils/storage'
 import { COLORS } from '@/constants/colors'
+import { translate } from '@/i18n/translate'
 
 export const WelcomeScreen: React.FC = () => {
   const handleNext = async () => {
@@ -67,13 +68,13 @@ export const WelcomeScreen: React.FC = () => {
 
       {/* Bottom Card */}
       <View style={styles.bottomCard}>
-        <Text style={styles.title}>Fleet Management Made Easy</Text>
+        <Text style={styles.title}>{translate("welcome.subtitle" as any)}</Text>
         <Text style={styles.subtitle}>
-          Track your hours, manage compliance, and stay connected with your fleet in real-time
+          {translate("welcome.description" as any)}
         </Text>
 
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>Next</Text>
+          <Text style={styles.nextButtonText}>{translate("welcome.next" as any)}</Text>
         </TouchableOpacity>
       </View>
     </View>

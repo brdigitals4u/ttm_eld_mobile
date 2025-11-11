@@ -17,6 +17,7 @@ import {
   ChangeRequest,
 } from '@/api/driver-profile'
 import { useMarkAsRead } from '@/api/notifications'
+import { translate } from '@/i18n/translate'
 
 export default function ProfileRequestsScreen() {
   const { theme } = useAppTheme()
@@ -102,7 +103,7 @@ export default function ProfileRequestsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header
-        title="Profile Change Requests"
+        title={translate("profileRequests.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
         titleStyle={{
@@ -152,19 +153,19 @@ export default function ProfileRequestsScreen() {
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, { color: colors.textDim }]}>Pending</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textDim }]}>{translate("profileRequests.pending" as any)}</Text>
                   <Text style={[styles.summaryValue, { color: '#f59e0b' }]}>
                     {changeRequestsData.requests.filter((r) => r.status === 'pending').length}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, { color: colors.textDim }]}>Approved</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textDim }]}>{translate("profileRequests.approved" as any)}</Text>
                   <Text style={[styles.summaryValue, { color: '#10b981' }]}>
                     {changeRequestsData.requests.filter((r) => r.status === 'approved').length}
                   </Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text style={[styles.summaryLabel, { color: colors.textDim }]}>Rejected</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textDim }]}>{translate("profileRequests.rejected" as any)}</Text>
                   <Text style={[styles.summaryValue, { color: '#ef4444' }]}>
                     {changeRequestsData.requests.filter((r) => r.status === 'rejected').length}
                   </Text>

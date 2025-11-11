@@ -16,6 +16,8 @@ import { ArrowLeft, User } from "lucide-react-native"
 import { Header } from "@/components/Header"
 import { colors } from "@/theme/colors"
 import { useAuth } from "@/stores/authStore"
+import { translate } from "@/i18n/translate"
+import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 
 /**
  * Modernized More / Settings screen for drivers.
@@ -85,7 +87,7 @@ export default function MoreScreen() {
 
   const settingsItems = [
     {
-      title: "Settings",
+      title: translate("more.settings" as any),
       subtitle: "App preferences and configuration",
       icon: "settings",
       onPress: () => router.push("/settings"),
@@ -99,7 +101,7 @@ export default function MoreScreen() {
 
   return (
     <View style={{ flex: 1 }}>   <Header
-      title="More"
+      title={translate("more.title" as any)}
       titleMode="center"
       backgroundColor={colors.background}
       titleStyle={{
@@ -205,7 +207,10 @@ export default function MoreScreen() {
 
         {/* Settings */}
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Settings</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>{translate("more.settings" as any)}</Text>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           {settingsItems.map((item, i) => (
             <TouchableOpacity

@@ -37,6 +37,7 @@ import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useToast } from "@/providers/ToastProvider"
 import { ActivityIndicator } from "react-native"
+import { translate } from "@/i18n/translate"
 
 // Simple StatusButton component replacement
 const StatusButton = ({
@@ -386,7 +387,7 @@ export default function StatusScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Header
-        title="Update Your Status"
+        title={translate("status.changeStatus" as any)}
         titleMode="center"
         backgroundColor={colors.background}
         titleStyle={{
@@ -435,7 +436,7 @@ export default function StatusScreen() {
       <View style={styles.statusButtons}>
         <StatusButton
           status="driving"
-          label="Driving"
+          label={translate("status.driving" as any)}
           isActive={currentStatus === "driving"}
           onPress={() => handleStatusChange("driving")}
           icon={
@@ -448,7 +449,7 @@ export default function StatusScreen() {
 
         <StatusButton
           status="onDuty"
-          label="On Duty (Not Driving)"
+          label={translate("status.onDuty" as any)}
           isActive={currentStatus === "onDuty"}
           onPress={() => handleStatusChange("onDuty")}
           icon={
@@ -461,7 +462,7 @@ export default function StatusScreen() {
 
         <StatusButton
           status="offDuty"
-          label="Off Duty"
+          label={translate("status.offDuty" as any)}
           isActive={currentStatus === "offDuty"}
           onPress={() => handleStatusChange("offDuty")}
           icon={
@@ -474,7 +475,7 @@ export default function StatusScreen() {
 
         <StatusButton
           status="sleeperBerth"
-          label="Sleeper Berth"
+          label={translate("status.sleeping" as any)}
           isActive={currentStatus === "sleeperBerth"}
           onPress={() => handleStatusChange("sleeperBerth")}
           icon={
@@ -744,7 +745,7 @@ export default function StatusScreen() {
                     <Text style={styles.primaryModalButtonText}>Signing out...</Text>
                   </View>
                 ) : (
-                  <Text style={styles.primaryModalButtonText}>Go Off Duty & Sign Out</Text>
+                  <Text style={styles.primaryModalButtonText}>{translate("status.offDuty" as any)} & Sign Out</Text>
                 )}
               </TouchableOpacity>
 
@@ -766,7 +767,7 @@ export default function StatusScreen() {
                   </View>
                 ) : (
                   <Text style={[styles.secondaryModalButtonText, { color: colors.palette.primary500 }]}>
-                    Go Off Duty
+                    {translate("status.offDuty" as any)}
                   </Text>
                 )}
               </TouchableOpacity>

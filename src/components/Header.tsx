@@ -92,6 +92,10 @@ export interface HeaderProps {
    */
   onLeftPress?: TouchableOpacityProps["onPress"]
   /**
+   * Optional style override for the left text.
+   */
+  leftTextStyle?: StyleProp<TextStyle>
+  /**
    * Icon that should appear on the right.
    * Can be used with `onRightPress`.
    */
@@ -164,6 +168,7 @@ export function Header(props: HeaderProps) {
     leftIcon,
     leftIconColor,
     leftText,
+    leftTextStyle,
     leftTx,
     leftTxOptions,
     onLeftPress,
@@ -202,6 +207,7 @@ export function Header(props: HeaderProps) {
           txOptions={leftTxOptions}
           backgroundColor={backgroundColor}
           ActionComponent={LeftActionComponent}
+          textStyle={leftTextStyle}
         />
 
         {!!titleContent && (

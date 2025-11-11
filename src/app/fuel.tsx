@@ -31,6 +31,7 @@ import { useLocationData } from "@/hooks/useLocationData"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useAppTheme } from "@/theme/context"
 import { FuelReceipt } from "@/types/fuel"
+import { translate } from "@/i18n/translate"
 
 import { Filter, List, Plus } from 'lucide-react-native'
 import { Dimensions } from 'react-native'
@@ -352,7 +353,7 @@ export default function EnhancedFuelScreen() {
     }
 
     if (!formData.gallons?.trim()) {
-      errors.gallons = "Gallons is required"
+      errors.gallons = `${translate("fuel.gallons" as any)} ${translate("common.error" as any)}`
     } else {
       const gallons = parseFloat(formData.gallons)
       if (isNaN(gallons) || gallons <= 0) {
@@ -754,7 +755,7 @@ export default function EnhancedFuelScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
-        title={"IFTA Fuel Receipt"}
+        title={translate("fuel.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
         titleStyle={{
@@ -847,7 +848,7 @@ export default function EnhancedFuelScreen() {
                 <Fuel size={32} color="#FFFFFF" strokeWidth={2.5} />
               </View>
               <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Record Fuel Purchase</Text>
+                <Text style={styles.headerTitle}>{translate("fuel.addPurchase" as any)}</Text>
                 <Text style={styles.headerSubtitle}>
                   {vehicleAssignment?.vehicle_info?.vehicle_unit || 'Vehicle'} • IFTA Compliant
                 </Text>
@@ -905,7 +906,7 @@ export default function EnhancedFuelScreen() {
             <ElevatedCard style={[styles.inputCard, { flex: 1, marginRight: 8 }]}>
               <View style={styles.inputHeader}>
                 <Fuel size={18} color={colors.PRIMARY} />
-                <Text style={[styles.label, { color: colors.text }]}>Gallons *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>{translate("fuel.gallons" as any)} *</Text>
               </View>
               <TextInput
                 editable={!isSubmitting}
@@ -939,7 +940,7 @@ export default function EnhancedFuelScreen() {
             <ElevatedCard style={[styles.inputCard, { flex: 1, marginLeft: 8 }]}>
               <View style={styles.inputHeader}>
                 <DollarSign size={18} color={colors.PRIMARY} />
-                <Text style={[styles.label, { color: colors.text }]}>Price/Gallon *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>{translate("fuel.pricePerGallon" as any)} *</Text>
               </View>
               <TextInput
                 editable={!isSubmitting}
@@ -975,7 +976,7 @@ export default function EnhancedFuelScreen() {
           {formData.gallons && formData.pricePerGallon && 
            !isNaN(parseFloat(formData.gallons)) && !isNaN(parseFloat(formData.pricePerGallon)) && (
             <ElevatedCard style={[styles.totalCard, { backgroundColor: `${colors.PRIMARY}15` }]}>
-              <Text style={[styles.totalLabel, { color: colors.textDim }]}>Total Amount</Text>
+              <Text style={[styles.totalLabel, { color: colors.textDim }]}>{translate("fuel.total" as any)}</Text>
               <Text style={[styles.totalValue, { color: colors.PRIMARY }]}>
                 ${(parseFloat(formData.gallons) * parseFloat(formData.pricePerGallon)).toFixed(2)}
               </Text>

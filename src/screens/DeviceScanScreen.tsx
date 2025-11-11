@@ -14,6 +14,7 @@ import { useConnectionState } from '../services/ConnectionStateService';
 import { BleDevice } from '../types/JMBluetooth';
 import { saveEldDevice } from '../utils/eldStorage';
 import { toast } from '@/components/Toast';
+import { translate } from '@/i18n/translate';
 
 const __DEV__ = process.env.NODE_ENV === 'development';
 
@@ -46,11 +47,11 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       if (permissionResult.granted) {
         setIsInitialized(true);
       } else {
-        toast.error(permissionResult.message || 'Bluetooth permissions are required to use this app. Please grant the permissions and restart the app.');
+        toast.error(permissionResult.message || translate("deviceScan.bluetoothPermissionsRequired" as any));
       }
     } catch (error) {
       console.error('Bluetooth initialization error:', error);
-      toast.error(`Failed to initialize Bluetooth: ${error}`);
+      toast.error(`${translate("deviceScan.failedToInitializeBluetooth" as any)}: ${error}`);
     }
   };
 
@@ -102,12 +103,12 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         const status = await JMBluetoothService.getConnectionStatus();
         console.log('📡 Connection status:', status);
         
-        if (!status.isConnected) {
-          console.warn('⚠️ Device not connected after authentication');
-          toast.error('Device is not connected. Please try again.');
-          setConnecting(false);
-          return;
-        }
+      if (!status.isConnected) {
+        console.warn('⚠️ Device not connected after authentication');
+        toast.error(translate("deviceScan.deviceNotConnected" as any));
+        setConnecting(false);
+        return;
+      }
         
         // Step 2: Wait for stable connection (2 seconds)
         console.log('⏳ Waiting for stable connection...');
@@ -117,7 +118,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         const recheckStatus = await JMBluetoothService.getConnectionStatus();
         if (!recheckStatus.isConnected) {
           console.warn('⚠️ Connection lost during wait period');
-          toast.error('Connection lost. Please try again.');
+          toast.error(translate("deviceScan.connectionLost" as any));
           setConnecting(false);
           return;
         }
@@ -129,7 +130,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         
         if (!transmitResult) {
           console.warn('⚠️ ELD transmission start returned false');
-          toast.error('Failed to start ELD data transmission. You can try again from the dashboard.');
+          toast.error(translate("deviceScan.failedToStartEldTransmission" as any));
         } else {
           console.log('✅ ELD data transmission started successfully');
         }
@@ -145,7 +146,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         
       } catch (error) {
         console.error('❌ Error during connection check and transmission:', error);
-        toast.error(`Failed to complete setup: ${error}. You can try starting transmission from the dashboard.`);
+        toast.error(`${translate("deviceScan.failedToCompleteSetup" as any)}: ${error}`);
         setConnecting(false);
         router.replace('/(tabs)/dashboard');
       }
@@ -153,13 +154,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
     JMBluetoothService.addEventListener('onDisconnected', () => {
       setConnecting(false);
-      toast.warning('Device disconnected');
+      toast.warning(translate("deviceScan.deviceDisconnected" as any));
     });
   };
 
   const startScan = async () => {
     if (!isInitialized) {
-      toast.error('Bluetooth not initialized');
+      toast.error(translate("deviceScan.bluetoothNotInitialized" as any));
       return;
     }
 
@@ -169,7 +170,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       await JMBluetoothService.startScan();
     } catch (error) {
       setIsScanning(false);
-      toast.error('Failed to start scan: ' + error);
+      toast.error(`${translate("deviceScan.failedToStartScan" as any)}: ${error}`);
     }
   };
 
@@ -178,13 +179,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       await JMBluetoothService.stopScan();
       setIsScanning(false);
     } catch (error) {
-      toast.error('Failed to stop scan: ' + error);
+      toast.error(`${translate("deviceScan.failedToStopScan" as any)}: ${error}`);
     }
   };
 
   const connectToDevice = async (device: BleDevice) => {
     if (!device.address) {
-      toast.error('Invalid device address');
+      toast.error(translate("deviceScan.invalidDeviceAddress" as any));
       return;
     }
 
@@ -196,7 +197,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       await JMBluetoothService.connect(device.address);
     } catch (error) {
       setConnecting(false);
-      toast.error('Failed to connect: ' + error);
+      toast.error(`${translate("deviceScan.failedToConnect" as any)}: ${error}`);
     }
   };
 
@@ -217,7 +218,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         {isConnecting ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.connectButtonText}>Connect</Text>
+          <Text style={styles.connectButtonText}>{translate("deviceScan.connect" as any)}</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -226,7 +227,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>ELD Device Scanner</Text>
+        <Text style={styles.title}>{translate("deviceScan.title" as any)}</Text>
         
         {/* Dev Mode Skip Button */}
         {__DEV__ && (
@@ -237,7 +238,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
               router.replace('/(tabs)/dashboard');
             }}
           >
-            <Text style={styles.skipButtonText}>Skip (Dev Mode)</Text>
+            <Text style={styles.skipButtonText}>{translate("deviceScan.skip" as any)}</Text>
           </TouchableOpacity>
         )}
         
@@ -250,7 +251,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.scanButtonText}>
-              {isInitialized ? 'Start Scan' : 'Initializing...'}
+              {isInitialized ? translate("deviceScan.startScan" as any) : translate("common.loading" as any)}
             </Text>
           )}
         </TouchableOpacity>
@@ -260,7 +261,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         {devices.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
-              {isScanning ? 'Scanning for devices...' : 'No devices found'}
+              {isScanning ? translate("deviceScan.scanning" as any) : translate("deviceScan.noDevices" as any)}
             </Text>
             {isScanning && <ActivityIndicator style={styles.scanningIndicator} />}
           </View>

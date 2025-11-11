@@ -22,6 +22,7 @@ import { COLORS } from "@/constants/colors"
 import { LoginCredentials } from "@/database/schemas"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
+import { translate } from "@/i18n/translate"
 
 const loadingAnimation = require("assets/animations/loading.json")
 const successAnimation = require("assets/animations/success.json")
@@ -163,6 +164,8 @@ export const LoginScreen: React.FC = () => {
     router.replace("/device-scan")
   }
 
+  // Debug: Check current language and translation
+
   // Lottie animations (import your own JSON files or use existing ones)
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -182,15 +185,15 @@ export const LoginScreen: React.FC = () => {
             style={styles.loginHeaderImage}
             resizeMode="contain"
           />
-          <Text style={styles.welcomeTitle}>Welcome to TTM Fleet</Text>
-          <Text style={styles.welcomeSubtitle}>Sign in to continue your journey</Text>
+          <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
+          <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
         </View>
 
         {/* Form Container */}
         <View style={styles.formContainer}>
           {/* Email */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tenant</Text>
+            <Text style={styles.label}>{translate("login.tenant" as any)}</Text>
             <Pressable
               style={[
                 styles.inputWrapper,
@@ -201,7 +204,7 @@ export const LoginScreen: React.FC = () => {
             >
               <View style={styles.tenantContent}>
                 <Text style={styles.tenantSelectedText}>
-                  {selectedTenant?.label || credentials.tenant_code || "Select tenant"}
+                  {selectedTenant?.label || credentials.tenant_code || translate("login.selectTenant" as any)}
                 </Text>
                 <Text style={styles.tenantChevron}>▾</Text>
               </View>
@@ -230,7 +233,7 @@ export const LoginScreen: React.FC = () => {
 
           {/* Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{translate("login.password" as any)}</Text>
             <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
               <TextInput
                 style={styles.textInput}

@@ -30,14 +30,9 @@ import {
   BottomSheetView,
   BottomSheetModalProvider,
 } from "@gorhom/bottom-sheet"
+import { translate } from "@/i18n/translate"
 
 const formatDate = (date: Date) => date.toISOString().split("T")[0]
-
-const presetRanges = [
-  { id: "today", label: "Today", days: 0 },
-  { id: "yesterday", label: "Yesterday", days: 1 },
-  { id: "last8", label: "Last 8 Days", days: 7 },
-]
 
 type TransferOption = "wireless" | "email-dot" | "email-self" | null
 
@@ -60,6 +55,22 @@ export const TransferLogsScreen: React.FC = () => {
 
   const { driverProfile, user, vehicleAssignment, organizationSettings, isAuthenticated } = useAuth()
   const { carrierInfo } = useCarrier()
+  
+  const presetRanges = useMemo(() => {
+    if (typeof translate !== 'function') {
+      console.error('translate function is not available')
+      return [
+        { id: "today", label: "Today", days: 0 },
+        { id: "yesterday", label: "Yesterday", days: 1 },
+        { id: "last8", label: "Last 8 Days", days: 7 },
+      ]
+    }
+    return [
+      { id: "today", label: translate("common.today" as any), days: 0 },
+      { id: "yesterday", label: translate("common.yesterday" as any), days: 1 },
+      { id: "last8", label: translate("transferLogs.last8Days" as any), days: 7 },
+    ]
+  }, [])
 
   const authSnapshot = useMemo<AuthSnapshot>(
     () => ({

@@ -8,6 +8,7 @@ import { useAuth } from '@/stores/authStore'
 import { AlertTriangle, CheckCircle, Clock, FileText } from 'lucide-react-native'
 import { router } from 'expo-router'
 import ElevatedCard from '@/components/EvevatedCard'
+import { translate } from '@/i18n/translate'
 
 export default function ViolationsScreen() {
   const { theme } = useAppTheme()
@@ -65,7 +66,7 @@ export default function ViolationsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
        <Header
-        title={"HOS Violations"}
+        title={translate("violations.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
         titleStyle={{
@@ -97,7 +98,7 @@ export default function ViolationsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.PRIMARY} />
           <Text style={[styles.loadingText, { color: colors.text }]}>
-            Loading violations...
+            {translate("violations.loadingViolations" as any)}
           </Text>
         </View>
       ) : violations.length === 0 ? (
@@ -109,7 +110,7 @@ export default function ViolationsScreen() {
           }
         >
           <CheckCircle size={64} color="#10B981" strokeWidth={2} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No Violations</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{translate("violations.noViolations" as any)}</Text>
           <Text style={[styles.emptyText, { color: colors.textDim }]}>
             You are currently in compliance with all Hours of Service regulations.
           </Text>

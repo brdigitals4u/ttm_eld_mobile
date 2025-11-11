@@ -183,7 +183,7 @@ export default function InspectionScreen() {
           <Pressable onPress={() => setShowSignature(false)} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.text} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>Complete Inspection</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{translate("inspection.complete" as any)}</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -238,7 +238,7 @@ export default function InspectionScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.text} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>Vehicle Inspection</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{translate("inspection.title" as any)}</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -283,7 +283,7 @@ export default function InspectionScreen() {
             </View>
 
             <LoadingButton
-              title="Start Inspection"
+              title={translate("inspection.start" as any)}
               onPress={handleStartInspection}
               loading={isLoading}
               fullWidth
@@ -342,7 +342,7 @@ export default function InspectionScreen() {
 
       <View style={styles.completeButton}>
         <LoadingButton
-          title="Complete Inspection"
+          title={translate("inspection.complete" as any)}
           onPress={handleCompleteInspection}
           fullWidth
         />

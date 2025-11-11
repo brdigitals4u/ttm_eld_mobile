@@ -24,6 +24,7 @@ import {
   useDriverChangeRequests,
   ChangeRequest,
 } from '@/api/driver-profile'
+import { translate } from '@/i18n/translate'
 
 export default function ProfileEditScreen() {
   const { theme } = useAppTheme()
@@ -293,7 +294,7 @@ export default function ProfileEditScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header
-        title="Edit Profile"
+        title={translate("profileEdit.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
         titleStyle={{
