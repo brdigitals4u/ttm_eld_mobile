@@ -836,7 +836,7 @@ export const LogsScreen = () => {
             ]}
             onPress={() => {
               setSelectedAction("manual")
-              toast.info("Driver manuals and instructions are available here.")
+              router.push("/logs/manual")
             }}
             activeOpacity={0.85}
           >
