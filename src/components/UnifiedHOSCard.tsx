@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef } from "react"
-import { Modal, Pressable, View, StyleSheet, TouchableOpacity } from "react-native"
+import { Modal, Pressable, View, StyleSheet, TouchableOpacity, useWindowDimensions } from "react-native"
 import {
   Clock,
   AlertTriangle,
@@ -37,6 +37,7 @@ import { colors } from "@/theme/colors"
 import { mapAppStatusToDriverStatus, mapDriverStatusToAppStatus } from "@/utils/hos-status-mapper"
 import { DriverStatus } from "@/types/status"
 import HOSChart from "@/components/VictoryHOS"
+import HOSCircle from "@/components/HOSSvg"
 import { useHOSLogs } from "@/api/driver-hooks"
 
 // Status configuration
@@ -173,6 +174,20 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
   const locationData = useLocationData()
   const { odometer: eldOdometer } = useEldVehicleData()
   const { driverProfile, user, logout } = useAuth()
+  const { width: screenWidth } = useWindowDimensions()
+
+  const isSmallWidth = screenWidth < 600
+  const isTabletWidth = screenWidth >= 900
+
+  const driveCircleSize = isTabletWidth ? 150 : isSmallWidth ? 120 : 140
+  const driveCircleThickness = isTabletWidth ? 10 : isSmallWidth ? 8 : 10
+  const driveValueFontSize = isTabletWidth ? 22 : isSmallWidth ? 16 : 18
+  const driveLabelFontSize = isTabletWidth ? 14 : isSmallWidth ? 11 : 12
+
+  const secondaryCircleSize = isTabletWidth ? 100 : isSmallWidth ? 80 : 90
+  const secondaryCircleThickness = isTabletWidth ? 7 : isSmallWidth ? 5 : 6
+  const secondaryValueFontSize = isTabletWidth ? 16 : isSmallWidth ? 13 : 14
+  const secondaryLabelFontSize = isTabletWidth ? 12 : isSmallWidth ? 10 : 11
 
   // HOS data
   const { data: hosStatus, isLoading, error, refetch } = useHOSCurrentStatus({
@@ -522,6 +537,8 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
   const reasonOptions = selectedStatus ? STATUS_REASON_OPTIONS[selectedStatus] || [] : []
   const confirmDisabled = isSubmitting || !selectedStatus || (reasonOptions.length > 0 && !selectedReason)
 
+  const gridColumns = isSmallWidth ? 2 : 3
+
   return (
     <View style={styles.container}>
       {/* Header Bar */}
@@ -555,72 +572,102 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
       )}
 
       {/* HOS Clocks Row */}
-      <View style={styles.clocksRow}>
-        {/* Drive Clock (large, centered) */}
-        <View style={styles.driveClockWrapper}>
-          <Progress.Circle
-            size={120}
-            progress={driveProgress}
-            color={clocks.drive.remaining_minutes <= 0 ? "#EF4444" : "#12B76A"}
-            thickness={10}
-            showsText={false}
-            strokeCap="round"
-            unfilledColor="#E5E7EB"
+      <View
+        style={[
+          styles.clocksGrid,
+          gridColumns === 3 && styles.clocksGridTablet,
+        ]}
+      >
+        <View
+          style={[
+            styles.clockCard,
+            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
+            {
+              width: gridColumns === 3 ? "32%" : "48%",
+            },
+          ]}
+        >
+          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>Driver</Text>
+          <HOSCircle
+            text={formatTime(clocks.drive.remaining_minutes)}
+            size={driveCircleSize}
+            progress={Math.min(100, Math.max(0, driveProgress * 100))}
+            strokeWidth={driveCircleThickness}
           />
-          <View style={styles.clockTextOverlay}>
-            <Text style={styles.clockValue}>{formatTime(clocks.drive.remaining_minutes)}</Text>
-            <Text style={styles.clockLabel}>Drive</Text>
-          </View>
+          <Text style={[styles.clockCardSubtitle, { fontSize: driveLabelFontSize }]}>11-Hour Drive Limit</Text>
+          {clocks.drive.remaining_minutes <= 0 && (
+            <View style={styles.clockCardWarning}>
+              <AlertTriangle size={14} color="#EF4444" strokeWidth={2} />
+              <Text style={styles.clockCardWarningText}>Violation</Text>
+            </View>
+          )}
         </View>
 
-        {/* Shift & Cycle Clocks (smaller, side-by-side) */}
-        <View style={styles.smallClocksWrapper}>
-          {/* Shift Clock */}
-          <View style={styles.smallClockWrapper}>
+        <View
+          style={[
+            styles.clockCard,
+            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
+            {
+              width: gridColumns === 3 ? "32%" : "48%",
+            },
+          ]}
+        >
+          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>14-Hr Shift</Text>
+          <View style={styles.clockCardMeter}>
             <Progress.Circle
-              size={80}
-              progress={shiftProgress}
+              size={secondaryCircleSize}
+              progress={Math.min(1, Math.max(0, shiftProgress))}
               color={clocks.shift.remaining_minutes <= 0 ? "#EF4444" : "#F79009"}
-              thickness={6}
+              thickness={secondaryCircleThickness}
               showsText={false}
               strokeCap="round"
               unfilledColor="#E5E7EB"
             />
-            <View style={styles.smallClockTextOverlay}>
+            <View style={styles.clockCardMeterOverlay}>
               <Text
                 style={[
-                  styles.smallClockValue,
+                  styles.clockCardValue,
+                  { fontSize: secondaryValueFontSize },
                   clocks.shift.remaining_minutes <= 0 && styles.clockValueViolation,
                 ]}
               >
                 {formatTime(clocks.shift.remaining_minutes)}
               </Text>
-              <Text style={styles.smallClockLabel}>Shift</Text>
             </View>
           </View>
+        </View>
 
-          {/* Cycle Clock */}
-          <View style={styles.smallClockWrapper}>
+        <View
+          style={[
+            styles.clockCard,
+            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
+            {
+              width: gridColumns === 3 ? "32%" : "48%",
+            },
+          ]}
+        >
+          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>
+            {clocks.cycle.type === "70_8" ? "70-Hr" : "60-Hr"} Cycle
+          </Text>
+          <View style={styles.clockCardMeter}>
             <Progress.Circle
-              size={80}
-              progress={cycleProgress}
+              size={secondaryCircleSize}
+              progress={Math.min(1, Math.max(0, cycleProgress))}
               color={clocks.cycle.remaining_minutes <= 0 ? "#EF4444" : "#1570EF"}
-              thickness={6}
+              thickness={secondaryCircleThickness}
               showsText={false}
               strokeCap="round"
               unfilledColor="#E5E7EB"
             />
-            <View style={styles.smallClockTextOverlay}>
+            <View style={styles.clockCardMeterOverlay}>
               <Text
                 style={[
-                  styles.smallClockValue,
+                  styles.clockCardValue,
+                  { fontSize: secondaryValueFontSize },
                   clocks.cycle.remaining_minutes <= 0 && styles.clockValueViolation,
                 ]}
               >
                 {formatCycleTime(clocks.cycle.remaining_minutes)}
-              </Text>
-              <Text style={styles.smallClockLabel}>
-                {clocks.cycle.type === "70_8" ? "70-Hr" : "60-Hr"} Cycle
               </Text>
             </View>
           </View>
@@ -628,7 +675,11 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
       </View>
 
       {/* Mini HOS Chart */}
-      <View style={styles.chartContainer}>
+      <View style={[
+        styles.chartContainer,
+        isTabletWidth && styles.chartContainerLarge,
+        isSmallWidth && styles.chartContainerSmall,
+      ]}>
         <View style={styles.chartHeader}>
           <Text style={styles.chartTitle}>Today's Activity</Text>
           <TouchableOpacity onPress={() => router.push("/hos" as any)}>
@@ -1218,50 +1269,73 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   // Clocks Row
-  clocksRow: {
+  clocksGrid: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    marginVertical: 24,
-    paddingHorizontal: 8,
+    marginVertical: 20,
   },
-  driveClockWrapper: {
+  clocksGridTablet: {
+    marginVertical: 12,
+  },
+  clockCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 5,
     alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
+    marginBottom: 16,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  clockTextOverlay: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
+  clockCardTablet: {
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginBottom: 0,
+    minHeight: 220,
   },
-  clockValue: {
-    fontSize: 18,
-    fontWeight: "700",
+  clockCardMobile: {
+    minHeight: 200,
+  },
+  clockCardTitle: {
+    fontSize: 13,
+    fontWeight: "600",
     color: "#1F2937",
+    marginBottom: 12,
   },
-  clockLabel: {
+  clockCardSubtitle: {
     fontSize: 12,
-    color: "#667085",
-    marginTop: 4,
+    color: "#6B7280",
+    marginTop: 12,
   },
-  smallClocksWrapper: {
+  clockCardWarning: {
     flexDirection: "row",
-    gap: 24,
-    flex: 1,
-    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
-  smallClockWrapper: {
+  clockCardWarningText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#B91C1C",
+    marginLeft: 6,
+  },
+  clockCardMeter: {
+    position: "relative",
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
   },
-  smallClockTextOverlay: {
+  clockCardMeterOverlay: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
   },
-  smallClockValue: {
+  clockCardValue: {
     fontSize: 14,
     fontWeight: "600",
     color: "#1F2937",
@@ -1269,15 +1343,18 @@ const styles = StyleSheet.create({
   clockValueViolation: {
     color: "#EF4444",
   },
-  smallClockLabel: {
-    fontSize: 11,
-    color: "#667085",
-    marginTop: 2,
-  },
   // Chart
   chartContainer: {
     marginTop: 16,
     marginBottom: 16,
+  },
+  chartContainerSmall: {
+    alignSelf: "stretch",
+  },
+  chartContainerLarge: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 760,
   },
   chartHeader: {
     flexDirection: "row",

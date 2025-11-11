@@ -1,21 +1,15 @@
 import React, { useMemo, useEffect, useCallback, useRef, useState } from "react"
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Pressable, Linking } from "react-native"
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Pressable, Linking, StatusBar } from "react-native"
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetModalProvider, BottomSheetView } from "@gorhom/bottom-sheet"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { LinearGradient } from "expo-linear-gradient"
 import { router, useFocusEffect } from "expo-router"
 import {
-  MapPin,
-  Truck,
   FileCheck,
-  Gauge,
   BookOpen,
   Bell,
-  Calendar,
-  User,
-  CheckCircle2,
-  Star,
   BluetoothConnectedIcon,
+  Building2Icon,
 } from "lucide-react-native"
 import {
   useSharedValue,
@@ -29,10 +23,8 @@ import { useHOSClocks, useHOSLogs, useViolations } from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
 import { useHOSStatusContext } from "@/contexts/hos-status-context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
-import { EldIndicator } from "@/components/EldIndicator"
 import { Header } from "@/components/Header"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
-import TTMKonnectLogo from "@/components/TTMKonnectLogo"
 import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { Text } from "@/components/Text"
@@ -704,11 +696,13 @@ export const DashboardScreen = () => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <View style={{ flex: 1 }}>
+
       <Header
         titleMode="flex"
         title={formattedDate}
         titleStyle={{ color: COLORS.white, fontWeight: "700" }}
         leftTextStyle={{ color: COLORS.white }}
+       
         LeftActionComponent={
           <View
             style={{
@@ -830,7 +824,7 @@ export const DashboardScreen = () => {
           <View style={[s.badgesRow, { marginTop: 10 }]}>
             <View style={[s.badge, { backgroundColor: COLORS.white, justifyContent: 'center' }]}>
               <Text style={s.badgeText}>
-                {translate("dashboard.collaborationWith" as any)} {driverProfile?.organization_name}
+                {translate("dashboard.collaborationWith" as any)} {driverProfile?.organization_name} <Building2Icon size={16} color={colors.PRIMARY} strokeWidth={2} style={{ marginLeft: 4, marginTop: 10 }} />
               </Text>
             </View>
           </View>

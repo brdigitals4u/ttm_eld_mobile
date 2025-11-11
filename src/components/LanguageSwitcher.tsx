@@ -13,7 +13,6 @@ import { useLanguage } from '@/hooks/useLanguage'
 const languages = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'es', name: 'Spanish', nativeName: 'Español' },
-  { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
 ]
 
 interface LanguageSwitcherProps {

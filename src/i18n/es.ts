@@ -292,7 +292,7 @@ const es: Translations = {
   },
   tabs: {
     home: "Inicio",
-    fuel: "Combustible",
+    fuel: "leña",
     logs: "Registros",
     support: "Soporte",
     profile: "Perfil",
