@@ -6,6 +6,7 @@ import ChatWootWidget from '@chatwoot/react-native-widget';
 import { CHATWOOT_CONFIG } from "@/utils/chatwootConfig"
 import { useAppTheme } from '@/theme/context';
 import { toast } from '@/components/Toast';
+import { useAuth } from '@/stores/authStore';
 
 import { useChatSupport } from '../contexts/ChatSupportContext';
 
@@ -23,20 +24,60 @@ const ChatSupportScreen: React.FC = () => {
   const [remountKey, setRemountKey] = useState(0);
   const [hasError, setHasError] = useState(false);
   const chatSupport = useChatSupport();
+  const { user: authUser, driverProfile } = useAuth();
 
   // Destructure stable functions/values from context
-  const { setIsLoading, user: csUser, customAttributes: csCustomAttrs, isLoading } = chatSupport;
+  const { setIsLoading, user: csUser, customAttributes: csCustomAttrs, isLoading, setUser } = chatSupport;
+
+  // Get driver name from auth store
+  const driverName = useMemo(() => {
+    if (csUser?.name) return csUser.name;
+    if (driverProfile?.name) return driverProfile.name;
+    if (authUser?.firstName && authUser?.lastName) {
+      return `${authUser.firstName} ${authUser.lastName}`;
+    }
+    if (authUser?.name) return authUser.name;
+    return 'Driver';
+  }, [csUser?.name, driverProfile?.name, authUser?.firstName, authUser?.lastName, authUser?.name]);
+
+  // Get driver identifier from auth store
+  const driverIdentifier = useMemo(() => {
+    if (csUser?.identifier) return csUser.identifier;
+    if (driverProfile?.driver_id) return driverProfile.driver_id;
+    if (authUser?.id) return authUser.id.toString();
+    return 'guest';
+  }, [csUser?.identifier, driverProfile?.driver_id, authUser?.id]);
+
+  // Get driver email from auth store
+  const driverEmail = useMemo(() => {
+    if (csUser?.email) return csUser.email;
+    if (driverProfile?.email) return driverProfile.email;
+    if (authUser?.email) return authUser.email;
+    return '';
+  }, [csUser?.email, driverProfile?.email, authUser?.email]);
 
   // Memoize user and customAttributes so references are stable
   const user = useMemo(() => {
     return {
-      identifier: csUser?.identifier || 'guest',
-      name: csUser?.name || 'Driver',
-      email: csUser?.email || '',
+      identifier: driverIdentifier,
+      name: driverName,
+      email: driverEmail,
       avatar_url: '',
       identifier_hash: '',
     };
-  }, [csUser?.identifier, csUser?.name, csUser?.email]);
+  }, [driverIdentifier, driverName, driverEmail]);
+
+  // Initialize chat support context with driver info when screen loads
+  useEffect(() => {
+    if (driverName !== 'Driver' && driverIdentifier !== 'guest') {
+      setUser({
+        identifier: driverIdentifier,
+        name: driverName,
+        email: driverEmail || undefined,
+        customAttributes: csCustomAttrs || {},
+      });
+    }
+  }, [driverName, driverIdentifier, driverEmail, setUser, csCustomAttrs]);
 
   const customAttributes = useMemo(() => {
     return csCustomAttrs || {};
