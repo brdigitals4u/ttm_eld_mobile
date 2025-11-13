@@ -528,6 +528,28 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
   const driveProgress = Math.min(1, Math.max(0, clocks.drive.remaining_minutes / clocks.drive.limit_minutes))
   const shiftProgress = Math.min(1, Math.max(0, clocks.shift.remaining_minutes / clocks.shift.limit_minutes))
   const cycleProgress = Math.min(1, Math.max(0, clocks.cycle.remaining_minutes / clocks.cycle.limit_minutes))
+  const driveUsedMinutes =
+    (clocks as any)?.drive?.used_minutes ??
+    Math.max(0, (clocks as any)?.drive?.limit_minutes - (clocks as any)?.drive?.remaining_minutes)
+  const shiftUsedMinutes =
+    (clocks as any)?.shift?.elapsed_minutes ??
+    Math.max(0, (clocks as any)?.shift?.limit_minutes - (clocks as any)?.shift?.remaining_minutes)
+  const cycleUsedMinutes =
+    (clocks as any)?.cycle?.used_minutes ??
+    Math.max(0, (clocks as any)?.cycle?.limit_minutes - (clocks as any)?.cycle?.remaining_minutes)
+  const breakTimeUntilRequired = Math.max(
+    0,
+    ((clocks as any)?.break?.trigger_after_minutes ?? 0) - ((clocks as any)?.break?.driving_since_break ?? 0),
+  )
+  const breakProgress = Math.min(
+    1,
+    Math.max(
+      0,
+      ((clocks as any)?.break?.driving_since_break ?? 0) /
+        Math.max(1, (clocks as any)?.break?.trigger_after_minutes ?? 0),
+    ),
+  )
+  const isBreakRequired = !!(clocks as any)?.break?.required || breakTimeUntilRequired <= 0
 
   // Get location string
   const locationString = currentLocation?.address
@@ -595,6 +617,9 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
             strokeWidth={driveCircleThickness}
           />
           <Text style={[styles.clockCardSubtitle, { fontSize: driveLabelFontSize }]}>11-Hour Drive Limit</Text>
+          <Text style={styles.clockCardMeta}>
+            Used {formatTime(driveUsedMinutes)} • Left {formatTime(clocks.drive.remaining_minutes)}
+          </Text>
           {clocks.drive.remaining_minutes <= 0 && (
             <View style={styles.clockCardWarning}>
               <AlertTriangle size={14} color="#EF4444" strokeWidth={2} />
@@ -635,6 +660,9 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
               </Text>
             </View>
           </View>
+          <Text style={styles.clockCardMeta}>
+            Used {formatTime(shiftUsedMinutes)} • Left {formatTime(clocks.shift.remaining_minutes)}
+          </Text>
         </View>
 
         <View
@@ -671,6 +699,52 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
               </Text>
             </View>
           </View>
+          <Text style={styles.clockCardMeta}>
+            Used {formatCycleTime(cycleUsedMinutes)} • Left {formatCycleTime(clocks.cycle.remaining_minutes)}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.clockCard,
+            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
+            {
+              width: gridColumns === 3 ? "32%" : "48%",
+            },
+          ]}
+        >
+          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>30-Min Break</Text>
+          <View style={styles.clockCardMeter}>
+            <Progress.Circle
+              size={secondaryCircleSize}
+              progress={breakProgress}
+              color={isBreakRequired ? "#EF4444" : "#F59E0B"}
+              thickness={secondaryCircleThickness}
+              showsText={false}
+              strokeCap="round"
+              unfilledColor="#E5E7EB"
+            />
+            <View style={styles.clockCardMeterOverlay}>
+              <Text
+                style={[
+                  styles.clockCardValue,
+                  { fontSize: secondaryValueFontSize },
+                  isBreakRequired && styles.clockValueViolation,
+                ]}
+              >
+                {formatTime(breakTimeUntilRequired)}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.clockCardMeta}>
+            Driving since {formatTime((clocks as any)?.break?.driving_since_break ?? 0)}
+          </Text>
+          {isBreakRequired && (
+            <View style={styles.clockCardWarning}>
+              <AlertTriangle size={14} color="#EF4444" strokeWidth={2} />
+              <Text style={styles.clockCardWarningText}>Break Required</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -1309,6 +1383,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     marginTop: 12,
+  },
+  clockCardMeta: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginTop: 6,
   },
   clockCardWarning: {
     flexDirection: "row",
