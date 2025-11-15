@@ -10,6 +10,7 @@ import { StatusProvider } from "./status-context"
 import { HOSStatusProvider } from "./hos-status-context"
 import { TokenRefreshProvider } from "./token-refresh-context"
 import { PermissionsProvider } from "./permissions-context"
+import { ViolationNotificationProvider } from "./ViolationNotificationContext"
 // Main Context Provider that wraps all contexts (except auth which is now handled by Zustand)
 export const AllContextsProvider = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -24,7 +25,9 @@ export const AllContextsProvider = ({ children }: { children: React.ReactNode })
                     <StatusProvider>
                       <HOSStatusProvider>
                         <ObdDataProvider>
-                          <ChatSupportProvider>{children}</ChatSupportProvider>
+                          <ViolationNotificationProvider>
+                            <ChatSupportProvider>{children}</ChatSupportProvider>
+                          </ViolationNotificationProvider>
                         </ObdDataProvider>
                       </HOSStatusProvider>
                     </StatusProvider>

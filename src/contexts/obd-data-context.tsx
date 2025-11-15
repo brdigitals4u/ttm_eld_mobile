@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { BatteryState, useBatteryLevel, useBatteryState, useLowPowerMode } from 'expo-battery'
 import JMBluetoothService from '@/services/JMBluetoothService'
 import { ObdEldData, HistoryProgress } from '@/types/JMBluetooth'
 import { handleData } from '@/services/handleData'
 import { useAuth } from '@/stores/authStore'
+import { useMyVehicle, useMyTrips } from '@/api/driver-hooks'
 import { useStatusStore } from '@/stores/statusStore'
 import { mapDriverStatusToAppStatus } from '@/utils/hos-status-mapper'
 import { sendObdDataBatch, ObdDataPayload } from '@/api/obd'
@@ -119,6 +120,17 @@ const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
 
 export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, driverProfile, vehicleAssignment } = useAuth()
+  
+  // Check vehicle and trip assignment
+  const { data: vehicleData } = useMyVehicle(isAuthenticated)
+  const { data: tripsData } = useMyTrips({ status: 'active' }, isAuthenticated)
+  const hasVehicle = !!vehicleData?.vehicle
+  const hasActiveTrip = useMemo(() => {
+    if (!tripsData?.trips) return false
+    const activeTrips = tripsData.trips.filter(t => t.status === 'active' || t.status === 'assigned')
+    return activeTrips.length > 0
+  }, [tripsData])
+  const canUseELD = hasVehicle && hasActiveTrip
   const { setEldLocation, setCurrentStatus } = useStatusStore()
   const queryClient = useQueryClient()
   const [obdData, setObdData] = useState<OBDDataItem[]>([])
@@ -318,6 +330,13 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setActivityState('inactive')
       setCurrentSpeedMph(0)
       resetHistoryState()
+      return
+    }
+
+    if (!canUseELD) {
+      console.log('📡 OBD Data Context: Vehicle or trip not assigned, ELD features disabled')
+      setActivityState('inactive')
+      setCurrentSpeedMph(0)
       return
     }
 
@@ -1001,7 +1020,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       locationQueueService.stopAutoFlush()
       resetHistoryState()
     }
-  }, [isAuthenticated, driverProfile?.driver_id, vehicleAssignment?.vehicle_info?.vin, localSyncIntervalMs, eldDeviceId, completeHistoryFetch])
+  }, [isAuthenticated, canUseELD, driverProfile?.driver_id, vehicleAssignment?.vehicle_info?.vin, localSyncIntervalMs, eldDeviceId, completeHistoryFetch])
 
   // Set up periodic Local API sync using adaptive cadence
   useEffect(() => {

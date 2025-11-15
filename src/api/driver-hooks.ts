@@ -212,6 +212,87 @@ export const useDriverProfile = (enabled: boolean = true) => {
 }
 
 // ============================================================================
+// Vehicle & Trip Hooks
+// ============================================================================
+
+/**
+ * Hook: Get My Assigned Vehicle
+ */
+export const useMyVehicle = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['driver', 'vehicle'],
+    queryFn: () => driverApi.getMyVehicle(),
+    enabled,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        return false
+      }
+      return failureCount < 3
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  })
+}
+
+/**
+ * Hook: Get Available Vehicles
+ */
+export const useAvailableVehicles = (params?: { status?: string; search?: string }, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['driver', 'vehicles', params],
+    queryFn: () => driverApi.getAvailableVehicles(params),
+    enabled,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        return false
+      }
+      return failureCount < 3
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+/**
+ * Hook: Get My Trips
+ */
+export const useMyTrips = (params?: { status?: string; start_date?: string; end_date?: string }, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['driver', 'trips', params],
+    queryFn: () => driverApi.getMyTrips(params),
+    enabled,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        return false
+      }
+      return failureCount < 3
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  })
+}
+
+/**
+ * Hook: Get Trip Details
+ */
+export const useTripDetails = (tripId: string | null, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['driver', 'trip', tripId],
+    queryFn: () => {
+      if (!tripId) throw new Error('Trip ID is required')
+      return driverApi.getTripDetails(tripId)
+    },
+    enabled: enabled && !!tripId,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        return false
+      }
+      return failureCount < 3
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  })
+}
+
+// ============================================================================
 // Notification Hooks
 // ============================================================================
 

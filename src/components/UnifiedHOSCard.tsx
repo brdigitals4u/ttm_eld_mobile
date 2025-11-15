@@ -166,9 +166,11 @@ const STATUS_REASON_OPTIONS: Record<DriverStatus, string[]> = {
 // Driving reason options
 interface UnifiedHOSCardProps {
   onScrollToTop?: () => void
+  disabled?: boolean
+  disabledMessage?: string
 }
 
-export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop }) => {
+export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop, disabled = false, disabledMessage }) => {
   const toast = useToast()
   const { currentLocation } = useLocation()
   const locationData = useLocationData()
@@ -503,6 +505,21 @@ export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop })
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading HOS data...</Text>
+        </View>
+      </View>
+    )
+  }
+
+  // Disabled state (vehicle/trip not assigned)
+  if (disabled) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.disabledContainer}>
+          <AlertTriangle size={32} color="#F97316" />
+          <Text style={styles.disabledTitle}>HOS Unavailable</Text>
+          <Text style={styles.disabledMessage}>
+            {disabledMessage || "Vehicle and trip assignment required to use HOS features."}
+          </Text>
         </View>
       </View>
     )
@@ -1013,6 +1030,26 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     color: "#EF4444",
+  },
+  disabledContainer: {
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 16,
+    padding: 24,
+    gap: 12,
+  },
+  disabledTitle: {
+    color: "#92400E",
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 8,
+  },
+  disabledMessage: {
+    color: "#78350F",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 20,
   },
   // Header
   header: {

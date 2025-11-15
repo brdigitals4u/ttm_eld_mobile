@@ -56,6 +56,12 @@ export const API_ENDPOINTS = {
     
     // Profile
     PROFILE: "/drivers/me/",
+    
+    // Vehicle & Trip Management
+    VEHICLE: "/driver/vehicle/",
+    VEHICLES: "/driver/vehicles/",
+    TRIPS: "/driver/trips/",
+    TRIP_DETAILS: "/driver/trips/{id}/",
   },
 
   // User Management
@@ -240,3 +246,54 @@ export const APP_CONFIG = {
   SUPPORTED_IMAGE_TYPES: ["image/jpeg", "image/png", "image/webp"],
   PAGINATION_LIMIT: 20,
 } as const
+
+// WebSocket Configuration
+export const WEBSOCKET_CONFIG = {
+  BASE_URL: __DEV__ ? "ws://10.0.2.2:8001" : "ws://api.ttmkonnect.com:8001",
+  PATH: "/ws/violations",
+  CONNECTION_TIMEOUT: 10000, // 10 seconds
+  PING_INTERVAL: 20000, // Server sends ping every 20 seconds
+  PONG_TIMEOUT: 60000, // Must respond within 60 seconds
+  RECONNECT_DELAY_INITIAL: 1000, // 1 second
+  RECONNECT_DELAY_MAX: 30000, // 30 seconds max
+  RECONNECT_DELAY_MULTIPLIER: 2, // Exponential backoff
+} as const
+
+// Violation Types and Priorities
+export const VIOLATION_TYPES = {
+  // Critical violations (always sent immediately)
+  ELEVEN_HOUR_DRIVING: "11_hour_driving",
+  FOURTEEN_HOUR_SHIFT: "14_hour_shift",
+  DRIVING_AFTER_SHIFT: "driving_after_shift",
+  
+  // High priority violations
+  THIRTY_MINUTE_BREAK: "30_minute_break",
+  SIXTY_HOUR_CYCLE: "60_hour_cycle",
+  SEVENTY_HOUR_CYCLE: "70_hour_cycle",
+  
+  // Medium priority violations
+  IMPROPER_PC_DRIVING: "improper_pc_driving",
+  YARD_MOVE_VIOLATION: "yard_move_violation",
+  SPLIT_SLEEPER_VIOLATION: "split_sleeper_violation",
+} as const
+
+// Violation Priority Levels
+export const VIOLATION_PRIORITY = {
+  CRITICAL: "critical",
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "low",
+} as const
+
+// Violation Type to Priority Mapping
+export const VIOLATION_PRIORITY_MAP: Record<string, string> = {
+  [VIOLATION_TYPES.ELEVEN_HOUR_DRIVING]: VIOLATION_PRIORITY.CRITICAL,
+  [VIOLATION_TYPES.FOURTEEN_HOUR_SHIFT]: VIOLATION_PRIORITY.CRITICAL,
+  [VIOLATION_TYPES.DRIVING_AFTER_SHIFT]: VIOLATION_PRIORITY.CRITICAL,
+  [VIOLATION_TYPES.THIRTY_MINUTE_BREAK]: VIOLATION_PRIORITY.HIGH,
+  [VIOLATION_TYPES.SIXTY_HOUR_CYCLE]: VIOLATION_PRIORITY.HIGH,
+  [VIOLATION_TYPES.SEVENTY_HOUR_CYCLE]: VIOLATION_PRIORITY.HIGH,
+  [VIOLATION_TYPES.IMPROPER_PC_DRIVING]: VIOLATION_PRIORITY.MEDIUM,
+  [VIOLATION_TYPES.YARD_MOVE_VIOLATION]: VIOLATION_PRIORITY.MEDIUM,
+  [VIOLATION_TYPES.SPLIT_SLEEPER_VIOLATION]: VIOLATION_PRIORITY.MEDIUM,
+}

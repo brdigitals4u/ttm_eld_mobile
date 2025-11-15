@@ -19,7 +19,7 @@ import {
   Easing,
 } from "react-native-reanimated"
 
-import { useHOSClocks, useHOSLogs, useViolations } from "@/api/driver-hooks"
+import { useHOSClocks, useHOSLogs, useViolations, useMyVehicle, useMyTrips } from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
 import { useHOSStatusContext } from "@/contexts/hos-status-context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
@@ -28,9 +28,15 @@ import { NotificationsPanel } from "@/components/NotificationsPanel"
 import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { Text } from "@/components/Text"
+import { ViolationModal } from "@/components/ViolationModal"
+import { ViolationBanner } from "@/components/ViolationBanner"
+import { ViolationToast } from "@/components/ViolationToast"
+import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
+import { VehicleTripAssignment } from "@/components/VehicleTripAssignment"
 import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
+import { useViolationNotifications } from "@/contexts/ViolationNotificationContext"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
@@ -60,6 +66,29 @@ export const DashboardScreen = () => {
   const locationData = useLocationData()
   const { obdData, isConnected: eldConnected, recentAutoDutyChanges } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
+  
+  // Violation notifications from WebSocket
+  const {
+    criticalViolations,
+    highPriorityViolations,
+    mediumPriorityViolations,
+    removeViolation,
+  } = useViolationNotifications()
+
+  // Vehicle and Trip assignment checks
+  const { data: vehicleData, isLoading: vehicleLoading } = useMyVehicle(isAuthenticated)
+  const { data: tripsData, isLoading: tripsLoading } = useMyTrips({ status: 'active' }, isAuthenticated)
+  
+  const hasVehicle = !!vehicleData?.vehicle
+  const activeTrip = useMemo(() => {
+    if (!tripsData?.trips) return null
+    const activeTrips = tripsData.trips.filter(t => t.status === 'active' || t.status === 'assigned')
+    return activeTrips.length > 0 ? activeTrips[0] : tripsData.trips[0]
+  }, [tripsData])
+  const hasTrip = !!activeTrip
+  
+  const canUseHOS = hasVehicle && hasTrip
+  const canUseELD = hasVehicle && hasTrip
   
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false)
@@ -830,7 +859,10 @@ export const DashboardScreen = () => {
           </View>
         </View>
 
-
+        {/* Vehicle & Trip Assignment - Show if both assigned */}
+        {canUseHOS && (
+          <VehicleTripAssignment />
+        )}
 
         {/* Unified Smart HOS Card */}
         <View 
@@ -841,19 +873,21 @@ export const DashboardScreen = () => {
             setHosSectionY(y)
           }}
         >
-          <UnifiedHOSCard 
-            onScrollToTop={() => {
-              if (hosSectionY !== null && hosSectionY > 0) {
-                scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
-              } else {
-                // Fallback: approximate position based on typical layout
-                scrollViewRef.current?.scrollTo({ y: 600, animated: true })
-              }
-            }}
-          />
+            <UnifiedHOSCard 
+              disabled={!canUseHOS}
+              disabledMessage={translate('vehicleTrip.mandatoryMessage' as any)}
+              onScrollToTop={() => {
+                if (hosSectionY !== null && hosSectionY > 0) {
+                  scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
+                } else {
+                  // Fallback: approximate position based on typical layout
+                  scrollViewRef.current?.scrollTo({ y: 600, animated: true })
+                }
+              }}
+            />
         </View>
-        {/* ELD Data - Speed & Fuel */}
-        {eldConnected && <LiveVehicleData
+        {/* ELD Data - Speed & Fuel - Only show if vehicle and trip assigned */}
+        {canUseELD && eldConnected && <LiveVehicleData
           eldConnected={eldConnected}
           obdData={obdData}
           currentSpeed={currentSpeed}
@@ -971,6 +1005,38 @@ export const DashboardScreen = () => {
             </TouchableOpacity>
           </BottomSheetView>
         </BottomSheetModal>
+
+        {/* Violation Notifications */}
+        {/* Critical Violations - Modal (non-dismissible) */}
+        {criticalViolations.length > 0 && (
+          <ViolationModal violation={criticalViolations[0]} />
+        )}
+
+        {/* High Priority Violations - Banner (dismissible, auto-dismiss 10s) */}
+        {highPriorityViolations.length > 0 && criticalViolations.length === 0 && (
+          <ViolationBanner
+            violation={highPriorityViolations[0]}
+            onDismiss={() => removeViolation(highPriorityViolations[0].violation_id)}
+          />
+        )}
+
+        {/* Medium Priority Violations - Toast (auto-dismiss 5s) */}
+        {mediumPriorityViolations.length > 0 && 
+         criticalViolations.length === 0 && 
+         highPriorityViolations.length === 0 && (
+          <ViolationToast
+            violation={mediumPriorityViolations[0]}
+            onDismiss={() => removeViolation(mediumPriorityViolations[0].violation_id)}
+          />
+        )}
+
+        {/* Mandatory Setup Screen - Blocks HOS/ELD if vehicle or trip not assigned */}
+        {!vehicleLoading && !tripsLoading && !canUseHOS && (
+          <MandatorySetupScreen
+            hasVehicle={hasVehicle}
+            hasTrip={hasTrip}
+          />
+        )}
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   )

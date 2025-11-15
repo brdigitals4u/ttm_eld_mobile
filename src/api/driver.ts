@@ -194,6 +194,75 @@ export interface ViolationsResponse {
   total: number
 }
 
+// Vehicle & Trip Types
+export interface Location {
+  address: string
+  latitude: number
+  longitude: number
+  city?: string
+  state?: string
+  zip?: string
+}
+
+export interface VehicleInfo {
+  id: string
+  vehicle_unit: string
+  make: string
+  model: string
+  year: number
+  license_plate: string
+  vin: string
+  status: string
+  is_active: boolean
+  is_assigned?: boolean
+}
+
+export interface AssignmentInfo {
+  assigned_at: string
+  assigned_by?: string
+  is_auto_assigned?: boolean
+  status: string
+}
+
+export interface VehicleResponse {
+  vehicle: VehicleInfo | null
+  assignment?: AssignmentInfo
+  message?: string
+}
+
+export interface TripsResponse {
+  trips: Trip[]
+  count: number
+}
+
+export interface Trip {
+  id: string
+  shipping_id: string
+  status: string
+  start_location: Location
+  end_location: Location
+  trip_start_time: string
+  trip_end_time: string | null
+  vehicle?: {
+    id: string
+    vehicle_unit: string
+    make?: string
+    model?: string
+    year?: number
+  }
+  driver?: {
+    id: string
+    name: string
+    company_driver_id?: string
+  }
+  created_at?: string
+  updated_at?: string
+}
+
+export interface TripDetailsResponse {
+  trip: Trip
+}
+
 export interface CertifyLogRequest {
   date: string // YYYY-MM-DD
   signature: string // base64-encoded signature image
@@ -726,6 +795,69 @@ export const driverApi = {
       }
       throw new ApiError({ message: 'Failed to get driver profile', status: 500 })
     }
+  },
+
+  /**
+   * Get My Assigned Vehicle
+   * GET /api/driver/vehicle/
+   */
+  async getMyVehicle(): Promise<VehicleResponse> {
+    const response = await apiClient.get<VehicleResponse>(API_ENDPOINTS.DRIVER.VEHICLE)
+    if (!response.success || !response.data) {
+      throw new ApiError({ message: 'Failed to get vehicle assignment', status: 500 })
+    }
+    return response.data
+  },
+
+  /**
+   * List Available Vehicles
+   * GET /api/driver/vehicles/
+   */
+  async getAvailableVehicles(params?: { status?: string; search?: string }): Promise<{ vehicles: VehicleInfo[]; count: number }> {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.search) queryParams.append('search', params.search)
+    
+    const endpoint = `${API_ENDPOINTS.DRIVER.VEHICLES}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    const response = await apiClient.get<{ vehicles: VehicleInfo[]; count: number }>(endpoint)
+    
+    if (!response.success || !response.data) {
+      throw new ApiError({ message: 'Failed to get available vehicles', status: 500 })
+    }
+    return response.data
+  },
+
+  /**
+   * Get My Trips
+   * GET /api/driver/trips/
+   */
+  async getMyTrips(params?: { status?: string; start_date?: string; end_date?: string }): Promise<TripsResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.start_date) queryParams.append('start_date', params.start_date)
+    if (params?.end_date) queryParams.append('end_date', params.end_date)
+    
+    const endpoint = `${API_ENDPOINTS.DRIVER.TRIPS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    const response = await apiClient.get<TripsResponse>(endpoint)
+    
+    if (!response.success || !response.data) {
+      throw new ApiError({ message: 'Failed to get trips', status: 500 })
+    }
+    return response.data
+  },
+
+  /**
+   * Get Trip Details
+   * GET /api/driver/trips/{trip_id}/
+   */
+  async getTripDetails(tripId: string): Promise<TripDetailsResponse> {
+    const endpoint = API_ENDPOINTS.DRIVER.TRIP_DETAILS.replace('{id}', tripId)
+    const response = await apiClient.get<TripDetailsResponse>(endpoint)
+    
+    if (!response.success || !response.data) {
+      throw new ApiError({ message: 'Failed to get trip details', status: 500 })
+    }
+    return response.data
   },
 }
 
