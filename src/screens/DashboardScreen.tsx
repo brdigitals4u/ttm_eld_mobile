@@ -1,9 +1,26 @@
 import React, { useMemo, useEffect, useCallback, useRef, useState } from "react"
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Pressable, Linking, StatusBar } from "react-native"
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetModalProvider, BottomSheetView } from "@gorhom/bottom-sheet"
-import { GestureHandlerRootView } from "react-native-gesture-handler"
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  RefreshControl,
+  Modal,
+  Pressable,
+  Linking,
+  StatusBar,
+} from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { router, useFocusEffect } from "expo-router"
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetModalProvider,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet"
+import { format } from "date-fns/format"
+import i18n from "i18next"
 import {
   FileCheck,
   BookOpen,
@@ -11,6 +28,7 @@ import {
   BluetoothConnectedIcon,
   Building2Icon,
 } from "lucide-react-native"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import {
   useSharedValue,
   withTiming,
@@ -19,21 +37,26 @@ import {
   Easing,
 } from "react-native-reanimated"
 
-import { useHOSClocks, useHOSLogs, useViolations, useMyVehicle, useMyTrips } from "@/api/driver-hooks"
+import {
+  useHOSClocks,
+  useHOSLogs,
+  useViolations,
+  useMyVehicle,
+  useMyTrips,
+} from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
-import { useHOSStatusContext } from "@/contexts/hos-status-context"
-import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 import { Header } from "@/components/Header"
-import { NotificationsPanel } from "@/components/NotificationsPanel"
-import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
+import { InactivityPrompt } from "@/components/InactivityPrompt"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
+import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
+import { NotificationsPanel } from "@/components/NotificationsPanel"
 import { Text } from "@/components/Text"
+import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
 import { ViolationModal } from "@/components/ViolationModal"
 import { ViolationBanner } from "@/components/ViolationBanner"
 import { ViolationToast } from "@/components/ViolationToast"
-import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
-import { InactivityPrompt } from "@/components/InactivityPrompt"
 import { VehicleTripAssignment } from "@/components/VehicleTripAssignment"
+import { COLORS } from "@/constants"
 import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
@@ -43,15 +66,14 @@ import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { colors } from "@/theme/colors"
 import { translate } from "@/i18n/translate"
-import { format } from "date-fns/format"
-import i18n from "i18next"
 import { useLanguage } from "@/hooks/useLanguage"
-import { COLORS } from "@/constants"
+import { useHOSStatusContext } from "@/contexts/hos-status-context"
+import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 
 export const DashboardScreen = () => {
   // Trigger re-render when language changes
   useLanguage()
-  
+
   const {
     user,
     driverProfile,
@@ -65,38 +87,47 @@ export const DashboardScreen = () => {
   const { requestPermissions } = usePermissions()
   const { currentLocation } = useLocation()
   const locationData = useLocationData()
-  const { 
-    obdData, 
-    isConnected: eldConnected, 
+  const {
+    obdData,
+    isConnected: eldConnected,
     recentAutoDutyChanges,
     showInactivityPrompt,
     setShowInactivityPrompt,
   } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
-  
+
   // Violation notifications from WebSocket
-  const {
-    criticalViolations,
-    highPriorityViolations,
-    mediumPriorityViolations,
-    removeViolation,
-  } = useViolationNotifications()
+  const { criticalViolations, highPriorityViolations, mediumPriorityViolations, removeViolation } =
+    useViolationNotifications()
 
   // Vehicle and Trip assignment checks
-  const { data: vehicleData, isLoading: vehicleLoading } = useMyVehicle(isAuthenticated)
-  const { data: tripsData, isLoading: tripsLoading } = useMyTrips({ status: 'active' }, isAuthenticated)
-  
-  const hasVehicle = !!vehicleData?.vehicle
+  const { isLoading: vehicleLoading } = useMyVehicle(isAuthenticated)
+  const { data: tripsData, isLoading: tripsLoading } = useMyTrips(
+    { status: "active" },
+    isAuthenticated,
+  )
+
+  const hasVehicleAssignment = Boolean(
+    vehicleAssignment?.has_vehicle_assigned &&
+      vehicleAssignment?.vehicle_info &&
+      vehicleAssignment?.vehicle_info.status === "active",
+  )
   const activeTrip = useMemo(() => {
     if (!tripsData?.trips) return null
-    const activeTrips = tripsData.trips.filter(t => t.status === 'active' || t.status === 'assigned')
+    const activeTrips = tripsData.trips.filter(
+      (t) => t.status === "active" || t.status === "assigned",
+    )
     return activeTrips.length > 0 ? activeTrips[0] : tripsData.trips[0]
   }, [tripsData])
   const hasTrip = !!activeTrip
-  
-  const canUseHOS = hasVehicle && hasTrip
-  const canUseELD = hasVehicle && hasTrip
-  
+  const shipperId = user?.id ?? null
+  const hasShipperId = Boolean(shipperId)
+
+  const requiresMandatorySetup = !hasVehicleAssignment || !hasShipperId
+  const canUseHOS = hasVehicleAssignment && hasTrip && hasShipperId
+  const canUseELD = hasVehicleAssignment && hasTrip && hasShipperId
+  const showMandatorySetup = !vehicleLoading && !tripsLoading && requiresMandatorySetup
+
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -105,15 +136,20 @@ export const DashboardScreen = () => {
       console.warn("Failed to open ttmkonnect.com", error),
     )
   }, [])
+  const handleAddVehicle = useCallback(() => {
+    router.push("/assignments" as any)
+  }, [])
+  const handleAddShipperId = useCallback(() => {
+    router.push("/assignments" as any)
+  }, [])
 
-  
   // ScrollView ref for scrolling to HOS section
   const scrollViewRef = useRef<ScrollView>(null)
   const hosSectionRef = useRef<View>(null)
   const [hosSectionY, setHosSectionY] = useState<number | null>(null)
   const driverInfoSheetRef = useRef<BottomSheetModal>(null)
   const driverInfoSnapPoints = useMemo(() => ["75%"], [])
-  
+
   // Fetch notifications using new driver API
   useFocusEffect(
     useCallback(() => {
@@ -125,25 +161,30 @@ export const DashboardScreen = () => {
   )
 
   const { data: notificationsData, refetch: refetchNotifications } = useNotifications({
-    status: 'unread',
+    status: "unread",
     limit: 50,
     enabled: isAuthenticated,
     refetchInterval: 60000, // 60 seconds
   })
   const markAllReadMutation = useMarkAllNotificationsRead()
-  
+
   // Fetch violations
   const { data: violationsData } = useViolations(isAuthenticated)
-  
+
   // Filter to only unresolved violations
   const unresolvedViolations = useMemo(() => {
     if (!violationsData?.violations) return []
     return violationsData.violations.filter((v: any) => v.resolved === false)
   }, [violationsData])
-  
+
   // Get HOS status from context (polls every 30s)
-  const { hosStatus: contextHOSStatus, isLoading: isHOSLoading, error: hosError, refetch: refetchHOSClock } = useHOSStatusContext()
-  
+  const {
+    hosStatus: contextHOSStatus,
+    isLoading: isHOSLoading,
+    error: hosError,
+    refetch: refetchHOSClock,
+  } = useHOSStatusContext()
+
   // Get detailed HOS clocks when dashboard is focused
   const [isDashboardFocused, setIsDashboardFocused] = useState(true)
   const { data: hosClocks } = useHOSClocks(isDashboardFocused && isAuthenticated)
@@ -264,7 +305,7 @@ export const DashboardScreen = () => {
     refetch: refetchHOSLogs,
   } = useHOSLogs(
     todayStr, // Just date string YYYY-MM-DD
-    isAuthenticated && !!driverProfile?.driver_id
+    isAuthenticated && !!driverProfile?.driver_id,
   )
 
   // Sync HOS status data to auth store and status store when it updates
@@ -302,13 +343,13 @@ export const DashboardScreen = () => {
     user?.firstName,
     user?.lastName,
   ])
-  
+
   // Track dashboard focus for detailed clocks
   useFocusEffect(
     useCallback(() => {
       setIsDashboardFocused(true)
       return () => setIsDashboardFocused(false)
-    }, [])
+    }, []),
   )
 
   // Log HOS sync errors
@@ -425,10 +466,12 @@ export const DashboardScreen = () => {
       coDriver: "N/A",
       truck: vehicleUnit,
       trailer: "N/A",
-      duty: contextHOSStatus?.current_status?.toUpperCase() ?? hosStatus.current_status ?? "OFF_DUTY",
+      duty:
+        contextHOSStatus?.current_status?.toUpperCase() ?? hosStatus.current_status ?? "OFF_DUTY",
       cycleLabel: (() => {
         // Get cycle type from new API response
-        const cycleType = contextHOSStatus?.clocks?.cycle?.type || hosClocks?.cycle_60_70hr?.cycle_type
+        const cycleType =
+          contextHOSStatus?.clocks?.cycle?.type || hosClocks?.cycle_60_70hr?.cycle_type
         if (cycleType) {
           // Format: "70_8" -> "USA 70 hours / 8 days"
           const parts = cycleType.split("_")
@@ -504,13 +547,8 @@ export const DashboardScreen = () => {
 
   const driverInitials = useMemo(() => {
     const name = driverName || "Driver"
-    const parts = name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-    const initials = parts
-      .map((part: string) => part.charAt(0).toUpperCase())
-      .join("")
+    const parts = name.trim().split(/\s+/).filter(Boolean)
+    const initials = parts.map((part: string) => part.charAt(0).toUpperCase()).join("")
     return initials || "DR"
   }, [driverName])
 
@@ -548,11 +586,14 @@ export const DashboardScreen = () => {
   const notificationCount = useMemo(() => {
     if (!notificationsData) return 0
     // Check if it's the driver API format (has results array)
-    if ('results' in notificationsData && Array.isArray(notificationsData.results)) {
+    if ("results" in notificationsData && Array.isArray(notificationsData.results)) {
       return notificationsData.results.length
     }
     // Check if it's the notifications API format (has notifications array)
-    if ('notifications' in notificationsData && Array.isArray((notificationsData as any).notifications)) {
+    if (
+      "notifications" in notificationsData &&
+      Array.isArray((notificationsData as any).notifications)
+    ) {
       return (notificationsData as any).notifications.length
     }
     return 0
@@ -623,7 +664,7 @@ export const DashboardScreen = () => {
         locationData.refreshLocation(),
       ])
     } catch (error) {
-      console.error('Error refreshing dashboard:', error)
+      console.error("Error refreshing dashboard:", error)
     } finally {
       setIsRefreshing(false)
     }
@@ -700,9 +741,10 @@ export const DashboardScreen = () => {
 
     // Get first unread notification, or latest notification if all are read
     const unreadNotifications = notifications.filter((n: any) => !n.is_read)
-    const targetNotification = unreadNotifications.length > 0 
-      ? unreadNotifications[0]  // First unread
-      : notifications[0]  // Latest if all read
+    const targetNotification =
+      unreadNotifications.length > 0
+        ? unreadNotifications[0] // First unread
+        : notifications[0] // Latest if all read
 
     // Mark as read if unread (using markAllRead for simplicity, or implement single mark)
     if (!targetNotification.is_read) {
@@ -710,16 +752,22 @@ export const DashboardScreen = () => {
     }
 
     // Handle profile change notifications
-    if (targetNotification.notification_type === 'profile_change_approved' || targetNotification.notification_type === 'profile_change_rejected') {
+    if (
+      targetNotification.notification_type === "profile_change_approved" ||
+      targetNotification.notification_type === "profile_change_rejected"
+    ) {
       router.push({
-        pathname: '/profile-requests',
+        pathname: "/profile-requests",
         params: { notificationId: targetNotification.id },
       } as any)
       return
     }
 
     // Navigate to action if available (check data.action)
-    if (targetNotification.data?.action && !targetNotification.data.action.includes('/driver/profile/requests')) {
+    if (
+      targetNotification.data?.action &&
+      !targetNotification.data.action.includes("/driver/profile/requests")
+    ) {
       router.push(targetNotification.data.action as any)
       return
     }
@@ -732,243 +780,271 @@ export const DashboardScreen = () => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <View style={{ flex: 1 }}>
-
-      <Header
-        titleMode="flex"
-        title={formattedDate}
-        titleStyle={{ color: COLORS.white, fontWeight: "700" }}
-        leftTextStyle={{ color: COLORS.white }}
-       
-        LeftActionComponent={
-          <View
-            style={{
-              backgroundColor: "#E6F1FA",
-              borderRadius: 20,
-              height: 40,
-              width: 40,
-              justifyContent: "center",
-              alignItems: "center",
-              borderWidth: 2,
-              borderColor: "rgba(255,255,255,0.25)",
+          <Header
+            titleMode="flex"
+            title={formattedDate}
+            titleStyle={{ color: COLORS.white, fontWeight: "700" }}
+            leftTextStyle={{ color: COLORS.white }}
+            LeftActionComponent={
+              <View
+                style={{
+                  backgroundColor: "#E6F1FA",
+                  borderRadius: 20,
+                  height: 40,
+                  width: 40,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  borderWidth: 2,
+                  borderColor: "rgba(255,255,255,0.25)",
+                }}
+              >
+                <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: "700" }}>
+                  {driverInitials}
+                </Text>
+              </View>
+            }
+            leftIconColor={COLORS.white}
+            backgroundColor={colors.PRIMARY}
+            RightActionComponent={
+              <TouchableOpacity
+                onPress={handleNotificationBellPress}
+                style={{
+                  position: "relative",
+                  alignItems: "center",
+                  backgroundColor: "#E6F1FA",
+                  borderRadius: 20,
+                  gap: 8,
+                  height: 40,
+                  justifyContent: "center",
+                  width: 40,
+                }}
+              >
+                <Bell size={24} color={COLORS.primary} strokeWidth={2} />
+                {notificationCount > 0 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      backgroundColor: "transparent",
+                      borderRadius: 12,
+                      minWidth: 22,
+                      height: 20,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 2,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.white, fontSize: 11, fontWeight: "700" }}>
+                      {notificationCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            }
+            containerStyle={{
+              borderBottomWidth: 0,
+              borderBottomColor: COLORS.white,
+              shadowColor: COLORS.white,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 6,
             }}
-          >
-            <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: "700" }}>{driverInitials}</Text>
-          </View>
-        }
-        leftIconColor={COLORS.white}
-        backgroundColor={colors.PRIMARY}
-        RightActionComponent={       
-        
-            
-            <TouchableOpacity 
-          onPress={handleNotificationBellPress}
-          style={{ position: 'relative' ,
-            alignItems: "center",
-            backgroundColor: '#E6F1FA',
-            borderRadius: 20,
-            gap: 8,
-            height: 40,
-            justifyContent: "center",
-            width: 40,
-
-          }}
-        >
-          <Bell size={24} color={COLORS.primary} strokeWidth={2} />
-          {notificationCount > 0 && (
-            <View style={{
-              position: 'absolute',
-              top: -4,
-              right: -4,
-              backgroundColor: 'transparent',
-              borderRadius: 12,
-              minWidth: 22,
-              height: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 2,
-            }}>
-              <Text style={{ color: COLORS.white, fontSize: 11, fontWeight: '700' }}>
-                {notificationCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>}
-        containerStyle={{
-          borderBottomWidth: 0,
-          borderBottomColor: COLORS.white,
-          shadowColor: COLORS.white,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 6,
-        }}
-        style={{
-          paddingHorizontal: 16,
-        }}
-        safeAreaEdges={["top"]}
-      />
-
-      <ScrollView 
-        ref={scrollViewRef}
-        style={s.screen} 
-        contentContainerStyle={s.cc}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.PRIMARY}
-            colors={[colors.PRIMARY]}
+            style={{
+              paddingHorizontal: 16,
+            }}
+            safeAreaEdges={["top"]}
           />
-        }
-      >
 
-        {/* Professional Header with Greeting Section */}
-        <View style={s.greetingSection}>
-          <View style={[s.greetingRow, { paddingBottom: 30 }]}>
-            <View style={s.greetingLeft}>
-              <Text style={s.greetingText}>
-                {greeting.text}, {driverName.split(" ")[0]}! {greeting.emoji}
-              </Text>
-            </View>
-           
-          </View>
-
-          {/* Badges Row */}
-          <View style={s.badgesRow}>
-            <View style={[s.badge, { backgroundColor: COLORS.white, justifyContent: 'center' }]}>
-              <Text style={s.badgeText}>
-              <View style={{ flexDirection: 'row', gap: 12, paddingRight: 4, alignItems: 'center' }}>
-            <Pressable onPress={handleLogoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Image
-                source={require("assets/images/ttm-logo.png")}
-                style={{ width: 120, height: 32, resizeMode: "contain" }}
-              />
-            </Pressable>
-          </View>
-              </Text>
-            </View>
-            <View style={[s.badge, s.badgeOrange]}>
-              <BluetoothConnectedIcon size={16} color={colors.warning} />
-              <Text style={s.badgeText}>
-                {eldConnected 
-                  ? translate("dashboard.badges.eldConnected" as any) 
-                  : translate("dashboard.badges.eldNotConnected" as any)}
-              </Text>
-            </View>
-          </View>
-        
-          <View style={[s.badgesRow, { marginTop: 10 }]}>
-            <View style={[s.badge, { backgroundColor: COLORS.white, justifyContent: 'center' }]}>
-              <Text style={s.badgeText}>
-                {translate("dashboard.collaborationWith" as any)} {driverProfile?.organization_name} <Building2Icon size={16} color={colors.PRIMARY} strokeWidth={2} style={{ marginLeft: 4, marginTop: 10 }} />
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Vehicle & Trip Assignment - Show if both assigned */}
-        {canUseHOS && (
-          <VehicleTripAssignment />
-        )}
-
-        {/* Unified Smart HOS Card */}
-        <View 
-          ref={hosSectionRef}
-          onLayout={(event) => {
-            // onLayout gives position relative to parent (ScrollView content)
-            const { y } = event.nativeEvent.layout
-            setHosSectionY(y)
-          }}
-        >
-            <UnifiedHOSCard 
-              disabled={!canUseHOS}
-              disabledMessage={translate('vehicleTrip.mandatoryMessage' as any)}
-              onScrollToTop={() => {
-                if (hosSectionY !== null && hosSectionY > 0) {
-                  scrollViewRef.current?.scrollTo({ y: Math.max(0, hosSectionY - 20), animated: true })
-                } else {
-                  // Fallback: approximate position based on typical layout
-                  scrollViewRef.current?.scrollTo({ y: 600, animated: true })
-                }
-              }}
-            />
-        </View>
-        {/* ELD Data - Speed & Fuel - Only show if vehicle and trip assigned */}
-        {canUseELD && eldConnected && <LiveVehicleData
-          eldConnected={eldConnected}
-          obdData={obdData}
-          currentSpeed={currentSpeed}
-          fuelLevel={fuelLevel}
-          recentAutoDutyChanges={recentAutoDutyChanges}
-        />}
-
-        {/* Hero Card - Are you ready */}
-        <LinearGradient
-          colors={[colors.palette.primary400, colors.PRIMARY]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroCard}
-        >
-          <View style={s.heroContent}>
-            <Text style={s.heroTitle}>Ready to hit</Text>
-            <Text style={s.heroTitle}>the road with TTM Konnect?</Text>
-          </View>
-          <View style={s.heroIllustration}>
-            <Image
-              source={require("assets/images/trident_logo.png")}
-              style={s.loginHeaderImage}
-              resizeMode="cover"
-            />
-          </View>
-        </LinearGradient>
-
-        <View style={s.categoriesSection}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>Categories</Text>
-            <TouchableOpacity>
-              <Text style={s.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.categoriesScroll}
+            ref={scrollViewRef}
+            style={s.screen}
+            contentContainerStyle={s.cc}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.PRIMARY}
+                colors={[colors.PRIMARY]}
+              />
+            }
           >
-            <TouchableOpacity style={s.categoryBox} onPress={() => router.push("/logs/transfer")}>
-              <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
-              <Text style={s.categoryText}>Logs Transfer</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={s.categoryBox}
-              onPress={() => router.push("/(tabs)/fuel" as any)}
+            {/* Professional Header with Greeting Section */}
+      
+            <View style={s.greetingSection}>
+                    <TouchableOpacity onPress={handleOpenDriverSheet}>
+   <View style={[s.greetingRow, { paddingBottom: 30 }]}>
+                <View style={s.greetingLeft}>
+                  <Text style={s.greetingText}>
+                    {greeting.text}, {driverName.split(" ")[0]}! {greeting.emoji}
+                  </Text>
+                </View>
+              </View>
+
+                    </TouchableOpacity>
+           
+
+              {/* Badges Row */}
+              <View style={s.badgesRow}>
+                <View
+                  style={[s.badge, { backgroundColor: COLORS.white, justifyContent: "center" }]}
+                >
+                  <Text style={s.badgeText}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        gap: 12,
+                        paddingRight: 4,
+                        alignItems: "center",
+                      }}
+                    >
+                      <Pressable
+                        onPress={handleLogoPress}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Image
+                          source={require("assets/images/ttm-logo.png")}
+                          style={{ width: 120, height: 32, resizeMode: "contain" }}
+                        />
+                      </Pressable>
+                    </View>
+                  </Text>
+                </View>
+                <View style={[s.badge, s.badgeOrange]}>
+                  <BluetoothConnectedIcon size={16} color={colors.warning} />
+                  <Text style={s.badgeText}>
+                    {eldConnected
+                      ? translate("dashboard.badges.eldConnected" as any)
+                      : translate("dashboard.badges.eldNotConnected" as any)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[s.badgesRow, { marginTop: 10 }]}>
+                <View
+                  style={[s.badge, { backgroundColor: COLORS.white, justifyContent: "center" }]}
+                >
+                  <Text style={s.badgeText}>
+                    {translate("dashboard.collaborationWith" as any)}{" "}
+                    {driverProfile?.organization_name}{" "}
+                    <Building2Icon
+                      size={16}
+                      color={colors.PRIMARY}
+                      strokeWidth={2}
+                      style={{ marginLeft: 4, marginTop: 10 }}
+                    />
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Vehicle & Trip Assignment - Show if both assigned */}
+            {canUseHOS && <VehicleTripAssignment />}
+
+            {/* Unified Smart HOS Card */}
+            <View
+              ref={hosSectionRef}
+              onLayout={(event) => {
+                // onLayout gives position relative to parent (ScrollView content)
+                const { y } = event.nativeEvent.layout
+                setHosSectionY(y)
+              }}
             >
-              <BookOpen size={32} color={colors.PRIMARY} strokeWidth={2} />
-              <Text style={s.categoryText}>Fuel</Text>
-            </TouchableOpacity>
+              <UnifiedHOSCard
+                disabled={!canUseHOS}
+                disabledMessage={translate("vehicleTrip.mandatoryMessage" as any)}
+                onScrollToTop={() => {
+                  if (hosSectionY !== null && hosSectionY > 0) {
+                    scrollViewRef.current?.scrollTo({
+                      y: Math.max(0, hosSectionY - 20),
+                      animated: true,
+                    })
+                  } else {
+                    // Fallback: approximate position based on typical layout
+                    scrollViewRef.current?.scrollTo({ y: 600, animated: true })
+                  }
+                }}
+              />
+            </View>
+            {/* ELD Data - Speed & Fuel - Only show if vehicle and trip assigned */}
+            {canUseELD && eldConnected && (
+              <LiveVehicleData
+                eldConnected={eldConnected}
+                obdData={obdData}
+                currentSpeed={currentSpeed}
+                fuelLevel={fuelLevel}
+                recentAutoDutyChanges={recentAutoDutyChanges}
+              />
+            )}
+
+            {/* Hero Card - Are you ready */}
+            <LinearGradient
+              colors={[colors.palette.primary400, colors.PRIMARY]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.heroCard}
+            >
+              <View style={s.heroContent}>
+                <Text style={s.heroTitle}>Ready to hit</Text>
+                <Text style={s.heroTitle}>the road with TTM Konnect?</Text>
+              </View>
+              <View style={s.heroIllustration}>
+                <Image
+                  source={require("assets/images/trident_logo.png")}
+                  style={s.loginHeaderImage}
+                  resizeMode="cover"
+                />
+              </View>
+            </LinearGradient>
+
+            <View style={s.categoriesSection}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Categories</Text>
+                <TouchableOpacity>
+                  <Text style={s.seeAllText}>See All</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.categoriesScroll}
+              >
+                <TouchableOpacity
+                  style={s.categoryBox}
+                  onPress={() => router.push("/logs/transfer")}
+                >
+                  <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
+                  <Text style={s.categoryText}>Logs Transfer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.categoryBox}
+                  onPress={() => router.push("/(tabs)/fuel" as any)}
+                >
+                  <BookOpen size={32} color={colors.PRIMARY} strokeWidth={2} />
+                  <Text style={s.categoryText}>Fuel</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+
+            {/* Bottom Spacer */}
+            <View style={{ height: 100 }} />
           </ScrollView>
         </View>
 
-     
-
-        {/* Bottom Spacer */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-        </View>
-
-      {/* Notifications Modal */}
-      <Modal
-        visible={showNotifications}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowNotifications(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={s.modalContent}>
-            <NotificationsPanel onClose={() => setShowNotifications(false)} />
+        {/* Notifications Modal */}
+        <Modal
+          visible={showNotifications}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowNotifications(false)}
+        >
+          <View style={s.modalOverlay}>
+            <View style={s.modalContent}>
+              <NotificationsPanel onClose={() => setShowNotifications(false)} />
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
         <BottomSheetModal
           ref={driverInfoSheetRef}
@@ -1007,7 +1083,10 @@ export const DashboardScreen = () => {
               )}
             </View>
 
-            <TouchableOpacity style={[s.driverSheetButton, { marginBottom: 150 }]} onPress={handleCloseDriverSheet}>
+            <TouchableOpacity
+              style={[s.driverSheetButton, { marginBottom: 150 }]}
+              onPress={handleCloseDriverSheet}
+            >
               <Text style={s.driverSheetButtonText}>Close</Text>
             </TouchableOpacity>
           </BottomSheetView>
@@ -1015,9 +1094,7 @@ export const DashboardScreen = () => {
 
         {/* Violation Notifications */}
         {/* Critical Violations - Modal (non-dismissible) */}
-        {criticalViolations.length > 0 && (
-          <ViolationModal violation={criticalViolations[0]} />
-        )}
+        {criticalViolations.length > 0 && <ViolationModal violation={criticalViolations[0]} />}
 
         {/* High Priority Violations - Banner (dismissible, auto-dismiss 10s) */}
         {highPriorityViolations.length > 0 && criticalViolations.length === 0 && (
@@ -1028,20 +1105,22 @@ export const DashboardScreen = () => {
         )}
 
         {/* Medium Priority Violations - Toast (auto-dismiss 5s) */}
-        {mediumPriorityViolations.length > 0 && 
-         criticalViolations.length === 0 && 
-         highPriorityViolations.length === 0 && (
-          <ViolationToast
-            violation={mediumPriorityViolations[0]}
-            onDismiss={() => removeViolation(mediumPriorityViolations[0].violation_id)}
-          />
-        )}
+        {mediumPriorityViolations.length > 0 &&
+          criticalViolations.length === 0 &&
+          highPriorityViolations.length === 0 && (
+            <ViolationToast
+              violation={mediumPriorityViolations[0]}
+              onDismiss={() => removeViolation(mediumPriorityViolations[0].violation_id)}
+            />
+          )}
 
-        {/* Mandatory Setup Screen - Blocks HOS/ELD if vehicle or trip not assigned */}
-        {!vehicleLoading && !tripsLoading && !canUseHOS && (
+        {/* Mandatory Setup Screen - Blocks HOS/ELD if vehicle or shipper ID missing */}
+        {showMandatorySetup && (
           <MandatorySetupScreen
-            hasVehicle={hasVehicle}
-            hasTrip={hasTrip}
+            hasVehicle={hasVehicleAssignment}
+            hasShipperId={hasShipperId}
+            onAddVehicle={handleAddVehicle}
+            onAddShipperId={handleAddShipperId}
           />
         )}
 
@@ -1055,7 +1134,7 @@ export const DashboardScreen = () => {
           onStatusChange={() => {
             setShowInactivityPrompt(false)
             // Navigate to status screen or let user change status manually
-            router.push('/status' as any)
+            router.push("/status" as any)
           }}
         />
       </BottomSheetModalProvider>
@@ -1189,13 +1268,13 @@ const s = StyleSheet.create({
 
   // Professional Header with Greeting
   greetingSection: {
-    marginBottom: 20,
-    paddingTop: 16,
-    paddingHorizontal: 20,
     backgroundColor: COLORS.primary,
-    paddingBottom: 30,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    marginBottom: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
   headerTopRow: {
     alignItems: "center",
@@ -1207,19 +1286,19 @@ const s = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background,
     borderRadius: 28,
+    elevation: 3,
     height: 56,
     justifyContent: "center",
     overflow: "hidden",
-    width: 56,
     shadowColor: colors.palette.neutral900,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    width: 56,
   },
   avatarLogo: {
-    width: 56,
     height: 56,
+    width: 56,
   },
   dateContainer: {
     alignItems: "center",
@@ -1303,12 +1382,12 @@ const s = StyleSheet.create({
     borderRadius: 24,
     elevation: 2,
     marginHorizontal: 20,
+    marginTop: 10,
     padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    marginTop: 10,
   },
   serviceHeader: {
     alignItems: "center",
@@ -1501,13 +1580,13 @@ const s = StyleSheet.create({
     fontWeight: "700",
   },
   signButton: {
+    alignItems: "center",
     backgroundColor: colors.PRIMARY,
     borderRadius: 12,
-    marginTop: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: "center",
     justifyContent: "center",
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
   },
   signButtonText: {
     color: "#FFFFFF",
@@ -2148,62 +2227,62 @@ const s = StyleSheet.create({
 
   // Notifications Modal
   modalOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
     padding: 20,
   },
   modalContent: {
-    width: '100%',
-    maxWidth: 500,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    elevation: 10,
+    maxWidth: 500,
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
-    elevation: 10,
+    width: "100%",
   },
 
   // Critical Alert Banner
   criticalAlertBanner: {
-    backgroundColor: '#DC2626',
+    alignItems: "center",
+    backgroundColor: "#DC2626",
+    borderRadius: 16,
+    elevation: 6,
+    flexDirection: "row",
     marginHorizontal: 20,
     marginTop: 20,
-    borderRadius: 16,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#DC2626',
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
   },
   alertIconContainer: {
-    width: 48,
-    height: 48,
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 48,
+    justifyContent: "center",
     marginRight: 12,
+    width: 48,
   },
   alertContent: {
     flex: 1,
   },
   alertTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 4,
   },
   alertMessage: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 18,
   },
 })

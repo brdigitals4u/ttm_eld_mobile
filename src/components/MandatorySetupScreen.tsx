@@ -7,24 +7,28 @@
 
 import React from 'react'
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native'
-import { AlertTriangle, Truck, Package } from 'lucide-react-native'
+import { AlertTriangle, Truck, FileText } from 'lucide-react-native'
 import { translate } from '@/i18n/translate'
 import { colors } from '@/theme/colors'
 
 interface MandatorySetupScreenProps {
   hasVehicle: boolean
-  hasTrip: boolean
+  hasShipperId: boolean
+  onAddVehicle?: () => void
+  onAddShipperId?: () => void
   onContactManager?: () => void
 }
 
 export const MandatorySetupScreen: React.FC<MandatorySetupScreenProps> = ({
   hasVehicle,
-  hasTrip,
+  hasShipperId,
+  onAddVehicle,
+  onAddShipperId,
   onContactManager,
 }) => {
   const missingItems = []
   if (!hasVehicle) missingItems.push('vehicle')
-  if (!hasTrip) missingItems.push('trip')
+  if (!hasShipperId) missingItems.push('shipper_id')
 
   return (
     <View style={styles.container}>
@@ -60,36 +64,50 @@ export const MandatorySetupScreen: React.FC<MandatorySetupScreenProps> = ({
             </View>
           )}
 
-          {!hasTrip && (
+          {!hasShipperId && (
             <View style={styles.missingItem}>
-              <Package size={24} color="#EF4444" />
+              <FileText size={24} color="#EF4444" />
               <View style={styles.missingTextContainer}>
                 <Text style={styles.missingTitle}>
-                  {translate('vehicleTrip.tripRequired' as any)}
+                  Shipping ID required
                 </Text>
                 <Text style={styles.missingSubtitle}>
-                  {translate('vehicleTrip.tripMissing' as any)}
+                  Enter the Shipping / BOL number from dispatch
                 </Text>
               </View>
             </View>
           )}
         </View>
 
-        {/* Contact Manager Button */}
-        {onContactManager && (
-          <TouchableOpacity
-            style={styles.contactButton}
-            onPress={onContactManager}
-          >
-            <Text style={styles.contactButtonText}>
-              {translate('vehicleTrip.contactManager' as any)}
-            </Text>
-          </TouchableOpacity>
-        )}
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
+          {!hasVehicle && onAddVehicle && (
+            <TouchableOpacity style={styles.primaryButton} onPress={onAddVehicle}>
+              <Text style={styles.primaryButtonText}>Pick Assigned Vehicle</Text>
+            </TouchableOpacity>
+          )}
+
+          {!hasShipperId && onAddShipperId && (
+            <TouchableOpacity style={styles.secondaryButton} onPress={onAddShipperId}>
+              <Text style={styles.secondaryButtonText}>Add Shipping / BOL ID</Text>
+            </TouchableOpacity>
+          )}
+
+          {onContactManager && (
+            <TouchableOpacity
+              style={styles.contactButton}
+              onPress={onContactManager}
+            >
+              <Text style={styles.contactButtonText}>
+                {translate('vehicleTrip.contactManager' as any)}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Info Text */}
         <Text style={styles.infoText}>
-          {translate('vehicleTrip.contactManager' as any)}
+          For quick setup: sign in, pick your vehicle, then enter the Shipping / BOL number provided in your route paperwork. Contact your dispatcher if you need help.
         </Text>
       </View>
     </View>
@@ -173,14 +191,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#991B1B',
   },
+  actionContainer: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 16,
+  },
+  primaryButton: {
+    backgroundColor: colors.PRIMARY,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#A5B4FC',
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#3730A3',
+  },
   contactButton: {
     backgroundColor: colors.PRIMARY,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 32,
-    width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
   },
   contactButtonText: {
     fontSize: 18,
