@@ -17,20 +17,18 @@ import { router } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import { useDriverLogin } from "@/api/organization"
+import { AnimatedButton } from "@/components/AnimatedButton"
 import { Text } from "@/components/Text"
 import { COLORS } from "@/constants/colors"
 import { LoginCredentials } from "@/database/schemas"
+import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
-import { translate } from "@/i18n/translate"
 
 const loadingAnimation = require("assets/animations/loading.json")
 const successAnimation = require("assets/animations/success.json")
-import { AnimatedButton } from "@/components/AnimatedButton"
 
-const TENANT_OPTIONS = [
-  { value: "TTM_001", label: "OmVahana Fleet" },
-]
+const TENANT_OPTIONS = [{ value: "TTM_001", label: "OmVahana Fleet" }]
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth()
@@ -125,15 +123,15 @@ export const LoginScreen: React.FC = () => {
       })
 
       // Save email if Remember Me is enabled
-          if (rememberMe) {
-            await AsyncStorage.setItem("rememberedEmail", credentials.email)
-            await AsyncStorage.setItem("rememberedTenant", credentials.tenant_code || "")
-            await AsyncStorage.setItem("rememberMe", "true")
-          } else {
-            await AsyncStorage.removeItem("rememberedEmail")
-            await AsyncStorage.removeItem("rememberedTenant")
-            await AsyncStorage.removeItem("rememberMe")
-          }
+      if (rememberMe) {
+        await AsyncStorage.setItem("rememberedEmail", credentials.email)
+        await AsyncStorage.setItem("rememberedTenant", credentials.tenant_code || "")
+        await AsyncStorage.setItem("rememberMe", "true")
+      } else {
+        await AsyncStorage.removeItem("rememberedEmail")
+        await AsyncStorage.removeItem("rememberedTenant")
+        await AsyncStorage.removeItem("rememberMe")
+      }
 
       await login(result)
       toast.success("Login successful!", 2000)
@@ -178,143 +176,148 @@ export const LoginScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-        {/* Header */}
-        <View style={styles.header}>
-          <Image
-            source={require("assets/images/trident_logo.png")}
-            style={styles.loginHeaderImage}
-            resizeMode="contain"
-          />
-          <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
-          <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
-        </View>
-
-        {/* Form Container */}
-        <View style={styles.formContainer}>
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{translate("login.tenant" as any)}</Text>
-            <Pressable
-              style={[
-                styles.inputWrapper,
-                styles.tenantWrapper,
-                errors.tenant_code && styles.inputError,
-              ]}
-              onPress={() => setTenantPickerVisible(true)}
-            >
-              <View style={styles.tenantContent}>
-                <Text style={styles.tenantSelectedText}>
-                  {selectedTenant?.label || credentials.tenant_code || translate("login.selectTenant" as any)}
-                </Text>
-                <Text style={styles.tenantChevron}>▾</Text>
-              </View>
-            </Pressable>
-            {!!errors.tenant_code && <Text style={styles.errorText}>{errors.tenant_code}</Text>}
+          {/* Header */}
+          <View style={styles.header}>
+            <Image
+              source={require("assets/images/trident_logo.png")}
+              style={styles.loginHeaderImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
+            <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Email"
-                placeholderTextColor={COLORS.ink300}
-                value={credentials.email}
-                onChangeText={(text) => {
-                  setCredentials((p) => ({ ...p, email: text }))
-                  setErrors((p) => ({ ...p, email: "" }))
-                }}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-            {!!errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          </View>
-
-          {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{translate("login.password" as any)}</Text>
-            <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Password"
-                placeholderTextColor={COLORS.ink300}
-                value={credentials.password}
-                onChangeText={(text) => {
-                  setCredentials((p) => ({ ...p, password: text }))
-                  setErrors((p) => ({ ...p, password: "" }))
-                }}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
+          {/* Form Container */}
+          <View style={styles.formContainer}>
+            {/* Email */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{translate("login.tenant" as any)}</Text>
+              <Pressable
+                style={[
+                  styles.inputWrapper,
+                  styles.tenantWrapper,
+                  errors.tenant_code && styles.inputError,
+                ]}
+                onPress={() => setTenantPickerVisible(true)}
               >
-                <Text style={styles.eyeIconText}>{showPassword ? "👁️" : "🔒"}</Text>
-              </TouchableOpacity>
-            </View>
-            {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-          </View>
-
-          {/* Remember Me */}
-          <View style={styles.rememberMeContainer}>
-            <Pressable style={styles.checkboxContainer} onPress={() => setRememberMe(!rememberMe)}>
-              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <Text style={styles.rememberMeText}>Remember me</Text>
-            </Pressable>
-          </View>
-
-          {/* Privacy Policy Agreement */}
-          <View style={styles.privacyContainer}>
-            <Pressable
-              style={styles.checkboxContainer}
-              onPress={() => {
-                setAgreedToPrivacy(!agreedToPrivacy)
-                setPrivacyError("")
-              }}
-            >
-              <View style={[styles.checkbox, agreedToPrivacy && styles.checkboxChecked]}>
-                {agreedToPrivacy && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <View style={styles.privacyTextContainer}>
-                <Text style={styles.privacyText}>
-                  I agree to the{" "}
-                  <Text
-                    style={styles.privacyLink}
-                    onPress={(e) => {
-                      e.stopPropagation()
-                      Linking.openURL("https://ttmkonnect.com/privacy")
-                    }}
-                  >
-                    Privacy Policy
+                <View style={styles.tenantContent}>
+                  <Text style={styles.tenantSelectedText}>
+                    {selectedTenant?.label ||
+                      credentials.tenant_code ||
+                      translate("login.selectTenant" as any)}
                   </Text>
-                </Text>
+                  <Text style={styles.tenantChevron}>▾</Text>
+                </View>
+              </Pressable>
+              {!!errors.tenant_code && <Text style={styles.errorText}>{errors.tenant_code}</Text>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Email"
+                  placeholderTextColor={COLORS.ink300}
+                  value={credentials.email}
+                  onChangeText={(text) => {
+                    setCredentials((p) => ({ ...p, email: text }))
+                    setErrors((p) => ({ ...p, email: "" }))
+                  }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
               </View>
-            </Pressable>
-            {!!privacyError && <Text style={styles.errorText}>{privacyError}</Text>}
+              {!!errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            {/* Password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{translate("login.password" as any)}</Text>
+              <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Password"
+                  placeholderTextColor={COLORS.ink300}
+                  value={credentials.password}
+                  onChangeText={(text) => {
+                    setCredentials((p) => ({ ...p, password: text }))
+                    setErrors((p) => ({ ...p, password: "" }))
+                  }}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text style={styles.eyeIconText}>{showPassword ? "👁️" : "🔒"}</Text>
+                </TouchableOpacity>
+              </View>
+              {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            </View>
+
+            {/* Remember Me */}
+            <View style={styles.rememberMeContainer}>
+              <Pressable
+                style={styles.checkboxContainer}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.rememberMeText}>Remember me</Text>
+              </Pressable>
+            </View>
+
+            {/* Privacy Policy Agreement */}
+            <View style={styles.privacyContainer}>
+              <Pressable
+                style={styles.checkboxContainer}
+                onPress={() => {
+                  setAgreedToPrivacy(!agreedToPrivacy)
+                  setPrivacyError("")
+                }}
+              >
+                <View style={[styles.checkbox, agreedToPrivacy && styles.checkboxChecked]}>
+                  {agreedToPrivacy && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <View style={styles.privacyTextContainer}>
+                  <Text style={styles.privacyText}>
+                    I agree to the{" "}
+                    <Text
+                      style={styles.privacyLink}
+                      onPress={(e) => {
+                        e.stopPropagation()
+                        Linking.openURL("https://ttmkonnect.com/privacy")
+                      }}
+                    >
+                      Privacy Policy
+                    </Text>
+                  </Text>
+                </View>
+              </Pressable>
+              {!!privacyError && <Text style={styles.errorText}>{privacyError}</Text>}
+            </View>
+
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotContainer} onPress={handleForgotPassword}>
+              <Text style={styles.forgotText}>Forget password?</Text>
+            </TouchableOpacity>
+
+            {/* Login Button */}
+            <AnimatedButton
+              title={driverLoginMutation.isPending ? "Logging in…" : "Login now"}
+              onPress={handleLogin}
+              onSuccess={handleLoginSuccess}
+              loadingAnimation={loadingAnimation}
+              successAnimation={successAnimation}
+              disabled={isButtonDisabled}
+              style={styles.loginButton}
+              textStyle={styles.loginButtonText}
+              successDuration={1500}
+            />
           </View>
-
-          {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotContainer} onPress={handleForgotPassword}>
-            <Text style={styles.forgotText}>Forget password?</Text>
-          </TouchableOpacity>
-
-          {/* Login Button */}
-          <AnimatedButton
-            title={driverLoginMutation.isPending ? "Logging in…" : "Login now"}
-            onPress={handleLogin}
-            onSuccess={handleLoginSuccess}
-            loadingAnimation={loadingAnimation}
-            successAnimation={successAnimation}
-            disabled={isButtonDisabled}
-            style={styles.loginButton}
-            textStyle={styles.loginButtonText}
-            successDuration={1500}
-          />
-        </View>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <Modal
@@ -323,10 +326,7 @@ export const LoginScreen: React.FC = () => {
         animationType="fade"
         onRequestClose={() => setTenantPickerVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setTenantPickerVisible(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => setTenantPickerVisible(false)}>
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Choose tenant</Text>
             <View style={styles.modalDivider} />
@@ -343,10 +343,7 @@ export const LoginScreen: React.FC = () => {
                   }}
                 >
                   <Text
-                    style={[
-                      styles.modalOptionLabel,
-                      isActive && styles.modalOptionLabelActive,
-                    ]}
+                    style={[styles.modalOptionLabel, isActive && styles.modalOptionLabelActive]}
                   >
                     {tenant.label}
                   </Text>
