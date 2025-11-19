@@ -32,6 +32,7 @@ import { ViolationModal } from "@/components/ViolationModal"
 import { ViolationBanner } from "@/components/ViolationBanner"
 import { ViolationToast } from "@/components/ViolationToast"
 import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
+import { InactivityPrompt } from "@/components/InactivityPrompt"
 import { VehicleTripAssignment } from "@/components/VehicleTripAssignment"
 import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
@@ -64,7 +65,13 @@ export const DashboardScreen = () => {
   const { requestPermissions } = usePermissions()
   const { currentLocation } = useLocation()
   const locationData = useLocationData()
-  const { obdData, isConnected: eldConnected, recentAutoDutyChanges } = useObdData()
+  const { 
+    obdData, 
+    isConnected: eldConnected, 
+    recentAutoDutyChanges,
+    showInactivityPrompt,
+    setShowInactivityPrompt,
+  } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
   
   // Violation notifications from WebSocket
@@ -1037,6 +1044,20 @@ export const DashboardScreen = () => {
             hasTrip={hasTrip}
           />
         )}
+
+        {/* Inactivity Prompt */}
+        <InactivityPrompt
+          visible={showInactivityPrompt}
+          onContinueDriving={() => {
+            setShowInactivityPrompt(false)
+            // Monitor will reset automatically when vehicle moves
+          }}
+          onStatusChange={() => {
+            setShowInactivityPrompt(false)
+            // Navigate to status screen or let user change status manually
+            router.push('/status' as any)
+          }}
+        />
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   )

@@ -14,6 +14,7 @@ import { awsConfig } from '@/config/aws-config'
 import { locationQueueService } from '@/services/location-queue'
 import { setBatteryGetter } from '@/services/device-heartbeat-service'
 import { decodeObdCode, ObdCodeDetails } from '@/utils/obd-code-decoder'
+import { inactivityMonitor } from '@/services/inactivity-monitor'
 
 const SPEED_THRESHOLD_DRIVING = 5 // mph
 
@@ -114,6 +115,9 @@ interface ObdDataContextType {
   isFetchingHistory: boolean
   historyFetchProgress: HistoryProgress | null
   fetchEldHistory: (request: EldHistoryRequest) => Promise<void>
+  showInactivityPrompt: boolean
+  setShowInactivityPrompt: (show: boolean) => void
+  triggerInactivityAutoSwitch: () => void
 }
 
 const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
@@ -131,7 +135,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return activeTrips.length > 0
   }, [tripsData])
   const canUseELD = hasVehicle && hasActiveTrip
-  const { setEldLocation, setCurrentStatus } = useStatusStore()
+  const { setEldLocation, setCurrentStatus, currentStatus } = useStatusStore()
   const queryClient = useQueryClient()
   const [obdData, setObdData] = useState<OBDDataItem[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
@@ -142,6 +146,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [recentAutoDutyChanges, setRecentAutoDutyChanges] = useState<AutoDutyChange[]>([])
   const [eldBatteryVoltage, setEldBatteryVoltage] = useState<number | null>(null)
   const [currentSpeedMph, setCurrentSpeedMph] = useState<number>(0)
+  const [showInactivityPrompt, setShowInactivityPrompt] = useState<boolean>(false)
   const [activityState, setActivityState] = useState<ActivityState>('inactive')
   const [recentMalfunctions, setRecentMalfunctions] = useState<MalfunctionRecord[]>([])
   const [eldDeviceId, setEldDeviceId] = useState<string | null>(null)
@@ -413,6 +418,11 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCurrentSpeedMph(speedMph)
         setActivityState(speedMph >= SPEED_THRESHOLD_DRIVING ? 'driving' : 'idling')
 
+        // Update inactivity monitor with current speed and status
+        if (isAuthenticated && currentStatus) {
+          inactivityMonitor.update(speedMph, currentStatus)
+        }
+
         // Capture ELD (vehicle) battery voltage if available
         const vehicleVoltageItem = displayData.find((item) => item.name.toLowerCase().includes('voltage'))
         if (vehicleVoltageItem) {
@@ -681,7 +691,21 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (isAuthenticated) {
       checkConnectionStatus()
       
+      // Initialize inactivity monitor
+      inactivityMonitor.setPromptTriggerCallback(() => {
+        console.log('⏰ OBD Data Context: Inactivity prompt triggered')
+        setShowInactivityPrompt(true)
+      })
+
+      inactivityMonitor.setAutoSwitchCallback(() => {
+        console.log('🔄 OBD Data Context: Inactivity auto-switch triggered')
+        // This will be handled by the InactivityPrompt component
+        // We just need to ensure the prompt is shown
+        setShowInactivityPrompt(true)
+      })
+
       // Initialize location queue service
+
       locationQueueService.ensureInitialized().then(() => {
         // Set up auto-duty change handler
         locationQueueService.setAutoDutyChangeHandler((changes) => {
@@ -1018,9 +1042,26 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Stop location queue auto-flush
       locationQueueService.stopAutoFlush()
+      
+      // Reset inactivity monitor
+      inactivityMonitor.reset()
+      inactivityMonitor.setPromptTriggerCallback(null)
+      inactivityMonitor.setAutoSwitchCallback(null)
+      
       resetHistoryState()
     }
-  }, [isAuthenticated, canUseELD, driverProfile?.driver_id, vehicleAssignment?.vehicle_info?.vin, localSyncIntervalMs, eldDeviceId, completeHistoryFetch])
+  }, [isAuthenticated, canUseELD, driverProfile?.driver_id, vehicleAssignment?.vehicle_info?.vin, localSyncIntervalMs, eldDeviceId, completeHistoryFetch, currentStatus])
+
+  // Update inactivity monitor when status or speed changes
+  useEffect(() => {
+    if (isAuthenticated && currentStatus && isConnected) {
+      // Update monitor with current speed and status
+      inactivityMonitor.update(currentSpeedMph, currentStatus)
+    } else if (!isAuthenticated || !isConnected) {
+      // Reset monitor when disconnected or not authenticated
+      inactivityMonitor.reset()
+    }
+  }, [isAuthenticated, currentStatus, currentSpeedMph, isConnected])
 
   // Set up periodic Local API sync using adaptive cadence
   useEffect(() => {
@@ -1219,6 +1260,13 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     activityState,
   ])
 
+  // Handle auto-switch trigger from inactivity monitor
+  const triggerInactivityAutoSwitch = useCallback(() => {
+    // This will be handled by the InactivityPrompt component
+    // The component will call the API to change status
+    console.log('🔄 OBD Data Context: triggerInactivityAutoSwitch called')
+  }, [])
+
   const value: ObdDataContextType = {
     obdData,
     lastUpdate,
@@ -1241,6 +1289,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isFetchingHistory,
     historyFetchProgress,
     fetchEldHistory,
+    showInactivityPrompt,
+    setShowInactivityPrompt,
+    triggerInactivityAutoSwitch,
   }
 
   return <ObdDataContext.Provider value={value}>{children}</ObdDataContext.Provider>
