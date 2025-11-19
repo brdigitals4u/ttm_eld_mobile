@@ -1,10 +1,11 @@
 import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui'
-import { Pressable, StyleSheet, Platform } from 'react-native'
+import { Pressable, StyleSheet, Platform, View } from 'react-native'
 import { Icon } from '@/components/Icon'
 import { COLORS } from '@/constants/colors'
 import { Text } from '@/components/Text'
 import { translate } from '@/i18n/translate'
 import { useLanguage } from '@/hooks/useLanguage'
+import { BetaBanner } from '@/components/BetaBanner'
 
 function CustomTabButton({ isFocused, icon, label, ...props }: any) {
   return (
@@ -28,6 +29,9 @@ export default function Layout() {
   return (
     <Tabs>
       <TabSlot /> {/* Renders the selected screen */}
+      <View style={styles.betaBadgeContainer}>
+        <BetaBanner />
+      </View>
       <TabList style={styles.tabBarContainer}>
         <TabTrigger name="dashboard" href="/dashboard" asChild>
           <CustomTabButton icon="menu" label={translate("tabs.home" as any)} />
@@ -51,6 +55,12 @@ export default function Layout() {
 }
 
 const styles = StyleSheet.create({
+  betaBadgeContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 80 : 92,
+    left: 20,
+    zIndex: 1000,
+  },
   tabBarContainer: {
     flexDirection: "row",
     justifyContent: "space-between",

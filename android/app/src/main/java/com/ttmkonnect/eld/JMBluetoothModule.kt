@@ -22,6 +22,7 @@ import com.jimi.ble.entity.parse.BtParseData
 import com.jimi.ble.bean.BaseObdData
 import com.jimi.ble.bean.ObdDataItemConfigBean
 import com.jimi.ble.bean.ObdTerminalInfoBean
+import com.jimi.ble.bean.ObdEcuBean
 import com.jimi.ble.utils.FirmwareUpgradeManager
 import com.jimi.ble.protocol.ObdProtocol
 import com.jimi.ble.utils.InstructionAnalysis
@@ -1432,6 +1433,85 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
     }
     
+    /**
+     * Get description for ELD compliance malfunction code
+     */
+    private fun getMalfunctionDescription(code: String): String {
+        return when (code.uppercase()) {
+            "P" -> "Power Compliance ELD Malfunction"
+            "E" -> "Engine Synchronization Malfunction"
+            "L" -> "Positioning Compliance ELD Malfunction"
+            "T" -> "Timing Compliance Malfunction"
+            else -> "Unknown ELD Malfunction"
+        }
+    }
+    
+    /**
+     * Handle ELD compliance malfunction detected in ErrorBean
+     * 
+     * The SDK's BaseObdData.ErrorBean contains ObdEcuBean objects with:
+     * - ecuId: Long - ECU identifier
+     * - errorCodeList: List<String> - Error codes including ELD compliance malfunctions (P, E, L, T)
+     */
+    private fun handleEldComplianceMalfunction(
+        code: String,
+        bean: BaseObdData.ErrorBean,
+        ecu: Any // ObdEcuBean from SDK
+    ) {
+        try {
+            Log.i(TAG, "🚨 ELD Compliance Malfunction detected: Code $code")
+            
+            // Extract ECU information - ObdEcuBean has ecuId: Long
+            var ecuId: String? = null
+            var ecuIdHex: String? = null
+            
+            try {
+                // Access ecuId property (ObdEcuBean.ecuId is Long)
+                val ecuIdField = ecu.javaClass.getDeclaredField("ecuId")
+                ecuIdField.isAccessible = true
+                val ecuIdValue = ecuIdField.get(ecu)
+                
+                when (ecuIdValue) {
+                    is Long -> {
+                        ecuId = ecuIdValue.toString()
+                        ecuIdHex = String.format("0x%X", ecuIdValue.toInt())
+                    }
+                    is Int -> {
+                        ecuId = ecuIdValue.toString()
+                        ecuIdHex = String.format("0x%X", ecuIdValue)
+                    }
+                    else -> {
+                        ecuId = ecuIdValue?.toString()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not extract ECU ID from malfunction: ${e.message}")
+            }
+            
+            val malfunctionMap = Arguments.createMap().apply {
+                putString("code", code.uppercase())
+                putString("description", getMalfunctionDescription(code))
+                putString("time", bean.time ?: "")
+                putInt("dataType", bean.dataType)
+                putInt("msgSubtype", bean.msgSubtype)
+                putInt("vehicleType", bean.vehicleType)
+                putString("timestamp", System.currentTimeMillis().toString())
+                
+                if (ecuId != null) {
+                    putString("ecuId", ecuId)
+                }
+                if (ecuIdHex != null) {
+                    putString("ecuIdHex", ecuIdHex)
+                }
+            }
+            
+            sendEvent("onEldComplianceMalfunction", malfunctionMap)
+            Log.i(TAG, "✅ ELD Compliance Malfunction event sent: Code $code, Description: ${getMalfunctionDescription(code)}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling ELD compliance malfunction: ${e.message}")
+        }
+    }
+    
     private fun parseData(data: BtParseData) {
         try {
             Log.d(TAG, "🔍 parseData called with ACK: ${data.ack}")
@@ -1465,6 +1545,27 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         Log.i(TAG, "⚠️ Processing ErrorBean - ECU count: ${bean.ecuList?.size ?: 0}")
                         // Decode trouble codes
                         val list = bean.ecuList
+                        
+                        // Separate ELD compliance malfunctions from OBD codes
+                        val eldMalfunctions = mutableListOf<Pair<String, Any>>() // Pair of code and ECU
+                        
+                        if (list != null && list.isNotEmpty()) {
+                            list.forEach { ecu ->
+                                ecu.errorCodeList?.forEach { code ->
+                                    // Check if code is ELD compliance malfunction (single letter: P, E, L, T)
+                                    if (code.length == 1 && code.uppercase() in listOf("P", "E", "L", "T")) {
+                                        eldMalfunctions.add(Pair(code.uppercase(), ecu))
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Handle ELD compliance malfunctions
+                        eldMalfunctions.forEach { (code, ecu) ->
+                            handleEldComplianceMalfunction(code, bean, ecu)
+                        }
+                        
+                        // Process all codes (including OBD diagnostic trouble codes) - existing logic
                         val errorMap = Arguments.createMap().apply {
                             putInt("type", bean.type)
                             putString("time", bean.time ?: "")
@@ -1513,7 +1614,7 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                             }
                             sendEvent("onFaultDataReceived", faultMap)
                         }
-                        Log.i(TAG, "✅ ErrorBean processed: ${list?.size ?: 0} ECU items")
+                        Log.i(TAG, "✅ ErrorBean processed: ${list?.size ?: 0} ECU items, ${eldMalfunctions.size} ELD malfunctions detected")
                     }
                     is BaseObdData.VinBean -> {
                         Log.i(TAG, "🚗 Processing VinBean - VIN: ${bean.vinCode}")

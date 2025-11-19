@@ -1,17 +1,19 @@
-import { ArrowLeft, Bell, Moon, Smartphone, Sun } from 'lucide-react-native';
+import { ArrowLeft, Bell, Moon, Smartphone, Sun, Clock } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View, TouchableOpacity } from 'react-native';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useAppTheme } from '@/theme/context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Text } from '@/components/Text';
+import { HistoryFetchSheet } from '@/components/HistoryFetchSheet';
 
 export default function SettingsScreen() {
   const { theme, setThemeContextOverride } = useAppTheme();
   const { colors, isDark } = theme;
   const setThemeMode = setThemeContextOverride;
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [showHistoryFetchSheet, setShowHistoryFetchSheet] = useState(false);
   const insets = useSafeAreaInsets();
 
   const handleThemeToggle = () => {
@@ -93,6 +95,31 @@ export default function SettingsScreen() {
 
       <ElevatedCard style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          ELD History
+        </Text>
+        
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={() => setShowHistoryFetchSheet(true)}
+        >
+          <View style={styles.settingInfo}>
+            <View style={styles.settingIconContainer}>
+              <Clock size={20} color={colors.tint} />
+            </View>
+            <View>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>
+                Fetch History Data
+              </Text>
+              <Text style={[styles.settingDescription, { color: colors.textDim }]}>
+                Download historical ELD records from device
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </ElevatedCard>
+
+      <ElevatedCard style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Device Information
         </Text>
         
@@ -117,6 +144,15 @@ export default function SettingsScreen() {
       <Text style={[{ color: colors.textDim }, { marginTop: 2, textAlign: 'center', fontSize: 10 }]}>
         Powered by TTM247
       </Text>
+
+      {/* ELD History Fetch Sheet */}
+      <HistoryFetchSheet
+        visible={showHistoryFetchSheet}
+        onDismiss={() => setShowHistoryFetchSheet(false)}
+        onComplete={(recordsCount) => {
+          console.log(`✅ History fetch completed: ${recordsCount} records`)
+        }}
+      />
     </ScrollView>
   );
 }

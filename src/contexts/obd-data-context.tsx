@@ -15,6 +15,11 @@ import { locationQueueService } from '@/services/location-queue'
 import { setBatteryGetter } from '@/services/device-heartbeat-service'
 import { decodeObdCode, ObdCodeDetails } from '@/utils/obd-code-decoder'
 import { inactivityMonitor } from '@/services/inactivity-monitor'
+import { eldHistoryService } from '@/services/eld-history-service'
+import { eldOfflineSyncService, SyncStatus } from '@/services/eld-offline-sync'
+import { parseEldDataTimestamp } from '@/utils/eld-timestamp-parser'
+import { EldComplianceMalfunction } from '@/types/JMBluetooth'
+import { createDriverNote } from '@/api/eld-notes'
 
 const SPEED_THRESHOLD_DRIVING = 5 // mph
 
@@ -118,6 +123,15 @@ interface ObdDataContextType {
   showInactivityPrompt: boolean
   setShowInactivityPrompt: (show: boolean) => void
   triggerInactivityAutoSwitch: () => void
+  // New features
+  activeMalfunction: EldComplianceMalfunction | null
+  setActiveMalfunction: (malfunction: EldComplianceMalfunction | null) => void
+  gpsWarningVisible: boolean
+  gpsLossDurationMinutes: number
+  setGpsWarningVisible: (visible: boolean) => void
+  onGpsNoteAdded: (note: string) => void
+  offlineSyncStatus: SyncStatus
+  addDriverNote: (recordId: string, note: string) => Promise<void>
 }
 
 const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
@@ -154,6 +168,17 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [eldHistoryRecords, setEldHistoryRecords] = useState<EldHistoryRecord[]>([])
   const [isFetchingHistory, setIsFetchingHistory] = useState(false)
   const [historyFetchProgress, setHistoryFetchProgress] = useState<HistoryProgress | null>(null)
+  const [activeMalfunction, setActiveMalfunction] = useState<EldComplianceMalfunction | null>(null)
+  const [gpsWarningVisible, setGpsWarningVisible] = useState(false)
+  const [gpsLossDurationMinutes, setGpsLossDurationMinutes] = useState(0)
+  const [offlineSyncStatus, setOfflineSyncStatus] = useState<SyncStatus>({
+    totalRecords: 0,
+    syncedRecords: 0,
+    unsyncedRecords: 0,
+    isSyncing: false,
+  })
+  const lastGpsTimeRef = useRef<Date | null>(null)
+  const gpsLossStartRef = useRef<Date | null>(null)
 
   const rawBatteryLevel = useBatteryLevel()
   const batteryState = useBatteryState()
@@ -281,7 +306,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw error
       }
     },
-    [isConnected],
+    [isConnected, resetHistoryState],
   )
 
   useEffect(() => {
@@ -418,6 +443,33 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCurrentSpeedMph(speedMph)
         setActivityState(speedMph >= SPEED_THRESHOLD_DRIVING ? 'driving' : 'idling')
 
+        // GPS loss detection
+        const hasGps = payloadWithDeviceId.latitude && payloadWithDeviceId.longitude
+        const gpsTime = parseEldDataTimestamp({
+          eventTime: payloadWithDeviceId.eventTime,
+          gpsTime: payloadWithDeviceId.gpsTime,
+          time: payloadWithDeviceId.time,
+          timestamp: payloadWithDeviceId.timestamp,
+        }).date
+
+        if (hasGps && gpsTime) {
+          lastGpsTimeRef.current = gpsTime
+          gpsLossStartRef.current = null
+          setGpsWarningVisible(false)
+          setGpsLossDurationMinutes(0)
+        } else if (speedMph >= SPEED_THRESHOLD_DRIVING) {
+          // Vehicle is driving but no GPS
+          if (!gpsLossStartRef.current) {
+            gpsLossStartRef.current = new Date()
+          } else {
+            const lossDuration = (Date.now() - gpsLossStartRef.current.getTime()) / (1000 * 60) // minutes
+            if (lossDuration > 60) {
+              setGpsLossDurationMinutes(lossDuration)
+              setGpsWarningVisible(true)
+            }
+          }
+        }
+
         // Update inactivity monitor with current speed and status
         if (isAuthenticated && currentStatus) {
           inactivityMonitor.update(speedMph, currentStatus)
@@ -540,6 +592,9 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dataBufferRef.current.push(localPayload)
           awsBufferRef.current.push(awsPayload)
           console.log(`📦 OBD Data Context: Added to buffers - Local: ${dataBufferRef.current.length}, AWS: ${awsBufferRef.current.length} items`)
+
+          // Store offline if network unavailable (will be handled by offline sync service)
+          // The offline sync service will auto-upload when network returns
         } else {
           // Skip AWS sync if vehicleId is invalid
           console.warn(`⚠️ OBD Data Context: Skipping AWS sync - invalid vehicleId: ${vehicleId}`)
@@ -597,6 +652,30 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             console.log('⚠️ OBD Data Context: Failed to start ELD reporting from onConnected:', error)
           }
         }, 2000) // Wait 2 seconds for stable connection
+
+        // Smart background history fetch on connect: 5min → 20min → 4hr → 24hr (based on data availability)
+        setTimeout(async () => {
+          try {
+            if (!isConnected) return
+            
+            console.log('📥 OBD Data Context: Starting smart background history fetch on connect')
+            const { eldSmartHistoryFetch } = await import('@/services/eld-smart-history-fetch')
+            
+            await eldSmartHistoryFetch.smartFetch({
+              onProgress: (stage, hasData, recordCount) => {
+                console.log(`📥 Smart history fetch: ${stage} - ${hasData ? `Found ${recordCount} records` : 'No data'}`)
+              },
+              onComplete: (records) => {
+                console.log(`✅ OBD Data Context: Smart history fetch completed with ${records.length} records`)
+              },
+              onError: (error, stage) => {
+                console.warn(`⚠️ OBD Data Context: Smart history fetch failed at ${stage}:`, error)
+              },
+            })
+          } catch (error) {
+            console.warn('⚠️ OBD Data Context: Smart history fetch failed:', error)
+          }
+        }, 3000) // Wait 3 seconds after connection to start history fetch
       }
     )
 
@@ -853,6 +932,15 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       },
     )
 
+    // Listen for ELD compliance malfunctions (Codes P, E, L, T)
+    const eldMalfunctionListener = JMBluetoothService.addEventListener(
+      'onEldComplianceMalfunction',
+      (malfunction: EldComplianceMalfunction) => {
+        console.log('🚨 OBD Data Context: ELD Compliance Malfunction detected:', malfunction.code)
+        setActiveMalfunction(malfunction)
+      },
+    )
+
     const obdErrorDataListener = JMBluetoothService.addEventListener(
       'onObdErrorDataReceived',
       (errorData: any) => {
@@ -1039,6 +1127,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       JMBluetoothService.removeEventListener(historyProgressListener)
       JMBluetoothService.removeEventListener(obdErrorDataListener)
       JMBluetoothService.removeEventListener(obdDataReceivedListener)
+      JMBluetoothService.removeEventListener(eldMalfunctionListener)
       
       // Stop location queue auto-flush
       locationQueueService.stopAutoFlush()
@@ -1260,12 +1349,71 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     activityState,
   ])
 
+  // Subscribe to offline sync status
+  useEffect(() => {
+    const unsubscribe = eldOfflineSyncService.subscribe((status) => {
+      setOfflineSyncStatus(status)
+    })
+
+    // Initial status
+    eldOfflineSyncService.getSyncStatus().then(setOfflineSyncStatus)
+
+    // Auto-sync on mount and periodically
+    eldOfflineSyncService.autoSyncIfNeeded()
+    const syncInterval = setInterval(() => {
+      eldOfflineSyncService.autoSyncIfNeeded()
+    }, 60000) // Check every minute
+
+    return () => {
+      unsubscribe()
+      clearInterval(syncInterval)
+    }
+  }, [])
+
   // Handle auto-switch trigger from inactivity monitor
   const triggerInactivityAutoSwitch = useCallback(() => {
     // This will be handled by the InactivityPrompt component
     // The component will call the API to change status
     console.log('🔄 OBD Data Context: triggerInactivityAutoSwitch called')
   }, [])
+
+  // Handle GPS note addition
+  const onGpsNoteAdded = useCallback(async (note: string) => {
+    try {
+      // Find the most recent history record to attach note to
+      const recentRecord = eldHistoryRecords[eldHistoryRecords.length - 1]
+      if (recentRecord) {
+        await addDriverNote(recentRecord.id, note)
+        console.log('✅ GPS note added to record:', recentRecord.id)
+      }
+    } catch (error) {
+      console.error('❌ Failed to add GPS note:', error)
+    }
+  }, [eldHistoryRecords])
+
+  // Add driver note to a record
+  const addDriverNote = useCallback(async (recordId: string, note: string) => {
+    try {
+      const record = eldHistoryRecords.find(r => r.id === recordId)
+      if (!record) {
+        throw new Error('Record not found')
+      }
+
+      await createDriverNote({
+        record_id: recordId,
+        note,
+        original_timestamp: record.eventTime || record.receivedAt.toISOString(),
+        location: record.latitude && record.longitude
+          ? { latitude: record.latitude, longitude: record.longitude }
+          : undefined,
+      })
+
+      console.log('✅ Driver note added:', recordId)
+    } catch (error) {
+      console.error('❌ Failed to add driver note:', error)
+      throw error
+    }
+  }, [eldHistoryRecords])
 
   const value: ObdDataContextType = {
     obdData,
@@ -1292,6 +1440,15 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     showInactivityPrompt,
     setShowInactivityPrompt,
     triggerInactivityAutoSwitch,
+    // New features
+    activeMalfunction,
+    setActiveMalfunction,
+    gpsWarningVisible,
+    gpsLossDurationMinutes,
+    setGpsWarningVisible,
+    onGpsNoteAdded,
+    offlineSyncStatus,
+    addDriverNote,
   }
 
   return <ObdDataContext.Provider value={value}>{children}</ObdDataContext.Provider>

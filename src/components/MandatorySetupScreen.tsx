@@ -13,6 +13,7 @@ import { colors } from '@/theme/colors'
 
 interface MandatorySetupScreenProps {
   hasVehicle: boolean
+  hasTrip?: boolean
   hasShipperId: boolean
   onAddVehicle?: () => void
   onAddShipperId?: () => void
@@ -21,13 +22,14 @@ interface MandatorySetupScreenProps {
 
 export const MandatorySetupScreen: React.FC<MandatorySetupScreenProps> = ({
   hasVehicle,
+  hasTrip = false,
   hasShipperId,
   onAddVehicle,
   onAddShipperId,
   onContactManager,
 }) => {
   const missingItems = []
-  if (!hasVehicle) missingItems.push('vehicle')
+  if (!hasVehicle && !hasTrip) missingItems.push('vehicle_or_trip')
   if (!hasShipperId) missingItems.push('shipper_id')
 
   return (
@@ -50,15 +52,15 @@ export const MandatorySetupScreen: React.FC<MandatorySetupScreenProps> = ({
 
         {/* Missing Items */}
         <View style={styles.missingContainer}>
-          {!hasVehicle && (
+          {!hasVehicle && !hasTrip && (
             <View style={styles.missingItem}>
               <Truck size={24} color="#EF4444" />
               <View style={styles.missingTextContainer}>
                 <Text style={styles.missingTitle}>
-                  {translate('vehicleTrip.vehicleRequired' as any)}
+                  {translate('vehicleTrip.vehicleOrTripRequired' as any)}
                 </Text>
                 <Text style={styles.missingSubtitle}>
-                  {translate('vehicleTrip.vehicleMissing' as any)}
+                  {translate('vehicleTrip.vehicleOrTripMissing' as any)}
                 </Text>
               </View>
             </View>
@@ -69,10 +71,10 @@ export const MandatorySetupScreen: React.FC<MandatorySetupScreenProps> = ({
               <FileText size={24} color="#EF4444" />
               <View style={styles.missingTextContainer}>
                 <Text style={styles.missingTitle}>
-                  Shipping ID required
+                  {translate('vehicleTrip.shipperIdRequired' as any)}
                 </Text>
                 <Text style={styles.missingSubtitle}>
-                  Enter the Shipping / BOL number from dispatch
+                  {translate('vehicleTrip.shipperIdMissing' as any)}
                 </Text>
               </View>
             </View>
@@ -81,9 +83,9 @@ export const MandatorySetupScreen: React.FC<MandatorySetupScreenProps> = ({
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          {!hasVehicle && onAddVehicle && (
+          {!hasVehicle && !hasTrip && onAddVehicle && (
             <TouchableOpacity style={styles.primaryButton} onPress={onAddVehicle}>
-              <Text style={styles.primaryButtonText}>Pick Assigned Vehicle</Text>
+              <Text style={styles.primaryButtonText}>Pick Assigned Vehicle or Trip</Text>
             </TouchableOpacity>
           )}
 

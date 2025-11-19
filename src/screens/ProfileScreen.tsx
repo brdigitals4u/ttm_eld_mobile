@@ -19,6 +19,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { router } from "expo-router"
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Image, Pressable, Linking } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -289,8 +291,10 @@ export default function ProfileScreen() {
   )
 
   return (
-    <View style={{ flex: 1 }}>
-      <Header
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <View style={{ flex: 1 }}>
+          <Header
         title={translate("profile.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
@@ -859,8 +863,10 @@ export default function ProfileScreen() {
           variant="danger"
           style={styles.logoutButton}
         />
-      </ScrollView>
-    </View>
+        </ScrollView>
+        </View>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   )
 }
 

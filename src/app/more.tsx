@@ -1,5 +1,5 @@
 // MoreScreen.tsx
-import React from "react"
+import React, { useState } from "react"
 import {
   View,
   Text,
@@ -18,6 +18,9 @@ import { colors } from "@/theme/colors"
 import { useAuth } from "@/stores/authStore"
 import { translate } from "@/i18n/translate"
 import { LanguageSwitcher } from "@/components/LanguageSwitcher"
+import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 
 /**
  * Modernized More / Settings screen for drivers.
@@ -35,6 +38,7 @@ export default function MoreScreen() {
   const { colors, isDark } = theme
   const insets = useSafeAreaInsets()
   const { user, driverProfile, vehicleAssignment } = useAuth()
+  const [showHistoryFetchSheet, setShowHistoryFetchSheet] = useState(false)
 
   // Menu items grouped
   const primaryItems = [
@@ -60,6 +64,15 @@ export default function MoreScreen() {
 
   const secondaryItems = [
     {
+      title: "ELD History",
+      subtitle: "View and fetch historical ELD records",
+      icon: "clock",
+      onPress: () => {
+        // Open history fetch sheet
+        setShowHistoryFetchSheet(true)
+      },
+    },
+    {
       title: "Assignments",
       subtitle: "Vehicle & load assignments",
       icon: "menu",
@@ -83,6 +96,12 @@ export default function MoreScreen() {
       icon: "user",
       onPress: () => router.push("/codriver"),
     },
+    {
+      title: "Unidentified Drivers",
+      subtitle: "Review and assume unidentified records",
+      icon: "user",
+      onPress: () => router.push("/unidentified-drivers"),
+    },
   ]
 
   const settingsItems = [
@@ -100,7 +119,10 @@ export default function MoreScreen() {
   const company = driverProfile?.organization_name || "TTM Konnect"
 
   return (
-    <View style={{ flex: 1 }}>   <Header
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <View style={{ flex: 1 }}>
+          <Header
       title={translate("more.title" as any)}
       titleMode="center"
       backgroundColor={colors.background}
@@ -234,7 +256,18 @@ export default function MoreScreen() {
         {/* Extra spacing for bottom safe area */}
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+
+      {/* ELD History Fetch Sheet */}
+      <HistoryFetchSheet
+        visible={showHistoryFetchSheet}
+        onDismiss={() => setShowHistoryFetchSheet(false)}
+        onComplete={(recordsCount) => {
+          console.log(`✅ History fetch completed: ${recordsCount} records`)
+        }}
+      />
+        </View>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   )
 }
 

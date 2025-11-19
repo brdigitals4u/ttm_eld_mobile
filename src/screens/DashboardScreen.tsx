@@ -56,6 +56,10 @@ import { ViolationModal } from "@/components/ViolationModal"
 import { ViolationBanner } from "@/components/ViolationBanner"
 import { ViolationToast } from "@/components/ViolationToast"
 import { VehicleTripAssignment } from "@/components/VehicleTripAssignment"
+import { EldMalfunctionModal } from "@/components/EldMalfunctionModal"
+import { EldGpsWarning } from "@/components/EldGpsWarning"
+import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
+import { ExemptDriverBadge } from "@/components/ExemptDriverBadge"
 import { COLORS } from "@/constants"
 import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
@@ -93,6 +97,12 @@ export const DashboardScreen = () => {
     recentAutoDutyChanges,
     showInactivityPrompt,
     setShowInactivityPrompt,
+    activeMalfunction,
+    setActiveMalfunction,
+    gpsWarningVisible,
+    gpsLossDurationMinutes,
+    setGpsWarningVisible,
+    onGpsNoteAdded,
   } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
 
@@ -123,14 +133,17 @@ export const DashboardScreen = () => {
   const shipperId = user?.id ?? null
   const hasShipperId = Boolean(shipperId)
 
-  const requiresMandatorySetup = !hasVehicleAssignment || !hasShipperId
-  const canUseHOS = hasVehicleAssignment && hasTrip && hasShipperId
-  const canUseELD = hasVehicleAssignment && hasTrip && hasShipperId
+  // HOS/ELD can be used if (vehicle OR trip) is assigned AND shipping ID is present
+  // Either vehicle assignment OR trip assignment is sufficient
+  const requiresMandatorySetup = (!hasVehicleAssignment && !hasTrip) || !hasShipperId
+  const canUseHOS = (hasVehicleAssignment || hasTrip) && hasShipperId
+  const canUseELD = (hasVehicleAssignment || hasTrip) && hasShipperId
   const showMandatorySetup = !vehicleLoading && !tripsLoading && requiresMandatorySetup
 
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showHistoryFetchSheet, setShowHistoryFetchSheet] = useState(false)
   const handleLogoPress = useCallback(() => {
     Linking.openURL("https://ttmkonnect.com").catch((error) =>
       console.warn("Failed to open ttmkonnect.com", error),
@@ -806,19 +819,23 @@ export const DashboardScreen = () => {
             leftIconColor={COLORS.white}
             backgroundColor={colors.PRIMARY}
             RightActionComponent={
-              <TouchableOpacity
-                onPress={handleNotificationBellPress}
-                style={{
-                  position: "relative",
-                  alignItems: "center",
-                  backgroundColor: "#E6F1FA",
-                  borderRadius: 20,
-                  gap: 8,
-                  height: 40,
-                  justifyContent: "center",
-                  width: 40,
-                }}
-              >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {/* Exempt Driver Badge */}
+                <ExemptDriverBadge />
+                
+                <TouchableOpacity
+                  onPress={handleNotificationBellPress}
+                  style={{
+                    position: "relative",
+                    alignItems: "center",
+                    backgroundColor: "#E6F1FA",
+                    borderRadius: 20,
+                    gap: 8,
+                    height: 40,
+                    justifyContent: "center",
+                    width: 40,
+                  }}
+                >
                 <Bell size={24} color={COLORS.primary} strokeWidth={2} />
                 {notificationCount > 0 && (
                   <View
@@ -841,6 +858,7 @@ export const DashboardScreen = () => {
                   </View>
                 )}
               </TouchableOpacity>
+              </View>
             }
             containerStyle={{
               borderBottomWidth: 0,
@@ -939,8 +957,7 @@ export const DashboardScreen = () => {
               </View>
             </View>
 
-            {/* Vehicle & Trip Assignment - Show if both assigned */}
-            {canUseHOS && <VehicleTripAssignment />}
+
 
             {/* Unified Smart HOS Card */}
             <View
@@ -1027,6 +1044,9 @@ export const DashboardScreen = () => {
               </ScrollView>
             </View>
 
+            {/* Vehicle & Trip Assignment - Show if vehicle OR trip assigned (and shipping ID present) */}
+            {canUseHOS && <VehicleTripAssignment />}
+            
             {/* Bottom Spacer */}
             <View style={{ height: 100 }} />
           </ScrollView>
@@ -1114,10 +1134,11 @@ export const DashboardScreen = () => {
             />
           )}
 
-        {/* Mandatory Setup Screen - Blocks HOS/ELD if vehicle or shipper ID missing */}
+        {/* Mandatory Setup Screen - Blocks HOS/ELD if (vehicle AND trip) or shipper ID missing */}
         {showMandatorySetup && (
           <MandatorySetupScreen
             hasVehicle={hasVehicleAssignment}
+            hasTrip={hasTrip}
             hasShipperId={hasShipperId}
             onAddVehicle={handleAddVehicle}
             onAddShipperId={handleAddShipperId}
@@ -1135,6 +1156,29 @@ export const DashboardScreen = () => {
             setShowInactivityPrompt(false)
             // Navigate to status screen or let user change status manually
             router.push("/status" as any)
+          }}
+        />
+
+        {/* ELD Compliance Malfunction Modal */}
+        <EldMalfunctionModal
+          malfunction={activeMalfunction}
+          onDismiss={() => setActiveMalfunction(null)}
+        />
+
+        {/* GPS Warning Banner */}
+        <EldGpsWarning
+          visible={gpsWarningVisible}
+          durationMinutes={gpsLossDurationMinutes}
+          onDismiss={() => setGpsWarningVisible(false)}
+          onAddNote={onGpsNoteAdded}
+        />
+
+        {/* History Fetch Sheet */}
+        <HistoryFetchSheet
+          visible={showHistoryFetchSheet}
+          onDismiss={() => setShowHistoryFetchSheet(false)}
+          onComplete={(recordsCount) => {
+            console.log(`✅ History fetch completed: ${recordsCount} records`)
           }}
         />
       </BottomSheetModalProvider>

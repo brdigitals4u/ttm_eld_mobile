@@ -6,6 +6,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect, Circle } fr
 import { settingsStorage } from '@/utils/storage'
 import { COLORS } from '@/constants/colors'
 import { translate } from '@/i18n/translate'
+import { BetaBanner } from '@/components/BetaBanner'
 
 export const WelcomeScreen: React.FC = () => {
   const handleNext = async () => {
@@ -49,6 +50,7 @@ export const WelcomeScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.brandText}>TTM247</Text>
+        <BetaBanner />
       </View>
 
       {/* Main Content */}

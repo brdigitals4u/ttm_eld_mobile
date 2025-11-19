@@ -16,6 +16,7 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: "/auth/forgot-password",
     RESET_PASSWORD: "/auth/reset-password",
     VERIFY_EMAIL: "/auth/verify-email",
+    REAUTH: "/auth/reauthenticate", // Re-authentication for sensitive operations
   },
 
   // Organization Driver Authentication
@@ -95,7 +96,12 @@ export const API_ENDPOINTS = {
     CREATE_ELD_EVENT: "/hos/eld-events/",
     CERTIFY_LOG: "/hos/daily-logs/{id}/", // PATCH endpoint per spec
     CERTIFY_ALL_UNCERTIFIED: "/hos/daily-logs/certify-all-uncertified/", // POST endpoint
+    UNIDENTIFIED_DRIVERS: "/hos/unidentified-drivers/", // GET unidentified driver records
+    UNIDENTIFIED_DRIVERS_REASSIGN: "/hos/unidentified-drivers/reassign/", // POST reassign records
   },
+
+  // ELD Notes
+  ELD_NOTES: "/eld/notes/",
 
   // Fuel Purchase APIs
   FUEL: {

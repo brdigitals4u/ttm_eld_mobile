@@ -90,7 +90,7 @@ export const TransferLogsScreen: React.FC = () => {
   })
   const [endDate, setEndDate] = useState<Date>(new Date())
   const [activePreset, setActivePreset] = useState<string>("last8")
-  const [comment, setComment] = useState<string>("Roadside inspection – ready for transfer.")
+  const [comment, setComment] = useState<string>("")
   const [emailAddress, setEmailAddress] = useState<string>("dot@fmcsa.gov")
   const [transferOption, setTransferOption] = useState<TransferOption>(null)
   const [transferSheetData, setTransferSheetData] = useState<TransferLogsSheetData | null>(null)
@@ -187,10 +187,10 @@ export const TransferLogsScreen: React.FC = () => {
     bottomSheetRef.current?.present()
     if (option === "email-dot") {
       setEmailAddress("dot@fmcsa.gov")
-      setComment(`Roadside inspection – ${startDateStr} to ${endDateStr}`)
+      setComment("") // Empty comment for email transfers
     } else if (option === "email-self") {
       setEmailAddress(user?.email || "")
-      setComment(`Driver copy – ${startDateStr} to ${endDateStr}`)
+      setComment("") // Empty comment for email transfers
     } else {
       setComment(`Wireless transfer requested – ${startDateStr} to ${endDateStr}`)
     }
@@ -201,10 +201,31 @@ export const TransferLogsScreen: React.FC = () => {
       toast.error("Generate the transfer report first.")
       return
     }
+
+    // Validate comment word limit (60 words max)
+    if (comment.trim()) {
+      const wordCount = comment.trim().split(/\s+/).length
+      if (wordCount > 60) {
+        toast.error("Comment must be 60 words or less.")
+        return
+      }
+    }
+
+    // Email transfers don't require re-auth (backend refreshes token automatically)
+    // Only wireless transfers might need re-auth, but we'll skip it for now
+    await performTransfer()
+  }
+
+  const performTransfer = async () => {
+    if (!transferSheetData) return
+
     try {
-      const html = renderTransferLogsSheet(transferSheetData, comment, emailAddress)
+      // For email transfers, use empty comment
+      const transferComment = (transferOption === "email-dot" || transferOption === "email-self") ? "" : comment
+      
+      const html = renderTransferLogsSheet(transferSheetData, transferComment, emailAddress)
       await Share.share({
-        message: `TTM Konnect FMCSA Transfer Report\nRange: ${startDateStr} → ${endDateStr}\n\n${comment}`,
+        message: `TTM Konnect FMCSA Transfer Report\nRange: ${startDateStr} → ${endDateStr}${transferComment ? `\n\n${transferComment}` : ""}`,
         title: `TTM Transfer Logs - ${startDateStr} to ${endDateStr}`,
       })
       toast.success("Transfer prepared successfully.")
@@ -463,7 +484,9 @@ export const TransferLogsScreen: React.FC = () => {
           )}
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.textDim }]}>Comments (optional)</Text>
+            <Text style={[styles.inputLabel, { color: colors.textDim }]}>
+              Comments {transferOption === "email-dot" || transferOption === "email-self" ? "(empty for email transfers)" : "(optional, max 60 words)"}
+            </Text>
             <TextInput
               style={[
                 styles.input,
@@ -474,11 +497,24 @@ export const TransferLogsScreen: React.FC = () => {
                   borderColor: colors.border,
                 },
               ]}
-              value={comment}
-              onChangeText={setComment}
+              value={transferOption === "email-dot" || transferOption === "email-self" ? "" : comment}
+              onChangeText={(text) => {
+                if (transferOption === "email-dot" || transferOption === "email-self") {
+                  setComment("") // Keep empty for email transfers
+                } else {
+                  setComment(text)
+                }
+              }}
               multiline
               numberOfLines={3}
+              editable={transferOption !== "email-dot" && transferOption !== "email-self"}
+              placeholder={transferOption === "email-dot" || transferOption === "email-self" ? "Comments are empty for email transfers" : "Enter comment (max 60 words)"}
             />
+            {transferOption !== "email-dot" && transferOption !== "email-self" && comment.trim() && (
+              <Text style={[styles.wordCount, { color: colors.textDim }]}>
+                {comment.trim().split(/\s+/).length} / 60 words
+              </Text>
+            )}
           </View>
 
             <LoadingButton
@@ -489,6 +525,7 @@ export const TransferLogsScreen: React.FC = () => {
             />
             </BottomSheetView>
           </BottomSheetModal>
+
         </View>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
@@ -832,6 +869,11 @@ const styles = StyleSheet.create({
   textArea: {
     height: 96,
     textAlignVertical: "top",
+  },
+  wordCount: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "right",
   },
 })
 

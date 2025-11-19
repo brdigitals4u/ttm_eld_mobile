@@ -9,6 +9,7 @@ import { useInspection } from '@/contexts';
 import { useAppTheme } from '@/theme/context';
 import { InspectionItem } from '@/types/inspection';
 import { Text } from '@/components/Text';
+import { translate } from '@/i18n/translate';
 
 export default function InspectionScreen() {
   const { theme } = useAppTheme();

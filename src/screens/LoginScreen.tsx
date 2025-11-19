@@ -24,6 +24,7 @@ import { LoginCredentials } from "@/database/schemas"
 import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
+import { BetaBanner } from "@/components/BetaBanner"
 
 const loadingAnimation = require("assets/animations/loading.json")
 const successAnimation = require("assets/animations/success.json")
@@ -185,6 +186,7 @@ export const LoginScreen: React.FC = () => {
             />
             <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
             <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
+            <BetaBanner />
           </View>
 
           {/* Form Container */}

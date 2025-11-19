@@ -5,6 +5,7 @@ import { Redirect } from "expo-router"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
 import { settingsStorage } from "@/utils/storage"
+import { BetaBanner } from "@/components/BetaBanner"
 
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -32,6 +33,7 @@ export default function Index() {
         }}
       >
         <ActivityIndicator size="large" color={theme.colors.tint} />
+        <BetaBanner />
       </View>
     )
   }

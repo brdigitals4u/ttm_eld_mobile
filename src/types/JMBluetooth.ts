@@ -102,6 +102,18 @@ export interface ObdErrorData {
   }>;
 }
 
+export interface EldComplianceMalfunction {
+  code: 'P' | 'E' | 'L' | 'T';
+  description: string;
+  time: string;
+  dataType: number;
+  msgSubtype: number;
+  vehicleType: number;
+  timestamp: string;
+  ecuId?: string;
+  ecuIdHex?: string;
+}
+
 export interface ObdVinData {
   type: number;
   time: string;
@@ -232,6 +244,7 @@ export interface JMBluetoothEvents {
   onObdErrorDataReceived: (data: ObdErrorData) => void;
   onObdVinDataReceived: (data: ObdVinData) => void;
   onObdEldDataReceived: (data: ObdEldData) => void;
+  onEldComplianceMalfunction: (data: EldComplianceMalfunction) => void;
   onObdUnknownDataReceived: (data: ObdUnknownData) => void;
   onObdEldStart: () => void;
   onObdEldFinish: () => void;

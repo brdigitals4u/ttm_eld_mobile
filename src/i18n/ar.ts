@@ -25,6 +25,18 @@ const ar: Translations = {
       button: "لنحاول هذا مرّة أخرى",
     },
   },
+  inspection: {
+    title: "فحص المركبة",
+    createInspection: "إنشاء فحص",
+    inspectionType: "نوع الفحص",
+    date: "التاريخ",
+    inspector: "المفتش",
+    result: "النتيجة",
+    passed: "نجح",
+    failed: "فشل",
+    complete: "إكمال الفحص",
+    start: "بدء الفحص",
+  },
 }
 
 export default ar
