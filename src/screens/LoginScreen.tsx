@@ -25,6 +25,7 @@ import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
 import { BetaBanner } from "@/components/BetaBanner"
+import { settingsStorage } from "@/utils/storage"
 
 const loadingAnimation = require("assets/animations/loading.json")
 const successAnimation = require("assets/animations/success.json")
@@ -136,6 +137,21 @@ export const LoginScreen: React.FC = () => {
 
       await login(result)
       toast.success("Login successful!", 2000)
+      
+      // Check if user has accepted privacy policy
+      // Extract user ID from login result
+      const userId = result?.user?.id || result?.id
+      if (userId) {
+        const hasAccepted = await settingsStorage.getPrivacyPolicyAccepted(userId)
+        if (!hasAccepted) {
+          // Navigate to privacy policy screen
+          router.replace("/privacy-policy")
+          return
+        }
+      }
+      
+      // Navigate to device scan if already accepted
+      router.replace("/device-scan")
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred"
       if (error?.response?.status === 401) errorMessage = "Invalid email or password"
@@ -160,7 +176,8 @@ export const LoginScreen: React.FC = () => {
   }
 
   const handleLoginSuccess = () => {
-    router.replace("/device-scan")
+    // Navigation is handled in handleLogin after checking privacy acceptance
+    // This function is kept for compatibility with AnimatedButton
   }
 
   // Debug: Check current language and translation

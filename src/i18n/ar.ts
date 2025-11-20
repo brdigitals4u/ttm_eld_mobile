@@ -37,6 +37,14 @@ const ar: Translations = {
     complete: "إكمال الفحص",
     start: "بدء الفحص",
   },
+  privacyPolicy: {
+    title: "اتفاقية اختبار بيتا",
+    scrollToBottom: "يرجى التمرير إلى الأسفل للمتابعة",
+    submitButton: "أوافق وأرسل",
+    submitting: "جاري الإرسال...",
+    error: "فشل في إرسال القبول. يرجى المحاولة مرة أخرى.",
+    loading: "جاري تحميل PDF...",
+  },
 }
 
 export default ar

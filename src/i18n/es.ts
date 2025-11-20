@@ -474,6 +474,14 @@ const es: Translations = {
       verificationFailed: "Verificación fallida",
     },
   },
+  privacyPolicy: {
+    title: "Acuerdo de Pruebas Beta",
+    scrollToBottom: "Por favor, desplácese hasta el final para continuar",
+    submitButton: "Acepto y Envío",
+    submitting: "Enviando...",
+    error: "Error al enviar la aceptación. Por favor, intente de nuevo.",
+    loading: "Cargando PDF...",
+  },
 }
 
 export default es

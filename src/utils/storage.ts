@@ -177,6 +177,15 @@ export const settingsStorage = {
     const value = await asyncStorage.getItem(STORAGE_KEYS.HAS_SEEN_WELCOME)
     return value === 'true'
   },
+
+  async setPrivacyPolicyAccepted(userId: string): Promise<void> {
+    await asyncStorage.setItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`, 'true')
+  },
+
+  async getPrivacyPolicyAccepted(userId: string): Promise<boolean> {
+    const value = await asyncStorage.getItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`)
+    return value === 'true'
+  },
 }
 
 // Helper function to get stored token (for API client)

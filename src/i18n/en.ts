@@ -473,6 +473,14 @@ const en = {
       verificationFailed: "Verification failed",
     },
   },
+  privacyPolicy: {
+    title: "Beta Testing Agreement",
+    scrollToBottom: "Please scroll to the bottom to continue",
+    submitButton: "I Agree and Submit",
+    submitting: "Submitting...",
+    error: "Failed to submit acceptance. Please try again.",
+    loading: "Loading PDF...",
+  },
 }
 
 export default en

@@ -241,6 +241,7 @@ export const STORAGE_KEYS = {
   THEME_MODE: "theme_mode",
   LANGUAGE: "language",
   HAS_SEEN_WELCOME: "has_seen_welcome",
+  PRIVACY_POLICY_ACCEPTED: "privacy_policy_accepted",
 } as const
 
 // App Configuration
