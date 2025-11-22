@@ -169,6 +169,15 @@ export const settingsStorage = {
     return value === 'true'
   },
 
+  async setHasSeenPermissions(hasSeen: boolean): Promise<void> {
+    await asyncStorage.setItem('hasSeenPermissions', hasSeen ? 'true' : 'false')
+  },
+
+  async getHasSeenPermissions(): Promise<boolean> {
+    const value = await asyncStorage.getItem('hasSeenPermissions')
+    return value === 'true'
+  },
+
   async setHasSeenWelcome(hasSeen: boolean): Promise<void> {
     await asyncStorage.setItem(STORAGE_KEYS.HAS_SEEN_WELCOME, hasSeen.toString())
   },

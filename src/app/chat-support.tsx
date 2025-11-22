@@ -126,9 +126,11 @@ const ChatSupportScreen: React.FC = () => {
   useEffect(() => {
     const validateUrl = async () => {
       try {
+        // Import URL validation utility
+        const { isValidUrl } = await import('@/utils/urlNormalizer');
+        
         // Check if URL is valid format
-        const url = new URL(CHATWOOT_CONFIG.BASE_URL);
-        if (!url.hostname || url.hostname === 'undefined') {
+        if (!isValidUrl(CHATWOOT_CONFIG.BASE_URL)) {
           console.error('❌ Chatwoot: Invalid base URL:', CHATWOOT_CONFIG.BASE_URL);
           setHasError(true);
           toast.error('Chatwoot configuration error. Please contact support.');

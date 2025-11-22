@@ -1,0 +1,67 @@
+================================================================================
+GOOGLE PLAY LOCATION PERMISSIONS FORM - READY-TO-USE RESPONSES
+================================================================================
+
+Copy and paste these responses directly into the Google Play Console form.
+
+================================================================================
+1. APP PURPOSE (500 characters max)
+================================================================================
+
+TTM Konnect is an Electronic Logging Device (ELD) mobile application designed for commercial vehicle drivers to comply with FMCSA (Federal Motor Carrier Safety Administration) regulations. The app automatically records Hours of Service (HOS) logs, tracks vehicle movement, monitors duty status changes, and maintains compliance records required by federal law. It connects to ELD hardware via Bluetooth to capture real-time vehicle diagnostics, speed, odometer readings, and engine data. The app ensures drivers meet mandatory HOS requirements, prevents violations, and provides accurate logs for roadside inspections and regulatory compliance.
+
+Character count: 497/500
+
+================================================================================
+2. LOCATION ACCESS DESCRIPTION (500 characters max)
+================================================================================
+
+The app requires background location access to automatically record vehicle movement and duty status changes as mandated by FMCSA regulations. When the app is minimized or the device screen is off, continuous location tracking ensures accurate HOS logs are maintained without driver intervention. This background tracking automatically detects when a vehicle begins moving, records location coordinates for each duty status change (driving, on-duty, off-duty), and maintains a complete audit trail required for compliance. Location data is used exclusively for FMCSA-compliant ELD functionality, including automatic driving time calculation, location stamps on log entries, and accurate odometer tracking. Without background location access, the app cannot meet federal ELD requirements.
+
+Character count: 499/500
+
+================================================================================
+3. VIDEO INSTRUCTIONS
+================================================================================
+
+You need to create a YouTube video demonstrating the background location feature.
+
+REQUIREMENTS:
+- Duration: 2-5 minutes
+- Must show app using location in background
+- Must explain why permission is needed
+- Upload to YouTube (public or unlisted)
+- Provide YouTube URL in the form
+
+DETAILED INSTRUCTIONS:
+See: docs/VIDEO_SCRIPT_BACKGROUND_LOCATION.md
+
+QUICK STEPS:
+1. Record your Android device screen showing the app
+2. Show location permission request
+3. Grant "Allow all the time" permission
+4. Show app tracking location while active
+5. Minimize app to show background operation
+6. Reopen app to show location was tracked in background
+7. Show HOS logs with location stamps
+8. Upload to YouTube
+9. Copy YouTube URL to paste in form
+
+TOOLS:
+- Android built-in screen recorder
+- AZ Screen Recorder (free app)
+- Loom (screen recording with auto-transcription)
+
+================================================================================
+NOTES
+================================================================================
+
+- Both text responses are within the 500 character limit
+- Responses emphasize FMCSA regulatory compliance
+- Video must be created and uploaded to YouTube before submitting form
+- PDF manuals in assets/files/pdf/ can be used as reference material
+- See docs/GOOGLE_PLAY_LOCATION_FORM.md for complete documentation
+
+================================================================================
+
+

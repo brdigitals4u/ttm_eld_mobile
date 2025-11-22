@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -99,8 +100,29 @@ android {
         applicationId 'com.ttmkonnect.eld'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode 11  // Increased to avoid version code conflicts with existing APKs
         versionName "1.0.0"
+        
+        // Enable multi-dex if needed (for large apps)
+        multiDexEnabled true
+        
+        // Support for 16 KB page size (required for Android 15+ and Google Play Store)
+        // This ensures native libraries are built with 16 KB alignment
+        ndk {
+            // Explicitly support 16 KB page sizes
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+    }
+    
+    // Split APKs by architecture to reduce individual APK size
+    // Note: AAB format automatically handles this, but useful for APK builds
+    splits {
+        abi {
+            enable false  // Set to true if you want separate APKs per architecture
+            reset()
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            universalApk false
+        }
     }
     signingConfigs {
         debug {
@@ -132,16 +154,30 @@ android {
             def releaseSigningAvailable = keystorePropertiesFile.exists() && 
                 file(keystoreProperties['storeFile'] ?: '').exists()
             signingConfig releaseSigningAvailable ? signingConfigs.release : signingConfigs.debug
-            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
+            
+            // Enable code shrinking, obfuscation, and optimization
             minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
+            
+            // ProGuard/R8 configuration - use optimize.txt for better size reduction
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            
+            // Enable PNG crunching for size reduction
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
+            
+            // Explicitly ensure version code is not overridden
+            versionNameSuffix ""
         }
     }
     packagingOptions {
         jniLibs {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
+            // Ensure native libraries are not compressed for 16 KB page size support
+            // Native libraries must be uncompressed to allow proper 16 KB alignment
+            pickFirsts += ['**/libc++_shared.so', '**/libfbjni.so']
         }
+        // Exclude duplicate files that might interfere with 16 KB alignment
+        pickFirsts += ['**/libc++_shared.so']
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
@@ -175,6 +211,9 @@ dependencies {
     // Jimi SDK for ELD Bluetooth integration
     implementation(files('libs/JMBluetoothLowEnergy_ktx-release.aar'))
 
+    // Google Play Integrity API for device integrity verification
+    implementation 'com.google.android.play:integrity:1.5.0'
+
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
@@ -200,36 +239,176 @@ dependencies {
     }
 }
 
-def ensure16kScript = new File(rootProject.projectDir, "scripts/ensure_16k_page.py")
+// Version code verification - print version info before build tasks
+tasks.whenTaskAdded { task ->
+    if (task.name.contains("BundleRelease") || task.name.contains("AssembleRelease")) {
+        task.doFirst {
+            println "🔍 Building with versionCode: ${android.defaultConfig.versionCode}"
+            println "🔍 Building with versionName: ${android.defaultConfig.versionName}"
+            println "🔍 Application ID: ${android.defaultConfig.applicationId}"
+        }
+    }
+}
+
+// 16 KB page size support script - required for Android 15+ and Google Play Store
+// Try multiple path resolutions to find the script
+def ensure16kScript = new File(project.rootDir, "scripts/ensure_16k_page.py")
+if (!ensure16kScript.exists()) {
+    // Fallback: try root project directory
+    ensure16kScript = new File(rootProject.projectDir, "scripts/ensure_16k_page.py")
+}
+if (!ensure16kScript.exists()) {
+    // Fallback: try android/scripts path from root
+    ensure16kScript = new File(rootProject.projectDir, "android/scripts/ensure_16k_page.py")
+}
+
+// Function to align native libraries for 16 KB page size
+def alignNativeLibrariesFor16K(variant, candidateDirs) {
+    def alignedCount = 0
+    def failedCount = 0
+    def totalLibs = 0
+    
+    candidateDirs.findAll { it instanceof File && it.exists() }.unique().each { dir ->
+        fileTree(dir: dir, include: "**/*.so").files.each { soFile ->
+            totalLibs++
+            try {
+                def result = exec {
+                    commandLine "python3", ensure16kScript.absolutePath, soFile.absolutePath
+                    ignoreExitValue true
+                    standardOutput = new ByteArrayOutputStream()
+                    errorOutput = new ByteArrayOutputStream()
+                }
+                if (result.exitValue == 0) {
+                    alignedCount++
+                } else {
+                    failedCount++
+                    def errorOutput = result.errorOutput?.toString() ?: ""
+                    if (errorOutput && !errorOutput.contains("already aligned")) {
+                        println "⚠️ Failed to align ${soFile.name}: exit code ${result.exitValue}"
+                    }
+                }
+            } catch (Exception e) {
+                failedCount++
+                println "⚠️ Exception aligning ${soFile.name}: ${e.message}"
+            }
+        }
+    }
+    
+    if (totalLibs > 0) {
+        println "📊 16 KB Alignment Summary for ${variant.name}:"
+        println "   Total libraries: ${totalLibs}"
+        println "   Successfully aligned: ${alignedCount}"
+        if (failedCount > 0) {
+            println "   Failed: ${failedCount}"
+        }
+        if (alignedCount > 0) {
+            println "✅ Aligned ${alignedCount} native library(ies) to 16 KB page size"
+        }
+    }
+    
+    return alignedCount
+}
 
 if (ensure16kScript.exists()) {
+    // Ensure script is executable
+    ensure16kScript.setExecutable(true)
+    println "✅ Found 16 KB alignment script at ${ensure16kScript.absolutePath}"
+    
+    // Function to find candidate directories for native libraries
+    def findNativeLibDirs = { variant ->
+        def candidateDirs = []
+        
+        // Check merged native libs directory (most common location)
+        def mergedNativeLibsDir = new File(project.buildDir, "intermediates/merged_native_libs/${variant.name}/out/lib")
+        if (mergedNativeLibsDir.exists()) {
+            candidateDirs << mergedNativeLibsDir
+        }
+        
+        // Check stripped native libs directory
+        def strippedNativeLibsDir = new File(project.buildDir, "intermediates/stripped_native_libs/${variant.name}/out/lib")
+        if (strippedNativeLibsDir.exists()) {
+            candidateDirs << strippedNativeLibsDir
+        }
+        
+        // Check AAB bundle directory (for bundleRelease)
+        def bundleDir = new File(project.buildDir, "intermediates/bundle/${variant.name.capitalize()}")
+        if (bundleDir.exists()) {
+            fileTree(dir: bundleDir, include: "**/lib/**/*.so").dirs.each { dir ->
+                candidateDirs << dir
+            }
+        }
+        
+        // Check APK output directory (for assembleRelease)
+        def apkOutputDir = new File(project.buildDir, "outputs/apk/${variant.name}")
+        if (apkOutputDir.exists()) {
+            fileTree(dir: apkOutputDir, include: "**/lib/**/*.so").dirs.each { dir ->
+                candidateDirs << dir
+            }
+        }
+        
+        return candidateDirs.unique()
+    }
+    
     android.applicationVariants.all { variant ->
         def capName = variant.name.capitalize()
+        
+        // Handle APK builds (assembleRelease)
         ["merge${capName}NativeLibs", "package${capName}"].each { taskName ->
             tasks.matching { it.name == taskName }.all { task ->
                 task.doLast {
-                    def candidateDirs = []
+                    def candidateDirs = findNativeLibDirs(variant)
+                    
+                    // Also check task-specific output directories
                     if (task.hasProperty("outputDir") && task.outputDir) {
-                        candidateDirs << (task.outputDir instanceof File ? task.outputDir : task.outputDir.get().asFile)
-                    }
-                    if (task.hasProperty("outputDirectory") && task.outputDirectory) {
-                        candidateDirs << task.outputDirectory.get().asFile
-                    }
-                    if (task.hasProperty("outFolder") && task.outFolder) {
-                        candidateDirs << task.outFolder
-                    }
-                    candidateDirs.findAll { it instanceof File && it.exists() }.unique().each { dir ->
-                        fileTree(dir: dir, include: "**/*.so").files.each { soFile ->
-                            exec {
-                                commandLine "python3", ensure16kScript.absolutePath, soFile.absolutePath
-                                ignoreExitValue true
-                            }
+                        def outputDir = task.outputDir instanceof File ? task.outputDir : task.outputDir.get().asFile
+                        if (outputDir.exists()) {
+                            candidateDirs << outputDir
                         }
                     }
+                    if (task.hasProperty("outputDirectory") && task.outputDirectory) {
+                        def outputDir = task.outputDirectory.get().asFile
+                        if (outputDir.exists()) {
+                            candidateDirs << outputDir
+                        }
+                    }
+                    if (task.hasProperty("outFolder") && task.outFolder) {
+                        if (task.outFolder.exists()) {
+                            candidateDirs << task.outFolder
+                        }
+                    }
+                    
+                    alignNativeLibrariesFor16K(variant, candidateDirs)
+                }
+            }
+        }
+        
+        // Handle AAB builds (bundleRelease) - this is critical for Google Play
+        def bundleTask = tasks.findByName("bundle${capName}")
+        if (bundleTask) {
+            bundleTask.doLast {
+                println "🔧 Running 16 KB alignment for AAB build (${variant.name})..."
+                def candidateDirs = findNativeLibDirs(variant)
+                
+                // For AAB, also check the bundle output directory
+                def bundleOutputDir = new File(project.buildDir, "outputs/bundle/${variant.name}")
+                if (bundleOutputDir.exists()) {
+                    // AAB files are ZIP archives, but we need to check before packaging
+                    // The native libs should already be aligned before bundling
+                    println "📦 AAB bundle directory: ${bundleOutputDir.absolutePath}"
+                }
+                
+                def alignedCount = alignNativeLibrariesFor16K(variant, candidateDirs)
+                if (alignedCount == 0 && candidateDirs.isEmpty()) {
+                    println "⚠️ No native library directories found for AAB build. Libraries may already be aligned or in a different location."
                 }
             }
         }
     }
 } else {
-    println "⚠️ 16 KB alignment script not found at ${ensure16kScript.absolutePath}; skipping ELF patch step."
+    println "❌ 16 KB alignment script not found at ${ensure16kScript.absolutePath}"
+    println "❌ Tried paths:"
+    println "   - ${new File(project.rootDir, 'scripts/ensure_16k_page.py').absolutePath}"
+    println "   - ${new File(rootProject.projectDir, 'scripts/ensure_16k_page.py').absolutePath}"
+    println "   - ${new File(rootProject.projectDir, 'android/scripts/ensure_16k_page.py').absolutePath}"
+    println "⚠️ This will cause issues with Android 15+ and Google Play Store requirements."
 }

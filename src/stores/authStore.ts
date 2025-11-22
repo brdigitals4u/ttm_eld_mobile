@@ -404,6 +404,13 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('🔓 AuthStore: Logging out...');
           
+          // Track logout event
+          const { analyticsService } = require('@/services/AnalyticsService');
+          await analyticsService.logLogout().catch(() => {});
+          
+          // Clear driver properties from analytics
+          await analyticsService.clearDriverProperties().catch(() => {});
+          
           // Disconnect ELD device before logout
           try {
             console.log('📡 AuthStore: Disconnecting ELD device...');

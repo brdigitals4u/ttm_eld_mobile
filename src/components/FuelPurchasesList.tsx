@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useMemo, useCallback, useRef, memo } from 'react'
 import {
   View,
   Text,
@@ -85,7 +85,7 @@ const formatDateHeader = (dateStr: string): string => {
   return dateStr
 }
 
-export const FuelPurchasesList: React.FC<FuelPurchasesListProps> = ({
+const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
   showFilters: externalShowFilters,
   onFilterPress,
   onAddPress,
@@ -851,4 +851,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
   },
+})
+
+// Memoize component to prevent unnecessary re-renders
+export const FuelPurchasesList = React.memo(FuelPurchasesListComponent, (prevProps, nextProps) => {
+  // Only re-render if props actually change
+  return (
+    prevProps.showFilters === nextProps.showFilters &&
+    prevProps.onFilterPress === nextProps.onFilterPress &&
+    prevProps.onAddPress === nextProps.onAddPress
+  )
 })

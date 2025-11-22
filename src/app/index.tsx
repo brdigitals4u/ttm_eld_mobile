@@ -10,19 +10,22 @@ import { BetaBanner } from "@/components/BetaBanner"
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuth()
   const { theme } = useAppTheme()
+  const [hasSeenPermissions, setHasSeenPermissions] = useState<boolean | null>(null)
   const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const checkWelcomeScreen = async () => {
-      const seen = await settingsStorage.getHasSeenWelcome()
-      setHasSeenWelcome(seen)
+    const checkScreens = async () => {
+      const seenPermissions = await settingsStorage.getHasSeenPermissions()
+      const seenWelcome = await settingsStorage.getHasSeenWelcome()
+      setHasSeenPermissions(seenPermissions)
+      setHasSeenWelcome(seenWelcome)
     }
-    checkWelcomeScreen()
+    checkScreens()
   }, [])
 
-  console.log("🏠 Index component - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "hasSeenWelcome:", hasSeenWelcome)
+  console.log("🏠 Index component - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "hasSeenPermissions:", hasSeenPermissions, "hasSeenWelcome:", hasSeenWelcome)
 
-  if (isLoading || hasSeenWelcome === null) {
+  if (isLoading || hasSeenPermissions === null || hasSeenWelcome === null) {
     return (
       <View
         style={{
@@ -41,6 +44,12 @@ export default function Index() {
   if (isAuthenticated) {
     console.log("🎯 Redirecting to dashboard")
     return <Redirect href="/(tabs)/dashboard" />
+  }
+
+  // Check permissions first (after splash, before welcome)
+  if (!hasSeenPermissions) {
+    console.log("🔐 Redirecting to permissions")
+    return <Redirect href="/permissions" />
   }
 
   if (!hasSeenWelcome) {

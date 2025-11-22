@@ -95,28 +95,60 @@ export const PrivacyPolicyScreen: React.FC = () => {
       // Get user name from firstName and lastName
       const userName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim()
 
-      // Submit to API
-      await submitPrivacyPolicyAcceptance({
-        userId: user.id,
-        email: user.email,
-        name: userName,
-      })
+      // Submit to API with navigateOnError option
+      // This ensures navigation happens even if API call fails
+      const result = await submitPrivacyPolicyAcceptance(
+        {
+          userId: user.id,
+          email: user.email,
+          name: userName,
+        },
+        {
+          navigateOnError: true, // Navigate even on error
+        }
+      )
 
-      // Store acceptance locally
+      // Store acceptance locally (always store, even if API failed)
       await settingsStorage.setPrivacyPolicyAccepted(user.id)
 
-      // Show success message
-      toast.success('Privacy policy accepted successfully!', 2000)
+      // Show appropriate message based on API result
+      if (result.success) {
+        toast.success('Privacy policy accepted successfully!', 2000)
+      } else {
+        // API failed but we still proceed with navigation
+        toast.warning(
+          result.message || 'Privacy policy saved locally. Some features may be limited.',
+          3000
+        )
+      }
 
-      // Navigate to device scan screen
-      router.replace('/device-scan')
+      // Navigate to device scan screen (always navigate, regardless of API result)
+      // Use setTimeout to ensure UI updates before navigation
+      setTimeout(() => {
+        router.replace('/device-scan')
+      }, 500)
     } catch (error: any) {
+      // This catch block should rarely execute now due to navigateOnError,
+      // but keep it as a safety net
       console.error('Error submitting privacy policy acceptance:', error)
-      toast.error(
-        error.message || translate('privacyPolicy.error' as any),
-        4000
-      )
-      setIsSubmitting(false)
+      
+      // Still store acceptance locally and navigate
+      try {
+        await settingsStorage.setPrivacyPolicyAccepted(user.id)
+        toast.warning('Privacy policy saved locally. Please check your connection.', 3000)
+        
+        // Navigate even on error
+        setTimeout(() => {
+          router.replace('/device-scan')
+        }, 500)
+      } catch (storageError) {
+        console.error('Error storing privacy policy acceptance:', storageError)
+        toast.error(
+          error.message || translate('privacyPolicy.error' as any),
+          4000
+        )
+        setIsSubmitting(false)
+      }
     }
   }
 

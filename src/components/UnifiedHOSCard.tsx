@@ -10,7 +10,7 @@
  * - Optimistic updates with undo
  */
 
-import React, { useState, useCallback, useMemo, useRef } from "react"
+import React, { useState, useCallback, useMemo, useRef, memo } from "react"
 import { Modal, Pressable, View, StyleSheet, TouchableOpacity, useWindowDimensions } from "react-native"
 import {
   Clock,
@@ -170,7 +170,7 @@ interface UnifiedHOSCardProps {
   disabledMessage?: string
 }
 
-export const UnifiedHOSCard: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop, disabled = false, disabledMessage }) => {
+const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({ onScrollToTop, disabled = false, disabledMessage }) => {
   const toast = useToast()
   const { currentLocation } = useLocation()
   const locationData = useLocationData()
@@ -1563,5 +1563,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.PRIMARY,
   },
+})
+
+// Memoize component to prevent unnecessary re-renders
+export const UnifiedHOSCard = memo(UnifiedHOSCardComponent, (prevProps, nextProps) => {
+  // Only re-render if props actually change
+  return (
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.disabledMessage === nextProps.disabledMessage &&
+    prevProps.onScrollToTop === nextProps.onScrollToTop
+  )
 })
 

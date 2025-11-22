@@ -482,6 +482,32 @@ const es: Translations = {
     error: "Error al enviar la aceptación. Por favor, intente de nuevo.",
     loading: "Cargando PDF...",
   },
+  permissions: {
+    title: "Permisos de la Aplicación",
+    subtitle: "Necesitamos estos permisos para brindar la mejor experiencia",
+    camera: {
+      name: "Cámara",
+      description: "Tomar fotos para recibos de combustible e inspecciones",
+    },
+    gallery: {
+      name: "Galería",
+      description: "Acceder a fotos para recibos y documentos",
+    },
+    bluetooth: {
+      name: "Bluetooth",
+      description: "Conectar con dispositivos ELD para diagnósticos del vehículo",
+    },
+    location: {
+      name: "Ubicación",
+      description: "Rastrear ubicación para cumplimiento HOS y registro",
+    },
+    granted: "Concedido",
+    denied: "Denegado",
+    grantAll: "Conceder Todos los Permisos",
+    requesting: "Solicitando...",
+    allGranted: "¡Todos los permisos concedidos!",
+    continuing: "Continuando al siguiente paso...",
+  },
 }
 
 export default es
