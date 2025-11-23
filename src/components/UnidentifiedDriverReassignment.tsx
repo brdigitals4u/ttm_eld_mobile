@@ -5,14 +5,15 @@
  * Creates new events for the driver with filled-in missing elements
  */
 
-import React, { useState, useRef, useMemo } from "react"
-import { View, StyleSheet, TouchableOpacity, ScrollView } from "react-native"
+import React, { useState, useRef, useMemo, useCallback } from "react"
+import { View, StyleSheet, TouchableOpacity, FlatList, ListRenderItem } from "react-native"
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
 import { format } from "date-fns"
 import { User, CheckCircle, X, AlertCircle } from "lucide-react-native"
 
 import { useAuth } from "@/stores/authStore"
 import { colors } from "@/theme/colors"
+import { translate } from "@/i18n/translate"
 
 import { Text } from "./Text"
 import { TextInput } from "react-native-paper"
@@ -63,15 +64,76 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
     }
   }, [visible, records])
 
-  const toggleRecord = (recordId: string) => {
-    const newSelected = new Set(selectedRecords)
-    if (newSelected.has(recordId)) {
-      newSelected.delete(recordId)
-    } else {
-      newSelected.add(recordId)
-    }
-    setSelectedRecords(newSelected)
-  }
+  const toggleRecord = useCallback((recordId: string) => {
+    setSelectedRecords((prev) => {
+      const newSelected = new Set(prev)
+      if (newSelected.has(recordId)) {
+        newSelected.delete(recordId)
+      } else {
+        newSelected.add(recordId)
+      }
+      return newSelected
+    })
+  }, [])
+
+  // Render item for FlatList
+  const renderRecordItem: ListRenderItem<UnidentifiedDriverRecord> = useCallback(
+    ({ item: record }) => {
+      const isSelected = selectedRecords.has(record.id)
+      return (
+        <TouchableOpacity
+          style={[styles.recordCard, isSelected && styles.recordCardSelected]}
+          onPress={() => toggleRecord(record.id)}
+        >
+          <View style={styles.recordCheckbox}>
+            {isSelected ? (
+              <CheckCircle size={24} color={colors.tint} fill={colors.tint} />
+            ) : (
+              <View style={styles.checkboxEmpty} />
+            )}
+          </View>
+          <View style={styles.recordContent}>
+            <Text style={styles.recordTime}>
+              {format(record.timestamp, "MMM dd, yyyy HH:mm:ss")}
+            </Text>
+            <Text style={styles.recordType}>
+              {translate("common.event" as any) || "Event"}: {record.eventType}
+            </Text>
+            {record.missingFields.length > 0 && (
+              <View style={styles.missingFieldsContainer}>
+                <Text style={styles.missingFieldsLabel}>
+                  {translate("eld.unidentified.missing" as any)}
+                </Text>
+                <Text style={styles.missingFieldsText}>
+                  {record.missingFields.join(", ")}
+                </Text>
+              </View>
+            )}
+            {record.location && (
+              <Text style={styles.recordLocation}>
+                {translate("eld.unidentified.location" as any)}:{" "}
+                {record.location.latitude.toFixed(4)}, {record.location.longitude.toFixed(4)}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      )
+    },
+    [selectedRecords, toggleRecord]
+  )
+
+  const keyExtractor = useCallback((item: UnidentifiedDriverRecord) => item.id, [])
+
+  // Estimate item height for getItemLayout optimization
+  const ITEM_HEIGHT = 120
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  )
 
   const handleReassign = async () => {
     if (selectedRecords.size === 0) {
@@ -134,51 +196,22 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
           <Text style={styles.infoText}>{translate("eld.unidentified.info" as any)}</Text>
         </View>
 
-        {/* Records List */}
-        <ScrollView style={styles.recordsList} showsVerticalScrollIndicator>
-          {records.map((record) => {
-            const isSelected = selectedRecords.has(record.id)
-            return (
-              <TouchableOpacity
-                key={record.id}
-                style={[styles.recordCard, isSelected && styles.recordCardSelected]}
-                onPress={() => toggleRecord(record.id)}
-              >
-                <View style={styles.recordCheckbox}>
-                  {isSelected ? (
-                    <CheckCircle size={24} color={colors.tint} fill={colors.tint} />
-                  ) : (
-                    <View style={styles.checkboxEmpty} />
-                  )}
-                </View>
-                <View style={styles.recordContent}>
-                  <Text style={styles.recordTime}>
-                    {format(record.timestamp, "MMM dd, yyyy HH:mm:ss")}
-                  </Text>
-                  <Text style={styles.recordType}>
-                    {translate("common.event" as any) || "Event"}: {record.eventType}
-                  </Text>
-                  {record.missingFields.length > 0 && (
-                    <View style={styles.missingFieldsContainer}>
-                      <Text style={styles.missingFieldsLabel}>
-                        {translate("eld.unidentified.missing" as any)}
-                      </Text>
-                      <Text style={styles.missingFieldsText}>
-                        {record.missingFields.join(", ")}
-                      </Text>
-                    </View>
-                  )}
-                  {record.location && (
-                    <Text style={styles.recordLocation}>
-                      {translate("eld.unidentified.location" as any)}:{" "}
-                      {record.location.latitude.toFixed(4)}, {record.location.longitude.toFixed(4)}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
+        {/* Records List - Using FlatList for better performance */}
+        <FlatList
+          data={records}
+          renderItem={renderRecordItem}
+          keyExtractor={keyExtractor}
+          style={styles.recordsList}
+          contentContainerStyle={styles.recordsListContent}
+          showsVerticalScrollIndicator
+          // Performance optimizations
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={11}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={50}
+          getItemLayout={getItemLayout}
+        />
 
         {/* Annotation Input */}
         <View style={styles.annotationContainer}>
@@ -385,6 +418,9 @@ const styles = StyleSheet.create({
   recordsList: {
     flex: 1,
     marginBottom: 16,
+  },
+  recordsListContent: {
+    paddingBottom: 8,
   },
   subtitle: {
     color: colors.light?.textSecondary || colors.text,

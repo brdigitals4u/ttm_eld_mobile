@@ -28,4 +28,15 @@ config.resolver.unstable_conditionNames = ["require", "default", "browser"]
 // such as Firebase that use the extension cjs.
 config.resolver.sourceExts.push("cjs")
 
+// Performance optimizations
+// Enable better tree shaking
+config.resolver.unstable_enablePackageExports = true
+
+// Cache optimization
+// Note: Metro handles asset optimization automatically
+// Expo manages assetRegistryPath internally - don't override it
+
+// Minification for production builds (handled by Metro automatically)
+// Additional optimizations are handled by expo-build-properties
+
 module.exports = config

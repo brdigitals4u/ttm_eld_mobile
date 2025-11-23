@@ -16,6 +16,7 @@ import { loadDateFnsLocale } from "@/utils/formatDate"
 import { NotificationService } from "@/services/NotificationService"
 import { notificationsApi } from "@/api/notifications"
 import { BackgroundServices } from "@/components/BackgroundServices"
+import { analyticsService } from "@/services/AnalyticsService"
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
@@ -63,6 +64,19 @@ export default function Root() {
     return () => {
       NotificationService.cleanup()
     }
+  }, [])
+
+  // Initialize Firebase Analytics
+  useEffect(() => {
+    const setupAnalytics = async () => {
+      try {
+        await analyticsService.initialize()
+      } catch (error) {
+        console.error('❌ Failed to initialize analytics:', error)
+      }
+    }
+
+    setupAnalytics()
   }, [])
 
   const loaded = fontsLoaded && isI18nInitialized

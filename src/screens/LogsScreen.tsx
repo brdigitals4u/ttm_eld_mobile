@@ -1029,6 +1029,12 @@ export const LogsScreen = () => {
                     </Text>
                   </ElevatedCard>
                 }
+                // Performance optimizations
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={11}
+                removeClippedSubviews={true}
+                updateCellsBatchingPeriod={50}
               />
             </View>
           </>

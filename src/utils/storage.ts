@@ -169,12 +169,30 @@ export const settingsStorage = {
     return value === 'true'
   },
 
+  async setHasSeenPermissions(hasSeen: boolean): Promise<void> {
+    await asyncStorage.setItem('hasSeenPermissions', hasSeen ? 'true' : 'false')
+  },
+
+  async getHasSeenPermissions(): Promise<boolean> {
+    const value = await asyncStorage.getItem('hasSeenPermissions')
+    return value === 'true'
+  },
+
   async setHasSeenWelcome(hasSeen: boolean): Promise<void> {
     await asyncStorage.setItem(STORAGE_KEYS.HAS_SEEN_WELCOME, hasSeen.toString())
   },
 
   async getHasSeenWelcome(): Promise<boolean> {
     const value = await asyncStorage.getItem(STORAGE_KEYS.HAS_SEEN_WELCOME)
+    return value === 'true'
+  },
+
+  async setPrivacyPolicyAccepted(userId: string): Promise<void> {
+    await asyncStorage.setItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`, 'true')
+  },
+
+  async getPrivacyPolicyAccepted(userId: string): Promise<boolean> {
+    const value = await asyncStorage.getItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`)
     return value === 'true'
   },
 }

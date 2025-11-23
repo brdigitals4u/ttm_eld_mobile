@@ -473,6 +473,40 @@ const en = {
       verificationFailed: "Verification failed",
     },
   },
+  privacyPolicy: {
+    title: "Beta Testing Agreement",
+    scrollToBottom: "Please scroll to the bottom to continue",
+    submitButton: "I Agree and Submit",
+    submitting: "Submitting...",
+    error: "Failed to submit acceptance. Please try again.",
+    loading: "Loading PDF...",
+  },
+  permissions: {
+    title: "App Permissions",
+    subtitle: "We need these permissions to provide the best experience",
+    camera: {
+      name: "Camera",
+      description: "Take photos for fuel receipts and inspections",
+    },
+    gallery: {
+      name: "Gallery",
+      description: "Access photos for receipts and documents",
+    },
+    bluetooth: {
+      name: "Bluetooth",
+      description: "Connect to ELD devices for vehicle diagnostics",
+    },
+    location: {
+      name: "Location",
+      description: "Track location for HOS compliance and logging",
+    },
+    granted: "Granted",
+    denied: "Denied",
+    grantAll: "Grant All Permissions",
+    requesting: "Requesting...",
+    allGranted: "All permissions granted!",
+    continuing: "Continuing to next step...",
+  },
 }
 
 export default en

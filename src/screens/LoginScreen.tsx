@@ -25,6 +25,8 @@ import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
 import { BetaBanner } from "@/components/BetaBanner"
+import { settingsStorage } from "@/utils/storage"
+import { analyticsService } from "@/services/AnalyticsService"
 
 const loadingAnimation = require("assets/animations/loading.json")
 const successAnimation = require("assets/animations/success.json")
@@ -116,6 +118,10 @@ export const LoginScreen: React.FC = () => {
       setPrivacyError("You must agree to the Privacy Policy to continue")
       throw new Error("You must agree to the Privacy Policy to continue")
     }
+    
+    // Track login attempt
+    await analyticsService.logLoginAttempt('email', credentials.tenant_code).catch(() => {})
+    
     try {
       const result = await driverLoginMutation.mutateAsync({
         email: credentials.email,
@@ -128,23 +134,71 @@ export const LoginScreen: React.FC = () => {
         await AsyncStorage.setItem("rememberedEmail", credentials.email)
         await AsyncStorage.setItem("rememberedTenant", credentials.tenant_code || "")
         await AsyncStorage.setItem("rememberMe", "true")
+        await analyticsService.logRememberMeEnabled().catch(() => {})
       } else {
         await AsyncStorage.removeItem("rememberedEmail")
         await AsyncStorage.removeItem("rememberedTenant")
         await AsyncStorage.removeItem("rememberMe")
+        await analyticsService.logRememberMeDisabled().catch(() => {})
       }
 
       await login(result)
+      
+      // Track login success
+      await analyticsService.logLoginSuccess('email', credentials.tenant_code).catch(() => {})
+      
+      // Set driver properties for analytics
+      const userId = result?.user?.id || result?.id || result?.driverProfile?.driver_id
+      const vehicleId = result?.vehicleAssignment?.vehicle_info?.id
+      const organizationId = result?.user?.organizationId || result?.organizationId
+      if (userId) {
+        await analyticsService.setDriverProperties(
+          userId.toString(),
+          vehicleId?.toString(),
+          organizationId?.toString()
+        ).catch(() => {})
+      }
+      
       toast.success("Login successful!", 2000)
+      
+      // Check if user has accepted privacy policy
+      // Extract user ID from login result
+      if (userId) {
+        const hasAccepted = await settingsStorage.getPrivacyPolicyAccepted(userId)
+        if (!hasAccepted) {
+          // Navigate to privacy policy screen
+          router.replace("/privacy-policy")
+          return
+        }
+      }
+      
+      // Navigate to device scan if already accepted
+      router.replace("/device-scan")
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred"
-      if (error?.response?.status === 401) errorMessage = "Invalid email or password"
-      else if (error?.response?.status === 403) errorMessage = "Account access denied"
-      else if (error?.response?.status === 429)
+      let errorCode: string | undefined
+      
+      if (error?.response?.status === 401) {
+        errorMessage = "Invalid email or password"
+        errorCode = "401"
+      } else if (error?.response?.status === 403) {
+        errorMessage = "Account access denied"
+        errorCode = "403"
+      } else if (error?.response?.status === 429) {
         errorMessage = "Too many login attempts. Please try again later"
-      else if (error?.response?.data?.message) errorMessage = error.response.data.message
-      else if (error?.message) errorMessage = error.message
-      else if (typeof error === "string") errorMessage = error
+        errorCode = "429"
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message
+        errorCode = String(error?.response?.status)
+      } else if (error?.message) {
+        errorMessage = error.message
+      } else if (typeof error === "string") {
+        errorMessage = error
+      }
+      
+      // Track login failure
+      await analyticsService.logLoginFailure('email', errorCode, errorMessage).catch(() => {})
+      
       toast.error(errorMessage, 4000)
       throw error // Re-throw to prevent AnimatedButton from showing success
     }
@@ -160,7 +214,8 @@ export const LoginScreen: React.FC = () => {
   }
 
   const handleLoginSuccess = () => {
-    router.replace("/device-scan")
+    // Navigation is handled in handleLogin after checking privacy acceptance
+    // This function is kept for compatibility with AnimatedButton
   }
 
   // Debug: Check current language and translation

@@ -1,0 +1,40 @@
+{
+  "_comment": "This is an example file. Replace this with your actual google-services.json from Firebase Console.",
+  "_instructions": [
+    "1. Go to Firebase Console: https://console.firebase.google.com",
+    "2. Select your project (or create a new one)",
+    "3. Add Android app with package name: com.ttmkonnect.eld",
+    "4. Download google-services.json",
+    "5. Place it in android/app/ directory",
+    "6. Rename this file or delete it after adding the real file"
+  ],
+  "project_info": {
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "project_id": "your-project-id",
+    "storage_bucket": "your-project-id.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID",
+        "android_client_info": {
+          "package_name": "com.ttmkonnect.eld"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "YOUR_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+
+

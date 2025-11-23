@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "952037707620",
+    "project_id": "ttmkonnectbind",
+    "storage_bucket": "ttmkonnectbind.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:952037707620:android:d95fb64346d73efd16b471",
+        "android_client_info": {
+          "package_name": "com.ttmkonnect.eld"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZx6vVRtGiJ7Kf8XjY6KoAKACwfffAXXI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

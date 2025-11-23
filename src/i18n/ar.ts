@@ -37,6 +37,40 @@ const ar: Translations = {
     complete: "إكمال الفحص",
     start: "بدء الفحص",
   },
+  privacyPolicy: {
+    title: "اتفاقية اختبار بيتا",
+    scrollToBottom: "يرجى التمرير إلى الأسفل للمتابعة",
+    submitButton: "أوافق وأرسل",
+    submitting: "جاري الإرسال...",
+    error: "فشل في إرسال القبول. يرجى المحاولة مرة أخرى.",
+    loading: "جاري تحميل PDF...",
+  },
+  permissions: {
+    title: "أذونات التطبيق",
+    subtitle: "نحتاج إلى هذه الأذونات لتوفير أفضل تجربة",
+    camera: {
+      name: "الكاميرا",
+      description: "التقاط الصور لإيصالات الوقود والفحوصات",
+    },
+    gallery: {
+      name: "المعرض",
+      description: "الوصول إلى الصور للإيصالات والمستندات",
+    },
+    bluetooth: {
+      name: "بلوتوث",
+      description: "الاتصال بأجهزة ELD لتشخيص المركبة",
+    },
+    location: {
+      name: "الموقع",
+      description: "تتبع الموقع للامتثال HOS والتسجيل",
+    },
+    granted: "ممنوح",
+    denied: "مرفوض",
+    grantAll: "منح جميع الأذونات",
+    requesting: "جاري الطلب...",
+    allGranted: "تم منح جميع الأذونات!",
+    continuing: "المتابعة إلى الخطوة التالية...",
+  },
 }
 
 export default ar

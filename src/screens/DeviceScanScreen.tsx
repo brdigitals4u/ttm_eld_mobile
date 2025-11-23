@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { BleDevice } from '../types/JMBluetooth';
 import { saveEldDevice } from '../utils/eldStorage';
 import { toast } from '@/components/Toast';
 import { translate } from '@/i18n/translate';
+import { COLORS } from '@/constants/colors';
 
 const __DEV__ = process.env.NODE_ENV === 'development';
 
@@ -203,7 +204,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
 
 
-  const renderDevice = ({ item }: { item: BleDevice }) => (
+  const renderDevice = useCallback(({ item }: { item: BleDevice }) => (
     <TouchableOpacity
       style={styles.deviceItem}
       onPress={() => connectToDevice(item)}
@@ -222,25 +223,25 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         )}
       </View>
     </TouchableOpacity>
+  ), [isConnecting]);
+
+  const keyExtractor = useCallback((item: BleDevice) => item.address || `device-${item.name}`, []);
+
+  // Estimate item height for getItemLayout optimization
+  const DEVICE_ITEM_HEIGHT = 80;
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: DEVICE_ITEM_HEIGHT,
+      offset: DEVICE_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
   );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{translate("deviceScan.title" as any)}</Text>
-        
-        {/* Dev Mode Skip Button */}
-        {__DEV__ && (
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => {
-              console.log('🔧 DEV: Skipping ELD connection');
-              router.replace('/(tabs)/dashboard');
-            }}
-          >
-            <Text style={styles.skipButtonText}>{translate("deviceScan.skip" as any)}</Text>
-          </TouchableOpacity>
-        )}
         
         <TouchableOpacity
           style={[styles.scanButton, isScanning && styles.scanningButton]}
@@ -269,8 +270,15 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
           <FlatList
             data={devices}
             renderItem={renderDevice}
-            keyExtractor={(item) => item.address || Math.random().toString()}
+            keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
+            // Performance optimizations
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={11}
+            removeClippedSubviews={true}
+            updateCellsBatchingPeriod={50}
+            getItemLayout={getItemLayout}
           />
         )}
       </View>
@@ -297,7 +305,7 @@ const styles = StyleSheet.create({
     color: '#1F2430',
   },
   scanButton: {
-    backgroundColor: '#5750F1',
+    backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -308,18 +316,6 @@ const styles = StyleSheet.create({
   scanButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  skipButton: {
-    backgroundColor: '#9CA3AF',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  skipButtonText: {
-    color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
   },
   deviceList: {

@@ -3,6 +3,8 @@
  * Settings for integrating Chatwoot chat widget into the mobile app
  */
 
+import { normalizeUrl, isValidUrl, getSafeUrl } from './urlNormalizer'
+
 const DEFAULT_BASE_URL = "http://213.210.13.196:8084"
 const DEFAULT_WEBSITE_TOKEN = "S6Mz2mJKTm9poMN9ap5njB6f"
 
@@ -13,8 +15,11 @@ const envOrDefault = (envValue: string | undefined, fallback: string) => {
 
 const normaliseUrl = (value: string) => value.replace(/\/+$/, "")
 
+// Normalize and validate the base URL
+const rawBaseUrl = envOrDefault(process.env.EXPO_PUBLIC_CHATWOOT_BASE_URL, DEFAULT_BASE_URL)
+const normalizedBaseUrl = normalizeUrl(rawBaseUrl)
 const BASE_URL = normaliseUrl(
-  envOrDefault(process.env.EXPO_PUBLIC_CHATWOOT_BASE_URL, DEFAULT_BASE_URL),
+  isValidUrl(normalizedBaseUrl) ? normalizedBaseUrl : getSafeUrl(rawBaseUrl, DEFAULT_BASE_URL)
 )
 
 export const CHATWOOT_CONFIG = {

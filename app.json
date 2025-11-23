@@ -1,5 +1,5 @@
 {
-  "name": "TTMKonnect",
+  "name": "TTMKonnect(Beta)",
   "slug": "TTMKonnectBind",
   "scheme": "ttmkonnectbind",
   "version": "1.0.0",
@@ -114,7 +114,16 @@
       }
     ],
     "expo-router",
-    "expo-asset"
+    "expo-asset",
+    [
+      "expo-build-properties",
+      {
+        "android": {
+          "enableProguardInReleaseBuilds": true,
+          "enableShrinkResourcesInReleaseBuilds": true
+        }
+      }
+    ]
   ],
   "experiments": {
     "tsconfigPaths": true,
