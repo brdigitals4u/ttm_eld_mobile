@@ -27,7 +27,9 @@
     "build:android:dev": "eas build --profile development:device --platform android --local",
     "build:android:preview": "eas build --profile preview --platform android --local",
     "build:android:prod": "node scripts/increment-version-code.js && eas build --profile production --platform android --local",
-    "build:android:prod:apk": "eas build --platform android --profile production-apk --local"
+    "build:android:prod:apk": "eas build --platform android --profile production-apk --local",
+    "increment:version": "node scripts/increment-version-code.js",
+    "build:android:prod:no-increment": "eas build --profile production --platform android --local"
   },
   "dependencies": {
     "@chatwoot/react-native-widget": "^0.0.21",

@@ -100,7 +100,7 @@ android {
         applicationId 'com.ttmkonnect.eld'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11  // Increased to avoid version code conflicts with existing APKs
+        versionCode 13  // Increased to avoid version code conflicts with existing APKs
         versionName "1.0.0"
         
         // Enable multi-dex if needed (for large apps)
@@ -251,15 +251,25 @@ tasks.whenTaskAdded { task ->
 }
 
 // 16 KB page size support script - required for Android 15+ and Google Play Store
-// Try multiple path resolutions to find the script
-def ensure16kScript = new File(project.rootDir, "scripts/ensure_16k_page.py")
-if (!ensure16kScript.exists()) {
+// Try multiple path resolutions to find the script (works for both local and EAS builds)
+def ensure16kScript = null
+
+// Try android/scripts path first (most common location)
+def scriptPath1 = new File(project.rootDir, "scripts/ensure_16k_page.py")
+if (scriptPath1.exists()) {
+    ensure16kScript = scriptPath1
+} else {
     // Fallback: try root project directory
-    ensure16kScript = new File(rootProject.projectDir, "scripts/ensure_16k_page.py")
-}
-if (!ensure16kScript.exists()) {
-    // Fallback: try android/scripts path from root
-    ensure16kScript = new File(rootProject.projectDir, "android/scripts/ensure_16k_page.py")
+    def scriptPath2 = new File(rootProject.projectDir, "scripts/ensure_16k_page.py")
+    if (scriptPath2.exists()) {
+        ensure16kScript = scriptPath2
+    } else {
+        // Fallback: try android/scripts path from root
+        def scriptPath3 = new File(rootProject.projectDir, "android/scripts/ensure_16k_page.py")
+        if (scriptPath3.exists()) {
+            ensure16kScript = scriptPath3
+        }
+    }
 }
 
 // Function to align native libraries for 16 KB page size
@@ -309,7 +319,7 @@ def alignNativeLibrariesFor16K(variant, candidateDirs) {
     return alignedCount
 }
 
-if (ensure16kScript.exists()) {
+if (ensure16kScript != null && ensure16kScript.exists()) {
     // Ensure script is executable
     ensure16kScript.setExecutable(true)
     println "✅ Found 16 KB alignment script at ${ensure16kScript.absolutePath}"
@@ -352,33 +362,43 @@ if (ensure16kScript.exists()) {
     android.applicationVariants.all { variant ->
         def capName = variant.name.capitalize()
         
-        // Handle APK builds (assembleRelease)
-        ["merge${capName}NativeLibs", "package${capName}"].each { taskName ->
-            tasks.matching { it.name == taskName }.all { task ->
-                task.doLast {
-                    def candidateDirs = findNativeLibDirs(variant)
-                    
-                    // Also check task-specific output directories
-                    if (task.hasProperty("outputDir") && task.outputDir) {
-                        def outputDir = task.outputDir instanceof File ? task.outputDir : task.outputDir.get().asFile
-                        if (outputDir.exists()) {
-                            candidateDirs << outputDir
-                        }
-                    }
-                    if (task.hasProperty("outputDirectory") && task.outputDirectory) {
-                        def outputDir = task.outputDirectory.get().asFile
-                        if (outputDir.exists()) {
-                            candidateDirs << outputDir
-                        }
-                    }
-                    if (task.hasProperty("outFolder") && task.outFolder) {
-                        if (task.outFolder.exists()) {
-                            candidateDirs << task.outFolder
-                        }
-                    }
-                    
-                    alignNativeLibrariesFor16K(variant, candidateDirs)
+        // CRITICAL: Run alignment during mergeNativeLibs (before packaging)
+        // This ensures libraries are aligned before they're packaged into AAB/APK
+        def mergeNativeLibsTask = tasks.findByName("merge${capName}NativeLibs")
+        if (mergeNativeLibsTask) {
+            mergeNativeLibsTask.doLast {
+                println "🔧 Running 16 KB alignment after mergeNativeLibs for ${variant.name}..."
+                def candidateDirs = findNativeLibDirs(variant)
+                
+                // Primary location: merged native libs directory
+                def mergedNativeLibsDir = new File(project.buildDir, "intermediates/merged_native_libs/${variant.name}/out/lib")
+                if (mergedNativeLibsDir.exists()) {
+                    candidateDirs << mergedNativeLibsDir
+                    println "📁 Found merged native libs at: ${mergedNativeLibsDir.absolutePath}"
                 }
+                
+                def alignedCount = alignNativeLibrariesFor16K(variant, candidateDirs)
+                if (alignedCount == 0 && candidateDirs.isEmpty()) {
+                    println "⚠️ No native libraries found to align. This may indicate a build issue."
+                }
+            }
+        }
+        
+        // Also handle package task for APK builds
+        def packageTask = tasks.findByName("package${capName}")
+        if (packageTask) {
+            packageTask.doLast {
+                def candidateDirs = findNativeLibDirs(variant)
+                
+                // Check task-specific output directories
+                if (packageTask.hasProperty("outputDirectory") && packageTask.outputDirectory) {
+                    def outputDir = packageTask.outputDirectory.get().asFile
+                    if (outputDir.exists()) {
+                        candidateDirs << outputDir
+                    }
+                }
+                
+                alignNativeLibrariesFor16K(variant, candidateDirs)
             }
         }
         
@@ -405,10 +425,11 @@ if (ensure16kScript.exists()) {
         }
     }
 } else {
-    println "❌ 16 KB alignment script not found at ${ensure16kScript.absolutePath}"
+    println "❌ 16 KB alignment script not found!"
     println "❌ Tried paths:"
     println "   - ${new File(project.rootDir, 'scripts/ensure_16k_page.py').absolutePath}"
     println "   - ${new File(rootProject.projectDir, 'scripts/ensure_16k_page.py').absolutePath}"
     println "   - ${new File(rootProject.projectDir, 'android/scripts/ensure_16k_page.py').absolutePath}"
     println "⚠️ This will cause issues with Android 15+ and Google Play Store requirements."
+    println "⚠️ Please ensure android/scripts/ensure_16k_page.py exists and is included in the build."
 }

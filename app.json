@@ -114,7 +114,16 @@
       }
     ],
     "expo-router",
-    "expo-asset"
+    "expo-asset",
+    [
+      "expo-build-properties",
+      {
+        "android": {
+          "enableProguardInReleaseBuilds": true,
+          "enableShrinkResourcesInReleaseBuilds": true
+        }
+      }
+    ]
   ],
   "experiments": {
     "tsconfigPaths": true,
