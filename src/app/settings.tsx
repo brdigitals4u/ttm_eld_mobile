@@ -1,12 +1,13 @@
 import { ArrowLeft, Bell, Moon, Smartphone, Sun, Clock } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View, TouchableOpacity } from 'react-native';
 import ElevatedCard from '@/components/EvevatedCard';
 import { useAppTheme } from '@/theme/context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Text } from '@/components/Text';
 import { HistoryFetchSheet } from '@/components/HistoryFetchSheet';
+import { useObdData } from '@/contexts/obd-data-context';
 
 export default function SettingsScreen() {
   const { theme, setThemeContextOverride } = useAppTheme();
@@ -15,6 +16,17 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showHistoryFetchSheet, setShowHistoryFetchSheet] = useState(false);
   const insets = useSafeAreaInsets();
+  const { refreshConnectionStatus } = useObdData();
+
+  // Refresh connection status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📱 Settings: Screen focused - refreshing ELD connection status...');
+      refreshConnectionStatus().catch((error) => {
+        console.warn('⚠️ Settings: Failed to refresh connection status:', error);
+      });
+    }, [refreshConnectionStatus])
+  );
 
   const handleThemeToggle = () => {
     setThemeMode(isDark ? 'light' : 'dark');

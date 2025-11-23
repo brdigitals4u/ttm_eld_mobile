@@ -929,14 +929,24 @@ export const DashboardScreen = () => {
                     </View>
                   </Text>
                 </View>
-                <View style={[s.badge, s.badgeOrange]}>
+                <TouchableOpacity
+                  style={[s.badge, s.badgeOrange]}
+                  onPress={() => {
+                    if (!eldConnected) {
+                      console.log('📱 Dashboard: ELD not connected, navigating to device scan...')
+                      router.push('/device-scan')
+                    }
+                  }}
+                  disabled={eldConnected}
+                  activeOpacity={eldConnected ? 1 : 0.7}
+                >
                   <BluetoothConnectedIcon size={16} color={colors.warning} />
                   <Text style={s.badgeText}>
                     {eldConnected
                       ? translate("dashboard.badges.eldConnected" as any)
                       : translate("dashboard.badges.eldNotConnected" as any)}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
 
               <View style={[s.badgesRow, { marginTop: 10 }]}>

@@ -116,13 +116,17 @@ export default function EnhancedFuelScreen() {
     }
     
     // Priority 2: Fallback to vehicle assignment odometer if ELD not available
+    // Skip if value looks like a placeholder/default (e.g., 50000, 0, etc.)
     if (eldOdometer.source !== 'eld' && !formData.odometer && vehicleAssignment?.vehicle_info?.current_odometer) {
       const odometerValue = vehicleAssignment.vehicle_info.current_odometer
-      const odometerStr = typeof odometerValue === 'object' && odometerValue?.value
-        ? String(odometerValue.value)
-        : String(odometerValue || '')
+      const odometerNum = typeof odometerValue === 'object' && odometerValue?.value
+        ? Number(odometerValue.value)
+        : Number(odometerValue)
       
-      if (odometerStr) {
+      // Only auto-populate if it's a reasonable value (not 0, 50000, or other common placeholders)
+      // Allow values between 1 and 999999 (reasonable odometer range)
+      if (!isNaN(odometerNum) && odometerNum > 0 && odometerNum < 999999 && odometerNum !== 50000) {
+        const odometerStr = String(Math.round(odometerNum))
         setFormData((prev) => ({ ...prev, odometer: odometerStr }))
       }
     }

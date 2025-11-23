@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { AppState, AppStateStatus } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { BatteryState, useBatteryLevel, useBatteryState, useLowPowerMode } from 'expo-battery'
 import JMBluetoothService from '@/services/JMBluetoothService'
@@ -20,6 +21,7 @@ import { eldOfflineSyncService, SyncStatus } from '@/services/eld-offline-sync'
 import { parseEldDataTimestamp } from '@/utils/eld-timestamp-parser'
 import { EldComplianceMalfunction } from '@/types/JMBluetooth'
 import { createDriverNote } from '@/api/eld-notes'
+import { getEldDevice } from '@/utils/eldStorage'
 
 const SPEED_THRESHOLD_DRIVING = 5 // mph
 
@@ -132,6 +134,7 @@ interface ObdDataContextType {
   onGpsNoteAdded: (note: string) => void
   offlineSyncStatus: SyncStatus
   addDriverNote: (recordId: string, note: string) => Promise<void>
+  refreshConnectionStatus: () => Promise<void>
 }
 
 const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
@@ -223,6 +226,10 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const eldReportingStartedRef = useRef<boolean>(false) // Track if ELD reporting has been started
   const historyRecordsRef = useRef<EldHistoryRecord[]>([])
   const isFetchingHistoryRef = useRef(false)
+  const lastConnectedDeviceRef = useRef<string | null>(null) // Store last connected device for reconnection
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState)
+  const isHistoryFetchingRef = useRef(false) // Track active history fetch to prevent state updates
+  const connectionStateBeforeHistoryRef = useRef<{ isConnected: boolean; deviceAddress: string | null } | null>(null) // Store connection state before history fetch
   
   const resolveDeviceId = (source: any): string | null => {
     if (!source || typeof source !== 'object') {
@@ -255,8 +262,30 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const completeHistoryFetch = useCallback(() => {
     if (!isFetchingHistoryRef.current) {
+      console.log('ℹ️ OBD Data Context: completeHistoryFetch called but flag already cleared')
       return
     }
+    const recordCount = historyRecordsRef.current.length
+    console.log(`📊 OBD Data Context: Completing history fetch - ${recordCount} records collected`, {
+      isFetchingHistoryRef: isFetchingHistoryRef.current,
+      isHistoryFetchingRef: isHistoryFetchingRef.current,
+      timestamp: new Date().toISOString(),
+    })
+    
+    if (recordCount === 0) {
+      console.warn('⚠️ OBD Data Context: No history records collected')
+      console.warn('⚠️ OBD Data Context: Possible reasons:')
+      console.warn('  1. Device does not have history data stored for the queried time range')
+      console.warn('  2. Device was not storing data during that time period')
+      console.warn('  3. Device may only store data when certain conditions are met (e.g., engine on)')
+      console.warn('  4. History query time range may not match when device was storing data')
+      console.warn('  5. Device may not be responding to history query command')
+      console.warn('  6. Data may be arriving but not being captured (check logs for data received events)')
+    } else {
+      console.log(`✅ OBD Data Context: Successfully collected ${recordCount} history records`)
+    }
+    
+    // Clear flags
     isFetchingHistoryRef.current = false
     setIsFetchingHistory(false)
     setHistoryFetchProgress((prev: any) => {
@@ -274,8 +303,24 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         : null
     })
+    
+    // Stop history reporting (non-blocking)
     JMBluetoothService.stopReportHistoryData().catch((error) => {
       console.log('⚠️ OBD Data Context: Failed to stop history reporting', error?.message ?? error)
+    })
+    
+    // Clear history fetch flag and restore connection state
+    isHistoryFetchingRef.current = false
+    if (connectionStateBeforeHistoryRef.current) {
+      console.log('🔄 OBD Data Context: Restoring connection state after history fetch completion', {
+        storedState: connectionStateBeforeHistoryRef.current,
+      })
+      setIsConnected(connectionStateBeforeHistoryRef.current.isConnected)
+      connectionStateBeforeHistoryRef.current = null
+    }
+    console.log('🔓 OBD Data Context: Unlocked connection state after history fetch completion', {
+      isFetchingHistoryRef: isFetchingHistoryRef.current,
+      isHistoryFetchingRef: isHistoryFetchingRef.current,
     })
   }, [])
 
@@ -345,21 +390,197 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return
       }
 
+      // Store connection state before starting history fetch
+      connectionStateBeforeHistoryRef.current = {
+        isConnected: actuallyConnected,
+        deviceAddress: nativeStatus.currentDevice || lastConnectedDeviceRef.current,
+      }
+      
+      // Set flag to prevent connection state updates during history fetch
+      isHistoryFetchingRef.current = true
+      console.log('🔒 OBD Data Context: Locking connection state during history fetch', {
+        storedState: connectionStateBeforeHistoryRef.current,
+      })
+
       const startTime = JMBluetoothService.formatTimeForHistory(start)
       const endTime = JMBluetoothService.formatTimeForHistory(end)
 
       resetHistoryState()
       setIsFetchingHistory(true)
       isFetchingHistoryRef.current = true
+      
+      console.log('🔒 OBD Data Context: History fetch flags set', {
+        isFetchingHistoryRef: isFetchingHistoryRef.current,
+        isHistoryFetchingRef: isHistoryFetchingRef.current,
+        timestamp: new Date().toISOString(),
+      })
+
+      // Monitor connection during history fetch
+      const monitorConnection = async () => {
+        try {
+          const status = await JMBluetoothService.getConnectionStatus()
+          if (!status.isConnected && connectionStateBeforeHistoryRef.current?.isConnected) {
+            console.warn('⚠️ OBD Data Context: Connection lost during history fetch, attempting reconnection...')
+            const deviceToReconnect = connectionStateBeforeHistoryRef.current.deviceAddress || lastConnectedDeviceRef.current
+            if (deviceToReconnect && status.isBluetoothEnabled && status.isBLESupported) {
+              try {
+                await JMBluetoothService.connect(deviceToReconnect)
+                console.log('✅ OBD Data Context: Reconnection attempt initiated during history fetch')
+                // Wait a bit for reconnection
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                // Re-check connection
+                const recheckStatus = await JMBluetoothService.getConnectionStatus()
+                if (recheckStatus.isConnected) {
+                  console.log('✅ OBD Data Context: Reconnected successfully during history fetch')
+                  connectionStateBeforeHistoryRef.current = {
+                    isConnected: true,
+                    deviceAddress: recheckStatus.currentDevice || deviceToReconnect,
+                  }
+                } else {
+                  throw new Error('Reconnection failed during history fetch')
+                }
+              } catch (reconnectError) {
+                console.error('❌ OBD Data Context: Failed to reconnect during history fetch', reconnectError)
+                throw new Error('Connection lost during history fetch and reconnection failed')
+              }
+            } else {
+              throw new Error('Connection lost during history fetch and no device available for reconnection')
+            }
+          }
+        } catch (error) {
+          console.error('❌ OBD Data Context: Error monitoring connection during history fetch', error)
+        }
+      }
+
+      // Set up extended timeout to complete history fetch if no data arrives
+      // Increased from 30s to 60s to allow more time for device to respond
+      const historyFetchTimeout = setTimeout(() => {
+        if (isFetchingHistoryRef.current) {
+          const recordCount = historyRecordsRef.current.length
+          console.log(`⏱️ OBD Data Context: History fetch extended timeout (60s) - collected ${recordCount} records`)
+          console.log('📊 OBD Data Context: History fetch timeout details', {
+            recordCount,
+            isFetchingHistoryRef: isFetchingHistoryRef.current,
+            isHistoryFetchingRef: isHistoryFetchingRef.current,
+            timeRange: {
+              start: start.toISOString(),
+              end: end.toISOString(),
+              durationMinutes: (end.getTime() - start.getTime()) / (1000 * 60),
+            },
+          })
+          if (recordCount === 0) {
+            console.warn('⚠️ OBD Data Context: No history data received after 60 seconds')
+            console.warn('⚠️ OBD Data Context: Possible reasons:')
+            console.warn('  1. Device does not have history data stored for the queried time range')
+            console.warn('  2. Device was not storing data during that time period')
+            console.warn('  3. Device may only store data when certain conditions are met (e.g., engine on)')
+            console.warn('  4. History query time range may not match when device was storing data')
+            console.warn('  5. Device may be processing the query but not sending data yet')
+          }
+          completeHistoryFetch()
+        }
+      }, 60000) // 60 second timeout to wait for history data (increased from 30s)
 
       try {
-        await JMBluetoothService.queryHistoryData(type, startTime, endTime)
+        // Monitor connection before querying
+        await monitorConnection()
+        
+        console.log('📤 OBD Data Context: Sending history query to device', {
+          type,
+          startTime,
+          endTime,
+          start: start.toISOString(),
+          end: end.toISOString(),
+        })
+        
+        const queryResult = await JMBluetoothService.queryHistoryData(type, startTime, endTime)
+        
+        console.log('✅ OBD Data Context: History query command sent', {
+          queryResult,
+          type,
+          startTime,
+          endTime,
+          formattedStart: start.toISOString(),
+          formattedEnd: end.toISOString(),
+          isFetchingHistoryRef: isFetchingHistoryRef.current,
+          timestamp: new Date().toISOString(),
+        })
+        console.log('⏳ OBD Data Context: Waiting for history data to arrive...')
+        
+        // Monitor connection after querying
+        await monitorConnection()
+        
+        // Progressive wait strategy: 3s → 10s → 20s → 30s based on data arrival
+        console.log('⏳ OBD Data Context: Step 1 - Initial wait (3 seconds)...')
+        await new Promise(resolve => setTimeout(resolve, 3000))
+        
+        let recordCount = historyRecordsRef.current.length
+        console.log(`📊 OBD Data Context: After 3s wait - ${recordCount} records collected`, {
+          isFetchingHistoryRef: isFetchingHistoryRef.current,
+          isHistoryFetchingRef: isHistoryFetchingRef.current,
+        })
+        
+        if (recordCount > 0) {
+          console.log('📊 OBD Data Context: Data arriving! Step 2 - Extended wait (10 seconds)...')
+          await new Promise(resolve => setTimeout(resolve, 10000))
+          recordCount = historyRecordsRef.current.length
+          console.log(`📊 OBD Data Context: After 13s total wait - ${recordCount} records collected`)
+          
+          if (recordCount > 0) {
+            console.log('📊 OBD Data Context: More data arriving! Step 3 - Additional wait (20 seconds)...')
+            await new Promise(resolve => setTimeout(resolve, 20000))
+            recordCount = historyRecordsRef.current.length
+            console.log(`📊 OBD Data Context: After 33s total wait - ${recordCount} records collected`)
+          }
+        } else {
+          console.log('⚠️ OBD Data Context: No data received after 3s, waiting longer (10 seconds)...')
+          await new Promise(resolve => setTimeout(resolve, 10000))
+          recordCount = historyRecordsRef.current.length
+          console.log(`📊 OBD Data Context: After 13s total wait - ${recordCount} records collected`)
+          
+          if (recordCount === 0) {
+            console.log('⚠️ OBD Data Context: Still no data, waiting even longer (20 seconds)...')
+            await new Promise(resolve => setTimeout(resolve, 20000))
+            recordCount = historyRecordsRef.current.length
+            console.log(`📊 OBD Data Context: After 33s total wait - ${recordCount} records collected`)
+          }
+        }
+        
+        console.log('✅ OBD Data Context: Progressive wait period completed', {
+          finalRecordCount: recordCount,
+          isFetchingHistoryRef: isFetchingHistoryRef.current,
+          note: 'Flag will remain active until onObdEldFinish event or 60s timeout',
+        })
       } catch (error) {
         console.error('❌ OBD Data Context: Failed to query history data', error)
+        clearTimeout(historyFetchTimeout)
         isFetchingHistoryRef.current = false
         setIsFetchingHistory(false)
         setHistoryFetchProgress(null)
+        // Restore connection state if it was preserved
+        if (connectionStateBeforeHistoryRef.current) {
+          console.log('🔄 OBD Data Context: Restoring connection state after history fetch error', {
+            storedState: connectionStateBeforeHistoryRef.current,
+          })
+          setIsConnected(connectionStateBeforeHistoryRef.current.isConnected)
+        }
+        // Clear the flag
+        isHistoryFetchingRef.current = false
+        connectionStateBeforeHistoryRef.current = null
         throw error
+      } finally {
+        // Don't clear the flag here - let it stay active until:
+        // 1. onObdEldFinish event fires (handled in listener)
+        // 2. Extended timeout (60s) completes (handled in timeout)
+        // This ensures we capture all delayed data
+        console.log('ℹ️ OBD Data Context: History fetch query completed, but flag remains active to capture delayed data', {
+          isFetchingHistoryRef: isFetchingHistoryRef.current,
+          isHistoryFetchingRef: isHistoryFetchingRef.current,
+          recordCount: historyRecordsRef.current.length,
+          note: 'Flag will be cleared by completeHistoryFetch() when onObdEldFinish fires or timeout expires',
+        })
+        // Note: We don't clear the timeout here - let it run to completion
+        // The timeout will call completeHistoryFetch() which properly cleans up
       }
     },
     [isConnected, resetHistoryState],
@@ -420,6 +641,21 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     console.log('📡 OBD Data Context: Setting up connection state tracking')
 
+    // Ensure SDK is initialized when setting up connection tracking
+    const initializeIfNeeded = async () => {
+      try {
+        const status = await JMBluetoothService.getConnectionStatus()
+        if (!status.isBLESupported) {
+          console.log('🔄 OBD Data Context: SDK not initialized, initializing...')
+          await JMBluetoothService.initializeSDK()
+          console.log('✅ OBD Data Context: SDK initialized')
+        }
+      } catch (error) {
+        console.warn('⚠️ OBD Data Context: Failed to initialize SDK on setup:', error)
+      }
+    }
+    initializeIfNeeded()
+
     const disconnectedListener = JMBluetoothService.addEventListener(
       'onDisconnected',
       () => {
@@ -435,26 +671,74 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const connectedListener = JMBluetoothService.addEventListener(
       'onConnected',
-      () => {
+      async () => {
         console.log('✅ OBD Data Context: Device connected')
         console.log('🔄 OBD Data Context: Setting isConnected to true')
         setIsConnected(true)
         setActivityState('idling')
         setCurrentSpeedMph(0)
+        
+        // Store connected device address for potential reconnection
+        try {
+          const status = await JMBluetoothService.getConnectionStatus()
+          if (status.currentDevice) {
+            lastConnectedDeviceRef.current = status.currentDevice
+            console.log('💾 OBD Data Context: Stored connected device:', status.currentDevice)
+          }
+        } catch (error) {
+          console.warn('⚠️ OBD Data Context: Failed to get device address on connect', error)
+        }
       }
     )
 
     // Check current connection status on setup and periodically
     const checkConnectionStatus = async () => {
       try {
+        // Don't update connection state during active history fetch (preserve state)
+        if (isHistoryFetchingRef.current) {
+          console.log('⏸️ OBD Data Context: Skipping connection state update during history fetch')
+          return
+        }
+        
         const status = await JMBluetoothService.getConnectionStatus()
         console.log('🔍 OBD Data Context: Connection status check:', status)
+        
+        // Check if Bluetooth is enabled and BLE is supported
+        if (!status.isBluetoothEnabled) {
+          console.warn('⚠️ OBD Data Context: Bluetooth is disabled on device')
+          setIsConnected(false)
+          setActivityState('disconnected')
+          return
+        }
+        
+        if (!status.isBLESupported) {
+          console.warn('⚠️ OBD Data Context: BLE not supported or SDK not initialized')
+          // Try to initialize SDK if not initialized
+          try {
+            console.log('🔄 OBD Data Context: Attempting to initialize SDK...')
+            await JMBluetoothService.initializeSDK()
+            // Re-check after initialization
+            const recheckStatus = await JMBluetoothService.getConnectionStatus()
+            if (recheckStatus.isBLESupported) {
+              console.log('✅ OBD Data Context: SDK initialized successfully')
+            }
+          } catch (initError) {
+            console.warn('⚠️ OBD Data Context: Failed to initialize SDK:', initError)
+          }
+          setIsConnected(false)
+          setActivityState('disconnected')
+          return
+        }
         
         if (status.isConnected) {
           if (!isConnected) {
             console.log('✅ OBD Data Context: Device connected (updating state)')
             setIsConnected(true)
             setActivityState('idling')
+          }
+          // Store connected device address
+          if (status.currentDevice) {
+            lastConnectedDeviceRef.current = status.currentDevice
           }
         } else {
           if (isConnected) {
@@ -471,6 +755,36 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Check connection status immediately
     checkConnectionStatus()
     
+    // Check for saved device and attempt reconnection if not connected
+    const attemptReconnectionIfNeeded = async () => {
+      try {
+        const status = await JMBluetoothService.getConnectionStatus()
+        // Only attempt if Bluetooth is enabled, BLE is supported, but not connected
+        if (status.isBluetoothEnabled && status.isBLESupported && !status.isConnected) {
+          const savedDevice = await getEldDevice()
+          if (savedDevice?.address) {
+            console.log('🔄 OBD Data Context: Found saved device, attempting reconnection...', {
+              address: savedDevice.address,
+              name: savedDevice.name,
+            })
+            try {
+              await JMBluetoothService.connect(savedDevice.address)
+              console.log('✅ OBD Data Context: Reconnection attempt initiated')
+            } catch (reconnectError) {
+              console.warn('⚠️ OBD Data Context: Reconnection failed, user may need to manually connect:', reconnectError)
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ OBD Data Context: Failed to check for reconnection:', error)
+      }
+    }
+    
+    // Attempt reconnection after a short delay (allow status check to complete first)
+    setTimeout(() => {
+      attemptReconnectionIfNeeded()
+    }, 3000)
+    
     // Periodically check connection status to keep state in sync (every 5 seconds)
     const statusCheckInterval = setInterval(() => {
       checkConnectionStatus()
@@ -483,6 +797,89 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       clearInterval(statusCheckInterval)
     }
   }, [isAuthenticated])
+
+  // Handle app state changes (background/foreground) to maintain ELD connection
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return
+    }
+
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      const prevState = appStateRef.current
+      appStateRef.current = nextAppState
+
+      console.log('📱 OBD Data Context: App state changed', {
+        from: prevState,
+        to: nextAppState,
+      })
+
+      // App going to background - don't disconnect, just log
+      if (prevState === 'active' && nextAppState.match(/inactive|background/)) {
+        console.log('📱 OBD Data Context: App going to background - maintaining connection')
+        // Don't disconnect - connection should persist
+      }
+
+      // App coming to foreground - check connection and reconnect if needed
+      if (prevState.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('📱 OBD Data Context: App coming to foreground - checking connection')
+        
+        try {
+          const status = await JMBluetoothService.getConnectionStatus()
+          console.log('🔍 OBD Data Context: Connection status on foreground:', status)
+
+          if (status.isConnected) {
+            // Device is connected - update state if needed
+            if (!isConnected) {
+              console.log('✅ OBD Data Context: Device connected on foreground (updating state)')
+              setIsConnected(true)
+              setActivityState('idling')
+              if (status.currentDevice) {
+                lastConnectedDeviceRef.current = status.currentDevice
+              }
+            }
+          } else {
+            // Device not connected - attempt reconnection if we have a stored device
+            const savedDevice = await getEldDevice()
+            const deviceToReconnect = lastConnectedDeviceRef.current || savedDevice?.address
+            
+            if (deviceToReconnect && status.isBluetoothEnabled && status.isBLESupported) {
+              console.log('🔄 OBD Data Context: Device disconnected on foreground, attempting reconnection...', {
+                device: deviceToReconnect,
+                source: lastConnectedDeviceRef.current ? 'memory' : 'storage',
+              })
+              
+              try {
+                await JMBluetoothService.connect(deviceToReconnect)
+                console.log('✅ OBD Data Context: Reconnection attempt initiated')
+                // State will be updated when onConnected event fires
+              } catch (reconnectError) {
+                console.warn('⚠️ OBD Data Context: Reconnection failed, user may need to manually connect:', reconnectError)
+                setIsConnected(false)
+                setActivityState('disconnected')
+              }
+            } else {
+              console.log('ℹ️ OBD Data Context: No device available for reconnection', {
+                hasLastDevice: !!lastConnectedDeviceRef.current,
+                hasSavedDevice: !!savedDevice?.address,
+                bluetoothEnabled: status.isBluetoothEnabled,
+                bleSupported: status.isBLESupported,
+              })
+              setIsConnected(false)
+              setActivityState('disconnected')
+            }
+          }
+        } catch (error) {
+          console.error('❌ OBD Data Context: Failed to check connection on foreground', error)
+        }
+      }
+    }
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange)
+
+    return () => {
+      subscription.remove()
+    }
+  }, [isAuthenticated, isConnected])
 
     // Listen for OBD data updates (only when canUseELD is true)
   useEffect(() => {
@@ -550,10 +947,58 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ? (payloadWithDeviceId as any).isLiveEvent
             : undefined
 
+        // During history fetch, collect ALL incoming data as history (device may send it as live data)
+        // Also collect data explicitly marked as history (isLiveEvent === 0)
         const isHistoryEvent =
           isFetchingHistoryRef.current || isLiveEventFlag === 0
+        
+        // Enhanced logging for history fetch debugging
+        if (isFetchingHistoryRef.current) {
+          console.log('📥 OBD Data Context: Data received during history fetch', {
+            isHistoryEvent,
+            isFetchingHistoryRef: isFetchingHistoryRef.current,
+            isHistoryFetchingRef: isHistoryFetchingRef.current,
+            isLiveEventFlag,
+            hasEventTime: !!payloadWithDeviceId.eventTime,
+            eventTime: payloadWithDeviceId.eventTime,
+            timestamp: payloadWithDeviceId.timestamp,
+            eventType: payloadWithDeviceId.eventType,
+            eventId: payloadWithDeviceId.eventId,
+            willBeStored: isHistoryEvent,
+            currentRecordCount: historyRecordsRef.current.length,
+            hasLatLon: !!(payloadWithDeviceId.latitude && payloadWithDeviceId.longitude),
+            displayDataLength: displayData.length,
+            rawDataKeys: Object.keys(payloadWithDeviceId),
+          })
+          
+          // Log a summary of the data to help diagnose issues
+          if (displayData.length > 0) {
+            console.log('📊 OBD Data Context: Display data summary during history fetch', {
+              itemCount: displayData.length,
+              items: displayData.slice(0, 5).map(item => ({ name: item.name, value: item.value })),
+            })
+          }
+        } else {
+          // Also log when NOT in history fetch to see if data is arriving but flag is wrong
+          // But only log occasionally to avoid spam
+          if (Math.random() < 0.01) { // Log 1% of non-history-fetch data
+            console.log('📥 OBD Data Context: Data received (NOT during history fetch)', {
+              isFetchingHistoryRef: isFetchingHistoryRef.current,
+              isLiveEventFlag,
+              hasEventTime: !!payloadWithDeviceId.eventTime,
+            })
+          }
+        }
 
+        // Always store data as history during history fetch, regardless of isLiveEvent flag
+        // This ensures we collect all data the device sends in response to history query
+        // CRITICAL: This is the main collection point - if flag is false, data won't be stored
         if (isHistoryEvent) {
+          console.log('💾 OBD Data Context: Storing data as history record', {
+            recordNumber: historyRecordsRef.current.length + 1,
+            eventTime: payloadWithDeviceId.eventTime,
+            timestamp: payloadWithDeviceId.timestamp,
+          })
           const historyRecord: EldHistoryRecord = {
             id: `${payloadWithDeviceId.eventTime ?? payloadWithDeviceId.timestamp ?? Date.now()}-${payloadWithDeviceId.eventId ?? historyRecordsRef.current.length}`,
             deviceId: deviceIdentifier ?? null,
@@ -751,8 +1196,24 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Listen for connection events to start ELD reporting (only when canUseELD is true)
     const connectedListener = JMBluetoothService.addEventListener(
       'onConnected',
-      () => {
+      async () => {
         console.log('✅ OBD Data Context: Device connected (canUseELD=true, starting ELD reporting)')
+        console.log('🔄 OBD Data Context: Setting isConnected to true (bypassing history fetch lock)')
+        // Always update connection state on connect event, even if history fetch is active
+        setIsConnected(true)
+        setActivityState('idling')
+        setCurrentSpeedMph(0)
+        
+        // Store connected device address for potential reconnection
+        try {
+          const status = await JMBluetoothService.getConnectionStatus()
+          if (status.currentDevice) {
+            lastConnectedDeviceRef.current = status.currentDevice
+            console.log('💾 OBD Data Context: Stored connected device:', status.currentDevice)
+          }
+        } catch (error) {
+          console.warn('⚠️ OBD Data Context: Failed to get device address on connect', error)
+        }
         
         // Prevent duplicate calls
         if (eldReportingStartedRef.current) {
@@ -768,17 +1229,26 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
               return
             }
             
+            // Always check native status directly, bypassing any locks
             const status = await JMBluetoothService.getConnectionStatus()
             if (status.isConnected) {
               console.log('📊 OBD Data Context: Connection stable, starting ELD reporting...')
-              await JMBluetoothService.startReportEldData()
-              eldReportingStartedRef.current = true
-              console.log('✅ OBD Data Context: ELD reporting started successfully from onConnected')
+              try {
+                await JMBluetoothService.startReportEldData()
+                eldReportingStartedRef.current = true
+                console.log('✅ OBD Data Context: ELD reporting started successfully from onConnected')
+              } catch (startError) {
+                console.error('❌ OBD Data Context: Failed to start ELD reporting from onConnected:', startError)
+                // Reset flag on error so it can be retried
+                eldReportingStartedRef.current = false
+              }
             } else {
               console.log('⚠️ OBD Data Context: Connection lost before starting ELD reporting')
             }
           } catch (error) {
             console.log('⚠️ OBD Data Context: Failed to start ELD reporting from onConnected:', error)
+            // Reset flag on error so it can be retried
+            eldReportingStartedRef.current = false
           }
         }, 2000) // Wait 2 seconds for stable connection
 
@@ -824,33 +1294,60 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
               return
             }
             
+            // Always check native status directly, bypassing any locks
             const status = await JMBluetoothService.getConnectionStatus()
             if (status.isConnected) {
               console.log('📊 OBD Data Context: Starting ELD reporting after authentication (fallback)...')
-              await JMBluetoothService.startReportEldData()
-              eldReportingStartedRef.current = true
-              console.log('✅ OBD Data Context: ELD reporting started successfully after authentication')
+              try {
+                await JMBluetoothService.startReportEldData()
+                eldReportingStartedRef.current = true
+                console.log('✅ OBD Data Context: ELD reporting started successfully after authentication')
+              } catch (startError) {
+                console.error('❌ OBD Data Context: Failed to start ELD reporting after authentication:', startError)
+                // Reset flag on error so it can be retried
+                eldReportingStartedRef.current = false
+              }
             } else {
               console.log('⚠️ OBD Data Context: Not connected after authentication')
             }
           } catch (error) {
             console.log('⚠️ OBD Data Context: Failed to start ELD reporting after authentication:', error)
+            // Reset flag on error so it can be retried
+            eldReportingStartedRef.current = false
           }
         }, 3000) // Wait 3 seconds after authentication
       }
     )
 
     // Check connection status and start ELD reporting if already connected (only when canUseELD is true)
+    // This function bypasses the history fetch lock to ensure ELD reporting can always start
     const checkAndStartELDReporting = async () => {
       try {
+        // Always check native status directly, bypassing any locks
         const status = await JMBluetoothService.getConnectionStatus()
-        console.log('🔍 OBD Data Context: Checking connection for ELD reporting:', status)
+        console.log('🔍 OBD Data Context: Checking connection for ELD reporting:', {
+          isConnected: status.isConnected,
+          currentDevice: status.currentDevice,
+          isBluetoothEnabled: status.isBluetoothEnabled,
+          isBLESupported: status.isBLESupported,
+          isHistoryFetching: isHistoryFetchingRef.current,
+        })
         
         if (status.isConnected) {
           // Prevent duplicate calls
           if (eldReportingStartedRef.current) {
             console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
             return
+          }
+          
+          // Update connection state even if history fetch is active (ELD reporting is critical)
+          if (!isConnected) {
+            console.log('🔄 OBD Data Context: Updating connection state for ELD reporting (bypassing history fetch lock)')
+            setIsConnected(true)
+            setActivityState('idling')
+            if (status.currentDevice) {
+              lastConnectedDeviceRef.current = status.currentDevice
+            }
           }
           
           // Wait a bit before starting ELD reporting to ensure stable connection
@@ -861,12 +1358,19 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 return
               }
               
+              // Re-check connection status (bypassing locks)
               const recheckStatus = await JMBluetoothService.getConnectionStatus()
               if (recheckStatus.isConnected && !eldReportingStartedRef.current) {
                 console.log('📊 OBD Data Context: Starting ELD reporting from status check...')
-                await JMBluetoothService.startReportEldData()
-                eldReportingStartedRef.current = true
-                console.log('✅ OBD Data Context: ELD reporting started successfully from status check')
+                try {
+                  await JMBluetoothService.startReportEldData()
+                  eldReportingStartedRef.current = true
+                  console.log('✅ OBD Data Context: ELD reporting started successfully from status check')
+                } catch (startError) {
+                  console.error('❌ OBD Data Context: Failed to start ELD reporting:', startError)
+                  // Reset flag on error so it can be retried
+                  eldReportingStartedRef.current = false
+                }
               } else {
                 if (!recheckStatus.isConnected) {
                   console.log('⚠️ OBD Data Context: Connection lost during wait period')
@@ -876,10 +1380,16 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
               }
             } catch (error) {
               console.log('⚠️ OBD Data Context: Failed to start ELD reporting from status check:', error)
+              // Reset flag on error so it can be retried
+              eldReportingStartedRef.current = false
             }
           }, 2000) // Wait 2 seconds for stable connection
         } else {
-          console.log('ℹ️ OBD Data Context: Device not connected, cannot start ELD reporting')
+          console.log('ℹ️ OBD Data Context: Device not connected, cannot start ELD reporting', {
+            isConnected: status.isConnected,
+            isBluetoothEnabled: status.isBluetoothEnabled,
+            isBLESupported: status.isBLESupported,
+          })
         }
       } catch (error) {
         console.log('⚠️ OBD Data Context: Failed to check connection status for ELD reporting:', error)
@@ -994,9 +1504,30 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const obdEldFinishListener = JMBluetoothService.addEventListener(
       'onObdEldFinish',
       () => {
-        console.log('📊 OBD Data Context: OBD ELD finished')
+        console.log('📊 OBD Data Context: OBD ELD finished event received')
         if (isFetchingHistoryRef.current) {
-          completeHistoryFetch()
+          const recordCount = historyRecordsRef.current.length
+          console.log(`📊 OBD Data Context: History fetch finished event - collected ${recordCount} records so far`, {
+            isFetchingHistoryRef: isFetchingHistoryRef.current,
+            isHistoryFetchingRef: isHistoryFetchingRef.current,
+            timestamp: new Date().toISOString(),
+          })
+          // Wait a bit more for any final data before completing
+          setTimeout(() => {
+            if (isFetchingHistoryRef.current) {
+              const finalRecordCount = historyRecordsRef.current.length
+              console.log(`📊 OBD Data Context: Final history record count after onObdEldFinish: ${finalRecordCount}`, {
+                recordsAddedDuringWait: finalRecordCount - recordCount,
+              })
+              completeHistoryFetch()
+            } else {
+              console.log('⚠️ OBD Data Context: History fetch flag was cleared before onObdEldFinish wait completed')
+            }
+          }, 5000) // Wait 5 seconds for any final data (increased from 2s)
+        } else {
+          console.log('ℹ️ OBD Data Context: onObdEldFinish received but not during history fetch', {
+            isFetchingHistoryRef: isFetchingHistoryRef.current,
+          })
         }
       }
     )
@@ -1535,6 +2066,76 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [eldHistoryRecords])
 
+  // Refresh connection status (useful when navigating to screens that need ELD)
+  const refreshConnectionStatus = useCallback(async () => {
+    try {
+      console.log('🔄 OBD Data Context: Refreshing connection status...')
+      const status = await JMBluetoothService.getConnectionStatus()
+      console.log('🔍 OBD Data Context: Refreshed connection status:', status)
+      
+      // Check if Bluetooth is enabled and BLE is supported
+      if (!status.isBluetoothEnabled) {
+        console.warn('⚠️ OBD Data Context: Bluetooth is disabled on device')
+        setIsConnected(false)
+        setActivityState('disconnected')
+        return
+      }
+      
+      if (!status.isBLESupported) {
+        console.warn('⚠️ OBD Data Context: BLE not supported or SDK not initialized')
+        // Try to initialize SDK if not initialized
+        try {
+          console.log('🔄 OBD Data Context: Attempting to initialize SDK during refresh...')
+          await JMBluetoothService.initializeSDK()
+          // Re-check after initialization
+          const recheckStatus = await JMBluetoothService.getConnectionStatus()
+          if (recheckStatus.isBLESupported) {
+            console.log('✅ OBD Data Context: SDK initialized successfully during refresh')
+            // Continue with connection check
+            if (recheckStatus.isConnected) {
+              setIsConnected(true)
+              setActivityState('idling')
+              if (recheckStatus.currentDevice) {
+                lastConnectedDeviceRef.current = recheckStatus.currentDevice
+              }
+            } else {
+              setIsConnected(false)
+              setActivityState('disconnected')
+            }
+          } else {
+            setIsConnected(false)
+            setActivityState('disconnected')
+          }
+        } catch (initError) {
+          console.warn('⚠️ OBD Data Context: Failed to initialize SDK during refresh:', initError)
+          setIsConnected(false)
+          setActivityState('disconnected')
+        }
+        return
+      }
+      
+      if (status.isConnected) {
+        if (!isConnected) {
+          console.log('✅ OBD Data Context: Device connected (updating state from refresh)')
+          setIsConnected(true)
+          setActivityState('idling')
+        }
+        // Store connected device address
+        if (status.currentDevice) {
+          lastConnectedDeviceRef.current = status.currentDevice
+        }
+      } else {
+        if (isConnected) {
+          console.log('❌ OBD Data Context: Device disconnected (updating state from refresh)')
+          setIsConnected(false)
+          setActivityState('disconnected')
+        }
+      }
+    } catch (error) {
+      console.error('❌ OBD Data Context: Failed to refresh connection status', error)
+    }
+  }, [isConnected])
+
   const value: ObdDataContextType = {
     obdData,
     lastUpdate,
@@ -1569,6 +2170,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     onGpsNoteAdded,
     offlineSyncStatus,
     addDriverNote,
+    refreshConnectionStatus,
   }
 
   return <ObdDataContext.Provider value={value}>{children}</ObdDataContext.Provider>

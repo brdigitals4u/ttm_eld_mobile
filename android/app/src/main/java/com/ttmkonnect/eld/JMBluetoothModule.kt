@@ -940,9 +940,22 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     @ReactMethod
     fun queryHistoryData(type: Int, startTime: String, endTime: String, promise: Promise) {
         try {
+            // Log connection state before operation
+            Log.d(TAG, "queryHistoryData called - Connection state before: isConnected=$isConnected, currentDevice=${currentDevice?.address}")
+            
             if (!isConnected) {
+                Log.w(TAG, "queryHistoryData rejected - Device not connected")
                 promise.reject("NOT_CONNECTED", "Device not connected")
                 return
+            }
+            
+            // Verify connection is still active
+            val currentConnectedDevice = BluetoothLESDK.getConnectDevice()
+            if (currentConnectedDevice == null) {
+                Log.w(TAG, "queryHistoryData - SDK reports no connected device, but isConnected=true")
+                // Don't fail - might be a timing issue, proceed with write
+            } else {
+                Log.d(TAG, "queryHistoryData - SDK reports connected device: ${currentConnectedDevice.address}")
             }
             
             // Use actual SDK write method to send history data query command
@@ -950,8 +963,19 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             val success = BluetoothLESDK.write(command)
             
             Log.i(TAG, "History data query command sent: $success (type: $type, start: $startTime, end: $endTime)")
+            
+            // Verify connection state after write operation
+            val postWriteConnected = BluetoothLESDK.getConnectDevice()
+            if (postWriteConnected == null && isConnected) {
+                Log.w(TAG, "queryHistoryData - Connection may have been lost after write operation")
+                // Don't fail - connection might recover, let the callback handle it
+            } else if (postWriteConnected != null) {
+                Log.d(TAG, "queryHistoryData - Connection maintained after write: ${postWriteConnected.address}")
+            }
+            
             promise.resolve(true)
         } catch (e: Exception) {
+            Log.e(TAG, "queryHistoryData failed with exception: ${e.message}", e)
             promise.reject("QUERY_HISTORY_ERROR", e.message)
         }
     }

@@ -360,12 +360,39 @@ class JMBluetoothService {
   // Query history data
   async queryHistoryData(type: number, startTime: string, endTime: string): Promise<boolean> {
     try {
-      logger.info('Querying history data:', { type, startTime, endTime });
+      logger.info('Querying history data:', { 
+        type, 
+        startTime, 
+        endTime,
+        startTimeLength: startTime.length,
+        endTimeLength: endTime.length,
+        timestamp: new Date().toISOString(),
+      });
       const result = await JMBluetoothModule.queryHistoryData(type, startTime, endTime);
-      logger.info('History data query result:', { result });
+      logger.info('History data query result:', { 
+        result,
+        success: result === true,
+        timestamp: new Date().toISOString(),
+      });
+      
+      if (!result) {
+        logger.warn('History query returned false - device may not have acknowledged the command', {
+          type,
+          startTime,
+          endTime,
+        });
+      }
+      
       return result;
     } catch (error: any) {
-      logger.error('Failed to query history data:', { error: error?.message, stack: error?.stack });
+      logger.error('Failed to query history data:', { 
+        error: error?.message, 
+        stack: error?.stack,
+        type,
+        startTime,
+        endTime,
+        timestamp: new Date().toISOString(),
+      });
       throw error;
     }
   }
