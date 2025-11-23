@@ -112,6 +112,31 @@ class EldHistoryService {
       chunk.status = "fetching"
 
       try {
+        // Check connection status before querying (with error handling)
+        let connectionStatus
+        try {
+          connectionStatus = await JMBluetoothService.getConnectionStatus()
+          console.log('🔍 EldHistoryService: Checking connection for chunk fetch', {
+            isConnected: connectionStatus.isConnected,
+            currentDevice: connectionStatus.currentDevice,
+            isBluetoothEnabled: connectionStatus.isBluetoothEnabled,
+          })
+        } catch (error) {
+          console.error('❌ EldHistoryService: Failed to check connection status', error)
+          throw new Error('Unable to verify ELD device connection status')
+        }
+        
+        if (!connectionStatus.isConnected) {
+          const errorMsg = `ELD device is not connected. Device: ${connectionStatus.currentDevice || 'none'}, Bluetooth: ${connectionStatus.isBluetoothEnabled ? 'enabled' : 'disabled'}`
+          console.warn('⚠️ EldHistoryService: Device not connected', {
+            isConnected: connectionStatus.isConnected,
+            currentDevice: connectionStatus.currentDevice,
+            isBluetoothEnabled: connectionStatus.isBluetoothEnabled,
+          })
+          throw new Error(errorMsg)
+        }
+        
+        console.log('✅ EldHistoryService: Device connected, querying history data')
         // Query history data
         await JMBluetoothService.queryHistoryData(type, chunk.startTime, chunk.endTime)
 

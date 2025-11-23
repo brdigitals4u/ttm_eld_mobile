@@ -142,13 +142,26 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Check vehicle and trip assignment
   const { data: vehicleData } = useMyVehicle(isAuthenticated)
   const { data: tripsData } = useMyTrips({ status: 'active' }, isAuthenticated)
-  const hasVehicle = !!vehicleData?.vehicle
+  
+  // Use vehicleAssignment from auth store as primary source (from login), fallback to API
+  const hasVehicle = useMemo(() => {
+    // Priority 1: Vehicle from auth store (login data) - most reliable
+    if (vehicleAssignment?.vehicle_info && vehicleAssignment.has_vehicle_assigned) {
+      return true
+    }
+    // Priority 2: Vehicle from API
+    return !!vehicleData?.vehicle
+  }, [vehicleAssignment, vehicleData])
+  
   const hasActiveTrip = useMemo(() => {
     if (!tripsData?.trips) return false
     const activeTrips = tripsData.trips.filter(t => t.status === 'active' || t.status === 'assigned')
     return activeTrips.length > 0
   }, [tripsData])
-  const canUseELD = hasVehicle && hasActiveTrip
+  
+  // Allow ELD if vehicle is assigned (trip is optional for now - can be required later)
+  // This allows OBD data to flow even if trip assignment API is failing
+  const canUseELD = hasVehicle
   const { setEldLocation, setCurrentStatus, currentStatus } = useStatusStore()
   const queryClient = useQueryClient()
   const [obdData, setObdData] = useState<OBDDataItem[]>([])
@@ -268,9 +281,52 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const fetchEldHistory = useCallback(
     async ({ type, start, end }: EldHistoryRequest) => {
-      if (!isConnected) {
-        throw new Error('ELD device is not connected')
+      // Always check native connection status (most reliable source)
+      let nativeStatus
+      try {
+        nativeStatus = await JMBluetoothService.getConnectionStatus()
+        console.log('🔍 OBD Data Context: Checking connection for history fetch', {
+          stateIsConnected: isConnected,
+          nativeIsConnected: nativeStatus.isConnected,
+          currentDevice: nativeStatus.currentDevice,
+          isBluetoothEnabled: nativeStatus.isBluetoothEnabled,
+        })
+      } catch (error) {
+        console.error('❌ OBD Data Context: Failed to check native connection status', error)
+        // If we can't check native status, fall back to state
+        if (!isConnected) {
+          throw new Error('ELD device is not connected (unable to verify connection status)')
+        }
+        // If state says connected, proceed (might be stale but worth trying)
+        console.log('⚠️ OBD Data Context: Using state connection status (native check failed)')
+        nativeStatus = { isConnected: isConnected } as any
       }
+      
+      // Trust native status as the source of truth
+      const actuallyConnected = nativeStatus.isConnected
+      
+      // Update state if native says connected but state doesn't (fix stale state)
+      if (nativeStatus.isConnected && !isConnected) {
+        console.log('🔄 OBD Data Context: Updating stale connection state (native says connected)')
+        setIsConnected(true)
+      }
+      
+      if (!actuallyConnected) {
+        const errorMsg = `ELD device is not connected. State: ${isConnected}, Native: ${nativeStatus.isConnected}, Device: ${nativeStatus.currentDevice || 'none'}`
+        console.warn('⚠️ OBD Data Context: Device not connected for history fetch', {
+          isConnected,
+          nativeIsConnected: nativeStatus.isConnected,
+          currentDevice: nativeStatus.currentDevice,
+          isBluetoothEnabled: nativeStatus.isBluetoothEnabled,
+        })
+        throw new Error(errorMsg)
+      }
+      
+      console.log('✅ OBD Data Context: Device connected, proceeding with history fetch', {
+        stateIsConnected: isConnected,
+        nativeIsConnected: nativeStatus.isConnected,
+        currentDevice: nativeStatus.currentDevice,
+      })
 
       if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
         throw new Error('Invalid start time provided')
@@ -353,10 +409,85 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [isSyncThrottled, batteryLevelPercent, isLowPowerMode, eldBatteryVoltage])
 
-    // Listen for OBD data updates
+    // Track connection state independently (always active when authenticated)
   useEffect(() => {
     if (!isAuthenticated) {
-      console.log('📡 OBD Data Context: User not authenticated, skipping setup')
+      console.log('📡 OBD Data Context: User not authenticated, skipping connection tracking')
+      setIsConnected(false)
+      setActivityState('inactive')
+      return
+    }
+
+    console.log('📡 OBD Data Context: Setting up connection state tracking')
+
+    const disconnectedListener = JMBluetoothService.addEventListener(
+      'onDisconnected',
+      () => {
+        console.log('❌ OBD Data Context: Device disconnected')
+        console.log('🔄 OBD Data Context: Setting isConnected to false')
+        setIsConnected(false)
+        setActivityState('disconnected')
+        setCurrentSpeedMph(0)
+        setEldBatteryVoltage(null)
+        eldReportingStartedRef.current = false // Reset flag on disconnect
+      }
+    )
+
+    const connectedListener = JMBluetoothService.addEventListener(
+      'onConnected',
+      () => {
+        console.log('✅ OBD Data Context: Device connected')
+        console.log('🔄 OBD Data Context: Setting isConnected to true')
+        setIsConnected(true)
+        setActivityState('idling')
+        setCurrentSpeedMph(0)
+      }
+    )
+
+    // Check current connection status on setup and periodically
+    const checkConnectionStatus = async () => {
+      try {
+        const status = await JMBluetoothService.getConnectionStatus()
+        console.log('🔍 OBD Data Context: Connection status check:', status)
+        
+        if (status.isConnected) {
+          if (!isConnected) {
+            console.log('✅ OBD Data Context: Device connected (updating state)')
+            setIsConnected(true)
+            setActivityState('idling')
+          }
+        } else {
+          if (isConnected) {
+            console.log('❌ OBD Data Context: Device disconnected (updating state)')
+            setIsConnected(false)
+            setActivityState('disconnected')
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ OBD Data Context: Failed to check connection status:', error)
+      }
+    }
+
+    // Check connection status immediately
+    checkConnectionStatus()
+    
+    // Periodically check connection status to keep state in sync (every 5 seconds)
+    const statusCheckInterval = setInterval(() => {
+      checkConnectionStatus()
+    }, 5000)
+
+    return () => {
+      console.log('🧹 OBD Data Context: Cleaning up connection listeners')
+      JMBluetoothService.removeEventListener(connectedListener)
+      JMBluetoothService.removeEventListener(disconnectedListener)
+      clearInterval(statusCheckInterval)
+    }
+  }, [isAuthenticated])
+
+    // Listen for OBD data updates (only when canUseELD is true)
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('📡 OBD Data Context: User not authenticated, skipping OBD data setup')
       setActivityState('inactive')
       setCurrentSpeedMph(0)
       resetHistoryState()
@@ -364,13 +495,27 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (!canUseELD) {
-      console.log('📡 OBD Data Context: Vehicle or trip not assigned, ELD features disabled')
+      console.log('📡 OBD Data Context: Vehicle not assigned, ELD features disabled', {
+        hasVehicle,
+        vehicleAssignment: !!vehicleAssignment,
+        vehicleFromAuth: !!vehicleAssignment?.vehicle_info,
+        vehicleFromAPI: !!vehicleData?.vehicle,
+        hasActiveTrip,
+        tripsData: tripsData ? `${tripsData.trips?.length || 0} trips` : 'no data',
+      })
       setActivityState('inactive')
       setCurrentSpeedMph(0)
       return
     }
+    
+    console.log('✅ OBD Data Context: Vehicle assigned, ELD features enabled', {
+      hasVehicle,
+      vehicleFromAuth: !!vehicleAssignment?.vehicle_info,
+      vehicleFromAPI: !!vehicleData?.vehicle,
+      hasActiveTrip,
+    })
 
-    console.log('📡 OBD Data Context: Setting up listeners for authenticated user')
+    console.log('📡 OBD Data Context: Setting up OBD data listeners for authenticated user')
 
     // Listen for OBD ELD data
     const obdEldDataListener = JMBluetoothService.addEventListener(
@@ -603,27 +748,11 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     )
 
-    const disconnectedListener = JMBluetoothService.addEventListener(
-      'onDisconnected',
-      () => {
-        console.log('❌ OBD Data Context: Device disconnected')
-        console.log('🔄 OBD Data Context: Setting isConnected to false')
-        setIsConnected(false)
-        setActivityState('disconnected')
-        setCurrentSpeedMph(0)
-        setEldBatteryVoltage(null)
-        eldReportingStartedRef.current = false // Reset flag on disconnect
-      }
-    )
-
+    // Listen for connection events to start ELD reporting (only when canUseELD is true)
     const connectedListener = JMBluetoothService.addEventListener(
       'onConnected',
       () => {
-        console.log('✅ OBD Data Context: Device connected')
-        console.log('🔄 OBD Data Context: Setting isConnected to true')
-        setIsConnected(true)
-        setActivityState('idling')
-        setCurrentSpeedMph(0)
+        console.log('✅ OBD Data Context: Device connected (canUseELD=true, starting ELD reporting)')
         
         // Prevent duplicate calls
         if (eldReportingStartedRef.current) {
@@ -711,22 +840,13 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     )
 
-    // Check current connection status on setup (runs when context initializes)
-    const checkConnectionStatus = async () => {
+    // Check connection status and start ELD reporting if already connected (only when canUseELD is true)
+    const checkAndStartELDReporting = async () => {
       try {
-        // Only check if authenticated
-        if (!isAuthenticated) {
-          console.log('⏭️ OBD Data Context: Skipping connection check - not authenticated')
-          return
-        }
-
         const status = await JMBluetoothService.getConnectionStatus()
-        console.log('🔍 OBD Data Context: Initial connection check:', status)
+        console.log('🔍 OBD Data Context: Checking connection for ELD reporting:', status)
         
         if (status.isConnected) {
-          console.log('✅ OBD Data Context: Device already connected, setting connected state')
-          setIsConnected(true)
-          
           // Prevent duplicate calls
           if (eldReportingStartedRef.current) {
             console.log('ℹ️ OBD Data Context: ELD reporting already started, skipping duplicate call')
@@ -759,17 +879,18 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           }, 2000) // Wait 2 seconds for stable connection
         } else {
-          console.log('ℹ️ OBD Data Context: Device not connected on initial check')
+          console.log('ℹ️ OBD Data Context: Device not connected, cannot start ELD reporting')
         }
       } catch (error) {
-        console.log('⚠️ OBD Data Context: Failed to check connection status:', error)
+        console.log('⚠️ OBD Data Context: Failed to check connection status for ELD reporting:', error)
       }
     }
 
-    // Check connection status immediately (only if authenticated)
+    // Check and start ELD reporting if already connected
+    checkAndStartELDReporting()
+    
+    // Initialize inactivity monitor and location queue (only when authenticated)
     if (isAuthenticated) {
-      checkConnectionStatus()
-      
       // Initialize inactivity monitor
       inactivityMonitor.setPromptTriggerCallback(() => {
         console.log('⏰ OBD Data Context: Inactivity prompt triggered')
@@ -1116,7 +1237,6 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     return () => {
       JMBluetoothService.removeEventListener(obdEldDataListener)
-      JMBluetoothService.removeEventListener(disconnectedListener)
       JMBluetoothService.removeEventListener(connectedListener)
       JMBluetoothService.removeEventListener(authPassedListener)
       JMBluetoothService.removeEventListener(obdEldStartListener)

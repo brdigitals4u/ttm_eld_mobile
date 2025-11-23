@@ -343,16 +343,22 @@ if (ensure16kScript != null && ensure16kScript.exists()) {
         // Check AAB bundle directory (for bundleRelease)
         def bundleDir = new File(project.buildDir, "intermediates/bundle/${variant.name.capitalize()}")
         if (bundleDir.exists()) {
-            fileTree(dir: bundleDir, include: "**/lib/**/*.so").dirs.each { dir ->
-                candidateDirs << dir
+            fileTree(dir: bundleDir, include: "**/lib/**/*.so").files.each { file ->
+                def parentDir = file.parentFile
+                if (parentDir && parentDir.exists()) {
+                    candidateDirs << parentDir
+                }
             }
         }
         
         // Check APK output directory (for assembleRelease)
         def apkOutputDir = new File(project.buildDir, "outputs/apk/${variant.name}")
         if (apkOutputDir.exists()) {
-            fileTree(dir: apkOutputDir, include: "**/lib/**/*.so").dirs.each { dir ->
-                candidateDirs << dir
+            fileTree(dir: apkOutputDir, include: "**/lib/**/*.so").files.each { file ->
+                def parentDir = file.parentFile
+                if (parentDir && parentDir.exists()) {
+                    candidateDirs << parentDir
+                }
             }
         }
         
