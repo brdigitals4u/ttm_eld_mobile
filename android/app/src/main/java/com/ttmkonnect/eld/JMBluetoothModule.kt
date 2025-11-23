@@ -1456,17 +1456,20 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                             val hexPreview = rawSource.joinToString("") { "%02X".format(it) }.take(200)
                             Log.d(TAG, "📦 B30C: Raw source hex preview: $hexPreview")
                             
-                            val foundCodes = extractDtcCodesFromRawData(rawSource)
-                            Log.d(TAG, "📦 B30C: extractDtcCodesFromRawData returned: $foundCodes")
+                            val (canErrors, obdDtcs) = extractDtcCodesFromRawData(rawSource)
+                            val allCodes = canErrors + obdDtcs
+                            Log.d(TAG, "📦 B30C: extractDtcCodesFromRawData returned: CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
                             
-                            if (foundCodes.isNotEmpty()) {
-                                Log.w(TAG, "🚨 DTC codes found in B30C raw data: $foundCodes")
-                                if (foundCodes.contains("P0195")) {
+                            if (allCodes.isNotEmpty()) {
+                                Log.w(TAG, "🚨 Error codes found in B30C raw data: CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
+                                if (obdDtcs.contains("P0195")) {
                                     Log.w(TAG, "🔍 P0195 DETECTED in B30C raw data!")
-                                    // Create ErrorBean structure immediately
-                                    createErrorBeanFromRawData(foundCodes, data.ack)
-                                } else {
-                                    Log.w(TAG, "⚠️ B30C: Found DTC codes but P0195 not in list: $foundCodes")
+                                    // Create ErrorBean structure immediately with both types
+                                    createErrorBeanFromRawData(canErrors, obdDtcs, data.ack)
+                                } else if (canErrors.isNotEmpty() || obdDtcs.isNotEmpty()) {
+                                    Log.w(TAG, "⚠️ B30C: Found codes but P0195 not in list. CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
+                                    // Still send the codes we found
+                                    createErrorBeanFromRawData(canErrors, obdDtcs, data.ack)
                                 }
                             } else {
                                 Log.e(TAG, "❌ CRITICAL: B30C (ACK_TROUBLE_CODE) but NO DTC codes found in raw data!")
@@ -1489,8 +1492,8 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                                     Log.w(TAG, "🔍 B30C: Found '0195' pattern at position $pos, context: $context")
                                     Log.w(TAG, "🔍 B30C: This might be P0195 encoded without the 'P' prefix - trying to reconstruct")
                                     // Try to create P0195 if we found 0195
-                                    val reconstructedCodes = listOf("P0195")
-                                    createErrorBeanFromRawData(reconstructedCodes, data.ack)
+                                    val reconstructedObdDtcs = listOf("P0195")
+                                    createErrorBeanFromRawData(emptyList(), reconstructedObdDtcs, data.ack)
                                 }
                             }
                         } else {
@@ -1831,14 +1834,27 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                                         val codesArray = Arguments.createArray()
                                         ecu.errorCodeList?.forEach { code ->
                                             codesArray.pushString(code)
+                                            if (code == "P0195") {
+                                                Log.w(TAG, "🔍 P0195 FOUND in ErrorBean ECU codes!")
+                                            }
                                         }
                                         putArray("codes", codesArray)
                                     }
                                     ecuArray.pushMap(ecuMap)
                                 }
                                 putArray("ecuList", ecuArray)
+                            } else {
+                                // Always include ecuList array, even if empty
+                                putArray("ecuList", Arguments.createArray())
+                                Log.w(TAG, "⚠️ ErrorBean has empty ECU list - sending event with empty ecuList array")
                             }
                         }
+                        
+                        // Log payload structure before sending
+                        val ecuListArray = errorMap.getArray("ecuList")
+                        val ecuCount = errorMap.getInt("ecuCount")
+                        Log.i(TAG, "📦 ErrorBean payload prepared: ecuCount=$ecuCount, ecuListSize=${ecuListArray?.size() ?: 0}")
+                        
                         sendEvent("onObdErrorDataReceived", errorMap)
                         if (list != null && list.isNotEmpty()) {
                             val faultMap = Arguments.createMap().apply {
@@ -1904,15 +1920,18 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                                 Log.d(TAG, "📦 EldData raw source hex preview: $preview")
                             }
                             
-                            val foundCodes = extractDtcCodesFromRawData(rawSource)
-                            if (foundCodes.isNotEmpty()) {
-                                Log.w(TAG, "🚨 DTC codes found in EldData raw source: $foundCodes")
-                                if (foundCodes.contains("P0195")) {
+                            val (canErrors, obdDtcs) = extractDtcCodesFromRawData(rawSource)
+                            val allCodes = canErrors + obdDtcs
+                            if (allCodes.isNotEmpty()) {
+                                Log.w(TAG, "🚨 Error codes found in EldData raw source: CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
+                                if (obdDtcs.contains("P0195")) {
                                     Log.w(TAG, "🔍 P0195 DETECTED in EldData raw source!")
                                     // Create ErrorBean structure from found codes
-                                    createErrorBeanFromRawData(foundCodes, data.ack)
-                                } else {
-                                    Log.w(TAG, "⚠️ EldData: Found DTC codes but P0195 not in list: $foundCodes")
+                                    createErrorBeanFromRawData(canErrors, obdDtcs, data.ack)
+                                } else if (canErrors.isNotEmpty() || obdDtcs.isNotEmpty()) {
+                                    Log.w(TAG, "⚠️ EldData: Found codes but P0195 not in list. CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
+                                    // Still send the codes we found
+                                    createErrorBeanFromRawData(canErrors, obdDtcs, data.ack)
                                 }
                             } else {
                                 if (isTroubleCodeAck) {
@@ -1923,10 +1942,13 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                                     // Method: Look for any 5-character patterns starting with P, B, C, U
                                     val altPattern = Regex("[PBCU][0-9A-F]{4}")
                                     val altMatches = altPattern.findAll(hexString)
-                                    val altCodes = altMatches.map { it.value }.distinct().toList()
+                                    val altCodes = altMatches.map { it.value.uppercase() }.distinct().toList()
                                     if (altCodes.isNotEmpty()) {
                                         Log.w(TAG, "🔍 Alternative extraction found codes: $altCodes")
-                                        createErrorBeanFromRawData(altCodes, data.ack)
+                                        // Categorize codes
+                                        val altCanErrors = altCodes.filter { ObdErrorCodeMapper.isCanBusError(it) }
+                                        val altObdDtcs = altCodes.filter { ObdErrorCodeMapper.isValidObdDtc(it) }
+                                        createErrorBeanFromRawData(altCanErrors, altObdDtcs, data.ack)
                                     }
                                 } else {
                                     Log.d(TAG, "ℹ️ EldData: No DTC codes found in raw source (normal for non-error data)")
@@ -2087,17 +2109,18 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         Log.d(TAG, "📦 Fallback: Raw source hex preview: ${rawSource.joinToString("") { "%02X".format(it) }.take(200)}")
                         
                         // Try to manually parse for ErrorBean/DTC codes
-                        val dtcCodes = extractDtcCodesFromRawData(rawSource)
-                        if (dtcCodes.isNotEmpty()) {
-                            Log.w(TAG, "🚨 Fallback: Found DTC codes in raw source: $dtcCodes")
-                            if (dtcCodes.contains("P0195")) {
+                        val (canErrors, obdDtcs) = extractDtcCodesFromRawData(rawSource)
+                        val allCodes = canErrors + obdDtcs
+                        if (allCodes.isNotEmpty()) {
+                            Log.w(TAG, "🚨 Fallback: Found error codes in raw source: CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
+                            if (obdDtcs.contains("P0195")) {
                                 Log.w(TAG, "🔍 P0195 FOUND in raw source fallback parsing!")
                             }
-                            // Create ErrorBean-like structure manually
-                            createErrorBeanFromRawData(dtcCodes, data.ack)
+                            // Create ErrorBean-like structure manually with both types
+                            createErrorBeanFromRawData(canErrors, obdDtcs, data.ack)
                             return
                         } else {
-                            Log.w(TAG, "⚠️ Fallback: No DTC codes found in raw source despite ACK: $ackHex")
+                            Log.w(TAG, "⚠️ Fallback: No error codes found in raw source despite ACK: $ackHex")
                             // Log the full hex for debugging
                             val fullHex = rawSource.joinToString("") { "%02X".format(it) }
                             Log.d(TAG, "📋 Fallback: Full raw source hex (${rawSource.size} bytes): $fullHex")
@@ -2117,10 +2140,11 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                     val rawData = rawDataField.get(data) as? ByteArray
                     if (rawData != null && rawData.isNotEmpty()) {
                         Log.d(TAG, "📦 Fallback: Found raw data via reflection, length: ${rawData.size}")
-                        val dtcCodes = extractDtcCodesFromRawData(rawData)
-                        if (dtcCodes.isNotEmpty()) {
-                            Log.w(TAG, "🚨 Fallback: Found DTC codes via reflection: $dtcCodes")
-                            createErrorBeanFromRawData(dtcCodes, data.ack)
+                        val (canErrors, obdDtcs) = extractDtcCodesFromRawData(rawData)
+                        val allCodes = canErrors + obdDtcs
+                        if (allCodes.isNotEmpty()) {
+                            Log.w(TAG, "🚨 Fallback: Found error codes via reflection: CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
+                            createErrorBeanFromRawData(canErrors, obdDtcs, data.ack)
                             return
                         }
                     }
@@ -2134,16 +2158,16 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                     // Process the ErrorBean we found
                     val errorBean = obdData as BaseObdData.ErrorBean
                     val list = errorBean.ecuList
-                    if (list != null && list.isNotEmpty()) {
-                        val errorMap = Arguments.createMap().apply {
-                            putInt("type", errorBean.type)
-                            putString("time", errorBean.time ?: "")
-                            putInt("dataType", errorBean.dataType)
-                            putInt("vehicleType", errorBean.vehicleType)
-                            putInt("msgSubtype", errorBean.msgSubtype)
-                            putInt("ecuCount", list.size)
-                            putString("timestamp", System.currentTimeMillis().toString())
-                            
+                    val errorMap = Arguments.createMap().apply {
+                        putInt("type", errorBean.type)
+                        putString("time", errorBean.time ?: "")
+                        putInt("dataType", errorBean.dataType)
+                        putInt("vehicleType", errorBean.vehicleType)
+                        putInt("msgSubtype", errorBean.msgSubtype)
+                        putInt("ecuCount", list?.size ?: 0)
+                        putString("timestamp", System.currentTimeMillis().toString())
+                        
+                        if (list != null && list.isNotEmpty()) {
                             val ecuArray = Arguments.createArray()
                             list.forEach { ecu ->
                                 val ecuMap = Arguments.createMap().apply {
@@ -2161,13 +2185,23 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                                 ecuArray.pushMap(ecuMap)
                             }
                             putArray("ecuList", ecuArray)
+                        } else {
+                            // Always include ecuList array, even if empty
+                            putArray("ecuList", Arguments.createArray())
+                            Log.w(TAG, "⚠️ Fallback ErrorBean has empty ECU list - sending event with empty ecuList array")
                         }
+                    }
+                        
+                        // Log payload structure before sending
+                        val ecuListArray = errorMap.getArray("ecuList")
+                        val ecuCount = errorMap.getInt("ecuCount")
+                        Log.i(TAG, "📦 Fallback ErrorBean payload prepared: ecuCount=$ecuCount, ecuListSize=${ecuListArray?.size() ?: 0}")
+                        
                         sendEvent("onObdErrorDataReceived", errorMap)
                         Log.w(TAG, "✅ Fallback: ErrorBean event sent to React Native")
                         return
                     }
                 }
-            }
             
             // Create a basic data map with available information
             val fallbackMap = Arguments.createMap().apply {
@@ -2197,76 +2231,79 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
     }
     
-    private fun extractDtcCodesFromRawData(data: ByteArray): List<String> {
-        val codes = mutableListOf<String>()
+    private fun extractDtcCodesFromRawData(data: ByteArray): Pair<List<String>, List<String>> {
+        val canErrors = mutableListOf<String>()
+        val obdDtcs = mutableListOf<String>()
+        val allFoundCodes = mutableListOf<String>()
+        
         try {
             // Method 1: Look for DTC code patterns in hex string (P0XXX, P1XXX, B0XXX, C0XXX, U0XXX format)
             val dataString = data.joinToString("") { "%02X".format(it) }
             
             // Log first 200 chars of hex for debugging
             val preview = if (dataString.length > 200) dataString.substring(0, 200) + "..." else dataString
-            Log.d(TAG, "🔍 Searching for DTC codes in raw data (preview): $preview")
+            Log.d(TAG, "🔍 Searching for error codes in raw data (preview): $preview")
             
-            // CRITICAL: Validate DTC codes - they must follow OBD-II SAE format:
-            // - First char: P (Powertrain), B (Body), C (Chassis), U (Network)
-            // - Second char: 0-3 (0=SAE standard, 1=Manufacturer, 2=SAE reserved, 3=Manufacturer)
-            // - Last 3 chars: 000-FFF (hex digits for specific code)
-            // Valid examples: P0195, P0300, B1234, C0123, U0100
-            // 
-            // NOTE: Codes like CA020, C9F00 are NOT OBD-II DTCs - they are:
-            // - CA020 = CAN Channel A error (bus off/arbitration lost)
-            // - C9F00 = High-numbered CAN custom error (invalid data received)
-            // - C01FF = Chassis code but likely CAN bus error frame
-            // These are raw CAN bus error frames, not OBD-II DTCs from Mode 03
-            //
-            // P0195 is a real OBD-II DTC that must be injected via simulator's fault injection menu
-            // The simulator must be in SAE Mode (Mode 03) to send proper OBD-II DTCs
-            
-            val pattern = Regex("[PBCU][0-3][0-9A-F]{3}")
+            // Look for all potential codes matching the pattern
+            val pattern = Regex("[PBCU][0-9A-F][0-9A-F]{3}")
             val matches = pattern.findAll(dataString)
             matches.forEach { matchResult ->
                 val code = matchResult.value.uppercase()
-                if (code.length == 5) {
-                    // Additional validation: Ensure it's a real OBD-II DTC code
-                    val firstChar = code[0]
-                    val secondChar = code[1]
-                    val lastThree = code.substring(2)
+                if (code.length == 5 && !allFoundCodes.contains(code)) {
+                    allFoundCodes.add(code)
                     
-                    // Validate format - must be OBD-II SAE format (second char 0-3)
-                    if (firstChar in "PBCU" && secondChar in "0123" && lastThree.all { it.isLetterOrDigit() }) {
-                        // Check if it's not all zeros (000 is usually invalid)
-                        if (lastThree != "000") {
-                            codes.add(code)
-                            Log.w(TAG, "🔍 Found valid OBD-II DTC code: $code")
+                    // Use ObdErrorCodeMapper to categorize codes
+                    when {
+                        ObdErrorCodeMapper.isCanBusError(code) -> {
+                            // CAN bus error - collect separately
+                            canErrors.add(code)
+                            val description = ObdErrorCodeMapper.getCodeDescription(code)
+                            Log.w(TAG, "🔍 CAN Error detected: $code - $description")
+                        }
+                        ObdErrorCodeMapper.isValidObdDtc(code) -> {
+                            // Valid OBD-II DTC - collect separately
+                            obdDtcs.add(code)
+                            val description = ObdErrorCodeMapper.getCodeDescription(code)
+                            Log.w(TAG, "✅ OBD-II DTC detected: $code - $description")
                             
                             // Special logging for P0195
                             if (code == "P0195") {
-                                Log.w(TAG, "🔍 ✅ P0195 DETECTED - Engine Oil Temperature Sensor Circuit Malfunction")
+                                Log.w(TAG, "🔍 ✅ P0195 VALIDATED as OBD-II DTC (NOT a CAN error) - Engine Oil Temperature Sensor Circuit Malfunction")
+                                Log.w(TAG, "🔍 ✅ P0195 will be sent to React Native")
                             }
+                        }
+                        else -> {
+                            // Invalid format
+                            Log.d(TAG, "⚠️ Invalid code format (not OBD-II and not CAN error): $code")
                         }
                     }
                 }
             }
             
-            // Filter out CAN bus error frames using ObdErrorCodeMapper
-            val filteredCodes = codes.filter { code ->
-                if (ObdErrorCodeMapper.isCanBusError(code)) {
-                    val description = ObdErrorCodeMapper.getCodeDescription(code)
-                    Log.d(TAG, "⚠️ Filtered out CAN bus error frame: $code - $description")
-                    false
-                } else {
-                    true
+            // Log summary with clear distinction
+            if (canErrors.isNotEmpty() || obdDtcs.isNotEmpty()) {
+                Log.i(TAG, "═══════════════════════════════════════════════════════")
+                Log.i(TAG, "📊 Code Detection Summary:")
+                Log.i(TAG, "  CAN Bus Errors: ${canErrors.size} (communication errors - NOT OBD-II DTCs)")
+                Log.i(TAG, "  OBD-II DTCs: ${obdDtcs.size} (diagnostic trouble codes)")
+                Log.i(TAG, "═══════════════════════════════════════════════════════")
+                
+                if (canErrors.isNotEmpty()) {
+                    Log.w(TAG, "⚠️ NOTE: CAN bus errors are communication errors, NOT diagnostic codes")
+                    Log.w(TAG, "⚠️ NOTE: CAN errors will appear even when OBD-II DTCs are cleared")
+                    Log.w(TAG, "⚠️ NOTE: To clear CAN errors, fix the communication issue, not the DTCs")
+                    ObdErrorCodeMapper.logCodeDescriptions(canErrors)
+                }
+                if (obdDtcs.isNotEmpty()) {
+                    Log.i(TAG, "✅ OBD-II DTCs found (these are actual diagnostic trouble codes):")
+                    ObdErrorCodeMapper.logCodeDescriptions(obdDtcs)
+                }
+                
+                if (canErrors.isNotEmpty() && obdDtcs.isEmpty()) {
+                    Log.i(TAG, "ℹ️ Only CAN errors detected - no OBD-II DTCs present")
+                    Log.i(TAG, "ℹ️ This is normal if DTCs were cleared in simulator (D3→D0)")
                 }
             }
-            
-            // Log all codes with descriptions
-            if (codes.isNotEmpty()) {
-                ObdErrorCodeMapper.logCodeDescriptions(codes)
-            }
-            
-            // Replace codes list with filtered version (only valid OBD-II DTCs)
-            codes.clear()
-            codes.addAll(filteredCodes)
             
             // Method 2: Look for ASCII DTC codes in the raw bytes (P0XXX format)
             try {
@@ -2276,12 +2313,25 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                 val asciiMatches = asciiPattern.findAll(asciiString)
                 asciiMatches.forEach { matchResult ->
                     val code = matchResult.value.uppercase()
-                    if (code.length == 5 && !codes.contains(code)) {
-                        // Additional validation
-                        val lastThree = code.substring(2)
-                        if (lastThree != "000") {
-                            codes.add(code)
-                            Log.w(TAG, "🔍 Found valid DTC code in ASCII: $code")
+                    if (code.length == 5 && !allFoundCodes.contains(code)) {
+                        allFoundCodes.add(code)
+                        
+                        // Categorize using ObdErrorCodeMapper
+                        when {
+                            ObdErrorCodeMapper.isCanBusError(code) -> {
+                                if (!canErrors.contains(code)) {
+                                    canErrors.add(code)
+                                    val description = ObdErrorCodeMapper.getCodeDescription(code)
+                                    Log.w(TAG, "🔍 CAN Error detected (ASCII): $code - $description")
+                                }
+                            }
+                            ObdErrorCodeMapper.isValidObdDtc(code) -> {
+                                if (!obdDtcs.contains(code)) {
+                                    obdDtcs.add(code)
+                                    val description = ObdErrorCodeMapper.getCodeDescription(code)
+                                    Log.w(TAG, "✅ OBD-II DTC detected (ASCII): $code - $description")
+                                }
+                            }
                         }
                     }
                 }
@@ -2290,153 +2340,39 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                 Log.d(TAG, "Could not parse as UTF-8 (expected for binary data): ${e.message}")
             }
             
-            // Method 3: Look for hex representation of "P0195" = "5030313935" (ASCII bytes)
-            val p0195HexPatterns = listOf(
-                "5030313935", // P0195 in ASCII hex
-                "5030313935".lowercase(), // lowercase variant
-            )
-            p0195HexPatterns.forEach { pattern ->
-                if (dataString.contains(pattern, ignoreCase = true)) {
-                    if (!codes.contains("P0195")) {
-                        codes.add("P0195")
-                        Log.w(TAG, "🔍 P0195 found in hex representation ($pattern)")
-                    }
-                }
-            }
-            
-            // Method 4: Look for "P0195" byte pattern directly (case-insensitive)
-            val p0195Bytes = byteArrayOf(0x50, 0x30, 0x31, 0x39, 0x35) // ASCII "P0195"
-            val p0195BytesLower = byteArrayOf(0x70, 0x30, 0x31, 0x39, 0x35) // ASCII "p0195"
-            
-            for (patternBytes in listOf(p0195Bytes, p0195BytesLower)) {
-                for (i in 0..data.size - patternBytes.size) {
-                    var match = true
-                    for (j in patternBytes.indices) {
-                        if (data[i + j] != patternBytes[j]) {
-                            match = false
-                            break
-                        }
-                    }
-                    if (match) {
-                        if (!codes.contains("P0195")) {
-                            codes.add("P0195")
-                            Log.w(TAG, "🔍 P0195 found in byte pattern search at offset $i")
-                        }
-                        break
-                    }
-                }
-            }
-            
-            // Method 5: Look for OBD-II DTC format in binary (2-byte format)
-            // OBD-II DTCs can be encoded as 2 bytes: 
-            // Byte 1: (DTC type << 6) | (first digit << 4) | second digit
-            // Byte 2: (third digit << 4) | fourth digit
-            // P0195 would be: P0 = 0x00, 19 = 0x13, 5 = 0x05
-            // But this is complex and varies by protocol, so we'll skip for now
-            
-            // Method 6: Look for P0195 specifically in various encodings
-            // Sometimes DTCs are stored with spaces or separators
-            val p0195Variants = listOf(
-                "P 0195", "P-0195", "P_0195", "P0195", "p0195"
-            )
-            p0195Variants.forEach { variant ->
-                val variantBytes = variant.toByteArray(Charsets.UTF_8)
-                for (i in 0..data.size - variantBytes.size) {
-                    var match = true
-                    for (j in variantBytes.indices) {
-                        if (data[i + j] != variantBytes[j]) {
-                            match = false
-                            break
-                        }
-                    }
-                    if (match && !codes.contains("P0195")) {
-                        codes.add("P0195")
-                        Log.w(TAG, "🔍 P0195 found as variant '$variant' at offset $i")
-                        break
-                    }
-                }
-            }
-            
-            // Method 7: Look for P0195 in OBD-II 2-byte encoded format
-            // OBD-II DTCs can be encoded as 2 bytes:
-            // Byte 1: (DTC type << 6) | (first digit << 4) | second digit
-            // Byte 2: (third digit << 4) | fourth digit
-            // P0195 = P0 (0x00) | 19 (0x13) | 5 (0x05)
-            // So it would be: 0x00 0x35 or similar
-            // This is complex and varies, but let's check for common patterns
-            for (i in 0..data.size - 2) {
-                val byte1 = data[i].toInt() and 0xFF
-                val byte2 = data[i + 1].toInt() and 0xFF
-                
-                // Check if this could be P0195 encoded:
-                // P0 = 0x00 (Powertrain, SAE standard)
-                // 19 = 0x13 (decimal 19)
-                // 5 = 0x05 (decimal 5)
-                // Format: (P0 << 12) | (19 << 4) | 5 = 0x0135
-                // But encoding varies, so we'll look for patterns that might decode to P0195
-                
-                // Simplified: Look for byte patterns that might represent P0195
-                // This is a heuristic approach
-                if (byte1 == 0x00 && byte2 == 0x35) {
-                    // Could be P0195 in some encoding
-                    if (!codes.contains("P0195")) {
-                        codes.add("P0195")
-                        Log.w(TAG, "🔍 P0195 found in 2-byte encoded format at offset $i (0x${byte1.toString(16)} 0x${byte2.toString(16)})")
-                    }
-                }
-            }
-            
-            // Filter out false positives and validate codes
-            val validCodes = codes.filter { code ->
-                if (code.length != 5) return@filter false
-                val firstChar = code[0]
-                val secondChar = code[1]
-                val lastThree = code.substring(2)
-                
-                // Must be valid DTC format: [PBCU][0-3][0-9A-F]{3}
-                val isValid = firstChar in "PBCU" && 
-                              secondChar in "0123" && 
-                              lastThree.all { it.isLetterOrDigit() } &&
-                              lastThree != "000"
-                
-                if (!isValid) {
-                    Log.d(TAG, "⚠️ Filtered out invalid DTC code: $code (second char must be 0-3)")
-                }
-                isValid
-            }.distinct()
-            
-            // Always check specifically for P0195 even if it doesn't match the pattern
-            // P0195 might be encoded in a non-standard way
-            if (!validCodes.contains("P0195")) {
-                // Try to find P0195 in the raw data using multiple methods
+            // Method 3: Look for P0195 specifically (if not already found)
+            if (!obdDtcs.contains("P0195")) {
                 val p0195Found = checkForP0195(data, dataString)
-                if (p0195Found && !validCodes.contains("P0195")) {
-                    validCodes.add("P0195")
-                    Log.w(TAG, "🔍 P0195 found using special detection method!")
+                if (p0195Found && ObdErrorCodeMapper.isValidObdDtc("P0195")) {
+                    obdDtcs.add("P0195")
+                    val description = ObdErrorCodeMapper.getCodeDescription("P0195")
+                    Log.w(TAG, "🔍 ✅ P0195 found using special detection and VALIDATED!")
+                    Log.w(TAG, "🔍 ✅ P0195: $description")
                 }
             }
             
-            if (validCodes.isEmpty()) {
-                Log.d(TAG, "⚠️ No valid OBD-II DTC codes found in raw data (length: ${data.size} bytes)")
-                Log.d(TAG, "ℹ️ NOTE: If you see CAN error codes (CA020, C9F00, etc.), these are NOT OBD-II DTCs")
-                Log.d(TAG, "ℹ️ NOTE: To test P0195, inject it via simulator's fault injection menu (requires 12V power)")
-                Log.d(TAG, "ℹ️ NOTE: Simulator must be in SAE Mode (Mode 03) to send proper OBD-II DTCs")
+            // Final validation and logging
+            val finalCanErrors = canErrors.distinct()
+            val finalObdDtcs = obdDtcs.distinct()
+            
+            if (finalCanErrors.isEmpty() && finalObdDtcs.isEmpty()) {
+                Log.d(TAG, "⚠️ No error codes found in raw data (length: ${data.size} bytes)")
             } else {
-                Log.i(TAG, "✅ DTC extraction found ${validCodes.size} valid OBD-II DTC code(s): $validCodes")
-                if (validCodes.contains("P0195")) {
-                    Log.w(TAG, "🔍 ✅ P0195 CONFIRMED - Engine Oil Temperature Sensor Circuit Malfunction")
-                } else {
-                    Log.d(TAG, "ℹ️ P0195 not found. To test: Inject P0195 via simulator fault injection menu")
+                if (finalCanErrors.isNotEmpty()) {
+                    Log.i(TAG, "✅ Found ${finalCanErrors.size} CAN bus error(s): $finalCanErrors")
+                }
+                if (finalObdDtcs.isNotEmpty()) {
+                    Log.i(TAG, "✅ Found ${finalObdDtcs.size} OBD-II DTC(s): $finalObdDtcs")
                 }
             }
             
-            return validCodes
+            return Pair(finalCanErrors, finalObdDtcs)
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error extracting DTC codes from raw data: ${e.message}")
             e.printStackTrace()
         }
-        return emptyList() // Will be replaced by the return in the try block
+        return Pair(emptyList(), emptyList()) // Return empty Pair on error
     }
     
     private fun checkForP0195(data: ByteArray, hexString: String): Boolean {
@@ -2498,9 +2434,10 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
         return false
     }
     
-    private fun createErrorBeanFromRawData(dtcCodes: List<String>, ack: Int) {
+    private fun createErrorBeanFromRawData(canErrors: List<String>, obdDtcs: List<String>, ack: Int) {
         try {
-            Log.w(TAG, "🚨 Creating ErrorBean structure from raw DTC codes: $dtcCodes")
+            val allCodes = canErrors + obdDtcs
+            Log.w(TAG, "🚨 Creating ErrorBean structure from raw codes: CAN errors=$canErrors, OBD-II DTCs=$obdDtcs")
             
             val errorMap = Arguments.createMap().apply {
                 putInt("ack", ack)
@@ -2510,29 +2447,67 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                 putInt("dataType", 0)
                 putInt("vehicleType", 0)
                 putInt("msgSubtype", 0)
-                putInt("ecuCount", 1)
+                putInt("ecuCount", if (allCodes.isNotEmpty()) 1 else 0)
                 putString("timestamp", System.currentTimeMillis().toString())
                 putString("parsingMethod", "raw_data_fallback")
                 
-                val ecuArray = Arguments.createArray()
-                val ecuMap = Arguments.createMap().apply {
-                    putString("ecuIdHex", "0x7E0") // Default ECU ID
-                    putString("ecuId", "2016")
-                    val codesArray = Arguments.createArray()
-                    dtcCodes.forEach { code ->
-                        codesArray.pushString(code)
+                // CAN errors array with type and description
+                val canErrorArray = Arguments.createArray()
+                canErrors.forEach { code ->
+                    val codeMap = Arguments.createMap().apply {
+                        putString("code", code)
+                        putString("type", "can_error")
+                        putString("description", ObdErrorCodeMapper.getCodeDescription(code))
+                    }
+                    canErrorArray.pushMap(codeMap)
+                }
+                putArray("canErrorCodes", canErrorArray)
+                
+                // OBD-II DTCs array with type and description
+                val obdDtcArray = Arguments.createArray()
+                obdDtcs.forEach { code ->
+                    val codeMap = Arguments.createMap().apply {
+                        putString("code", code)
+                        putString("type", "obd_dtc")
+                        putString("description", ObdErrorCodeMapper.getCodeDescription(code))
                         if (code == "P0195") {
                             Log.w(TAG, "🔍 P0195 added to ErrorBean structure!")
                         }
                     }
-                    putArray("codes", codesArray)
+                    obdDtcArray.pushMap(codeMap)
                 }
-                ecuArray.pushMap(ecuMap)
-                putArray("ecuList", ecuArray)
+                putArray("obdDtcCodes", obdDtcArray)
+                
+                // Combined codes in ecuList for backward compatibility
+                if (allCodes.isNotEmpty()) {
+                    val ecuArray = Arguments.createArray()
+                    val ecuMap = Arguments.createMap().apply {
+                        putString("ecuIdHex", "0x7E0") // Default ECU ID
+                        putString("ecuId", "2016")
+                        val codesArray = Arguments.createArray()
+                        allCodes.forEach { code ->
+                            codesArray.pushString(code)
+                        }
+                        putArray("codes", codesArray)
+                    }
+                    ecuArray.pushMap(ecuMap)
+                    putArray("ecuList", ecuArray)
+                } else {
+                    // Always include ecuList array, even if empty
+                    putArray("ecuList", Arguments.createArray())
+                    Log.w(TAG, "⚠️ Raw data ErrorBean has empty codes - sending event with empty ecuList array")
+                }
             }
             
+            // Log payload structure before sending
+            val ecuListArray = errorMap.getArray("ecuList")
+            val ecuCount = errorMap.getInt("ecuCount")
+            val canErrorCount = errorMap.getArray("canErrorCodes")?.size() ?: 0
+            val obdDtcCount = errorMap.getArray("obdDtcCodes")?.size() ?: 0
+            Log.i(TAG, "📦 Raw data ErrorBean payload prepared: ecuCount=$ecuCount, ecuListSize=${ecuListArray?.size() ?: 0}, CAN errors=$canErrorCount, OBD-II DTCs=$obdDtcCount")
+            
             sendEvent("onObdErrorDataReceived", errorMap)
-            Log.w(TAG, "✅ Raw data ErrorBean event sent to React Native with ${dtcCodes.size} DTC codes")
+            Log.w(TAG, "✅ Raw data ErrorBean event sent to React Native with $canErrorCount CAN error(s) and $obdDtcCount OBD-II DTC(s)")
             
         } catch (e: Exception) {
             Log.e(TAG, "Error creating ErrorBean from raw data: ${e.message}")
@@ -2734,9 +2709,48 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     }
 
     private fun sendEvent(eventName: String, params: WritableMap?) {
-        reactApplicationContext
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-            .emit(eventName, params)
+        try {
+            // Verify react context is available
+            if (reactApplicationContext == null) {
+                Log.e(TAG, "❌ sendEvent: reactApplicationContext is null! Cannot send event: $eventName")
+                return
+            }
+            
+            // Log event details for debugging
+            if (eventName == "onObdErrorDataReceived") {
+                val ecuCount = params?.getInt("ecuCount") ?: 0
+                val ecuList = params?.getArray("ecuList")
+                val actualEcuCount = if (ecuList != null) ecuList.size() else 0
+                val allCodes = mutableListOf<String>()
+                
+                if (ecuList != null) {
+                    for (i in 0 until ecuList.size()) {
+                        val ecuMap = ecuList.getMap(i)
+                        val codes = ecuMap?.getArray("codes")
+                        if (codes != null) {
+                            for (j in 0 until codes.size()) {
+                                val code = codes.getString(j)
+                                if (code != null) {
+                                    allCodes.add(code)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Log.i(TAG, "📤 Sending onObdErrorDataReceived event to React Native: ecuCount=$ecuCount, actualEcuCount=$actualEcuCount, totalCodes=${allCodes.size}, codes=$allCodes, hasP0195=${allCodes.contains("P0195")}, paramsSize=${params?.toString()?.length ?: 0}")
+            }
+            
+            reactApplicationContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(eventName, params)
+            
+            if (eventName == "onObdErrorDataReceived") {
+                Log.d(TAG, "✅ Event onObdErrorDataReceived emitted successfully to React Native")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error sending event $eventName: ${e.message}", e)
+        }
     }
 
     @Deprecated("Deprecated in Java")

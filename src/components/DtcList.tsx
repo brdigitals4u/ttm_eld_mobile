@@ -103,7 +103,7 @@ export const DtcList: React.FC<DtcListProps> = ({
 
   // Memoize getItemLayout for fixed-height items (performance optimization)
   const getItemLayout = useCallback(
-    (_data: DtcListItemProps[] | null | undefined, index: number) => ({
+    (_data: ArrayLike<DtcListItemProps> | null | undefined, index: number) => ({
       length: ITEM_HEIGHT,
       offset: ITEM_HEIGHT * index,
       index,

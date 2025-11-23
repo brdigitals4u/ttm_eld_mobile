@@ -688,11 +688,29 @@ class JMBluetoothService {
       
       // Special handling for error data events - extract and log DTC codes
       if (event === 'onObdErrorDataReceived') {
+        logger.info('📥 JMBluetoothService: onObdErrorDataReceived event received from native', {
+          timestamp: new Date().toISOString(),
+          hasData: !!data,
+          dataType: typeof data,
+          ecuCount: data?.ecuCount,
+          hasEcuList: Array.isArray(data?.ecuList),
+          ecuListLength: Array.isArray(data?.ecuList) ? data.ecuList.length : 0,
+          rawData: data,
+        })
+        
         const ecuList = Array.isArray(data?.ecuList) ? data.ecuList : []
         const allCodes: string[] = []
         
-        ecuList.forEach((ecu: any) => {
+        if (ecuList.length === 0) {
+          logger.warn('⚠️ JMBluetoothService: onObdErrorDataReceived event has empty ecuList array', {
+            ecuCount: data?.ecuCount,
+            dataKeys: data ? Object.keys(data) : [],
+          })
+        }
+        
+        ecuList.forEach((ecu: any, index: number) => {
           const codes = Array.isArray(ecu?.codes) ? ecu.codes : []
+          logger.debug(`📋 JMBluetoothService: ECU ${index} - ID: ${ecu?.ecuId || ecu?.ecuIdHex || 'unknown'}, Codes: ${JSON.stringify(codes)}`)
           codes.forEach((code: string) => {
             if (typeof code === 'string' && code.trim()) {
               allCodes.push(code.trim().toUpperCase())
@@ -701,7 +719,7 @@ class JMBluetoothService {
         })
         
         if (allCodes.length > 0) {
-          logger.warn('DTC codes detected in error data:', {
+          logger.warn('🚨 JMBluetoothService: DTC codes detected in error data:', {
             codes: allCodes,
             ecuCount: ecuList.length,
             hasP0195: allCodes.includes('P0195'),
@@ -709,12 +727,17 @@ class JMBluetoothService {
           })
           
           if (allCodes.includes('P0195')) {
-            logger.warn('P0195 DETECTED - Engine Oil Temperature Sensor "A" Circuit Malfunction', {
+            logger.warn('🔍 JMBluetoothService: P0195 DETECTED - Engine Oil Temperature Sensor "A" Circuit Malfunction', {
               code: 'P0195',
               description: 'Engine Oil Temperature Sensor "A" Circuit Malfunction',
               timestamp: new Date().toISOString(),
             })
           }
+        } else {
+          logger.warn('⚠️ JMBluetoothService: onObdErrorDataReceived event has no DTC codes', {
+            ecuListLength: ecuList.length,
+            ecuCount: data?.ecuCount,
+          })
         }
       }
       

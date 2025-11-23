@@ -18,7 +18,8 @@ const ORANGE_COLOR = '#FF9500' // Orange color for DTC indicator
 export const DtcIndicator: React.FC = () => {
   const { recentMalfunctions } = useObdData()
   
-  // Count unique DTC codes (one malfunction record can have multiple codes)
+  // Count DTC codes (each record now contains one code, so count = records.length)
+  // But we sum codes.length for backward compatibility
   const activeDtcCount = recentMalfunctions.reduce((count, record) => {
     return count + record.codes.length
   }, 0)
@@ -31,10 +32,9 @@ export const DtcIndicator: React.FC = () => {
     router.push('/dtc-history' as any)
   }
 
-  // Only show if there are active DTCs
-  if (activeDtcCount === 0) {
-    return null
-  }
+  // Always show icon, but use different styling when no DTCs
+  const hasActiveDtcs = activeDtcCount > 0
+  const iconColor = hasActiveDtcs ? ORANGE_COLOR : colors.palette.neutral500 || '#6B7280'
 
   return (
     <TouchableOpacity
@@ -43,8 +43,8 @@ export const DtcIndicator: React.FC = () => {
       activeOpacity={0.7}
     >
       <View style={styles.iconContainer}>
-        <AlertTriangle size={24} color={ORANGE_COLOR} strokeWidth={2} />
-        {activeDtcCount > 0 && (
+        <AlertTriangle size={24} color={iconColor} strokeWidth={2} />
+        {hasActiveDtcs && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
               {activeDtcCount > 99 ? '99+' : activeDtcCount}

@@ -58,7 +58,7 @@ const SYNC_STRATEGY: Record<
   },
 }
 
-interface MalfunctionRecord {
+export interface MalfunctionRecord {
   id: string
   timestamp: Date
   ecuId: string
@@ -1594,6 +1594,13 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       },
     )
 
+    // Log when listener is registered
+    console.log('📡 OBD Data Context: Registering onObdErrorDataReceived listener', {
+      timestamp: new Date().toISOString(),
+      isAuthenticated,
+      canUseELD,
+    })
+
     const obdErrorDataListener = JMBluetoothService.addEventListener(
       'onObdErrorDataReceived',
       (errorData: any) => {
@@ -1601,14 +1608,63 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // Log event received immediately
           console.log('🚨 OBD Data Context: onObdErrorDataReceived event received', {
             timestamp: new Date().toISOString(),
+            hasData: !!errorData,
+            dataType: typeof errorData,
             hasEcuList: Array.isArray(errorData?.ecuList),
             ecuCount: Array.isArray(errorData?.ecuList) ? errorData.ecuList.length : 0,
+            ecuCountField: errorData?.ecuCount,
+            dataKeys: errorData ? Object.keys(errorData) : [],
             rawData: errorData,
           })
 
+          // Extract CAN errors and OBD-II DTCs from new payload structure
+          const canErrorCodes = Array.isArray(errorData?.canErrorCodes) ? errorData.canErrorCodes : []
+          const obdDtcCodes = Array.isArray(errorData?.obdDtcCodes) ? errorData.obdDtcCodes : []
           const ecuList = Array.isArray(errorData?.ecuList) ? errorData.ecuList : []
           
-          // Extract all DTC codes from raw data for logging
+          // Log CAN errors with clear distinction
+          if (canErrorCodes.length > 0) {
+            console.log(`═══════════════════════════════════════════════════════`)
+            console.log(`🔍 OBD Data Context: CAN Bus Error Codes Found: ${canErrorCodes.length}`)
+            console.log(`⚠️ NOTE: CAN errors are communication errors, NOT OBD-II diagnostic codes`)
+            console.log(`⚠️ NOTE: CAN errors will appear even when OBD-II DTCs are cleared`)
+            console.log(`⚠️ NOTE: These are separate from diagnostic trouble codes (P0XXX, etc.)`)
+            console.log(`═══════════════════════════════════════════════════════`)
+            console.log(`CAN Error Codes: ${JSON.stringify(canErrorCodes.map((c: any) => c.code))}`)
+            canErrorCodes.forEach((canError: any) => {
+              console.log(`  - ${canError.code}: ${canError.description || 'CAN bus error'}`)
+            })
+          }
+          
+          // Log OBD-II DTCs with clear distinction
+          if (obdDtcCodes.length > 0) {
+            console.log(`═══════════════════════════════════════════════════════`)
+            console.log(`✅ OBD Data Context: OBD-II DTC Codes Found: ${obdDtcCodes.length}`)
+            console.log(`✅ NOTE: These are actual diagnostic trouble codes (can be cleared)`)
+            console.log(`═══════════════════════════════════════════════════════`)
+            console.log(`OBD-II DTC Codes: ${JSON.stringify(obdDtcCodes.map((c: any) => c.code))}`)
+            obdDtcCodes.forEach((dtc: any) => {
+              console.log(`  - ${dtc.code}: ${dtc.description || 'OBD-II DTC'}`)
+            })
+            
+            // Detect P0195 specifically
+            const p0195 = obdDtcCodes.find((dtc: any) => dtc.code === 'P0195')
+            if (p0195) {
+              console.log('🔍 OBD Data Context: P0195 DETECTED - Engine Oil Temperature Sensor "A" Circuit Malfunction')
+              console.log('🔍 P0195 Details:', {
+                code: 'P0195',
+                description: p0195.description || 'Engine Oil Temperature Sensor "A" Circuit Malfunction',
+                system: 'Powertrain',
+                timestamp: new Date().toISOString(),
+              })
+            }
+          } else if (canErrorCodes.length > 0) {
+            console.log(`ℹ️ OBD Data Context: Only CAN errors detected - no OBD-II DTCs present`)
+            console.log(`ℹ️ This is normal if DTCs were cleared in simulator (D3→D0)`)
+            console.log(`ℹ️ CAN errors are separate and will continue to appear`)
+          }
+          
+          // Extract all codes from ecuList for backward compatibility
           const allRawCodes: string[] = []
           ecuList.forEach((ecu: any, index: number) => {
             const codes = Array.isArray(ecu?.codes) ? ecu.codes : []
@@ -1620,33 +1676,53 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             console.log(`📋 OBD Data Context: ECU ${index} - ID: ${ecu?.ecuId || ecu?.ecuIdHex || 'unknown'}, Codes: ${JSON.stringify(codes)}`)
           })
 
-          if (allRawCodes.length > 0) {
-            console.log(`⚠️ OBD Data Context: DTC Codes Found: ${JSON.stringify(allRawCodes)}`)
-            
-            // Detect P0195 specifically
-            if (allRawCodes.includes('P0195')) {
-              console.log('🔍 OBD Data Context: P0195 DETECTED - Engine Oil Temperature Sensor "A" Circuit Malfunction')
-              console.log('🔍 P0195 Details:', {
-                code: 'P0195',
-                description: 'Engine Oil Temperature Sensor "A" Circuit Malfunction',
-                system: 'Powertrain',
-                timestamp: new Date().toISOString(),
-                ecuList: ecuList.map((ecu: any) => ({
-                  ecuId: ecu?.ecuId,
-                  ecuIdHex: ecu?.ecuIdHex,
-                  codes: ecu?.codes,
-                })),
-              })
-            }
-          }
-
           if (!driverProfile?.driver_id) {
             console.warn('⚠️ OBD Data Context: Malfunction event received without driver profile')
             return
           }
-          if (ecuList.length === 0) {
-            console.log('ℹ️ OBD Data Context: Malfunction event had no ECU entries, skipping')
+          
+          // Check if we have any codes to process (from new structure or legacy ecuList)
+          const hasNewStructureCodes = canErrorCodes.length > 0 || obdDtcCodes.length > 0
+          const hasLegacyCodes = ecuList.length > 0 && allRawCodes.length > 0
+          
+          if (!hasNewStructureCodes && !hasLegacyCodes) {
+            console.log('ℹ️ OBD Data Context: Malfunction event had no error codes, skipping')
             return
+          }
+          
+          // Use new structure codes if available, otherwise fall back to legacy ecuList
+          let codesToProcess: Array<{ code: string; type: string; description?: string }> = []
+          
+          if (hasNewStructureCodes) {
+            // Process CAN errors and OBD-II DTCs from new structure
+            canErrorCodes.forEach((canError: any) => {
+              codesToProcess.push({
+                code: canError.code,
+                type: 'can_error',
+                description: canError.description,
+              })
+            })
+            obdDtcCodes.forEach((dtc: any) => {
+              codesToProcess.push({
+                code: dtc.code,
+                type: 'obd_dtc',
+                description: dtc.description,
+              })
+            })
+          } else if (hasLegacyCodes) {
+            // Fall back to legacy ecuList structure
+            ecuList.forEach((ecu: any) => {
+              const codes = Array.isArray(ecu?.codes) ? ecu.codes : []
+              codes.forEach((code: string) => {
+                if (typeof code === 'string' && code.trim()) {
+                  codesToProcess.push({
+                    code: code.trim().toUpperCase(),
+                    type: 'unknown', // Legacy structure doesn't specify type
+                    description: undefined,
+                  })
+                }
+              })
+            })
           }
 
           const incomingFaultDeviceId = resolveDeviceId(errorData)
@@ -1661,46 +1737,108 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             : Date.now()
           const timestamp = Number.isFinite(eventTimestamp) ? new Date(eventTimestamp) : new Date()
 
-          const malfunctionRecords = (ecuList as Array<any>)
-            .map<MalfunctionRecord | null>((ecu, index: number) => {
+          // Process codes into malfunction records
+          // Create a SEPARATE record for EACH code (not grouped) so all codes appear in the list
+          const canErrorCodesList = codesToProcess.filter((c) => c.type === 'can_error')
+          const obdDtcCodesList = codesToProcess.filter((c) => c.type === 'obd_dtc' || c.type === 'unknown')
+          
+          // Create malfunction records - use default ECU if not provided
+          const defaultEcuId = '2016'
+          const defaultEcuIdHex = '0x7E0'
+          
+          const malfunctionRecords: MalfunctionRecord[] = []
+          
+          // Process OBD-II DTCs - create ONE record per code
+          obdDtcCodesList.forEach((codeInfo, index) => {
+            const decoded = decodeObdCode(codeInfo.code)
+            // Use provided description if available, otherwise use decoded description
+            if (codeInfo.description && codeInfo.description !== decoded.faultDescription) {
+              decoded.faultDescription = codeInfo.description
+            }
+            console.log(`🔧 OBD Data Context: Decoded OBD-II DTC: ${decoded.code}`, {
+              system: decoded.system,
+              subsystem: decoded.subsystemDescription,
+              description: decoded.faultDescription,
+              isGeneric: decoded.isGeneric,
+            })
+            
+            // Create separate record for each code
+            malfunctionRecords.push({
+              id: `${timestamp.getTime()}-${defaultEcuId}-obd-${codeInfo.code}-${index}`,
+              timestamp,
+              ecuId: defaultEcuId,
+              ecuIdHex: defaultEcuIdHex,
+              codes: [decoded], // Single code per record
+            })
+          })
+          
+          // Process CAN errors - create ONE record per code
+          canErrorCodesList.forEach((codeInfo, index) => {
+            // For CAN errors, create a proper ObdCodeDetails structure
+            const decoded: ObdCodeDetails = {
+              code: codeInfo.code,
+              system: 'CAN Bus',
+              systemDescription: 'Controller Area Network bus communication system',
+              isGeneric: true,
+              genericDescription: 'CAN bus error frame',
+              subsystem: 'Communication',
+              subsystemDescription: 'Bus communication and protocol',
+              faultDescription: codeInfo.description || 'CAN bus error',
+            }
+            console.log(`🔧 OBD Data Context: CAN Error: ${decoded.code} - ${decoded.faultDescription}`)
+            
+            // Create separate record for each code
+            malfunctionRecords.push({
+              id: `${timestamp.getTime()}-${defaultEcuId}-can-${codeInfo.code}-${index}`,
+              timestamp,
+              ecuId: defaultEcuId,
+              ecuIdHex: defaultEcuIdHex,
+              codes: [decoded], // Single code per record
+            })
+          })
+          
+          // Fallback to legacy ecuList processing if no new structure codes
+          // Create ONE record per code (not grouped by ECU)
+          if (malfunctionRecords.length === 0 && ecuList.length > 0) {
+            ecuList.forEach((ecu: any, ecuIndex: number) => {
               const codeList = Array.isArray(ecu?.codes)
                 ? (ecu.codes as string[]).filter((code) => typeof code === 'string' && code.trim() !== '')
                 : []
+              
               if (codeList.length === 0) {
-                return null
+                return
               }
-
-              const codes = codeList.map((code) => {
-                const decoded = decodeObdCode(code)
-                // Log each decoded code
-                console.log(`🔧 OBD Data Context: Decoded DTC Code: ${decoded.code}`, {
-                  system: decoded.system,
-                  subsystem: decoded.subsystemDescription,
-                  description: decoded.faultDescription,
-                  isGeneric: decoded.isGeneric,
-                })
-                return decoded
-              })
 
               const ecuIdHex =
                 typeof ecu?.ecuIdHex === 'string' && ecu.ecuIdHex.trim().length > 0
                   ? ecu.ecuIdHex
                   : typeof ecu?.ecuId === 'string' && ecu.ecuId.trim().length > 0
                     ? `0x${parseInt(ecu.ecuId, 10).toString(16).toUpperCase()}`
-                    : `ECU_${index}`
+                    : `ECU_${ecuIndex}`
 
               const ecuId =
                 typeof ecu?.ecuId === 'string' && ecu.ecuId.trim().length > 0 ? ecu.ecuId : ecuIdHex
 
-              return {
-                id: `${timestamp.getTime()}-${ecuId}-${index}`,
-                timestamp,
-                ecuId,
-                ecuIdHex,
-                codes,
-              }
+              // Create a separate record for EACH code
+              codeList.forEach((code: string, codeIndex: number) => {
+                const decoded = decodeObdCode(code)
+                console.log(`🔧 OBD Data Context: Decoded DTC Code: ${decoded.code}`, {
+                  system: decoded.system,
+                  subsystem: decoded.subsystemDescription,
+                  description: decoded.faultDescription,
+                  isGeneric: decoded.isGeneric,
+                })
+                
+                malfunctionRecords.push({
+                  id: `${timestamp.getTime()}-${ecuId}-${ecuIndex}-${code}-${codeIndex}`,
+                  timestamp,
+                  ecuId,
+                  ecuIdHex,
+                  codes: [decoded], // Single code per record
+                })
+              })
             })
-            .filter((record): record is MalfunctionRecord => record !== null)
+          }
 
           if (malfunctionRecords.length === 0) {
             console.log('ℹ️ OBD Data Context: Malfunction event had no valid codes after filtering')
@@ -1708,9 +1846,77 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
 
           setRecentMalfunctions((prev) => {
-            const combined = [...prev, ...malfunctionRecords]
-            return combined.slice(-20)
+            // Group by code: if same code exists, update timestamp instead of creating duplicate
+            const codeMap = new Map<string, MalfunctionRecord>()
+            
+            // Add existing records to map (keyed by code)
+            prev.forEach((record) => {
+              const code = record.codes[0]?.code
+              if (code) {
+                codeMap.set(code, record)
+              }
+            })
+            
+            // Add/update new records
+            malfunctionRecords.forEach((newRecord) => {
+              const code = newRecord.codes[0]?.code
+              if (code) {
+                // If code already exists, update timestamp (group same codes together)
+                if (codeMap.has(code)) {
+                  const existing = codeMap.get(code)!
+                  // Update timestamp to most recent occurrence
+                  codeMap.set(code, {
+                    ...existing,
+                    timestamp: newRecord.timestamp, // Update to latest timestamp
+                  })
+                  console.log(`🔄 OBD Data Context: Updated existing code ${code} timestamp (grouped)`)
+                } else {
+                  // New unique code - add it
+                  codeMap.set(code, newRecord)
+                }
+              }
+            })
+            
+            // Convert map back to array and sort by timestamp (newest first)
+            const uniqueRecords = Array.from(codeMap.values()).sort(
+              (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+            )
+            
+            // Limit to 50 unique codes to save backend/DB space
+            // This prevents repeated CAN errors from flooding the database
+            const limitedRecords = uniqueRecords.slice(0, 50)
+            
+            if (uniqueRecords.length > 50) {
+              console.warn(
+                `⚠️ OBD Data Context: Limiting to 50 unique codes (had ${uniqueRecords.length}). Oldest codes removed.`
+              )
+            }
+            
+            console.log(
+              `📊 OBD Data Context: Malfunction records updated: ${malfunctionRecords.length} new, ${uniqueRecords.length} total unique codes (limited to ${limitedRecords.length})`
+            )
+            
+            return limitedRecords
           })
+
+          // Deduplicate codes before sending to backend to save DB space
+          // Group by code - only send unique codes, not duplicates
+          const uniqueCodesMap = new Map<string, MalfunctionRecord>()
+          malfunctionRecords.forEach((record) => {
+            const code = record.codes[0]?.code
+            if (code && !uniqueCodesMap.has(code)) {
+              // Only add if we haven't seen this code in this batch
+              uniqueCodesMap.set(code, record)
+            }
+          })
+          
+          const uniqueRecordsForBackend = Array.from(uniqueCodesMap.values())
+          
+          if (malfunctionRecords.length > uniqueRecordsForBackend.length) {
+            console.log(
+              `🔄 OBD Data Context: Deduplicated ${malfunctionRecords.length} records to ${uniqueRecordsForBackend.length} unique codes for backend sync`
+            )
+          }
 
           // Use handleDtcData() to transform DTC codes to payload format (same as handleData)
           // Create payload for each ECU record using handleDtcData transformation
@@ -1719,8 +1925,8 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
               ? { latitude: errorData.latitude, longitude: errorData.longitude }
               : undefined
 
-          // Build fault codes payload for combined payload structure
-          const faultCodesPayload = malfunctionRecords.map((record) => ({
+          // Build fault codes payload for combined payload structure (using deduplicated records)
+          const faultCodesPayload = uniqueRecordsForBackend.map((record) => ({
             ecu_id: record.ecuId,
             ecu_id_hex: record.ecuIdHex,
             codes: record.codes.map((code) => code.code),
@@ -1729,7 +1935,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           // Use handleDtcData to create payload structure (for first ECU, then combine others)
           // This ensures same format as handleData for consistent backend sync
-          const firstRecord = malfunctionRecords[0]
+          const firstRecord = uniqueRecordsForBackend[0]
           if (firstRecord) {
             const dtcCodes = firstRecord.codes.map((code) => code.code)
             const basePayload = handleDtcData(
@@ -1743,10 +1949,10 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             )
 
             // Add additional ECUs to fault_codes array if multiple ECUs present
-            if (malfunctionRecords.length > 1) {
+            if (uniqueRecordsForBackend.length > 1) {
               basePayload.fault_codes = faultCodesPayload
               // Also update raw_data to include all ECUs
-              basePayload.raw_data.faultCodes = malfunctionRecords.map((record) => ({
+              basePayload.raw_data.faultCodes = uniqueRecordsForBackend.map((record) => ({
                 ecuId: record.ecuId,
                 ecuIdHex: record.ecuIdHex,
                 codes: record.codes.map((code) => code.code),
@@ -1766,21 +1972,24 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             dataBufferRef.current.push(basePayload)
           }
           
-          // Enhanced logging with all DTC codes
-          const allCodes = malfunctionRecords.flatMap((record) => record.codes.map((c) => c.code))
+          // Enhanced logging with all DTC codes (using deduplicated records)
+          const allCodes = uniqueRecordsForBackend.flatMap((record) => record.codes.map((c) => c.code))
           console.log(
-            `🚨 OBD Data Context: Recorded malfunction event with ${faultCodesPayload.length} ECU entries`,
+            `🚨 OBD Data Context: Recorded malfunction event: ${malfunctionRecords.length} new codes → ${uniqueRecordsForBackend.length} unique codes sent to backend`,
             {
+              newCodes: malfunctionRecords.length,
+              uniqueCodes: uniqueRecordsForBackend.length,
               totalCodes: allCodes.length,
               codes: allCodes,
               ecuCount: faultCodesPayload.length,
               hasP0195: allCodes.includes('P0195'),
+              deduplicated: malfunctionRecords.length > uniqueRecordsForBackend.length,
             },
           )
           
           // Log P0195 again if present in final records
           if (allCodes.includes('P0195')) {
-            const p0195Record = malfunctionRecords.find((record) =>
+            const p0195Record = uniqueRecordsForBackend.find((record) =>
               record.codes.some((c) => c.code === 'P0195'),
             )
             if (p0195Record) {

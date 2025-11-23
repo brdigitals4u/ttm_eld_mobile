@@ -119,7 +119,7 @@ export const DtcHistoryScreen: React.FC = () => {
         <Text style={styles.headerTitle}>Diagnostic Trouble Codes</Text>
         <TouchableOpacity
           onPress={() => setShowFilters(!showFilters)}
-          style={styles.filterButton}
+          style={styles.headerFilterButton}
         >
           <Filter size={24} color={colors.palette.neutral900 || '#111827'} />
         </TouchableOpacity>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  filterButton: {
+  headerFilterButton: {
     padding: 8,
   },
   searchContainer: {
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   filtersContainer: {
-    backgroundColor: colors.palette.neutral50 || '#FAFAFA',
+    backgroundColor: colors.palette.neutral100 || '#FAFAFA',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
