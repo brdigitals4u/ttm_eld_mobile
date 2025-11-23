@@ -33,7 +33,6 @@ export default function Index() {
         }}
       >
         <ActivityIndicator size="large" color={theme.colors.tint} />
-        <BetaBanner />
       </View>
     )
   }

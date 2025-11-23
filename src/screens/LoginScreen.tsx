@@ -186,7 +186,6 @@ export const LoginScreen: React.FC = () => {
             />
             <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
             <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
-            <BetaBanner />
           </View>
 
           {/* Form Container */}

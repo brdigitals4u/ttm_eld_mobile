@@ -50,7 +50,6 @@ export const WelcomeScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.brandText}>TTM247</Text>
-        <BetaBanner />
       </View>
 
       {/* Main Content */}

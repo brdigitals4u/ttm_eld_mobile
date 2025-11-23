@@ -29,9 +29,6 @@ export default function Layout() {
   return (
     <Tabs>
       <TabSlot /> {/* Renders the selected screen */}
-      <View style={styles.betaBadgeContainer}>
-        <BetaBanner />
-      </View>
       <TabList style={styles.tabBarContainer}>
         <TabTrigger name="dashboard" href="/dashboard" asChild>
           <CustomTabButton icon="menu" label={translate("tabs.home" as any)} />
