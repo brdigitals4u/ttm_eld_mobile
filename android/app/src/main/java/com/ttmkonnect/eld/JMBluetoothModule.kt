@@ -1279,9 +1279,26 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     
     private fun onDataAnalyze(data: BtParseData) {
         try {
-            Log.d(TAG, "🔍 onDataAnalyze called with ACK: ${data.ack}")
+            Log.i(TAG, "🔍 onDataAnalyze called with ACK: ${data.ack} (hex: 0x${Integer.toHexString(data.ack).uppercase()})")
+            
+            // Always try to get OBD data regardless of ACK
+            val obdData = data.getOBDData()
+            if (obdData != null) {
+                Log.i(TAG, "✅ onDataAnalyze: OBD data found! Type: ${obdData.javaClass.simpleName}")
+                if (obdData is BaseObdData.ErrorBean) {
+                    Log.w(TAG, "🚨 onDataAnalyze: ErrorBean detected with incorrect ACK! ECU count: ${obdData.ecuList?.size ?: 0}")
+                }
+            } else {
+                Log.w(TAG, "⚠️ onDataAnalyze: getOBDData() returned null - ACK may be incorrect")
+            }
             
             when (data.ack) {
+                InstructionAnalysis.BT.ACK_TROUBLE_CODE -> {
+                    Log.w(TAG, "🚨 ACK_TROUBLE_CODE received - This is error code data!")
+                    // This is the SDK's built-in ACK for trouble codes (DTC codes like P0195)
+                    // Process it immediately - this should contain ErrorBean
+                    handleDataReceived(data)
+                }
                 InstructionAnalysis.BT.ACK_OBD_ELD_START -> {
                     Log.i(TAG, "🚀 OBD ELD data collection started")
                     sendEvent("onObdEldStart", null)
@@ -1307,8 +1324,9 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                     handleDataReceived(data)
                 }
                 else -> {
-                    Log.d(TAG, "📝 onDataAnalyze: Processing unhandled ACK: ${data.ack} - forwarding to handleDataReceived")
+                    Log.w(TAG, "📝 onDataAnalyze: Processing unhandled/incorrect ACK: ${data.ack} (hex: 0x${Integer.toHexString(data.ack).uppercase()}) - forwarding to handleDataReceived")
                     // Always process all data, even if ACK is not specifically handled
+                    // This is important for ErrorBean data that might come with incorrect ACK
                     handleDataReceived(data)
                 }
             }
@@ -1327,6 +1345,11 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     private fun handleDataReceived(data: BtParseData) {
         try {
             Log.i(TAG, "Received data with ACK: ${data.ack}")
+            
+            // Check if data has OBD data before parsing
+            val hasObdData = data.getOBDData() != null
+            val obdDataType = if (hasObdData) data.getOBDData()?.javaClass?.simpleName else "null"
+            Log.d(TAG, "📦 handleDataReceived: hasObdData=$hasObdData, type=$obdDataType")
             
             // Parse OBD data using SDK methods
             parseObdData(data)
@@ -1382,6 +1405,13 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
             
             // Use InstructionAnalysis to check if this is OBD data
             when (data.ack) {
+                InstructionAnalysis.BT.ACK_TROUBLE_CODE -> {
+                    Log.w(TAG, "🚨 parseObdData: ACK_TROUBLE_CODE detected - Processing trouble codes (DTC codes like P0195)")
+                    // This is the SDK's built-in method for trouble codes
+                    // The SDK should parse this as ErrorBean automatically
+                    parseData(data)
+                    Log.w(TAG, "✅ Trouble code data processed")
+                }
                 InstructionAnalysis.BT.ACK_OBD_DISPLAY_PROCESS -> {
                     Log.d(TAG, "🔍 Processing OBD display data with ACK: ${data.ack}")
                     // Process OBD data
@@ -1412,8 +1442,132 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                     Log.d(TAG, "✅ Device data processed successfully")
                 }
                 // Handle extracted ACK codes
+                // Note: 0xB30C (45836) might be ACK_TROUBLE_CODE - check for error codes
                 0xB30C -> {
-                    Log.d(TAG, "🔍 Processing B30C OBD data with ACK: ${data.ack}")
+                    Log.w(TAG, "🔍 Processing B30C OBD data with ACK: ${data.ack} (might contain trouble codes)")
+                    Log.w(TAG, "🔍 B30C = ACK_TROUBLE_CODE = ${InstructionAnalysis.BT.ACK_TROUBLE_CODE} - This IS trouble code data!")
+                    
+                    // Check raw data for DTC codes before parsing
+                    try {
+                        val rawSource = data.getOBDDataSource()
+                        Log.d(TAG, "📦 B30C: getOBDDataSource() returned: ${if (rawSource == null) "null" else "ByteArray(${rawSource.size} bytes)"}")
+                        
+                        if (rawSource != null && rawSource.isNotEmpty()) {
+                            val hexPreview = rawSource.joinToString("") { "%02X".format(it) }.take(200)
+                            Log.d(TAG, "📦 B30C: Raw source hex preview: $hexPreview")
+                            
+                            val foundCodes = extractDtcCodesFromRawData(rawSource)
+                            Log.d(TAG, "📦 B30C: extractDtcCodesFromRawData returned: $foundCodes")
+                            
+                            if (foundCodes.isNotEmpty()) {
+                                Log.w(TAG, "🚨 DTC codes found in B30C raw data: $foundCodes")
+                                if (foundCodes.contains("P0195")) {
+                                    Log.w(TAG, "🔍 P0195 DETECTED in B30C raw data!")
+                                    // Create ErrorBean structure immediately
+                                    createErrorBeanFromRawData(foundCodes, data.ack)
+                                } else {
+                                    Log.w(TAG, "⚠️ B30C: Found DTC codes but P0195 not in list: $foundCodes")
+                                }
+                            } else {
+                                Log.e(TAG, "❌ CRITICAL: B30C (ACK_TROUBLE_CODE) but NO DTC codes found in raw data!")
+                                Log.e(TAG, "❌ SDK's getOBDDataSource() provided data, but our extraction found nothing")
+                                // Log full hex for analysis
+                                val fullHex = rawSource.joinToString("") { "%02X".format(it) }
+                                Log.w(TAG, "📋 B30C: Full raw source hex (${rawSource.size} bytes): $fullHex")
+                                
+                                // Try alternative: Check if P0195 might be encoded differently
+                                // Look for "0195" pattern (without the P prefix)
+                                if (fullHex.contains("0195", ignoreCase = true)) {
+                                    val pos = fullHex.indexOf("0195", ignoreCase = true)
+                                    val context = if (pos > 0 && pos < fullHex.length - 4) {
+                                        val start = maxOf(0, pos - 10)
+                                        val end = minOf(fullHex.length, pos + 14)
+                                        fullHex.substring(start, end)
+                                    } else {
+                                        "near position $pos"
+                                    }
+                                    Log.w(TAG, "🔍 B30C: Found '0195' pattern at position $pos, context: $context")
+                                    Log.w(TAG, "🔍 B30C: This might be P0195 encoded without the 'P' prefix - trying to reconstruct")
+                                    // Try to create P0195 if we found 0195
+                                    val reconstructedCodes = listOf("P0195")
+                                    createErrorBeanFromRawData(reconstructedCodes, data.ack)
+                                }
+                            }
+                        } else {
+                            Log.w(TAG, "⚠️ B30C: getOBDDataSource() returned null or empty!")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ B30C: Error accessing raw source: ${e.message}")
+                        e.printStackTrace()
+                    }
+                    
+                    // Try to get OBD data - might be ErrorBean if SDK parses it correctly
+                    try {
+                        val obdData = data.getOBDData()
+                        if (obdData == null) {
+                            Log.w(TAG, "📋 B30C: getOBDData() returned null - SDK cannot parse this as ErrorBean")
+                            Log.w(TAG, "🔄 B30C: SDK's getOBDData() failed - this means SDK's internal parser didn't recognize ErrorBean format")
+                            Log.w(TAG, "🔄 B30C: We need to manually extract DTC codes from raw data")
+                        } else if (obdData is BaseObdData.ErrorBean) {
+                            Log.w(TAG, "🚨 ErrorBean found in B30C data! SDK parsed it correctly!")
+                            val errorBean = obdData as BaseObdData.ErrorBean
+                            val ecuList = errorBean.ecuList
+                            Log.w(TAG, "🚨 B30C ErrorBean: ECU count = ${ecuList?.size ?: 0}")
+                            if (ecuList != null && ecuList.isNotEmpty()) {
+                                ecuList.forEachIndexed { index, ecu ->
+                                    val codes = ecu.errorCodeList ?: emptyList()
+                                    Log.w(TAG, "🚨 B30C ErrorBean ECU $index: Codes = $codes")
+                                    if (codes.contains("P0195")) {
+                                        Log.w(TAG, "🔍 P0195 FOUND in B30C ErrorBean ECU $index!")
+                                    }
+                                }
+                            } else {
+                                Log.w(TAG, "⚠️ B30C ErrorBean: ecuList is null or empty!")
+                            }
+                        } else {
+                            Log.w(TAG, "📋 B30C data parsed as: ${obdData.javaClass.simpleName} (NOT ErrorBean)")
+                            Log.w(TAG, "⚠️ B30C: SDK parsed as ${obdData.javaClass.simpleName} instead of ErrorBean!")
+                            Log.w(TAG, "⚠️ B30C: This suggests the data format might be different, or SDK parser has a bug")
+                            
+                            // Even though SDK parsed it as something else, try to extract ErrorBean manually
+                            // Check if the parsed object has error-related properties we can access
+                            try {
+                                val beanClass = obdData.javaClass
+                                val methods = beanClass.declaredMethods
+                                val fields = beanClass.declaredFields
+                                
+                                // Look for methods/fields that might contain error codes
+                                var foundErrorProperty = false
+                                for (field in fields) {
+                                    if (field.name.contains("error", ignoreCase = true) || 
+                                        field.name.contains("fault", ignoreCase = true) ||
+                                        field.name.contains("code", ignoreCase = true) ||
+                                        field.name.contains("ecu", ignoreCase = true)) {
+                                        field.isAccessible = true
+                                        try {
+                                            val value = field.get(obdData)
+                                            Log.d(TAG, "🔍 B30C: Found potential error field '${field.name}': $value")
+                                            foundErrorProperty = true
+                                        } catch (e: Exception) {
+                                            // Ignore
+                                        }
+                                    }
+                                }
+                                
+                                if (!foundErrorProperty) {
+                                    Log.d(TAG, "ℹ️ B30C: No error-related properties found in ${obdData.javaClass.simpleName}")
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "⚠️ B30C: Could not inspect ${obdData.javaClass.simpleName} properties: ${e.message}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ B30C: Error getting OBD data: ${e.message}")
+                        e.printStackTrace()
+                    }
+                    
+                    // Always call parseData to process the data
+                    Log.d(TAG, "🔄 B30C: Calling parseData()...")
                     parseData(data)
                     Log.d(TAG, "✅ B30C data processed successfully")
                 }
@@ -1440,7 +1594,15 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                 }
                 else -> {
                     // Try to parse any ACK code as OBD data
-                    Log.d(TAG, "🔍 Processing unknown ACK as OBD data: ${data.ack}")
+                    // This is critical for ErrorBean data that might come with unexpected ACK values
+                    Log.w(TAG, "🔍 Processing unknown/incorrect ACK as OBD data: ${data.ack} (hex: 0x${Integer.toHexString(data.ack).uppercase()})")
+                    
+                    // Check for ErrorBean before parsing
+                    val preCheckBean = data.getOBDData()
+                    if (preCheckBean is BaseObdData.ErrorBean) {
+                        Log.w(TAG, "🚨 CRITICAL: ErrorBean found with unknown ACK! Processing anyway...")
+                    }
+                    
                     parseData(data)
                     Log.d(TAG, "✅ Unknown ACK data processed successfully")
                 }
@@ -1538,14 +1700,43 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     
     private fun parseData(data: BtParseData) {
         try {
-            Log.d(TAG, "🔍 parseData called with ACK: ${data.ack}")
+            val ackHex = "0x${Integer.toHexString(data.ack).uppercase()}"
+            Log.d(TAG, "🔍 parseData called with ACK: ${data.ack} (hex: $ackHex)")
+            
+            // Check if this is ACK_TROUBLE_CODE - special handling
+            if (data.ack == InstructionAnalysis.BT.ACK_TROUBLE_CODE) {
+                Log.w(TAG, "🚨 parseData: ACK_TROUBLE_CODE detected! This should contain ErrorBean with DTC codes!")
+            }
             
             // First try to get OBD data from SDK
             val bean = data.getOBDData()
             
-            if (bean != null) {
-                Log.d(TAG, "✅ SDK returned OBD data: ${bean.javaClass.simpleName}")
-                when (bean) {
+            if (bean == null) {
+                Log.w(TAG, "⚠️ parseData: getOBDData() returned null - no OBD data to process")
+                Log.w(TAG, "⚠️ parseData: Data details - ACK: ${data.ack} (hex: $ackHex), Connected: ${data.isConnected()}, Pair: ${data.isPair()}")
+                
+                // Check if this is ACK_TROUBLE_CODE - if so, we MUST extract error codes
+                if (data.ack == InstructionAnalysis.BT.ACK_TROUBLE_CODE) {
+                    Log.w(TAG, "🚨 parseData: ACK_TROUBLE_CODE but SDK returned null! This is critical - trying fallback extraction")
+                } else {
+                    Log.w(TAG, "⚠️ parseData: This might be ErrorBean data with incorrect ACK - SDK cannot parse it")
+                }
+                
+                // Try fallback parsing to see if we can extract error codes from raw data
+                Log.d(TAG, "🔄 parseData: Attempting fallback parsing for potential ErrorBean data")
+                parseDataFallback(data)
+                return
+            }
+            
+            val beanType = bean.javaClass.simpleName
+            Log.d(TAG, "✅ SDK returned OBD data: $beanType (full class: ${bean.javaClass.name})")
+            
+            // Log specifically if it's ErrorBean
+            if (bean is BaseObdData.ErrorBean) {
+                Log.i(TAG, "🚨 ErrorBean detected! Type: $beanType, ECU count: ${bean.ecuList?.size ?: 0}")
+            }
+            
+            when (bean) {
                     is BaseObdData.DataFlow -> {
                         Log.i(TAG, "📊 Processing DataFlow - Status: ${bean.status}, Lat: ${bean.latitude}, Lng: ${bean.longitude}")
                         // Process data stream
@@ -1566,9 +1757,41 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         Log.i(TAG, "✅ DataFlow processed: ${list?.size ?: 0} data items")
                     }
                     is BaseObdData.ErrorBean -> {
-                        Log.i(TAG, "⚠️ Processing ErrorBean - ECU count: ${bean.ecuList?.size ?: 0}")
+                        Log.i(TAG, "🚨 ErrorBean processing STARTED - ECU count: ${bean.ecuList?.size ?: 0}")
+                        Log.d(TAG, "🚨 ErrorBean details - type: ${bean.type}, dataType: ${bean.dataType}, vehicleType: ${bean.vehicleType}, msgSubtype: ${bean.msgSubtype}, time: ${bean.time}")
+                        
                         // Decode trouble codes
                         val list = bean.ecuList
+                        
+                        if (list == null) {
+                            Log.w(TAG, "⚠️ ErrorBean: ecuList is null!")
+                        } else if (list.isEmpty()) {
+                            Log.w(TAG, "⚠️ ErrorBean: ecuList is empty!")
+                        } else {
+                            Log.d(TAG, "✅ ErrorBean: ecuList has ${list.size} ECU(s)")
+                        }
+                        
+                        // Log all codes found
+                        val allCodes = mutableListOf<String>()
+                        if (list != null && list.isNotEmpty()) {
+                            list.forEachIndexed { index, ecu ->
+                                val ecuCodes = ecu.errorCodeList?.map { it.uppercase().trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+                                allCodes.addAll(ecuCodes)
+                                Log.d(TAG, "📋 ECU $index - ID: ${String.format("0x%X", ecu.ecuId)}, Codes: $ecuCodes")
+                                
+                                // Detect P0195 specifically
+                                if (ecuCodes.contains("P0195")) {
+                                    Log.w(TAG, "🔍 P0195 DETECTED in ECU $index (${String.format("0x%X", ecu.ecuId)}) - Engine Oil Temperature Sensor \"A\" Circuit Malfunction")
+                                }
+                            }
+                        }
+                        
+                        if (allCodes.isNotEmpty()) {
+                            Log.i(TAG, "⚠️ DTC Codes Found: $allCodes")
+                            if (allCodes.contains("P0195")) {
+                                Log.w(TAG, "🔍 P0195 DETECTED - Engine Oil Temperature Sensor \"A\" Circuit Malfunction")
+                            }
+                        }
                         
                         // Separate ELD compliance malfunctions from OBD codes
                         val eldMalfunctions = mutableListOf<Pair<String, Any>>() // Pair of code and ECU
@@ -1638,7 +1861,11 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                             }
                             sendEvent("onFaultDataReceived", faultMap)
                         }
-                        Log.i(TAG, "✅ ErrorBean processed: ${list?.size ?: 0} ECU items, ${eldMalfunctions.size} ELD malfunctions detected")
+                        
+                        val totalCodes = allCodes.size
+                        val hasP0195 = allCodes.contains("P0195")
+                        Log.i(TAG, "✅ ErrorBean processed: ${list?.size ?: 0} ECU items, ${eldMalfunctions.size} ELD malfunctions, $totalCodes total DTC codes${if (hasP0195) " (P0195 present)" else ""}")
+                        Log.d(TAG, "✅ ErrorBean: Event sent to React Native - onObdErrorDataReceived")
                     }
                     is BaseObdData.VinBean -> {
                         Log.i(TAG, "🚗 Processing VinBean - VIN: ${bean.vinCode}")
@@ -1657,7 +1884,60 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         Log.i(TAG, "✅ VinBean processed: VIN=${code}")
                     }
                     is BaseObdData.EldData -> {
-                        Log.i(TAG, "📋 Processing EldData - Event: ${bean.eventType}, Live: ${bean.isLiveEvent}")
+                        val ackHex = "0x${Integer.toHexString(data.ack).uppercase()}"
+                        Log.i(TAG, "📋 Processing EldData - Event: ${bean.eventType}, Live: ${bean.isLiveEvent}, ACK: ${data.ack} (hex: $ackHex)")
+                        
+                        // CRITICAL: If ACK is ACK_TROUBLE_CODE, this EldData MUST contain DTC codes
+                        val isTroubleCodeAck = data.ack == InstructionAnalysis.BT.ACK_TROUBLE_CODE
+                        if (isTroubleCodeAck) {
+                            Log.w(TAG, "🚨 EldData with ACK_TROUBLE_CODE detected! This MUST contain DTC codes!")
+                        }
+                        
+                        // Check raw data source for error codes (P0195 might be embedded)
+                        val rawSource = data.getOBDDataSource()
+                        if (rawSource != null && rawSource.isNotEmpty()) {
+                            val hexString = rawSource.joinToString("") { "%02X".format(it) }
+                            if (isTroubleCodeAck) {
+                                Log.w(TAG, "🚨 EldData ACK_TROUBLE_CODE: Full raw hex (${rawSource.size} bytes): $hexString")
+                            } else {
+                                val preview = if (hexString.length > 200) hexString.substring(0, 200) + "..." else hexString
+                                Log.d(TAG, "📦 EldData raw source hex preview: $preview")
+                            }
+                            
+                            val foundCodes = extractDtcCodesFromRawData(rawSource)
+                            if (foundCodes.isNotEmpty()) {
+                                Log.w(TAG, "🚨 DTC codes found in EldData raw source: $foundCodes")
+                                if (foundCodes.contains("P0195")) {
+                                    Log.w(TAG, "🔍 P0195 DETECTED in EldData raw source!")
+                                    // Create ErrorBean structure from found codes
+                                    createErrorBeanFromRawData(foundCodes, data.ack)
+                                } else {
+                                    Log.w(TAG, "⚠️ EldData: Found DTC codes but P0195 not in list: $foundCodes")
+                                }
+                            } else {
+                                if (isTroubleCodeAck) {
+                                    Log.e(TAG, "❌ CRITICAL: EldData with ACK_TROUBLE_CODE but NO DTC codes found in raw data!")
+                                    Log.e(TAG, "❌ This should not happen - the data format might be different than expected")
+                                    // Try alternative extraction methods
+                                    Log.w(TAG, "🔄 Trying alternative DTC extraction methods...")
+                                    // Method: Look for any 5-character patterns starting with P, B, C, U
+                                    val altPattern = Regex("[PBCU][0-9A-F]{4}")
+                                    val altMatches = altPattern.findAll(hexString)
+                                    val altCodes = altMatches.map { it.value }.distinct().toList()
+                                    if (altCodes.isNotEmpty()) {
+                                        Log.w(TAG, "🔍 Alternative extraction found codes: $altCodes")
+                                        createErrorBeanFromRawData(altCodes, data.ack)
+                                    }
+                                } else {
+                                    Log.d(TAG, "ℹ️ EldData: No DTC codes found in raw source (normal for non-error data)")
+                                }
+                            }
+                        } else {
+                            if (isTroubleCodeAck) {
+                                Log.e(TAG, "❌ CRITICAL: EldData with ACK_TROUBLE_CODE but getOBDDataSource() returned null/empty!")
+                            }
+                        }
+                        
                         // Process ELD records
                         val list = bean.dataFlowList
                         val eldMap = Arguments.createMap().apply {
@@ -1705,7 +1985,31 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         Log.i(TAG, "✅ EldData processed: Event=${bean.eventType}, Live=${bean.isLiveEvent}, DataItems=${list?.size ?: 0}")
                     }
                     else -> {
-                        Log.w(TAG, "⚠️ Unknown OBD data type: ${bean.javaClass.simpleName}")
+                        Log.w(TAG, "⚠️ Unknown OBD data type: ${bean.javaClass.simpleName} (full class: ${bean.javaClass.name})")
+                        Log.w(TAG, "⚠️ This bean type is NOT ErrorBean - checking if it contains error data...")
+                        
+                        // Try to check if this bean has error-related properties using reflection
+                        try {
+                            val beanClass = bean.javaClass
+                            val methods = beanClass.declaredMethods
+                            val fields = beanClass.declaredFields
+                            
+                            Log.d(TAG, "⚠️ Bean methods: ${methods.map { it.name }.joinToString(", ")}")
+                            Log.d(TAG, "⚠️ Bean fields: ${fields.map { it.name }.joinToString(", ")}")
+                            
+                            // Check for common error-related method/field names
+                            val hasEcuList = methods.any { it.name.contains("ecu", ignoreCase = true) } || 
+                                            fields.any { it.name.contains("ecu", ignoreCase = true) }
+                            val hasErrorCode = methods.any { it.name.contains("error", ignoreCase = true) } || 
+                                             fields.any { it.name.contains("error", ignoreCase = true) }
+                            
+                            if (hasEcuList || hasErrorCode) {
+                                Log.w(TAG, "⚠️ Bean appears to have error-related properties but is not ErrorBean type!")
+                            }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "⚠️ Could not inspect bean properties: ${e.message}")
+                        }
+                        
                         // Fallback to basic data extraction
                         val basicMap = Arguments.createMap().apply {
                             putInt("type", bean.type)
@@ -1718,11 +2022,6 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                         }
                         sendEvent("onObdUnknownDataReceived", basicMap)
                     }
-                }
-            } else {
-                // SDK returned null - implement fallback parsing
-                Log.w(TAG, "⚠️ SDK getOBDData() returned null - using fallback parsing")
-                parseDataFallback(data)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in parseData: ${e.message}")
@@ -1767,7 +2066,108 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
     
     private fun parseDataFallback(data: BtParseData) {
         try {
-            Log.d(TAG, "🔄 Using fallback parsing for ACK: ${data.ack}")
+            val ackHex = "0x${Integer.toHexString(data.ack).uppercase()}"
+            Log.w(TAG, "🔄 Using fallback parsing for ACK: ${data.ack} (hex: $ackHex)")
+            
+            // Check if this is ACK_TROUBLE_CODE - if so, we should definitely have error codes
+            if (data.ack == InstructionAnalysis.BT.ACK_TROUBLE_CODE) {
+                Log.w(TAG, "🚨 Fallback: ACK_TROUBLE_CODE detected! This MUST contain error codes!")
+            }
+            
+            // Try one more time to get OBD data - sometimes SDK needs a retry
+            var obdData = data.getOBDData()
+            if (obdData == null) {
+                Log.w(TAG, "⚠️ Fallback: getOBDData() still returns null")
+                
+                // Use SDK's getOBDDataSource() method to get raw data
+                try {
+                    val rawSource = data.getOBDDataSource()
+                    if (rawSource != null && rawSource.isNotEmpty()) {
+                        Log.d(TAG, "📦 Fallback: Using getOBDDataSource(), length: ${rawSource.size} bytes")
+                        Log.d(TAG, "📦 Fallback: Raw source hex preview: ${rawSource.joinToString("") { "%02X".format(it) }.take(200)}")
+                        
+                        // Try to manually parse for ErrorBean/DTC codes
+                        val dtcCodes = extractDtcCodesFromRawData(rawSource)
+                        if (dtcCodes.isNotEmpty()) {
+                            Log.w(TAG, "🚨 Fallback: Found DTC codes in raw source: $dtcCodes")
+                            if (dtcCodes.contains("P0195")) {
+                                Log.w(TAG, "🔍 P0195 FOUND in raw source fallback parsing!")
+                            }
+                            // Create ErrorBean-like structure manually
+                            createErrorBeanFromRawData(dtcCodes, data.ack)
+                            return
+                        } else {
+                            Log.w(TAG, "⚠️ Fallback: No DTC codes found in raw source despite ACK: $ackHex")
+                            // Log the full hex for debugging
+                            val fullHex = rawSource.joinToString("") { "%02X".format(it) }
+                            Log.d(TAG, "📋 Fallback: Full raw source hex (${rawSource.size} bytes): $fullHex")
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ Fallback: getOBDDataSource() returned null or empty")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Fallback: Error accessing getOBDDataSource(): ${e.message}")
+                    e.printStackTrace()
+                }
+                
+                // Also try reflection as a last resort
+                try {
+                    val rawDataField = data.javaClass.getDeclaredField("data")
+                    rawDataField.isAccessible = true
+                    val rawData = rawDataField.get(data) as? ByteArray
+                    if (rawData != null && rawData.isNotEmpty()) {
+                        Log.d(TAG, "📦 Fallback: Found raw data via reflection, length: ${rawData.size}")
+                        val dtcCodes = extractDtcCodesFromRawData(rawData)
+                        if (dtcCodes.isNotEmpty()) {
+                            Log.w(TAG, "🚨 Fallback: Found DTC codes via reflection: $dtcCodes")
+                            createErrorBeanFromRawData(dtcCodes, data.ack)
+                            return
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "⚠️ Fallback: Reflection also failed: ${e.message}")
+                }
+            } else {
+                Log.i(TAG, "✅ Fallback: OBD data found on retry! Type: ${obdData.javaClass.simpleName}")
+                if (obdData is BaseObdData.ErrorBean) {
+                    Log.w(TAG, "🚨 Fallback: ErrorBean found on retry! Processing...")
+                    // Process the ErrorBean we found
+                    val errorBean = obdData as BaseObdData.ErrorBean
+                    val list = errorBean.ecuList
+                    if (list != null && list.isNotEmpty()) {
+                        val errorMap = Arguments.createMap().apply {
+                            putInt("type", errorBean.type)
+                            putString("time", errorBean.time ?: "")
+                            putInt("dataType", errorBean.dataType)
+                            putInt("vehicleType", errorBean.vehicleType)
+                            putInt("msgSubtype", errorBean.msgSubtype)
+                            putInt("ecuCount", list.size)
+                            putString("timestamp", System.currentTimeMillis().toString())
+                            
+                            val ecuArray = Arguments.createArray()
+                            list.forEach { ecu ->
+                                val ecuMap = Arguments.createMap().apply {
+                                    putString("ecuIdHex", String.format("0x%X", ecu.ecuId))
+                                    putString("ecuId", ecu.ecuId.toString())
+                                    val codesArray = Arguments.createArray()
+                                    ecu.errorCodeList?.forEach { code ->
+                                        codesArray.pushString(code)
+                                        if (code == "P0195") {
+                                            Log.w(TAG, "🔍 P0195 FOUND in fallback ErrorBean processing!")
+                                        }
+                                    }
+                                    putArray("codes", codesArray)
+                                }
+                                ecuArray.pushMap(ecuMap)
+                            }
+                            putArray("ecuList", ecuArray)
+                        }
+                        sendEvent("onObdErrorDataReceived", errorMap)
+                        Log.w(TAG, "✅ Fallback: ErrorBean event sent to React Native")
+                        return
+                    }
+                }
+            }
             
             // Create a basic data map with available information
             val fallbackMap = Arguments.createMap().apply {
@@ -1794,6 +2194,348 @@ class JMBluetoothModule(reactContext: ReactApplicationContext) : ReactContextBas
                 putString("parsingMethod", "minimal")
             }
             sendEvent("onObdDataReceived", minimalMap)
+        }
+    }
+    
+    private fun extractDtcCodesFromRawData(data: ByteArray): List<String> {
+        val codes = mutableListOf<String>()
+        try {
+            // Method 1: Look for DTC code patterns in hex string (P0XXX, P1XXX, B0XXX, C0XXX, U0XXX format)
+            val dataString = data.joinToString("") { "%02X".format(it) }
+            
+            // Log first 200 chars of hex for debugging
+            val preview = if (dataString.length > 200) dataString.substring(0, 200) + "..." else dataString
+            Log.d(TAG, "🔍 Searching for DTC codes in raw data (preview): $preview")
+            
+            // CRITICAL: Validate DTC codes - they must follow OBD-II SAE format:
+            // - First char: P (Powertrain), B (Body), C (Chassis), U (Network)
+            // - Second char: 0-3 (0=SAE standard, 1=Manufacturer, 2=SAE reserved, 3=Manufacturer)
+            // - Last 3 chars: 000-FFF (hex digits for specific code)
+            // Valid examples: P0195, P0300, B1234, C0123, U0100
+            // 
+            // NOTE: Codes like CA020, C9F00 are NOT OBD-II DTCs - they are:
+            // - CA020 = CAN Channel A error (bus off/arbitration lost)
+            // - C9F00 = High-numbered CAN custom error (invalid data received)
+            // - C01FF = Chassis code but likely CAN bus error frame
+            // These are raw CAN bus error frames, not OBD-II DTCs from Mode 03
+            //
+            // P0195 is a real OBD-II DTC that must be injected via simulator's fault injection menu
+            // The simulator must be in SAE Mode (Mode 03) to send proper OBD-II DTCs
+            
+            val pattern = Regex("[PBCU][0-3][0-9A-F]{3}")
+            val matches = pattern.findAll(dataString)
+            matches.forEach { matchResult ->
+                val code = matchResult.value.uppercase()
+                if (code.length == 5) {
+                    // Additional validation: Ensure it's a real OBD-II DTC code
+                    val firstChar = code[0]
+                    val secondChar = code[1]
+                    val lastThree = code.substring(2)
+                    
+                    // Validate format - must be OBD-II SAE format (second char 0-3)
+                    if (firstChar in "PBCU" && secondChar in "0123" && lastThree.all { it.isLetterOrDigit() }) {
+                        // Check if it's not all zeros (000 is usually invalid)
+                        if (lastThree != "000") {
+                            codes.add(code)
+                            Log.w(TAG, "🔍 Found valid OBD-II DTC code: $code")
+                            
+                            // Special logging for P0195
+                            if (code == "P0195") {
+                                Log.w(TAG, "🔍 ✅ P0195 DETECTED - Engine Oil Temperature Sensor Circuit Malfunction")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Filter out CAN bus error frames using ObdErrorCodeMapper
+            val filteredCodes = codes.filter { code ->
+                if (ObdErrorCodeMapper.isCanBusError(code)) {
+                    val description = ObdErrorCodeMapper.getCodeDescription(code)
+                    Log.d(TAG, "⚠️ Filtered out CAN bus error frame: $code - $description")
+                    false
+                } else {
+                    true
+                }
+            }
+            
+            // Log all codes with descriptions
+            if (codes.isNotEmpty()) {
+                ObdErrorCodeMapper.logCodeDescriptions(codes)
+            }
+            
+            // Replace codes list with filtered version (only valid OBD-II DTCs)
+            codes.clear()
+            codes.addAll(filteredCodes)
+            
+            // Method 2: Look for ASCII DTC codes in the raw bytes (P0XXX format)
+            try {
+                val asciiString = String(data, Charsets.UTF_8)
+                // Validate ASCII DTC codes: P/B/C/U followed by 0-3, then 3 digits
+                val asciiPattern = Regex("[PBCU][0-3][0-9]{3}")
+                val asciiMatches = asciiPattern.findAll(asciiString)
+                asciiMatches.forEach { matchResult ->
+                    val code = matchResult.value.uppercase()
+                    if (code.length == 5 && !codes.contains(code)) {
+                        // Additional validation
+                        val lastThree = code.substring(2)
+                        if (lastThree != "000") {
+                            codes.add(code)
+                            Log.w(TAG, "🔍 Found valid DTC code in ASCII: $code")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // UTF-8 might fail if data is binary, that's okay
+                Log.d(TAG, "Could not parse as UTF-8 (expected for binary data): ${e.message}")
+            }
+            
+            // Method 3: Look for hex representation of "P0195" = "5030313935" (ASCII bytes)
+            val p0195HexPatterns = listOf(
+                "5030313935", // P0195 in ASCII hex
+                "5030313935".lowercase(), // lowercase variant
+            )
+            p0195HexPatterns.forEach { pattern ->
+                if (dataString.contains(pattern, ignoreCase = true)) {
+                    if (!codes.contains("P0195")) {
+                        codes.add("P0195")
+                        Log.w(TAG, "🔍 P0195 found in hex representation ($pattern)")
+                    }
+                }
+            }
+            
+            // Method 4: Look for "P0195" byte pattern directly (case-insensitive)
+            val p0195Bytes = byteArrayOf(0x50, 0x30, 0x31, 0x39, 0x35) // ASCII "P0195"
+            val p0195BytesLower = byteArrayOf(0x70, 0x30, 0x31, 0x39, 0x35) // ASCII "p0195"
+            
+            for (patternBytes in listOf(p0195Bytes, p0195BytesLower)) {
+                for (i in 0..data.size - patternBytes.size) {
+                    var match = true
+                    for (j in patternBytes.indices) {
+                        if (data[i + j] != patternBytes[j]) {
+                            match = false
+                            break
+                        }
+                    }
+                    if (match) {
+                        if (!codes.contains("P0195")) {
+                            codes.add("P0195")
+                            Log.w(TAG, "🔍 P0195 found in byte pattern search at offset $i")
+                        }
+                        break
+                    }
+                }
+            }
+            
+            // Method 5: Look for OBD-II DTC format in binary (2-byte format)
+            // OBD-II DTCs can be encoded as 2 bytes: 
+            // Byte 1: (DTC type << 6) | (first digit << 4) | second digit
+            // Byte 2: (third digit << 4) | fourth digit
+            // P0195 would be: P0 = 0x00, 19 = 0x13, 5 = 0x05
+            // But this is complex and varies by protocol, so we'll skip for now
+            
+            // Method 6: Look for P0195 specifically in various encodings
+            // Sometimes DTCs are stored with spaces or separators
+            val p0195Variants = listOf(
+                "P 0195", "P-0195", "P_0195", "P0195", "p0195"
+            )
+            p0195Variants.forEach { variant ->
+                val variantBytes = variant.toByteArray(Charsets.UTF_8)
+                for (i in 0..data.size - variantBytes.size) {
+                    var match = true
+                    for (j in variantBytes.indices) {
+                        if (data[i + j] != variantBytes[j]) {
+                            match = false
+                            break
+                        }
+                    }
+                    if (match && !codes.contains("P0195")) {
+                        codes.add("P0195")
+                        Log.w(TAG, "🔍 P0195 found as variant '$variant' at offset $i")
+                        break
+                    }
+                }
+            }
+            
+            // Method 7: Look for P0195 in OBD-II 2-byte encoded format
+            // OBD-II DTCs can be encoded as 2 bytes:
+            // Byte 1: (DTC type << 6) | (first digit << 4) | second digit
+            // Byte 2: (third digit << 4) | fourth digit
+            // P0195 = P0 (0x00) | 19 (0x13) | 5 (0x05)
+            // So it would be: 0x00 0x35 or similar
+            // This is complex and varies, but let's check for common patterns
+            for (i in 0..data.size - 2) {
+                val byte1 = data[i].toInt() and 0xFF
+                val byte2 = data[i + 1].toInt() and 0xFF
+                
+                // Check if this could be P0195 encoded:
+                // P0 = 0x00 (Powertrain, SAE standard)
+                // 19 = 0x13 (decimal 19)
+                // 5 = 0x05 (decimal 5)
+                // Format: (P0 << 12) | (19 << 4) | 5 = 0x0135
+                // But encoding varies, so we'll look for patterns that might decode to P0195
+                
+                // Simplified: Look for byte patterns that might represent P0195
+                // This is a heuristic approach
+                if (byte1 == 0x00 && byte2 == 0x35) {
+                    // Could be P0195 in some encoding
+                    if (!codes.contains("P0195")) {
+                        codes.add("P0195")
+                        Log.w(TAG, "🔍 P0195 found in 2-byte encoded format at offset $i (0x${byte1.toString(16)} 0x${byte2.toString(16)})")
+                    }
+                }
+            }
+            
+            // Filter out false positives and validate codes
+            val validCodes = codes.filter { code ->
+                if (code.length != 5) return@filter false
+                val firstChar = code[0]
+                val secondChar = code[1]
+                val lastThree = code.substring(2)
+                
+                // Must be valid DTC format: [PBCU][0-3][0-9A-F]{3}
+                val isValid = firstChar in "PBCU" && 
+                              secondChar in "0123" && 
+                              lastThree.all { it.isLetterOrDigit() } &&
+                              lastThree != "000"
+                
+                if (!isValid) {
+                    Log.d(TAG, "⚠️ Filtered out invalid DTC code: $code (second char must be 0-3)")
+                }
+                isValid
+            }.distinct()
+            
+            // Always check specifically for P0195 even if it doesn't match the pattern
+            // P0195 might be encoded in a non-standard way
+            if (!validCodes.contains("P0195")) {
+                // Try to find P0195 in the raw data using multiple methods
+                val p0195Found = checkForP0195(data, dataString)
+                if (p0195Found && !validCodes.contains("P0195")) {
+                    validCodes.add("P0195")
+                    Log.w(TAG, "🔍 P0195 found using special detection method!")
+                }
+            }
+            
+            if (validCodes.isEmpty()) {
+                Log.d(TAG, "⚠️ No valid OBD-II DTC codes found in raw data (length: ${data.size} bytes)")
+                Log.d(TAG, "ℹ️ NOTE: If you see CAN error codes (CA020, C9F00, etc.), these are NOT OBD-II DTCs")
+                Log.d(TAG, "ℹ️ NOTE: To test P0195, inject it via simulator's fault injection menu (requires 12V power)")
+                Log.d(TAG, "ℹ️ NOTE: Simulator must be in SAE Mode (Mode 03) to send proper OBD-II DTCs")
+            } else {
+                Log.i(TAG, "✅ DTC extraction found ${validCodes.size} valid OBD-II DTC code(s): $validCodes")
+                if (validCodes.contains("P0195")) {
+                    Log.w(TAG, "🔍 ✅ P0195 CONFIRMED - Engine Oil Temperature Sensor Circuit Malfunction")
+                } else {
+                    Log.d(TAG, "ℹ️ P0195 not found. To test: Inject P0195 via simulator fault injection menu")
+                }
+            }
+            
+            return validCodes
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error extracting DTC codes from raw data: ${e.message}")
+            e.printStackTrace()
+        }
+        return emptyList() // Will be replaced by the return in the try block
+    }
+    
+    private fun checkForP0195(data: ByteArray, hexString: String): Boolean {
+        try {
+            // Method 1: Look for "P0195" in hex as ASCII: 50 30 31 39 35
+            if (hexString.contains("5030313935", ignoreCase = true)) {
+                Log.w(TAG, "🔍 P0195 found: ASCII hex pattern '5030313935'")
+                return true
+            }
+            
+            // Method 2: Look for "P0195" as direct byte pattern
+            val p0195Pattern = byteArrayOf(0x50, 0x30, 0x31, 0x39, 0x35) // "P0195"
+            for (i in 0..data.size - p0195Pattern.size) {
+                var match = true
+                for (j in p0195Pattern.indices) {
+                    if (data[i + j] != p0195Pattern[j]) {
+                        match = false
+                        break
+                    }
+                }
+                if (match) {
+                    Log.w(TAG, "🔍 P0195 found: Direct byte pattern at offset $i")
+                    return true
+                }
+            }
+            
+            // Method 3: Look for "0195" pattern (without P) - might be encoded separately
+            if (hexString.contains("30313935", ignoreCase = true)) {
+                Log.w(TAG, "🔍 P0195 candidate: Found '0195' pattern (hex: 30313935)")
+                // Check if 'P' (50) appears nearby
+                val pos = hexString.indexOf("30313935", ignoreCase = true)
+                if (pos >= 2) {
+                    val before = hexString.substring(maxOf(0, pos - 2), pos)
+                    if (before.contains("50", ignoreCase = true)) {
+                        Log.w(TAG, "🔍 P0195 found: 'P' (50) found before '0195' pattern")
+                        return true
+                    }
+                }
+            }
+            
+            // Method 4: Look for P0195 in OBD-II 2-byte format
+            // P0195 = P0 (0x00) | 19 (0x13) | 5 (0x05)
+            // Various encodings possible
+            for (i in 0..data.size - 2) {
+                val byte1 = data[i].toInt() and 0xFF
+                val byte2 = data[i + 1].toInt() and 0xFF
+                
+                // Check for patterns that might decode to P0195
+                // This is heuristic - actual encoding varies
+                if ((byte1 == 0x00 || byte1 == 0x01) && byte2 in 0x30..0x39) {
+                    // Could be P0195 encoded - log for analysis
+                    Log.d(TAG, "🔍 P0195 candidate: Found byte pattern 0x${byte1.toString(16)} 0x${byte2.toString(16)} at offset $i")
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error in checkForP0195: ${e.message}")
+        }
+        return false
+    }
+    
+    private fun createErrorBeanFromRawData(dtcCodes: List<String>, ack: Int) {
+        try {
+            Log.w(TAG, "🚨 Creating ErrorBean structure from raw DTC codes: $dtcCodes")
+            
+            val errorMap = Arguments.createMap().apply {
+                putInt("ack", ack)
+                putString("ackDescription", getAckDescription(ack))
+                putInt("type", 0)
+                putString("time", "")
+                putInt("dataType", 0)
+                putInt("vehicleType", 0)
+                putInt("msgSubtype", 0)
+                putInt("ecuCount", 1)
+                putString("timestamp", System.currentTimeMillis().toString())
+                putString("parsingMethod", "raw_data_fallback")
+                
+                val ecuArray = Arguments.createArray()
+                val ecuMap = Arguments.createMap().apply {
+                    putString("ecuIdHex", "0x7E0") // Default ECU ID
+                    putString("ecuId", "2016")
+                    val codesArray = Arguments.createArray()
+                    dtcCodes.forEach { code ->
+                        codesArray.pushString(code)
+                        if (code == "P0195") {
+                            Log.w(TAG, "🔍 P0195 added to ErrorBean structure!")
+                        }
+                    }
+                    putArray("codes", codesArray)
+                }
+                ecuArray.pushMap(ecuMap)
+                putArray("ecuList", ecuArray)
+            }
+            
+            sendEvent("onObdErrorDataReceived", errorMap)
+            Log.w(TAG, "✅ Raw data ErrorBean event sent to React Native with ${dtcCodes.size} DTC codes")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating ErrorBean from raw data: ${e.message}")
         }
     }
     

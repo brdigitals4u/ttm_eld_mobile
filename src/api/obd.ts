@@ -137,3 +137,39 @@ export const getObdDataHistory = async (driverId: string, params: { startDate: s
   return response.data
 }
 
+/**
+ * Get DTC (Diagnostic Trouble Code) history
+ * @param vehicleId - Vehicle identifier (VIN or vehicle unit)
+ * @param params - Query parameters for filtering
+ * @returns DTC history records
+ */
+export const getDtcHistory = async (
+  vehicleId: string,
+  params?: {
+    startDate?: string
+    endDate?: string
+    code?: string
+    severity?: 'critical' | 'warning' | 'info'
+  },
+) => {
+  const queryParams = new URLSearchParams()
+  
+  if (params?.startDate) {
+    queryParams.append('startDate', params.startDate)
+  }
+  if (params?.endDate) {
+    queryParams.append('endDate', params.endDate)
+  }
+  if (params?.code) {
+    queryParams.append('code', params.code)
+  }
+  if (params?.severity) {
+    queryParams.append('severity', params.severity)
+  }
+  
+  const queryString = queryParams.toString()
+  const url = `/obd/dtc/history/${vehicleId}${queryString ? `?${queryString}` : ''}`
+  const response = await apiClient.get(url)
+  return response.data
+}
+

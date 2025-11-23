@@ -60,6 +60,7 @@ import { EldMalfunctionModal } from "@/components/EldMalfunctionModal"
 import { EldGpsWarning } from "@/components/EldGpsWarning"
 import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
 import { ExemptDriverBadge } from "@/components/ExemptDriverBadge"
+import { DtcIndicator } from "@/components/DtcIndicator"
 import { COLORS } from "@/constants"
 import { usePermissions, useStatus } from "@/contexts"
 import { useLocation } from "@/contexts/location-context"
@@ -822,6 +823,9 @@ export const DashboardScreen = () => {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 {/* Exempt Driver Badge */}
                 <ExemptDriverBadge />
+                
+                {/* DTC Indicator - Orange icon with count badge */}
+                <DtcIndicator />
                 
                 <TouchableOpacity
                   onPress={handleNotificationBellPress}

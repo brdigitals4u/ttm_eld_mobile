@@ -5,6 +5,7 @@ import { BatteryState, useBatteryLevel, useBatteryState, useLowPowerMode } from 
 import JMBluetoothService from '@/services/JMBluetoothService'
 import { ObdEldData, HistoryProgress } from '@/types/JMBluetooth'
 import { handleData } from '@/services/handleData'
+import { handleDtcData } from '@/services/handleDtcData'
 import { useAuth } from '@/stores/authStore'
 import { useMyVehicle, useMyTrips } from '@/api/driver-hooks'
 import { useStatusStore } from '@/stores/statusStore'
@@ -1597,7 +1598,48 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       'onObdErrorDataReceived',
       (errorData: any) => {
         try {
+          // Log event received immediately
+          console.log('🚨 OBD Data Context: onObdErrorDataReceived event received', {
+            timestamp: new Date().toISOString(),
+            hasEcuList: Array.isArray(errorData?.ecuList),
+            ecuCount: Array.isArray(errorData?.ecuList) ? errorData.ecuList.length : 0,
+            rawData: errorData,
+          })
+
           const ecuList = Array.isArray(errorData?.ecuList) ? errorData.ecuList : []
+          
+          // Extract all DTC codes from raw data for logging
+          const allRawCodes: string[] = []
+          ecuList.forEach((ecu: any, index: number) => {
+            const codes = Array.isArray(ecu?.codes) ? ecu.codes : []
+            codes.forEach((code: string) => {
+              if (typeof code === 'string' && code.trim()) {
+                allRawCodes.push(code.trim().toUpperCase())
+              }
+            })
+            console.log(`📋 OBD Data Context: ECU ${index} - ID: ${ecu?.ecuId || ecu?.ecuIdHex || 'unknown'}, Codes: ${JSON.stringify(codes)}`)
+          })
+
+          if (allRawCodes.length > 0) {
+            console.log(`⚠️ OBD Data Context: DTC Codes Found: ${JSON.stringify(allRawCodes)}`)
+            
+            // Detect P0195 specifically
+            if (allRawCodes.includes('P0195')) {
+              console.log('🔍 OBD Data Context: P0195 DETECTED - Engine Oil Temperature Sensor "A" Circuit Malfunction')
+              console.log('🔍 P0195 Details:', {
+                code: 'P0195',
+                description: 'Engine Oil Temperature Sensor "A" Circuit Malfunction',
+                system: 'Powertrain',
+                timestamp: new Date().toISOString(),
+                ecuList: ecuList.map((ecu: any) => ({
+                  ecuId: ecu?.ecuId,
+                  ecuIdHex: ecu?.ecuIdHex,
+                  codes: ecu?.codes,
+                })),
+              })
+            }
+          }
+
           if (!driverProfile?.driver_id) {
             console.warn('⚠️ OBD Data Context: Malfunction event received without driver profile')
             return
@@ -1628,7 +1670,17 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 return null
               }
 
-              const codes = codeList.map((code) => decodeObdCode(code))
+              const codes = codeList.map((code) => {
+                const decoded = decodeObdCode(code)
+                // Log each decoded code
+                console.log(`🔧 OBD Data Context: Decoded DTC Code: ${decoded.code}`, {
+                  system: decoded.system,
+                  subsystem: decoded.subsystemDescription,
+                  description: decoded.faultDescription,
+                  isGeneric: decoded.isGeneric,
+                })
+                return decoded
+              })
 
               const ecuIdHex =
                 typeof ecu?.ecuIdHex === 'string' && ecu.ecuIdHex.trim().length > 0
@@ -1660,6 +1712,14 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return combined.slice(-20)
           })
 
+          // Use handleDtcData() to transform DTC codes to payload format (same as handleData)
+          // Create payload for each ECU record using handleDtcData transformation
+          const location =
+            typeof errorData?.latitude === 'number' && typeof errorData?.longitude === 'number'
+              ? { latitude: errorData.latitude, longitude: errorData.longitude }
+              : undefined
+
+          // Build fault codes payload for combined payload structure
           const faultCodesPayload = malfunctionRecords.map((record) => ({
             ecu_id: record.ecuId,
             ecu_id_hex: record.ecuIdHex,
@@ -1667,45 +1727,71 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
             details: record.codes,
           }))
 
-          const rawFaultDetails = {
-            dataType: 'fault_data' as const,
-            faultCodes: malfunctionRecords.map((record) => ({
-              ecuId: record.ecuId,
-              ecuIdHex: record.ecuIdHex,
-              codes: record.codes.map((code) => code.code),
-              details: record.codes,
-            })),
-          deviceId: faultDeviceIdentifier ?? undefined,
-          device_id: faultDeviceIdentifier ?? undefined,
-            ack: errorData?.ack,
-            ackDescription: errorData?.ackDescription,
-            dataTypeCode: errorData?.dataType,
-            vehicleType: errorData?.vehicleType,
-            msgSubtype: errorData?.msgSubtype,
-            eventTime: errorData?.time,
-          }
+          // Use handleDtcData to create payload structure (for first ECU, then combine others)
+          // This ensures same format as handleData for consistent backend sync
+          const firstRecord = malfunctionRecords[0]
+          if (firstRecord) {
+            const dtcCodes = firstRecord.codes.map((code) => code.code)
+            const basePayload = handleDtcData(
+              dtcCodes,
+              firstRecord.ecuId,
+              firstRecord.ecuIdHex,
+              timestamp,
+              location,
+              driverProfile.driver_id,
+              faultDeviceIdentifier ?? undefined,
+            )
 
-          const faultPayload: ObdDataPayload = {
-            driver_id: driverProfile.driver_id,
-            timestamp: new Date().toISOString(),
-            raw_data: rawFaultDetails,
-            data_type: 'fault_data',
-            fault_codes: faultCodesPayload,
-            device_id: faultDeviceIdentifier ?? undefined,
-            deviceId: faultDeviceIdentifier ?? undefined,
-          }
+            // Add additional ECUs to fault_codes array if multiple ECUs present
+            if (malfunctionRecords.length > 1) {
+              basePayload.fault_codes = faultCodesPayload
+              // Also update raw_data to include all ECUs
+              basePayload.raw_data.faultCodes = malfunctionRecords.map((record) => ({
+                ecuId: record.ecuId,
+                ecuIdHex: record.ecuIdHex,
+                codes: record.codes.map((code) => code.code),
+                details: record.codes,
+              }))
+            }
 
-          if (typeof errorData?.latitude === 'number') {
-            faultPayload.latitude = errorData.latitude
-          }
-          if (typeof errorData?.longitude === 'number') {
-            faultPayload.longitude = errorData.longitude
-          }
+            // Add additional metadata to raw_data
+            basePayload.raw_data.ack = errorData?.ack
+            basePayload.raw_data.ackDescription = errorData?.ackDescription
+            basePayload.raw_data.dataTypeCode = errorData?.dataType
+            basePayload.raw_data.vehicleType = errorData?.vehicleType
+            basePayload.raw_data.msgSubtype = errorData?.msgSubtype
+            basePayload.raw_data.eventTime = errorData?.time
 
-          dataBufferRef.current.push(faultPayload)
+            // Push to data buffer (same sync mechanism as handleData)
+            dataBufferRef.current.push(basePayload)
+          }
+          
+          // Enhanced logging with all DTC codes
+          const allCodes = malfunctionRecords.flatMap((record) => record.codes.map((c) => c.code))
           console.log(
             `🚨 OBD Data Context: Recorded malfunction event with ${faultCodesPayload.length} ECU entries`,
+            {
+              totalCodes: allCodes.length,
+              codes: allCodes,
+              ecuCount: faultCodesPayload.length,
+              hasP0195: allCodes.includes('P0195'),
+            },
           )
+          
+          // Log P0195 again if present in final records
+          if (allCodes.includes('P0195')) {
+            const p0195Record = malfunctionRecords.find((record) =>
+              record.codes.some((c) => c.code === 'P0195'),
+            )
+            if (p0195Record) {
+              console.log('🔍 OBD Data Context: P0195 in final malfunction records:', {
+                ecuId: p0195Record.ecuId,
+                ecuIdHex: p0195Record.ecuIdHex,
+                timestamp: p0195Record.timestamp.toISOString(),
+                codeDetails: p0195Record.codes.find((c) => c.code === 'P0195'),
+              })
+            }
+          }
 
           if (awsConfig.features.enableAwsSync) {
             const vehicleId =

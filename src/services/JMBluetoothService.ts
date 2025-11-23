@@ -686,6 +686,38 @@ class JMBluetoothService {
         });
       }
       
+      // Special handling for error data events - extract and log DTC codes
+      if (event === 'onObdErrorDataReceived') {
+        const ecuList = Array.isArray(data?.ecuList) ? data.ecuList : []
+        const allCodes: string[] = []
+        
+        ecuList.forEach((ecu: any) => {
+          const codes = Array.isArray(ecu?.codes) ? ecu.codes : []
+          codes.forEach((code: string) => {
+            if (typeof code === 'string' && code.trim()) {
+              allCodes.push(code.trim().toUpperCase())
+            }
+          })
+        })
+        
+        if (allCodes.length > 0) {
+          logger.warn('DTC codes detected in error data:', {
+            codes: allCodes,
+            ecuCount: ecuList.length,
+            hasP0195: allCodes.includes('P0195'),
+            timestamp: new Date().toISOString(),
+          })
+          
+          if (allCodes.includes('P0195')) {
+            logger.warn('P0195 DETECTED - Engine Oil Temperature Sensor "A" Circuit Malfunction', {
+              code: 'P0195',
+              description: 'Engine Oil Temperature Sensor "A" Circuit Malfunction',
+              timestamp: new Date().toISOString(),
+            })
+          }
+        }
+      }
+      
       listener(data);
     };
     

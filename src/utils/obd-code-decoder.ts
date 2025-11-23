@@ -54,6 +54,7 @@ const KNOWN_CODE_DESCRIPTIONS: Record<string, string> = {
   P0128: 'Coolant Thermostat (Coolant Temperature Below Thermostat Regulating Temperature)',
   P0401: 'Exhaust Gas Recirculation Flow Insufficient Detected',
   P0455: 'Evaporative Emission Control System Leak Detected (Large Leak)',
+  P0195: 'Engine Oil Temperature Sensor "A" Circuit Malfunction',
 }
 
 const DEFAULT_UNKNOWN_DESCRIPTION = 'Refer to manufacturer documentation for details'

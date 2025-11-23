@@ -399,7 +399,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       <DeviceCard
         device={item}
         isConnecting={isConnecting}
-        onPress={() => connectToDevice(item)}
+      onPress={() => connectToDevice(item)}
       />
     ),
     [isConnecting]
@@ -561,7 +561,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
             </View>
           </View>
         </View>
-
+        
         <TouchableOpacity
           style={[
             styles.scanButton,
@@ -586,7 +586,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
                 {isInitialized
                   ? translate("deviceScan.startScan" as any)
                   : translate("common.loading" as any)}
-              </Text>
+            </Text>
             </View>
           )}
         </TouchableOpacity>
