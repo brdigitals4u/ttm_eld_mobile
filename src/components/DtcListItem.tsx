@@ -9,6 +9,7 @@ import { format } from 'date-fns'
 import { Text } from './Text'
 import { colors } from '@/theme/colors'
 import { ObdCodeDetails } from '@/utils/obd-code-decoder'
+import { translate } from '@/i18n/translate'
 
 export interface DtcListItemProps {
   id: string
@@ -38,13 +39,13 @@ const getSeverityColor = (severity: 'critical' | 'warning' | 'info'): string => 
 const getSeverityLabel = (severity: 'critical' | 'warning' | 'info'): string => {
   switch (severity) {
     case 'critical':
-      return 'Critical'
+      return translate('dtc.critical' as any)
     case 'warning':
-      return 'Warning'
+      return translate('dtc.warning' as any)
     case 'info':
-      return 'Info'
+      return translate('dtc.info' as any)
     default:
-      return 'Unknown'
+      return translate('dtc.unknown' as any)
   }
 }
 
@@ -72,18 +73,18 @@ export const DtcListItem = memo<DtcListItemProps>(
 
         <View style={styles.footer}>
           <View style={styles.infoRow}>
-            <Text style={styles.label}>ECU:</Text>
+            <Text style={styles.label}>{translate('dtc.ecu' as any)}</Text>
             <Text style={styles.value}>{ecuIdHex}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Time:</Text>
+            <Text style={styles.label}>{translate('dtc.time' as any)}</Text>
             <Text style={styles.value}>{formattedTime}</Text>
           </View>
         </View>
 
         {location && (
           <View style={styles.locationRow}>
-            <Text style={styles.label}>Location:</Text>
+            <Text style={styles.label}>{translate('dtc.location' as any)}</Text>
             <Text style={styles.value}>
               {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
             </Text>

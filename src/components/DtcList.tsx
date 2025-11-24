@@ -9,6 +9,7 @@ import { Text } from './Text'
 import { DtcListItem, DtcListItemProps } from './DtcListItem'
 import { colors } from '@/theme/colors'
 import { MalfunctionRecord } from '@/contexts/obd-data-context'
+import { translate } from '@/i18n/translate'
 
 export interface DtcListProps {
   data: MalfunctionRecord[]
@@ -83,7 +84,7 @@ export const DtcList: React.FC<DtcListProps> = ({
   onRefresh,
   refreshing = false,
   onItemPress,
-  emptyMessage = 'No diagnostic trouble codes found',
+  emptyMessage = translate('dtc.noCodes' as any),
 }) => {
   // Memoize transformed list items
   const listItems = useMemo(() => {

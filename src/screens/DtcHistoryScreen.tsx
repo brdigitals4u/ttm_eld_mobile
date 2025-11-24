@@ -6,17 +6,22 @@
 import React, { useState, useMemo, useCallback } from 'react'
 import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
-import { ArrowLeft, Search, Filter, X } from 'lucide-react-native'
+import { Search, Filter, X } from 'lucide-react-native'
 import { Text } from '@/components/Text'
+import { Header } from '@/components/Header'
 import { DtcList } from '@/components/DtcList'
 import { useObdData } from '@/contexts/obd-data-context'
 import { colors } from '@/theme/colors'
 import { MalfunctionRecord } from '@/contexts/obd-data-context'
+import { translate } from '@/i18n/translate'
+import { useAppTheme } from '@/theme/context'
 
 type SortOption = 'date' | 'code' | 'severity'
 type FilterSeverity = 'all' | 'critical' | 'warning' | 'info'
 
 export const DtcHistoryScreen: React.FC = () => {
+  const { theme } = useAppTheme()
+  const { colors: themeColors, isDark } = theme
   const { recentMalfunctions, refreshConnectionStatus } = useObdData()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('date')
@@ -112,25 +117,37 @@ export const DtcHistoryScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.palette.neutral900 || '#111827'} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Diagnostic Trouble Codes</Text>
-        <TouchableOpacity
-          onPress={() => setShowFilters(!showFilters)}
-          style={styles.headerFilterButton}
-        >
-          <Filter size={24} color={colors.palette.neutral900 || '#111827'} />
-        </TouchableOpacity>
-      </View>
+      <Header
+        titleTx="dtc.title"
+        titleMode="center"
+        backgroundColor={themeColors.background}
+        leftIcon="back"
+        leftIconColor={themeColors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push('/(tabs)/dashboard'))}
+        RightActionComponent={
+          <TouchableOpacity
+            onPress={() => setShowFilters(!showFilters)}
+            style={styles.headerFilterButton}
+          >
+            <Filter size={24} color={themeColors.text} />
+          </TouchableOpacity>
+        }
+        containerStyle={{
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+        }}
+        style={{
+          paddingHorizontal: 16,
+        }}
+        safeAreaEdges={['top']}
+      />
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Search size={20} color={colors.palette.neutral500 || '#6B7280'} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search DTC codes or descriptions..."
+          placeholder={translate('dtc.searchPlaceholder' as any)}
           placeholderTextColor={colors.palette.neutral500 || '#6B7280'}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -146,7 +163,7 @@ export const DtcHistoryScreen: React.FC = () => {
       {showFilters && (
         <View style={styles.filtersContainer}>
           <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Sort by:</Text>
+            <Text style={styles.filterLabel}>{translate('dtc.sortBy' as any)}</Text>
             <View style={styles.filterButtons}>
               {(['date', 'code', 'severity'] as SortOption[]).map((option) => (
                 <TouchableOpacity
@@ -163,7 +180,9 @@ export const DtcHistoryScreen: React.FC = () => {
                       sortBy === option && styles.filterButtonTextActive,
                     ]}
                   >
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                    {option === 'date' ? translate('dtc.date' as any) : 
+                     option === 'code' ? translate('dtc.code' as any) : 
+                     translate('dtc.severityLabel' as any)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -171,7 +190,7 @@ export const DtcHistoryScreen: React.FC = () => {
           </View>
 
           <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Severity:</Text>
+            <Text style={styles.filterLabel}>{translate('dtc.severity' as any)}</Text>
             <View style={styles.filterButtons}>
               {(['all', 'critical', 'warning', 'info'] as FilterSeverity[]).map((severity) => (
                 <TouchableOpacity
@@ -188,7 +207,10 @@ export const DtcHistoryScreen: React.FC = () => {
                       filterSeverity === severity && styles.filterButtonTextActive,
                     ]}
                   >
-                    {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                    {severity === 'all' ? translate('dtc.all' as any) :
+                     severity === 'critical' ? translate('dtc.critical' as any) :
+                     severity === 'warning' ? translate('dtc.warning' as any) :
+                     translate('dtc.info' as any)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -200,7 +222,10 @@ export const DtcHistoryScreen: React.FC = () => {
       {/* Results Count */}
       <View style={styles.resultsContainer}>
         <Text style={styles.resultsText}>
-          {filteredAndSortedData.length} DTC{filteredAndSortedData.length !== 1 ? 's' : ''} found
+          {translate('dtc.found' as any, {
+            count: filteredAndSortedData.length,
+            plural: filteredAndSortedData.length !== 1 ? 's' : '',
+          })}
         </Text>
       </View>
 
@@ -209,7 +234,7 @@ export const DtcHistoryScreen: React.FC = () => {
         data={filteredAndSortedData}
         onRefresh={handleRefresh}
         onItemPress={handleItemPress}
-        emptyMessage="No diagnostic trouble codes match your filters"
+        emptyMessage={translate('dtc.noMatch' as any)}
       />
     </View>
   )
@@ -220,28 +245,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background || '#FFFFFF',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.background || '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.palette.neutral200 || '#E5E7EB',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.palette.neutral900 || '#111827',
-    flex: 1,
-    textAlign: 'center',
-  },
   headerFilterButton: {
     padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchContainer: {
     flexDirection: 'row',

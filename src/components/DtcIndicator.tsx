@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics'
 import { Text } from './Text'
 import { useObdData } from '@/contexts/obd-data-context'
 import { colors } from '@/theme/colors'
+import { translate } from '@/i18n/translate'
 
 const ORANGE_COLOR = '#FF9500' // Orange color for DTC indicator
 
@@ -47,7 +48,7 @@ export const DtcIndicator: React.FC = () => {
         {hasActiveDtcs && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              {activeDtcCount > 99 ? '99+' : activeDtcCount}
+              {translate('dtc.badge' as any)}
             </Text>
           </View>
         )}

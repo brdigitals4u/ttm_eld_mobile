@@ -27,6 +27,9 @@ import { toast } from '@/components/Toast';
 import { translate } from '@/i18n/translate';
 import { colors } from '@/theme/colors';
 import { Text } from '@/components/Text';
+import { Header } from '@/components/Header';
+import { useAppTheme } from '@/theme/context';
+import { EldConnectionModal } from '@/components/EldConnectionModal';
 
 const __DEV__ = process.env.NODE_ENV === 'development';
 
@@ -148,6 +151,8 @@ const DeviceCard: React.FC<{
 DeviceCard.displayName = 'DeviceCard';
 
 const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _navigation }) => {
+  const { theme } = useAppTheme()
+  const { colors: themeColors, isDark } = theme
   const [devices, setDevices] = useState<BleDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -158,8 +163,10 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
   // Animation refs
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
+  
+  // Connection status for modal
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'establishing' | 'authenticating'>('connecting');
 
   useEffect(() => {
     initializeBluetooth();
@@ -210,23 +217,6 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     }
   }, [isScanning, pulseAnim, waveAnim]);
 
-  // Rotation animation for Bluetooth icon
-  useEffect(() => {
-    if (isScanning) {
-      const rotate = Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        })
-      );
-      rotate.start();
-      return () => rotate.stop();
-    } else {
-      rotateAnim.setValue(0);
-      return undefined;
-    }
-  }, [isScanning, rotateAnim]);
 
   const initializeBluetooth = async () => {
     try {
@@ -267,12 +257,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     });
 
     JMBluetoothService.addEventListener('onConnected', () => {
-      setConnecting(false);
+      setConnectionStatus('authenticating');
       console.log('Device connected - waiting for authentication');
     });
 
     JMBluetoothService.addEventListener('onConnectFailure', (error) => {
       setConnecting(false);
+      setConnectionStatus('connecting');
       toast.error(`Failed to connect: ${error.status}`);
     });
 
@@ -345,6 +336,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
     JMBluetoothService.addEventListener('onDisconnected', () => {
       setConnecting(false);
+      setConnectionStatus('connecting');
       toast.warning(translate("deviceScan.deviceDisconnected" as any));
     });
   };
@@ -385,11 +377,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     try {
       setSelectedDevice(device);
       setConnecting(true);
+      setConnectionStatus('connecting');
       
       // Use the regular connect method - the native module now handles proper connection
       await JMBluetoothService.connect(device.address);
     } catch (error) {
       setConnecting(false);
+      setConnectionStatus('connecting');
       toast.error(`${translate("deviceScan.failedToConnect" as any)}: ${error}`);
     }
   };
@@ -417,11 +411,6 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     }),
     []
   );
-
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const waveOpacity = waveAnim.interpolate({
     inputRange: [0, 0.5, 1],
@@ -513,83 +502,100 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     );
   };
 
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
+      <Header
+        title={translate("deviceScan.title" as any)}
+        titleMode="center"
+        backgroundColor={themeColors.background}
+        LeftActionComponent={
           <Animated.View
             style={[
               styles.headerIconContainer,
               {
-                transform: [
-                  { scale: pulseAnim },
-                  { rotate: isScanning ? rotateInterpolate : '0deg' },
-                ],
+                transform: [{ scale: pulseAnim }],
               },
             ]}
           >
             <Bluetooth
               size={32}
-              color={isScanning ? colors.buttonPrimary : colors.textDim}
+              color={isScanning ? themeColors.tint : themeColors.textDim}
             />
           </Animated.View>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title} weight="bold" size="xl">
-              {translate("deviceScan.title" as any)}
-            </Text>
-            <View style={styles.statusRow}>
-              <View
-                style={[
-                  styles.statusDot,
-                  {
-                    backgroundColor: isInitialized
-                      ? isScanning
-                        ? colors.warning
-                        : colors.success
-                      : colors.error,
-                  },
-                ]}
-              />
-              <Text style={styles.statusText} size="xs" preset="formHelper">
-                {isInitialized
+        }
+        titleContainerStyle={{
+          alignItems: 'center',
+        }}
+        RightActionComponent={
+          <TouchableOpacity
+            style={[
+              styles.scanButton,
+              isScanning && styles.scanningButton,
+              !isInitialized && styles.scanButtonDisabled,
+            ]}
+            onPress={isScanning ? stopScan : startScan}
+            disabled={!isInitialized}
+            activeOpacity={0.8}
+          >
+            {isScanning ? (
+              <View style={styles.scanButtonContent}>
+                <ActivityIndicator color={themeColors.buttonPrimaryText || '#FFFFFF'} size="small" />
+                <Text style={styles.scanButtonText} weight="semiBold">
+                  {translate("deviceScan.stopScan" as any) || 'Stop Scan'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.scanButtonContent}>
+                <Search size={20} color={themeColors.buttonPrimaryText || '#FFFFFF'} />
+                <Text style={styles.scanButtonText} weight="semiBold">
+                  {isInitialized
+                    ? translate("deviceScan.startScan" as any)
+                    : translate("common.loading" as any)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        }
+        containerStyle={{
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          paddingBottom: 12,
+        }}
+        style={{
+          paddingHorizontal: 16,
+        }}
+        safeAreaEdges={['top']}
+      />
+      
+      {/* Status Row */}
+      <View style={styles.statusContainer}>
+        <View style={styles.statusRow}>
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor: isInitialized
                   ? isScanning
-                    ? 'Scanning...'
-                    : 'Ready'
-                  : 'Initializing...'}
-              </Text>
-            </View>
-          </View>
+                    ? themeColors.warning
+                    : themeColors.success
+                  : themeColors.error,
+              },
+            ]}
+          />
+          <Text style={styles.statusText} size="xs" preset="formHelper">
+            {isInitialized
+              ? isScanning
+                ? translate("deviceScan.scanning" as any)
+                : 'Ready'
+              : translate("common.loading" as any)}
+          </Text>
         </View>
-        
-        <TouchableOpacity
-          style={[
-            styles.scanButton,
-            isScanning && styles.scanningButton,
-            !isInitialized && styles.scanButtonDisabled,
-          ]}
-          onPress={isScanning ? stopScan : startScan}
-          disabled={!isInitialized}
-          activeOpacity={0.8}
-        >
-          {isScanning ? (
-            <View style={styles.scanButtonContent}>
-              <ActivityIndicator color={colors.buttonPrimaryText} size="small" />
-              <Text style={styles.scanButtonText} weight="semiBold">
-                {translate("deviceScan.stopScan" as any) || 'Stop Scan'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.scanButtonContent}>
-              <Search size={20} color={colors.buttonPrimaryText} />
-              <Text style={styles.scanButtonText} weight="semiBold">
-                {isInitialized
-                  ? translate("deviceScan.startScan" as any)
-                  : translate("common.loading" as any)}
-            </Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* Device List */}
@@ -613,6 +619,12 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
           />
         )}
       </View>
+
+      {/* Connection Loading Modal */}
+      <EldConnectionModal
+        visible={isConnecting}
+        status={connectionStatus}
+      />
     </SafeAreaView>
   );
 };
@@ -622,25 +634,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    padding: 20,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    shadowColor: colors.palette.light.shadowColor,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
   headerIconContainer: {
     width: 56,
     height: 56,
@@ -648,15 +641,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.infoBackground,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
-  headerTextContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 28,
-    color: colors.text,
-    marginBottom: 4,
+  statusContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   statusRow: {
     flexDirection: 'row',
