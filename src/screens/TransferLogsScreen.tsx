@@ -420,14 +420,16 @@ export const TransferLogsScreen: React.FC = () => {
         )}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { backgroundColor: colors.background }]}>
-        <LoadingButton
-          title="Transfer Now"
-          onPress={() => handleOpenTransferOption("wireless")}
-          icon={<Share2 size={18} color="#fff" />}
-          fullWidth
-        />
-      </View>
+      <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+        <View style={[styles.bottomBar, { backgroundColor: colors.background }]}>
+          <LoadingButton
+            title="Transfer Now"
+            onPress={() => handleOpenTransferOption("wireless")}
+            icon={<Share2 size={18} color="#fff" />}
+            fullWidth
+          />
+        </View>
+      </SafeAreaContainer>
 
           <BottomSheetModal
             ref={bottomSheetRef}

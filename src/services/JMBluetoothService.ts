@@ -105,7 +105,8 @@ class JMBluetoothService {
       const now = Date.now();
       if (this.lastPermissionRequestTime && this.lastPermissionResult) {
         const elapsed = now - this.lastPermissionRequestTime;
-        if (elapsed < 30000) {
+        // Increase cache TTL to 60 seconds for better UX
+        if (elapsed < 60000) {
           logger.info('Returning cached Bluetooth permission result', {
             elapsedMs: elapsed,
             granted: this.lastPermissionResult.granted,
@@ -121,6 +122,12 @@ class JMBluetoothService {
         logger.info('Permission request result (boolean):', { granted: result });
         this.lastPermissionRequestTime = now;
         this.lastPermissionResult = { granted: result };
+        
+        // Poll permission status after request to detect when granted
+        if (!result) {
+          this.pollPermissionStatus();
+        }
+        
         return this.lastPermissionResult;
       }
       logger.info('Permission request result (object):', result);
@@ -130,11 +137,42 @@ class JMBluetoothService {
       };
       this.lastPermissionRequestTime = now;
       this.lastPermissionResult = normalizedResult;
+      
+      // Poll permission status after request to detect when granted
+      if (!normalizedResult.granted) {
+        this.pollPermissionStatus();
+      }
+      
       return this.lastPermissionResult;
     } catch (error: any) {
       logger.error('Failed to request permissions:', { error: error?.message, stack: error?.stack });
       throw error;
     }
+  }
+
+  // Poll permission status to detect when user grants permission
+  private pollPermissionStatus(maxAttempts: number = 10, intervalMs: number = 1000): void {
+    let attempts = 0;
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      try {
+        const result = await JMBluetoothModule.requestPermissions();
+        const granted = typeof result === 'boolean' ? result : !!(result && (result as any).granted);
+        
+        if (granted) {
+          clearInterval(pollInterval);
+          this.lastPermissionResult = { granted: true };
+          this.lastPermissionRequestTime = Date.now();
+          logger.info('Bluetooth permission granted via polling');
+        } else if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          logger.info('Bluetooth permission polling stopped after max attempts');
+        }
+      } catch (error) {
+        clearInterval(pollInterval);
+        logger.error('Error polling Bluetooth permission status:', error);
+      }
+    }, intervalMs);
   }
 
   // Start scanning for devices

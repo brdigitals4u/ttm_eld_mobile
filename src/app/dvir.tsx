@@ -20,6 +20,7 @@ import { useAuth } from "@/stores/authStore"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { translate } from "@/i18n/translate"
+import { SafeAreaContainer } from "@/components/SafeAreaContainer"
 
 type InspectionType = "pre-trip" | "post-trip"
 type SafetyStatus = "safe" | "unsafe" | null
@@ -339,7 +340,9 @@ export default function DVIRScreen() {
           </View>
         </ElevatedCard>
 
-        <LoadingButton title="Next" onPress={handleNext} fullWidth style={styles.nextButton} />
+        <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+          <LoadingButton title="Next" onPress={handleNext} fullWidth style={styles.nextButton} />
+        </SafeAreaContainer>
       </ScrollView>
 
       {/* Certify Modal */}

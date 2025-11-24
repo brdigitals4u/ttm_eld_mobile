@@ -75,7 +75,7 @@ import { useLanguage } from "@/hooks/useLanguage"
 import { useHOSStatusContext } from "@/contexts/hos-status-context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 
-export const DashboardScreen = () => {
+export const DashboardScreen = React.memo(() => {
   // Trigger re-render when language changes
   useLanguage()
 
@@ -118,11 +118,12 @@ export const DashboardScreen = () => {
     isAuthenticated,
   )
 
-  const hasVehicleAssignment = Boolean(
+  const hasVehicleAssignment = useMemo(() => Boolean(
     vehicleAssignment?.has_vehicle_assigned &&
       vehicleAssignment?.vehicle_info &&
       vehicleAssignment?.vehicle_info.status === "active",
-  )
+  ), [vehicleAssignment])
+  
   const activeTrip = useMemo(() => {
     if (!tripsData?.trips) return null
     const activeTrips = tripsData.trips.filter(
@@ -130,16 +131,17 @@ export const DashboardScreen = () => {
     )
     return activeTrips.length > 0 ? activeTrips[0] : tripsData.trips[0]
   }, [tripsData])
-  const hasTrip = !!activeTrip
-  const shipperId = user?.id ?? null
-  const hasShipperId = Boolean(shipperId)
+  
+  const hasTrip = useMemo(() => !!activeTrip, [activeTrip])
+  const shipperId = useMemo(() => user?.id ?? null, [user?.id])
+  const hasShipperId = useMemo(() => Boolean(shipperId), [shipperId])
 
   // HOS/ELD can be used if (vehicle OR trip) is assigned AND shipping ID is present
   // Either vehicle assignment OR trip assignment is sufficient
-  const requiresMandatorySetup = (!hasVehicleAssignment && !hasTrip) || !hasShipperId
-  const canUseHOS = (hasVehicleAssignment || hasTrip) && hasShipperId
-  const canUseELD = (hasVehicleAssignment || hasTrip) && hasShipperId
-  const showMandatorySetup = !vehicleLoading && !tripsLoading && requiresMandatorySetup
+  const requiresMandatorySetup = useMemo(() => (!hasVehicleAssignment && !hasTrip) || !hasShipperId, [hasVehicleAssignment, hasTrip, hasShipperId])
+  const canUseHOS = useMemo(() => (hasVehicleAssignment || hasTrip) && hasShipperId, [hasVehicleAssignment, hasTrip, hasShipperId])
+  const canUseELD = useMemo(() => (hasVehicleAssignment || hasTrip) && hasShipperId, [hasVehicleAssignment, hasTrip, hasShipperId])
+  const showMandatorySetup = useMemo(() => !vehicleLoading && !tripsLoading && requiresMandatorySetup, [vehicleLoading, tripsLoading, requiresMandatorySetup])
 
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false)
@@ -150,9 +152,11 @@ export const DashboardScreen = () => {
       console.warn("Failed to open ttmkonnect.com", error),
     )
   }, [])
+  
   const handleAddVehicle = useCallback(() => {
     router.push("/assignments" as any)
   }, [])
+  
   const handleAddShipperId = useCallback(() => {
     router.push("/assignments" as any)
   }, [])
@@ -1198,7 +1202,9 @@ export const DashboardScreen = () => {
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   )
-}
+})
+
+DashboardScreen.displayName = 'DashboardScreen'
 
 const s = StyleSheet.create({
   screen: { backgroundColor: "#F9FAFB", flex: 1, marginTop: 0 },

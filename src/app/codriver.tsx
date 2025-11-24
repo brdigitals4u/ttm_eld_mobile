@@ -12,6 +12,7 @@ import { Text } from '@/components/Text';
 import { useDrivers, useCreateCoDriverEvent } from '@/api/drivers';
 import { useAuth } from '@/stores/authStore';
 import { useLocationData } from '@/hooks/useLocationData';
+import { SafeAreaContainer } from '@/components/SafeAreaContainer';
 
 export default function CoDriverScreen() {
   const { theme } = useAppTheme();
@@ -256,20 +257,22 @@ export default function CoDriverScreen() {
             />
           </View>
 
-          <View style={styles.formButtons}>
-            <LoadingButton
-              title="Cancel"
-              onPress={handleCancelAdd}
-              variant="outline"
-              style={{ flex: 1, marginRight: 8 }}
-            />
-            <LoadingButton
-              title="Add Co-Driver"
-              onPress={handleSubmit}
-              loading={isLoading}
-              style={{ flex: 1, marginLeft: 8 }}
-            />
-          </View>
+          <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+            <View style={styles.formButtons}>
+              <LoadingButton
+                title="Cancel"
+                onPress={handleCancelAdd}
+                variant="outline"
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <LoadingButton
+                title="Add Co-Driver"
+                onPress={handleSubmit}
+                loading={isLoading}
+                style={{ flex: 1, marginLeft: 8 }}
+              />
+            </View>
+          </SafeAreaContainer>
         </View>
       </View>
     );

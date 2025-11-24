@@ -45,15 +45,16 @@ export default function Index() {
     return <Redirect href="/(tabs)/dashboard" />
   }
 
-  // Check permissions first (after splash, before welcome)
-  if (!hasSeenPermissions) {
-    console.log("🔐 Redirecting to permissions")
-    return <Redirect href="/permissions" />
-  }
-
+  // Flow: splash → welcome → permissions → login
   if (!hasSeenWelcome) {
     console.log("👋 Redirecting to welcome")
     return <Redirect href="/welcome" />
+  }
+
+  // Check permissions after welcome (allows proper app initialization)
+  if (!hasSeenPermissions) {
+    console.log("🔐 Redirecting to permissions")
+    return <Redirect href="/permissions" />
   }
 
   console.log("🔑 Redirecting to login")

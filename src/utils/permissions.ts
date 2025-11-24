@@ -23,6 +23,12 @@ export interface RequestPermissionsOptions {
    * If false, runs the permission requests sequentially in media->camera->location->bluetooth order.
    */
   parallel?: boolean
+  /**
+   * Delay in milliseconds between sequential permission requests.
+   * Helps prevent system dialog conflicts, especially for Bluetooth.
+   * Defaults to 500ms.
+   */
+  sequentialDelay?: number
 }
 
 /* ----- small helpers ----- */
@@ -70,7 +76,7 @@ async function checkThenRequest<TCheck extends { status?: string } | undefined, 
 
 /* ----- Media / Camera implementations ----- */
 
-async function requestMediaLibraryPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+export async function requestMediaLibraryPermission(skipIfGranted: boolean): Promise<PermissionResult> {
   return checkThenRequest(
     "mediaLibrary",
     () => ImagePicker.getMediaLibraryPermissionsAsync(),
@@ -80,7 +86,7 @@ async function requestMediaLibraryPermission(skipIfGranted: boolean): Promise<Pe
   )
 }
 
-async function requestCameraPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+export async function requestCameraPermission(skipIfGranted: boolean): Promise<PermissionResult> {
   return checkThenRequest(
     "camera",
     () => ImagePicker.getCameraPermissionsAsync(),
@@ -92,7 +98,7 @@ async function requestCameraPermission(skipIfGranted: boolean): Promise<Permissi
 
 /* ----- Location (foreground only) ----- */
 
-async function requestLocationPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+export async function requestLocationPermission(skipIfGranted: boolean): Promise<PermissionResult> {
   try {
     if (skipIfGranted) {
       const check = await Location.getForegroundPermissionsAsync()
@@ -138,7 +144,7 @@ async function callJMBluetoothRequest(arg?: JBRequestPermsArg): Promise<JBResult
   }
 }
 
-async function requestBluetoothPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+export async function requestBluetoothPermission(skipIfGranted: boolean): Promise<PermissionResult> {
   try {
     // When skipIfGranted is requested, first try a check-only invocation to avoid dialogs.
     const result = await safe<JBResult>(() => callJMBluetoothRequest(skipIfGranted ? { checkOnly: true } : undefined), undefined)
@@ -181,10 +187,15 @@ export async function requestCorePermissions(
   }
 
   // sequential: useful when you explicitly want ordered dialogs
+  const delay = options.sequentialDelay ?? 500
   const results: PermissionResult[] = []
-  for (const t of tasks) {
+  for (let i = 0; i < tasks.length; i++) {
+    // Add delay between requests to prevent system dialog conflicts
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
     // do not throw — helpers return a PermissionResult with error field if something went wrong
-    const r = await t()
+    const r = await tasks[i]()
     results.push(r)
   }
   return results

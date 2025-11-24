@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, ViewProps, ViewStyle } from 'react-native';
 import { useAppTheme } from '@/theme/context';
+import { getShadowForTheme } from '@/theme/shadows';
 
 interface CardProps extends Omit<ViewProps, 'style'> {
   children: React.ReactNode;
@@ -12,14 +13,16 @@ export default function EvelvatedCard({ children, variant = 'default', style, ..
   const { theme } = useAppTheme();
   const {colors, isDark} = theme;
   
+  const shadowPreset = variant === 'elevated' ? 'medium' : 'small'
+  const shadow = getShadowForTheme(isDark, shadowPreset)
+
   return (
     <View
       style={[
         styles.card,
         {
           backgroundColor: colors.surface,
-          shadowColor: isDark ? '#FFFFFF' : '#000000',
-          shadowOpacity: isDark ? 0.3 : (variant === 'elevated' ? 0.1 : 0.05),
+          ...shadow,
           borderColor: colors.border,
           borderWidth: isDark ? 1 : 0,
         },
@@ -37,8 +40,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginVertical: 8,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
   },
 });

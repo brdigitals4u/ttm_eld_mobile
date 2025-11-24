@@ -10,6 +10,7 @@ interface InspectionContextType extends InspectionState {
   updateInspectionItem: (itemId: string, status: 'pass' | 'fail' | 'na', notes?: string) => Promise<void>;
   completeInspection: (signature: string) => Promise<void>;
   getInspectionTemplate: (type: 'pre-trip' | 'post-trip' | 'dot') => InspectionItem[];
+  hasRecentPreTrip: () => boolean;
 }
 
 const PRE_TRIP_TEMPLATE: InspectionItem[] = [
@@ -181,11 +182,32 @@ export const [InspectionProvider, useInspection] = createContextHook(() => {
     }
   };
 
+  const hasRecentPreTrip = (): boolean => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+
+    // Check current inspection
+    if (state.currentInspection?.type === 'pre-trip' && state.currentInspection.overallStatus === 'pass') {
+      return true;
+    }
+
+    // Check completed inspections in last 24 hours
+    const recentPreTrip = state.inspections.find((inspection) => {
+      const isPreTrip = inspection.type === 'pre-trip';
+      const isCompleted = inspection.overallStatus === 'pass';
+      const isRecent = (inspection.startTime || 0) >= twentyFourHoursAgo;
+      return isPreTrip && isCompleted && isRecent;
+    });
+
+    return !!recentPreTrip;
+  };
+
   return {
     ...state,
     startInspection,
     updateInspectionItem,
     completeInspection,
     getInspectionTemplate,
+    hasRecentPreTrip,
   };
 });

@@ -38,6 +38,8 @@ import { useLocationData } from "@/hooks/useLocationData"
 import { useToast } from "@/providers/ToastProvider"
 import { ActivityIndicator } from "react-native"
 import { translate } from "@/i18n/translate"
+import { usePreTripCheck } from "@/hooks/usePreTripCheck"
+import { hosApi } from "@/api/hos"
 
 // Simple StatusButton component replacement
 const StatusButton = ({
@@ -152,6 +154,9 @@ export default function StatusScreen() {
 
   // Mutation hook for changing duty status
   const changeDutyStatusMutation = useChangeDutyStatus()
+  
+  // Pre-trip inspection check
+  const { hasCompletedPreTrip } = usePreTripCheck()
 
   // Get odometer from ELD device using the hook
   const getOdometer = (): number => {
@@ -202,6 +207,35 @@ export default function StatusScreen() {
     if (!finalReason) {
       toast.error(isOtherSelected ? "Please enter a reason" : "Please select a reason for the status change")
       return
+    }
+
+    // Check for pre-trip inspection before allowing driving status
+    if (selectedStatus === 'driving' && !hasCompletedPreTrip) {
+      // Show warning but allow status change (per user requirement)
+      toast.warning(translate("status.pretripWarning" as any) || "Pre-trip inspection not completed. UDT event will be recorded.")
+      
+      // Create UDT event
+      try {
+        if (driverProfile?.driver_id) {
+          await hosApi.createHOSELDEvent({
+            driver: driverProfile.driver_id,
+            event_type: 'udt',
+            event_code: 'UDT',
+            event_time: new Date().toISOString(),
+            location: locationData.address || '',
+            event_data: {
+              new_duty_status: 'driving',
+              previous_duty_status: currentHosStatus?.current_status || 'unknown',
+              missing_inspection: 'pre-trip',
+              driver_id: driverProfile.driver_id,
+            },
+          })
+          console.log('✅ UDT event created for missing pre-trip inspection')
+        }
+      } catch (error) {
+        console.error('❌ Failed to create UDT event:', error)
+        // Don't block status change if UDT event creation fails
+      }
     }
 
     console.log('✅ Validation passed, setting submitting state')
@@ -672,45 +706,47 @@ export default function StatusScreen() {
               )}
             </ScrollView>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.primaryModalButton,
-                  { 
-                    backgroundColor: colors.palette.primary500,
-                    opacity: ((!isOtherSelected && selectedReason) || (isOtherSelected && otherReasonText.trim())) && !isSubmittingStatus ? 1 : 0.5 
-                  },
-                ]}
-                disabled={((!isOtherSelected && !selectedReason) || (isOtherSelected && !otherReasonText.trim())) || isSubmittingStatus}
-                onPress={handleConfirmStatusChange}
-              >
-                {isSubmittingStatus ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <ActivityIndicator size="small" color="#fff" />
-                    <Text style={styles.primaryModalButtonText}>Updating...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.primaryModalButtonText}>Confirm</Text>
-                )}
-              </TouchableOpacity>
+            <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    styles.primaryModalButton,
+                    { 
+                      backgroundColor: colors.palette.primary500,
+                      opacity: ((!isOtherSelected && selectedReason) || (isOtherSelected && otherReasonText.trim())) && !isSubmittingStatus ? 1 : 0.5 
+                    },
+                  ]}
+                  disabled={((!isOtherSelected && !selectedReason) || (isOtherSelected && !otherReasonText.trim())) || isSubmittingStatus}
+                  onPress={handleConfirmStatusChange}
+                >
+                  {isSubmittingStatus ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <ActivityIndicator size="small" color="#fff" />
+                      <Text style={styles.primaryModalButtonText}>Updating...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.primaryModalButtonText}>Confirm</Text>
+                  )}
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalButton, styles.secondaryModalButton]}
-                disabled={isSubmittingStatus}
-                onPress={() => {
-                  setShowReasonModal(false)
-                  setSelectedStatus(null)
-                  setSelectedReason("")
-                  setIsOtherSelected(false)
-                  setOtherReasonText("")
-                }}
-              >
-                <Text style={[styles.secondaryModalButtonText, { color: colors.palette.primary500 }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.secondaryModalButton]}
+                  disabled={isSubmittingStatus}
+                  onPress={() => {
+                    setShowReasonModal(false)
+                    setSelectedStatus(null)
+                    setSelectedReason("")
+                    setIsOtherSelected(false)
+                    setOtherReasonText("")
+                  }}
+                >
+                  <Text style={[styles.secondaryModalButtonText, { color: colors.palette.primary500 }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaContainer>
           </View>
         </View>
       </Modal>

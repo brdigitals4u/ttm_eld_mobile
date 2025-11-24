@@ -123,6 +123,7 @@ const en = {
     pricePerGallon: "Price/Gallon",
     date: "Date",
     location: "Location",
+    autoSwitched: "Switched to non-driving mode for fuel entry",
   },
   profile: {
     title: "Profile",
@@ -177,6 +178,7 @@ const en = {
   },
   status: {
     title: "Status",
+    pretripWarning: "Pre-trip inspection not completed. UDT event will be recorded.",
     currentStatus: "Current Status",
     changeStatus: "Change Status",
     reason: "Reason",

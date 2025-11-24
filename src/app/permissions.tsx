@@ -39,6 +39,7 @@ import { requestCorePermissions, checkCorePermissions, PermissionResult } from '
 import { settingsStorage } from '@/utils/storage'
 import { COLORS } from '@/constants/colors'
 import { translate } from '@/i18n/translate'
+import { SafeAreaContainer } from '@/components/SafeAreaContainer'
 
 interface PermissionItem {
   id: 'camera' | 'mediaLibrary' | 'bluetooth' | 'location'
@@ -164,27 +165,60 @@ export default function PermissionsScreen() {
 
       const permissionName = permissionNameMap[permissionId]
 
-      // Request all permissions (they handle skipIfGranted internally)
-      const results = await requestCorePermissions({ skipIfGranted: false, parallel: false })
-      const permissionsMap: Record<string, PermissionResult> = { ...permissions }
+      // Request individual permission with proper handling
+      let result: PermissionResult
       
-      results.forEach((result) => {
-        permissionsMap[result.name] = result
-        
-        // Animate success for the requested permission
-        if (result.name === permissionName && result.granted) {
-          cardOpacity.value = withTiming(0.7, { duration: 200 })
-          setTimeout(() => {
-            cardOpacity.value = withSpring(1, { damping: 10 })
-          }, 300)
-        }
-      })
+      // Import individual permission request functions
+      const { 
+        requestMediaLibraryPermission, 
+        requestCameraPermission, 
+        requestLocationPermission, 
+        requestBluetoothPermission 
+      } = await import('@/utils/permissions')
+      
+      // Add delay before requesting to prevent system dialog conflicts
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      switch (permissionId) {
+        case 'camera':
+          result = await requestCameraPermission(false)
+          break
+        case 'mediaLibrary':
+          result = await requestMediaLibraryPermission(false)
+          break
+        case 'location':
+          result = await requestLocationPermission(false)
+          break
+        case 'bluetooth':
+          // Bluetooth needs extra delay and retry logic
+          await new Promise(resolve => setTimeout(resolve, 300))
+          result = await requestBluetoothPermission(false)
+          // If not granted, wait and check again (user might be granting in system dialog)
+          if (!result.granted) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            result = await requestBluetoothPermission(true) // Check status
+          }
+          break
+        default:
+          result = { name: permissionName, granted: false, error: 'Unknown permission' }
+      }
+
+      const permissionsMap: Record<string, PermissionResult> = { ...permissions }
+      permissionsMap[permissionName] = result
+      
+      // Animate success for the requested permission
+      if (result.granted) {
+        cardOpacity.value = withTiming(0.7, { duration: 200 })
+        setTimeout(() => {
+          cardOpacity.value = withSpring(1, { damping: 10 })
+        }, 300)
+      }
 
       setPermissions(permissionsMap)
       updateProgress(permissionsMap)
 
       // Move to next permission if not granted
-      if (!permissionsMap[permissionName]?.granted) {
+      if (!result.granted) {
         const currentIdx = PERMISSIONS.findIndex((p) => p.id === permissionId)
         if (currentIdx < PERMISSIONS.length - 1) {
           setCurrentIndex(currentIdx + 1)
@@ -311,17 +345,19 @@ export default function PermissionsScreen() {
 
         {/* Action Button */}
         {!allPermissionsGranted && (
-          <Animated.View style={buttonStyle}>
-            <TouchableOpacity
-              style={[styles.primaryButton, isRequesting && styles.primaryButtonDisabled]}
-              onPress={requestAllPermissions}
-              disabled={isRequesting}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isRequesting ? 'Requesting...' : 'Grant All Permissions'}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+          <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+            <Animated.View style={buttonStyle}>
+              <TouchableOpacity
+                style={[styles.primaryButton, isRequesting && styles.primaryButtonDisabled]}
+                onPress={requestAllPermissions}
+                disabled={isRequesting}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isRequesting ? 'Requesting...' : 'Grant All Permissions'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </SafeAreaContainer>
         )}
 
         {/* Success State */}

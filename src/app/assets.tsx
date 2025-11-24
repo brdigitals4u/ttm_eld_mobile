@@ -10,6 +10,7 @@ import { useAppTheme } from '@/theme/context';
 import { Asset } from '@/types/assets';
 import { Text } from '@/components/Text';
 import { translate } from '@/i18n/translate';
+import { SafeAreaContainer } from '@/components/SafeAreaContainer';
 
 export default function AssetsScreen() {
   const { theme } = useAppTheme();
@@ -294,20 +295,22 @@ export default function AssetsScreen() {
             />
           </View>
 
-          <View style={styles.formButtons}>
-            <LoadingButton
-              title="Cancel"
-              onPress={handleCancelAdd}
-              variant="outline"
-              style={{ flex: 1, marginRight: 8 }}
-            />
-            <LoadingButton
-              title="Add Asset"
-              onPress={handleSubmit}
-              loading={isLoading}
-              style={{ flex: 1, marginLeft: 8 }}
-            />
-          </View>
+          <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+            <View style={styles.formButtons}>
+              <LoadingButton
+                title="Cancel"
+                onPress={handleCancelAdd}
+                variant="outline"
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <LoadingButton
+                title="Add Asset"
+                onPress={handleSubmit}
+                loading={isLoading}
+                style={{ flex: 1, marginLeft: 8 }}
+              />
+            </View>
+          </SafeAreaContainer>
         </View>
       </View>
     );

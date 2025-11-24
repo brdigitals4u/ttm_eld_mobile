@@ -170,6 +170,33 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const queryClient = useQueryClient()
   const [obdData, setObdData] = useState<OBDDataItem[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  
+  // Debounce OBD data updates to reduce re-renders
+  const obdDataUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingObdDataRef = useRef<OBDDataItem[]>([])
+  
+  const debouncedSetObdData = useCallback((data: OBDDataItem[]) => {
+    pendingObdDataRef.current = data
+    
+    if (obdDataUpdateTimeoutRef.current) {
+      clearTimeout(obdDataUpdateTimeoutRef.current)
+    }
+    
+    obdDataUpdateTimeoutRef.current = setTimeout(() => {
+      setObdData(pendingObdDataRef.current)
+      setLastUpdate(new Date())
+      obdDataUpdateTimeoutRef.current = null
+    }, 100) // 100ms debounce
+  }, [])
+
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (obdDataUpdateTimeoutRef.current) {
+        clearTimeout(obdDataUpdateTimeoutRef.current)
+      }
+    }
+  }, [])
   const [isConnected, setIsConnected] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [awsSyncStatus, setAwsSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
@@ -1030,7 +1057,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           speedMph = parseFloat((speedMph * 0.621371).toFixed(2))
         }
 
-        setObdData(displayData)
+        debouncedSetObdData(displayData)
         setCurrentSpeedMph(speedMph)
         setActivityState(speedMph >= SPEED_THRESHOLD_DRIVING ? 'driving' : 'idling')
 
@@ -1543,8 +1570,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const displayData = handleData(data)
           if (displayData.length > 0) {
             console.log('📊 OBD Data Context: Processed data flow, setting obdData')
-            setObdData(displayData)
-            setLastUpdate(new Date())
+            debouncedSetObdData(displayData)
             setIsConnected(true)
           }
         }

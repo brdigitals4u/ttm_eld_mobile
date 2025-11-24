@@ -341,13 +341,15 @@ export default function InspectionScreen() {
         contentContainerStyle={styles.inspectionListContent}
       />
 
-      <View style={styles.completeButton}>
-        <LoadingButton
-          title={translate("inspection.complete" as any)}
-          onPress={handleCompleteInspection}
-          fullWidth
-        />
-      </View>
+      <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+        <View style={styles.completeButton}>
+          <LoadingButton
+            title={translate("inspection.complete" as any)}
+            onPress={handleCompleteInspection}
+            fullWidth
+          />
+        </View>
+      </SafeAreaContainer>
     </View>
   );
 }

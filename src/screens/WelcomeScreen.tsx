@@ -7,6 +7,8 @@ import { settingsStorage } from '@/utils/storage'
 import { COLORS } from '@/constants/colors'
 import { translate } from '@/i18n/translate'
 import { BetaBanner } from '@/components/BetaBanner'
+import { SafeAreaContainer } from '@/components/SafeAreaContainer'
+import { shadows } from '@/theme/shadows'
 
 export const WelcomeScreen: React.FC = () => {
   const handleNext = async () => {
@@ -68,16 +70,18 @@ export const WelcomeScreen: React.FC = () => {
       </View>
 
       {/* Bottom Card */}
-      <View style={styles.bottomCard}>
-        <Text style={styles.title}>{translate("welcome.subtitle" as any)}</Text>
-        <Text style={styles.subtitle}>
-          {translate("welcome.description" as any)}
-        </Text>
+      <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+        <View style={styles.bottomCard}>
+          <Text style={styles.title}>{translate("welcome.subtitle" as any)}</Text>
+          <Text style={styles.subtitle}>
+            {translate("welcome.description" as any)}
+          </Text>
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>{translate("welcome.next" as any)}</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+            <Text style={styles.nextButtonText}>{translate("welcome.next" as any)}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaContainer>
     </View>
   )
 }
@@ -166,11 +170,8 @@ const styles = StyleSheet.create({
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
+    ...shadows.medium,
     shadowColor: COLORS.indigo,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   nextButtonText: {
     color: COLORS.white,

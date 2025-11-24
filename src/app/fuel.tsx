@@ -26,15 +26,20 @@ import { FuelPurchasesList } from "@/components/FuelPurchasesList"
 import { useLocation } from "@/contexts/location-context"
 
 import { toast } from "@/components/Toast"
+import { useToast } from "@/providers/ToastProvider"
 import { useFuel, useAuth, usePermissions } from "@/contexts"
 import { useLocationData } from "@/hooks/useLocationData"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useAppTheme } from "@/theme/context"
 import { FuelReceipt } from "@/types/fuel"
 import { translate } from "@/i18n/translate"
+import { useHOSCurrentStatus, useChangeDutyStatus } from "@/api/driver-hooks"
+import { mapAppStatusToDriverStatus } from "@/utils/hos-status-mapper"
 
 import { Filter, List, Plus } from 'lucide-react-native'
 import { Dimensions } from 'react-native'
+import { SafeAreaContainer } from '@/components/SafeAreaContainer'
+import { shadows, applyShadow } from '@/theme/shadows'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
 
@@ -70,6 +75,11 @@ export default function EnhancedFuelScreen() {
   const locationData = useLocationData()
   const { requestLocation, hasPermission } = useLocation()
   const createFuelPurchaseMutation = useCreateFuelPurchase()
+  const { toast: toastHook } = useToast()
+  
+  // HOS status for auto-switch functionality
+  const { data: hosStatus } = useHOSCurrentStatus(user?.id ? true : false)
+  const changeDutyStatusMutation = useChangeDutyStatus()
   const [showAddForm, setShowAddForm] = useState(false)
   const [formData, setFormData] = useState<FuelFormData>({
     location: "",
@@ -107,6 +117,32 @@ export default function EnhancedFuelScreen() {
       console.warn("📍 FuelScreen: Permission request failed:", error),
     )
   }, [requestPermissions])
+
+  // Auto-switch to non-driving mode when fuel screen opens
+  useEffect(() => {
+    const autoSwitchToNonDriving = async () => {
+      // Only switch if currently in driving status
+      if (hosStatus?.current_duty_status === 'driving' && driverProfile?.driver_id) {
+        try {
+          const driverStatus = mapAppStatusToDriverStatus('on_duty')
+          await changeDutyStatusMutation.mutateAsync({
+            duty_status: driverStatus,
+            location: locationData.address || undefined,
+            latitude: locationData.latitude !== 0 ? locationData.latitude : undefined,
+            longitude: locationData.longitude !== 0 ? locationData.longitude : undefined,
+            notes: 'Auto-switched for fuel entry',
+          })
+          toast.info(translate("fuel.autoSwitched" as any) || 'Switched to non-driving mode for fuel entry')
+        } catch (error) {
+          console.error('Failed to auto-switch to non-driving mode:', error)
+          // Don't show error to user - this is a background operation
+        }
+      }
+    }
+
+    // Run once when component mounts
+    autoSwitchToNonDriving()
+  }, []) // Empty dependency array - run once on mount
 
   // Auto-populate odometer and location from ELD device (priority) or fallback sources
   useEffect(() => {
@@ -772,15 +808,10 @@ export default function EnhancedFuelScreen() {
         leftIcon="back"
         leftIconColor={colors.tint}
         onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
-        containerStyle={{
+        containerStyle={applyShadow({
           borderBottomWidth: 1,
           borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-          shadowColor: colors.tint,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 6,
-        }}
+        }, 'medium', colors.tint)}
         style={{
           paddingHorizontal: 16,
         }}
@@ -1205,42 +1236,44 @@ export default function EnhancedFuelScreen() {
           </ElevatedCard>
 
           {/* Action Buttons */}
-          <View style={styles.formButtons}>
-            <TouchableOpacity
-              onPress={handleCancelAdd}
-              disabled={isSubmitting}
-              style={[
-                styles.cancelButton,
-                {
-                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
-                  borderColor: colors.border,
-                  opacity: isSubmitting ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>Clear</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              style={[
-                styles.submitButton,
-                {
-                  backgroundColor: colors.PRIMARY,
-                  opacity: isSubmitting ? 0.6 : 1,
-                },
-              ]}
-            >
-              {isSubmitting ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Submitting...</Text>
-                </View>
-              ) : (
-                <Text style={styles.submitButtonText}>Submit</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+            <View style={styles.formButtons}>
+              <TouchableOpacity
+                onPress={handleCancelAdd}
+                disabled={isSubmitting}
+                style={[
+                  styles.cancelButton,
+                  {
+                    backgroundColor: isDark ? colors.surface : "#F3F4F6",
+                    borderColor: colors.border,
+                    opacity: isSubmitting ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                style={[
+                  styles.submitButton,
+                  {
+                    backgroundColor: colors.PRIMARY,
+                    opacity: isSubmitting ? 0.6 : 1,
+                  },
+                ]}
+              >
+                {isSubmitting ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>Submitting...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.submitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </SafeAreaContainer>
         </ScrollView>
       )}
 
@@ -1497,17 +1530,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginTop: 24,
     gap: 12,
-    marginBottom: 140
   },
   headerCard: {
     borderRadius: 20,
     marginBottom: 24,
     overflow: "hidden",
+    ...shadows.large,
     shadowColor: "#0071ce",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
   },
   headerCardContent: {
     flexDirection: "row",
@@ -1888,11 +1917,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.medium,
     shadowColor: "#0071ce",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
   },
   submitButtonText: {
     color: "#FFFFFF",
