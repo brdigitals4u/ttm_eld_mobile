@@ -11,17 +11,18 @@ interface FreshchatIdentity {
   phoneCountryCode?: string
 }
 
-const DEFAULT_DOMAIN = "msdk.freshchat.com"
-
 const sanitizeDomain = (domain?: string | null) => {
   if (!domain) return ""
   return domain.replace(/^https?:\/\//i, "").replace(/\/+$/, "")
 }
 
-const APP_ID = "a979278b-1855-46cf-92d8-318c615afd4f"
-const APP_KEY = "eddc1144-b972-4d4e-bd00-0ba386b546c1"
-const DOMAIN = sanitizeDomain("msdk.in.freshchat.com") 
- 
+// Freshchat credentials - use environment variables or set directly
+// Get these from Freshdesk portal: Admin → Channels → Mobile SDK
+const APP_ID = process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || ""
+const APP_KEY = process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || "KtaxJejHFh-iCSQ3P6Mu"
+const DOMAIN = sanitizeDomain(
+  process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || "ttmkonnectsandbox.freshdesk.com",
+)
 
 let initialized = false
 
@@ -32,8 +33,14 @@ const ensureInitialized = () => {
     return false
   }
   if (!APP_ID || !APP_KEY) {
-    console.warn(
-      "[Freshchat] Missing APP_ID or APP_KEY. Set EXPO_PUBLIC_FRESHCHAT_APP_ID / APP_KEY.",
+    console.error(
+      "[Freshchat] Missing APP_ID or APP_KEY.",
+      "\n  Set EXPO_PUBLIC_FRESHCHAT_APP_ID and EXPO_PUBLIC_FRESHCHAT_APP_KEY in your .env file.",
+      "\n  Get App ID from: https://ttmkonnectsandbox.freshdesk.com/ → Admin → Channels → Mobile SDK",
+      "\n  Current values:",
+      `\n    APP_ID: ${APP_ID || "NOT SET"}`,
+      `\n    APP_KEY: ${APP_KEY ? "SET" : "NOT SET"}`,
+      `\n    DOMAIN: ${DOMAIN || "NOT SET"}`,
     )
     return false
   }

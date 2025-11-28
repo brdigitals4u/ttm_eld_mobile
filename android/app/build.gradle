@@ -100,7 +100,7 @@ android {
         applicationId 'com.ttmkonnect.eld'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 13  // Increased to avoid version code conflicts with existing APKs
+        versionCode 14  // Increased to avoid version code conflicts with existing APKs
         versionName "1.0.0"
         
         // Enable multi-dex if needed (for large apps)
