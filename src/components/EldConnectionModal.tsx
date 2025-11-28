@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '85%',
-    maxWidth: 400,
+    maxWidth: 500,
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
@@ -138,5 +138,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
 })
+
+
 
 

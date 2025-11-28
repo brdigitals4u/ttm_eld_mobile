@@ -502,13 +502,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     );
   };
 
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+    
+  
+
       {/* Header */}
       <Header
         title={translate("deviceScan.title" as any)}
@@ -625,7 +625,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
         visible={isConnecting}
         status={connectionStatus}
       />
-    </SafeAreaView>
+    </>
   );
 };
 

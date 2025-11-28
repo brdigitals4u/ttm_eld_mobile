@@ -17,6 +17,7 @@ import { NotificationService } from "@/services/NotificationService"
 import { notificationsApi } from "@/api/notifications"
 import { BackgroundServices } from "@/components/BackgroundServices"
 import { analyticsService } from "@/services/AnalyticsService"
+import { initFreshchat } from "@/services/freshchat"
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
@@ -45,6 +46,10 @@ export default function Root() {
     initI18n()
       .then(() => setIsI18nInitialized(true))
       .then(() => loadDateFnsLocale())
+  }, [])
+
+  useEffect(() => {
+    initFreshchat()
   }, [])
 
   // Initialize push notifications (registration happens in BackgroundServices)

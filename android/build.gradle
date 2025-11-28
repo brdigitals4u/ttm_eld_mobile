@@ -6,7 +6,9 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath('com.android.tools.build:gradle')
+    // Android Gradle Plugin 8.5.1+ required for 16 KB page size support (Android 15+)
+    // This ensures native libraries are properly aligned for 16 KB devices
+    classpath('com.android.tools.build:gradle:8.5.1')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
     classpath('com.google.gms:google-services:4.4.2')
@@ -31,6 +33,16 @@ allprojects {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+  }
+}
+
+subprojects { subproject ->
+  if (subproject.name == "react-native-freshchat-sdk") {
+    subproject.afterEvaluate {
+      dependencies {
+        implementation "androidx.localbroadcastmanager:localbroadcastmanager:1.1.0"
+      }
+    }
   }
 }
 

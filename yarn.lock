@@ -8763,6 +8763,11 @@ react-native-edge-to-edge@1.6.0:
   resolved "https://registry.npmjs.org/react-native-edge-to-edge/-/react-native-edge-to-edge-1.6.0.tgz"
   integrity sha512-2WCNdE3Qd6Fwg9+4BpbATUxCLcouF6YRY7K+J36KJ4l3y+tWN6XCqAC4DuoGblAAbb2sLkhEDp4FOlbOIot2Og==
 
+react-native-freshchat-sdk@^4.7.8:
+  version "4.7.8"
+  resolved "https://registry.npmjs.org/react-native-freshchat-sdk/-/react-native-freshchat-sdk-4.7.8.tgz"
+  integrity sha512-bM6wUTDMzNZiz5wDuiKugZK+yfhQLjMjHyMLFQnIlQwwtCnnG6BkrpjuyzDGHjfd6Ss1TATDTQWt9EFizuB1RA==
+
 "react-native-gesture-handler@>= 2.0.0", react-native-gesture-handler@>=2.0.0, react-native-gesture-handler@>=2.16.1, react-native-gesture-handler@~2.24.0:
   version "2.24.0"
   resolved "https://registry.npmjs.org/react-native-gesture-handler/-/react-native-gesture-handler-2.24.0.tgz"

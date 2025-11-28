@@ -3,6 +3,7 @@ import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useChatSupport } from '../contexts/ChatSupportContext';
+import { showFreshchatConversations } from '@/services/freshchat';
 
 interface ChatSupportButtonProps {
   variant?: 'icon' | 'button' | 'fab';
@@ -31,7 +32,6 @@ export const ChatSupportButton: React.FC<ChatSupportButtonProps> = ({
   const chatSupport = useChatSupport();
 
   const handlePress = useCallback(() => {
-    // Set user data if provided
     if (userId) {
       chatSupport.setUser({
         identifier: userId,
@@ -41,8 +41,10 @@ export const ChatSupportButton: React.FC<ChatSupportButtonProps> = ({
       });
     }
 
-    // Navigate to chat support screen
-    router.push('/chat-support');
+    const opened = showFreshchatConversations();
+    if (!opened) {
+      router.push('/chat-support');
+    }
   }, [router, userId, userName, userEmail, customAttributes, chatSupport]);
 
   // Size configurations

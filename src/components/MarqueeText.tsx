@@ -83,7 +83,7 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    height: 40,
+    height: 70,
     overflow: 'hidden',
     justifyContent: 'center',
   },

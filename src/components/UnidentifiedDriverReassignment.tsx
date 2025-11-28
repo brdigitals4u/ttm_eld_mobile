@@ -67,11 +67,11 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
   const toggleRecord = useCallback((recordId: string) => {
     setSelectedRecords((prev) => {
       const newSelected = new Set(prev)
-      if (newSelected.has(recordId)) {
-        newSelected.delete(recordId)
-      } else {
-        newSelected.add(recordId)
-      }
+    if (newSelected.has(recordId)) {
+      newSelected.delete(recordId)
+    } else {
+      newSelected.add(recordId)
+    }
       return newSelected
     })
   }, [])

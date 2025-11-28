@@ -1,227 +1,117 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, BackHandler, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
-import ChatWootWidget from '@chatwoot/react-native-widget';
-import { CHATWOOT_CONFIG } from "@/utils/chatwootConfig"
-import { useAppTheme } from '@/theme/context';
-import { toast } from '@/components/Toast';
-import { useAuth } from '@/stores/authStore';
+import { useCallback, useMemo, useState } from "react"
+import { StyleSheet, TouchableOpacity, View } from "react-native"
+import { useFocusEffect } from "expo-router"
+import { SafeAreaView } from "react-native-safe-area-context"
 
-import { useChatSupport } from '../contexts/ChatSupportContext';
+import { Text } from "@/components/Text"
+import { useChatSupport } from "@/contexts/ChatSupportContext"
+import { translate } from "@/i18n/translate"
+import { showFreshchatConversations } from "@/services/freshchat"
+import { useAppTheme } from "@/theme/context"
 
-/** polyfill if necessary (optional) */
-if (typeof BackHandler.removeEventListener !== 'function') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (BackHandler as any).removeEventListener = () => {};
-}
+const ChatSupportScreen = () => {
+  const { theme } = useAppTheme()
+  const colors = theme.colors
+  const { setIsLoading } = useChatSupport()
+  const [launchError, setLaunchError] = useState<string | null>(null)
+  const [isLaunching, setIsLaunching] = useState(false)
+  const buttonStyle = useMemo(
+    () => ({
+      backgroundColor: colors.tint,
+      opacity: isLaunching ? 0.7 : 1,
+    }),
+    [colors.tint, isLaunching],
+  )
 
-const ChatSupportScreen: React.FC = () => {
-  const router = useRouter();
-  const { theme } = useAppTheme();
-  const colors = theme.colors;
-  const [showWidget, setShowWidget] = useState(true);
-  const [remountKey, setRemountKey] = useState(0);
-  const [hasError, setHasError] = useState(false);
-  const chatSupport = useChatSupport();
-  const { user: authUser, driverProfile } = useAuth();
+  const openChat = useCallback(() => {
+    setLaunchError(null)
+    setIsLaunching(true)
+    setIsLoading(true)
 
-  // Destructure stable functions/values from context
-  const { setIsLoading, user: csUser, customAttributes: csCustomAttrs, isLoading, setUser } = chatSupport;
-
-  // Get driver name from auth store
-  const driverName = useMemo(() => {
-    if (csUser?.name) return csUser.name;
-    if (driverProfile?.name) return driverProfile.name;
-    if (authUser?.firstName && authUser?.lastName) {
-      return `${authUser.firstName} ${authUser.lastName}`;
+    const opened = showFreshchatConversations()
+    if (!opened) {
+      setLaunchError(
+        translate("support.chatUnavailable" as any) ||
+          "Freshchat is unavailable. Check configuration.",
+      )
     }
-    if (authUser?.name) return authUser.name;
-    return 'Driver';
-  }, [csUser?.name, driverProfile?.name, authUser?.firstName, authUser?.lastName, authUser?.name]);
 
-  // Get driver identifier from auth store
-  const driverIdentifier = useMemo(() => {
-    if (csUser?.identifier) return csUser.identifier;
-    if (driverProfile?.driver_id) return driverProfile.driver_id;
-    if (authUser?.id) return authUser.id.toString();
-    return 'guest';
-  }, [csUser?.identifier, driverProfile?.driver_id, authUser?.id]);
+    setIsLoading(false)
+    setIsLaunching(false)
+  }, [setIsLoading])
 
-  // Get driver email from auth store
-  const driverEmail = useMemo(() => {
-    if (csUser?.email) return csUser.email;
-    if (driverProfile?.email) return driverProfile.email;
-    if (authUser?.email) return authUser.email;
-    return '';
-  }, [csUser?.email, driverProfile?.email, authUser?.email]);
-
-  // Memoize user and customAttributes so references are stable
-  const user = useMemo(() => {
-    return {
-      identifier: driverIdentifier,
-      name: driverName,
-      email: driverEmail,
-      avatar_url: '',
-      identifier_hash: '',
-    };
-  }, [driverIdentifier, driverName, driverEmail]);
-
-  // Initialize chat support context with driver info when screen loads
-  useEffect(() => {
-    if (driverName !== 'Driver' && driverIdentifier !== 'guest') {
-      setUser({
-        identifier: driverIdentifier,
-        name: driverName,
-        email: driverEmail || undefined,
-        customAttributes: csCustomAttrs || {},
-      });
-    }
-  }, [driverName, driverIdentifier, driverEmail, setUser, csCustomAttrs]);
-
-  const customAttributes = useMemo(() => {
-    return csCustomAttrs || {};
-  }, [JSON.stringify(csCustomAttrs || {})]); // lightweight deep-check; ok for small objects
-
-  // stable close handler
-  const handleCloseModal = useCallback(() => {
-    setShowWidget(false);
-    router.back();
-  }, [router]);
-
-  // Focus effect — runs when screen gains focus
   useFocusEffect(
     useCallback(() => {
-      // Debugging: set to true to see logs in console
-      const DEBUG = false;
-      if (DEBUG) console.log('[ChatSupport] onFocus');
-
-      // set loading state, remount widget safely
-      setIsLoading?.(true);
-
-      // Small debounce to avoid double-focus loops
-      const timer = setTimeout(() => {
-        // Force a remount only when needed
-        setRemountKey(k => k + 1);
-        setShowWidget(true);
-        setIsLoading?.(false);
-        if (DEBUG) console.log('[ChatSupport] widget shown; key=', remountKey + 1);
-      }, 300);
-
-      return () => {
-        clearTimeout(timer);
-        if (DEBUG) console.log('[ChatSupport] focus cleanup');
-      };
-    }, [setIsLoading]) // only depend on the setter (stable if context preserves it)
-  );
-
-  // Initial mount loading display
-  useEffect(() => {
-    setIsLoading?.(true);
-    const t = setTimeout(() => setIsLoading?.(false), 1500);
-    return () => clearTimeout(t);
-  }, [setIsLoading]);
-
-  // Validate Chatwoot URL on mount
-  useEffect(() => {
-    const validateUrl = async () => {
-      try {
-        // Import URL validation utility
-        const { isValidUrl } = await import('@/utils/urlNormalizer');
-        
-        // Check if URL is valid format
-        if (!isValidUrl(CHATWOOT_CONFIG.BASE_URL)) {
-          console.error('❌ Chatwoot: Invalid base URL:', CHATWOOT_CONFIG.BASE_URL);
-          setHasError(true);
-          toast.error('Chatwoot configuration error. Please contact support.');
-          return;
-        }
-      } catch (error) {
-        console.error('❌ Chatwoot: URL validation failed:', error);
-        setHasError(true);
-        toast.error('Chatwoot URL is invalid. Please contact support.');
-      }
-    };
-    validateUrl();
-  }, []);
-
-  const handleWidgetError = useCallback((error: any) => {
-    console.error('❌ Chatwoot Widget Error:', error);
-    setHasError(true);
-    toast.error('Failed to load chat support. Please check your connection.');
-  }, []);
-
-  if (hasError) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.errorContainer}>
-          <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load Chat Support</Text>
-          <Text style={[styles.errorMessage, { color: colors.textDim }]}>
-            The chat service is currently unavailable. Please try again later or contact support directly.
-          </Text>
-          <Text style={[styles.errorUrl, { color: colors.textDim }]}>
-            URL: {CHATWOOT_CONFIG.BASE_URL}
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+      openChat()
+    }, [openChat]),
+  )
 
   return (
-    <SafeAreaView style={styles.container}>
-      {isLoading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#4338CA" />
-        </View>
-      )}
-
-      {showWidget && !hasError && (
-        <ChatWootWidget
-          key={remountKey}
-          websiteToken={CHATWOOT_CONFIG.WEBSITE_TOKEN}
-          baseUrl={CHATWOOT_CONFIG.BASE_URL}
-          locale={CHATWOOT_CONFIG.WIDGET_CONFIG.locale}
-          user={user}
-          customAttributes={customAttributes}
-          isModalVisible={showWidget}
-          closeModal={handleCloseModal}
-          onError={handleWidgetError}
-        />
-      )}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {translate("support.chatSupport" as any) || "Chat Support"}
+        </Text>
+        <Text style={[styles.description, { color: colors.textDim }]}>
+          {translate("support.chatDescription" as any) ||
+            "Need help? Connect with our support team through Freshchat."}
+        </Text>
+        <TouchableOpacity
+          style={[styles.button, buttonStyle]}
+          disabled={isLaunching}
+          onPress={openChat}
+          activeOpacity={0.9}
+        >
+          <Text style={[styles.buttonText, { color: colors.buttonPrimaryText }]}>
+            {isLaunching
+              ? translate("support.chatOpening" as any) || "Opening chat..."
+              : translate("support.chatCta" as any) || "Open chat"}
+          </Text>
+        </TouchableOpacity>
+        {launchError && (
+          <Text style={[styles.errorText, { color: colors.error }]}>{launchError}</Text>
+        )}
+      </View>
     </SafeAreaView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  loaderContainer: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'center', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)', zIndex: 1000,
+  button: {
+    borderRadius: 12,
+    minWidth: 220,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  errorMessage: {
+  buttonText: {
     fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  container: { flex: 1 },
+  content: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  description: {
+    fontSize: 16,
     lineHeight: 24,
+    marginBottom: 32,
+    textAlign: "center",
   },
-  errorUrl: {
-    fontSize: 12,
-    fontFamily: 'monospace',
-    marginTop: 8,
+  errorText: {
+    fontSize: 14,
+    marginTop: 16,
+    textAlign: "center",
   },
-});
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+})
 
-export default ChatSupportScreen;
+export default ChatSupportScreen

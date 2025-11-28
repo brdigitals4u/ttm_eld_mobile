@@ -37,6 +37,10 @@ export const DtcIndicator: React.FC = () => {
   const hasActiveDtcs = activeDtcCount > 0
   const iconColor = hasActiveDtcs ? ORANGE_COLOR : colors.palette.neutral500 || '#6B7280'
 
+  if (!hasActiveDtcs) {
+    return null
+  }
+
   return (
     <TouchableOpacity
       onPress={handlePress}

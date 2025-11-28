@@ -79,17 +79,20 @@ const en = {
     connect: "Connect",
     connecting: "Connecting...",
     skip: "Skip (Dev Mode)",
+    devConnectButton: "Dev: Connect without hardware",
     bluetoothNotInitialized: "Bluetooth not initialized",
     invalidDeviceAddress: "Invalid device address",
     deviceDisconnected: "Device disconnected",
     failedToConnect: "Failed to connect",
     failedToStartScan: "Failed to start scan",
     failedToStopScan: "Failed to stop scan",
-    bluetoothPermissionsRequired: "Bluetooth permissions are required to use this app. Please grant the permissions and restart the app.",
+    bluetoothPermissionsRequired:
+      "Bluetooth permissions are required to use this app. Please grant the permissions and restart the app.",
     failedToInitializeBluetooth: "Failed to initialize Bluetooth",
     deviceNotConnected: "Device is not connected. Please try again.",
     connectionLost: "Connection lost. Please try again.",
-    failedToStartEldTransmission: "Failed to start ELD data transmission. You can try again from the dashboard.",
+    failedToStartEldTransmission:
+      "Failed to start ELD data transmission. You can try again from the dashboard.",
     failedToCompleteSetup: "Failed to complete setup",
     connectionModal: {
       connecting: "Connecting to ELD device...",
@@ -206,7 +209,8 @@ const en = {
   vehicleTrip: {
     title: "Vehicle & Trip Assignment",
     mandatorySetup: "Setup Required",
-    mandatoryMessage: "You must have a vehicle or trip assigned, and shipping ID before using HOS and ELD features.",
+    mandatoryMessage:
+      "You must have a vehicle or trip assigned, and shipping ID before using HOS and ELD features.",
     vehicleRequired: "Vehicle Assignment Required",
     tripRequired: "Trip/Shipment Assignment Required",
     vehicleOrTripRequired: "Vehicle or Trip Assignment Required",
@@ -299,6 +303,10 @@ const en = {
     faq: "FAQ",
     contactUs: "Contact Us",
     help: "Help",
+    chatDescription: "Need help? Connect with our support team through Freshchat.",
+    chatCta: "Open Support Chat",
+    chatOpening: "Opening chat...",
+    chatUnavailable: "Freshchat is unavailable. Please verify the configuration.",
   },
   more: {
     title: "More",
@@ -345,7 +353,8 @@ const en = {
   welcome: {
     title: "Welcome",
     subtitle: "Fleet Management Made Easy",
-    description: "Track your hours, manage compliance, and stay connected with your fleet in real-time",
+    description:
+      "Track your hours, manage compliance, and stay connected with your fleet in real-time",
     getStarted: "Get Started",
     next: "Next",
   },
@@ -401,7 +410,7 @@ const en = {
       checkPermission: "Check GPS Permission",
       reconnect: "Reconnect Location Service",
       markLocation: "Mark Current Location",
-      addNote: "Add Note (e.g., \"Tunnel / warehouse\")",
+      addNote: 'Add Note (e.g., "Tunnel / warehouse")',
       noteLabel: "Add Note:",
       notePlaceholder: "Enter note (e.g., Tunnel, Warehouse, GPS blocked)",
       saveNote: "Save Note",
@@ -522,6 +531,8 @@ const en = {
     requesting: "Requesting...",
     allGranted: "All permissions granted!",
     continuing: "Continuing to next step...",
+    readyToContinue: "You're all set—continue to login when you're ready.",
+    continueButton: "Continue to Login",
   },
   dtc: {
     title: "Diagnostic Trouble Codes",

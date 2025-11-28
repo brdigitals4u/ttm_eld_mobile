@@ -99,9 +99,9 @@ export const PrivacyPolicyScreen: React.FC = () => {
       // This ensures navigation happens even if API call fails
       const result = await submitPrivacyPolicyAcceptance(
         {
-          userId: user.id,
-          email: user.email,
-          name: userName,
+        userId: user.id,
+        email: user.email,
+        name: userName,
         },
         {
           navigateOnError: true, // Navigate even on error
@@ -113,7 +113,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
 
       // Show appropriate message based on API result
       if (result.success) {
-        toast.success('Privacy policy accepted successfully!', 2000)
+      toast.success('Privacy policy accepted successfully!', 2000)
       } else {
         // API failed but we still proceed with navigation
         toast.warning(
@@ -125,7 +125,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
       // Navigate to device scan screen (always navigate, regardless of API result)
       // Use setTimeout to ensure UI updates before navigation
       setTimeout(() => {
-        router.replace('/device-scan')
+      router.replace('/device-scan')
       }, 500)
     } catch (error: any) {
       // This catch block should rarely execute now due to navigateOnError,
@@ -143,11 +143,11 @@ export const PrivacyPolicyScreen: React.FC = () => {
         }, 500)
       } catch (storageError) {
         console.error('Error storing privacy policy acceptance:', storageError)
-        toast.error(
-          error.message || translate('privacyPolicy.error' as any),
-          4000
-        )
-        setIsSubmitting(false)
+      toast.error(
+        error.message || translate('privacyPolicy.error' as any),
+        4000
+      )
+      setIsSubmitting(false)
       }
     }
   }
@@ -331,6 +331,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   submitContainer: {
+    marginBottom: 120,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,

@@ -11,18 +11,17 @@ import { SafeAreaContainer } from '@/components/SafeAreaContainer'
 import { shadows } from '@/theme/shadows'
 
 export const WelcomeScreen: React.FC = () => {
-  const handleNext = async () => {
-    // Mark welcome screen as seen
+  const goToPermissions = async () => {
     await settingsStorage.setHasSeenWelcome(true)
-    // Navigate to login screen
-    router.push('/login')
+    router.replace('/permissions')
+  }
+
+  const handleNext = async () => {
+    await goToPermissions()
   }
 
   const handleSkip = async () => {
-    // Mark welcome screen as seen
-    await settingsStorage.setHasSeenWelcome(true)
-    // Navigate to login screen
-    router.push('/login')
+    await goToPermissions()
   }
 
   /** ======= VIOLET BACKGROUND ======= **/
@@ -70,7 +69,7 @@ export const WelcomeScreen: React.FC = () => {
       </View>
 
       {/* Bottom Card */}
-      <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+
         <View style={styles.bottomCard}>
           <Text style={styles.title}>{translate("welcome.subtitle" as any)}</Text>
           <Text style={styles.subtitle}>
@@ -81,7 +80,7 @@ export const WelcomeScreen: React.FC = () => {
             <Text style={styles.nextButtonText}>{translate("welcome.next" as any)}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaContainer>
+
     </View>
   )
 }

@@ -82,6 +82,7 @@ const es: Translations = {
     connect: "Conectar",
     connecting: "Conectando...",
     skip: "Omitir (Modo Dev)",
+    devConnectButton: "Dev: Conectar sin hardware",
     bluetoothNotInitialized: "Bluetooth no inicializado",
     invalidDeviceAddress: "Dirección de dispositivo inválida",
     deviceDisconnected: "Dispositivo desconectado",
@@ -300,6 +301,10 @@ const es: Translations = {
     faq: "Preguntas Frecuentes",
     contactUs: "Contáctanos",
     help: "Ayuda",
+    chatDescription: "¿Necesitas ayuda? Conéctate con nuestro equipo a través de Freshchat.",
+    chatCta: "Abrir chat de soporte",
+    chatOpening: "Abriendo chat...",
+    chatUnavailable: "Freshchat no está disponible. Verifica la configuración.",
   },
   more: {
     title: "Más",
@@ -523,6 +528,8 @@ const es: Translations = {
     requesting: "Solicitando...",
     allGranted: "¡Todos los permisos concedidos!",
     continuing: "Continuando al siguiente paso...",
+    readyToContinue: "Todo listo; continúa al iniciar sesión cuando estés preparado.",
+    continueButton: "Continuar al inicio de sesión",
   },
   dtc: {
     title: "Códigos de Problemas de Diagnóstico",
