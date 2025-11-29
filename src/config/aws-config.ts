@@ -4,27 +4,39 @@
  * This config enables dual sync:
  * 1. Primary: Local backend API (current implementation)
  * 2. Secondary: AWS Lambda + DynamoDB (new feature)
+ * 
+ * Sensitive values are loaded from secure storage (Android Keystore)
  */
 
-export const awsConfig = {
-  // API Gateway Configuration
-  apiGateway: {
-    baseUrl: 'https://oy47qb63f3.execute-api.us-east-1.amazonaws.com',
-    endpoints: {
-      saveData: '/data',
-      saveBatch: '/batch',
-      getData: '/data',
-    },
-    region: 'us-east-1',
-    timeout: 30000,
-  },
+import { secureConfigService } from '../services/SecureConfigService'
 
-  // Cognito Configuration (for JWT tokens)
-  cognito: {
-    region: 'us-east-1',
-    userPoolId: 'us-east-1_JEeMFBWHc',
-    clientId: '3r6e3uq1motr9n3u5b4uonm9th',
-  },
+// Initialize secure config service early
+secureConfigService.initialize().catch(console.error)
+
+// Get AWS config from secure storage (fallback to hardcoded values which will be obfuscated)
+const getAwsSecureConfig = () => {
+  const secureConfig = secureConfigService.getAwsConfig()
+  return {
+    apiGateway: {
+      baseUrl: secureConfig.apiGateway?.baseUrl || 'https://oy47qb63f3.execute-api.us-east-1.amazonaws.com',
+      endpoints: {
+        saveData: '/data',
+        saveBatch: '/batch',
+        getData: '/data',
+      },
+      region: 'us-east-1',
+      timeout: 30000,
+    },
+    cognito: {
+      region: 'us-east-1',
+      userPoolId: secureConfig.cognito?.userPoolId || 'us-east-1_JEeMFBWHc',
+      clientId: secureConfig.cognito?.clientId || '3r6e3uq1motr9n3u5b4uonm9th',
+    },
+  }
+}
+
+export const awsConfig = {
+  ...getAwsSecureConfig(),
 
   // Retry Configuration
   retry: {

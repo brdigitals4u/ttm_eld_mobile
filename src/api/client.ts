@@ -108,6 +108,17 @@ class ApiClient {
       const timeoutId = setTimeout(() => controller.abort(), this.timeout)
       config.signal = controller.signal
 
+      // Certificate pinning validation (placeholder - implement with native module)
+      // In production, this should be handled at the native HTTP client level
+      const urlObj = new URL(url)
+      if (__DEV__) {
+        // In development, log certificate pinning status
+        const { certificatePinningService } = await import('../services/CertificatePinningService')
+        if (certificatePinningService.isPinningEnabled(urlObj.hostname)) {
+          console.log(`🔒 Certificate pinning enabled for ${urlObj.hostname}`)
+        }
+      }
+
       const response = await fetch(url, config)
       clearTimeout(timeoutId)
 

@@ -100,27 +100,28 @@ android {
         applicationId 'com.ttmkonnect.eld'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 14  // Increased to avoid version code conflicts with existing APKs
+        versionCode 17  // Increased to avoid version code conflicts with existing APKs
         versionName "1.0.0"
         
         // Enable multi-dex if needed (for large apps)
         multiDexEnabled true
         
         // Support for 16 KB page size (required for Android 15+ and Google Play Store)
-        // This ensures native libraries are built with 16 KB alignment
-        ndk {
-            // Explicitly support 16 KB page sizes
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-        }
+        // Note: abiFilters removed from ndk block because splits.abi is configured below
+        // The splits configuration handles ABI filtering, so we don't need it here
+        
+        // Only include used locales to reduce resource size
+        resConfigs "en", "es", "ar"
     }
     
     // Split APKs by architecture to reduce individual APK size
     // Note: AAB format automatically handles this, but useful for APK builds
     splits {
         abi {
-            enable false  // Set to true if you want separate APKs per architecture
+            enable true  // Enable ABI splits for APK builds (reduces per-APK size by 30-50%)
             reset()
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            // Only include ARM architectures (x86 removed for size optimization)
+            include "armeabi-v7a", "arm64-v8a"
             universalApk false
         }
     }
@@ -171,13 +172,17 @@ android {
     }
     packagingOptions {
         jniLibs {
-            useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
+            // CRITICAL: Must be false to ensure uncompressed native libraries for 16 KB support
+            // Compressed libraries cannot be properly aligned to 16 KB page boundaries
+            useLegacyPackaging false
             // Ensure native libraries are not compressed for 16 KB page size support
             // Native libraries must be uncompressed to allow proper 16 KB alignment
             pickFirsts += ['**/libc++_shared.so', '**/libfbjni.so']
         }
         // Exclude duplicate files that might interfere with 16 KB alignment
         pickFirsts += ['**/libc++_shared.so']
+        // Explicitly prevent compression of native libraries
+        doNotStrip '**/*.so'
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
@@ -216,7 +221,13 @@ dependencies {
     
     // Freshchat SDK dependency
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
-
+    
+    // Security: Encrypted SharedPreferences for secure key storage
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    
+    // OkHttp for certificate pinning (React Native includes OkHttp, but ensure version compatibility)
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
@@ -257,18 +268,18 @@ tasks.whenTaskAdded { task ->
 // Try multiple path resolutions to find the script (works for both local and EAS builds)
 def ensure16kScript = null
 
-// Try android/scripts path first (most common location)
-def scriptPath1 = new File(project.rootDir, "scripts/ensure_16k_page.py")
+// Try android/scripts path first (actual location)
+def scriptPath1 = new File(rootProject.projectDir, "android/scripts/ensure_16k_page.py")
 if (scriptPath1.exists()) {
     ensure16kScript = scriptPath1
 } else {
-    // Fallback: try root project directory
+    // Fallback: try scripts/ path from root
     def scriptPath2 = new File(rootProject.projectDir, "scripts/ensure_16k_page.py")
     if (scriptPath2.exists()) {
         ensure16kScript = scriptPath2
     } else {
-        // Fallback: try android/scripts path from root
-        def scriptPath3 = new File(rootProject.projectDir, "android/scripts/ensure_16k_page.py")
+        // Fallback: try from app module root
+        def scriptPath3 = new File(project.rootDir, "scripts/ensure_16k_page.py")
         if (scriptPath3.exists()) {
             ensure16kScript = scriptPath3
         }

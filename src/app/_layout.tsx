@@ -50,6 +50,18 @@ export default function Root() {
 
   useEffect(() => {
     initFreshchat()
+    
+    // Initialize security services
+    import('../services/SecurityService').then(({ securityService }) => {
+      securityService.performSecurityCheck().catch(console.error)
+      // Optionally start periodic checks
+      // securityService.startPeriodicChecks(60000) // Check every minute
+    })
+    
+    // Initialize secure config
+    import('../services/SecureConfigService').then(({ secureConfigService }) => {
+      secureConfigService.initialize().catch(console.error)
+    })
   }, [])
 
   // Initialize push notifications (registration happens in BackgroundServices)

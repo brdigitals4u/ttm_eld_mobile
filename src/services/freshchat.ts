@@ -1,6 +1,8 @@
 import { Platform } from "react-native"
 import { Freshchat, FreshchatConfig, FreshchatUser } from "react-native-freshchat-sdk"
 
+import { secureConfigService } from "./SecureConfigService"
+
 interface FreshchatIdentity {
   externalId?: string
   restoreId?: string
@@ -16,13 +18,24 @@ const sanitizeDomain = (domain?: string | null) => {
   return domain.replace(/^https?:\/\//i, "").replace(/\/+$/, "")
 }
 
-// Freshchat credentials - use environment variables or set directly
-// Get these from Freshdesk portal: Admin → Channels → Mobile SDK
-const APP_ID = process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || ""
-const APP_KEY = process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || "KtaxJejHFh-iCSQ3P6Mu"
-const DOMAIN = sanitizeDomain(
-  process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || "ttmkonnectsandbox.freshdesk.com",
-)
+// Initialize secure config service early
+secureConfigService.initialize().catch(console.error)
+
+// Get credentials from secure storage (fallback to env vars)
+const getFreshchatCredentials = () => {
+  const config = secureConfigService.getFreshchatConfig()
+  return {
+    APP_ID: config.appId || process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || "",
+    APP_KEY: config.appKey || process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || "",
+    DOMAIN: sanitizeDomain(
+      config.domain ||
+        process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN ||
+        "ttmkonnectsandbox.freshdesk.com",
+    ),
+  }
+}
+
+const { APP_ID, APP_KEY, DOMAIN } = getFreshchatCredentials()
 
 let initialized = false
 

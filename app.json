@@ -121,6 +121,7 @@
         "android": {
           "enableProguardInReleaseBuilds": true,
           "enableShrinkResourcesInReleaseBuilds": true,
+          "enable16KbPageSizeSupport": true,
           "compileSdkVersion": 35,
           "targetSdkVersion": 35,
           "buildToolsVersion": "35.0.0",

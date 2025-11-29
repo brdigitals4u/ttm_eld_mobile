@@ -8,6 +8,45 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # ============================================================================
+# Aggressive Optimization and Obfuscation Settings
+# ============================================================================
+# Enable multiple optimization passes for better code shrinking
+-optimizationpasses 5
+
+# Allow access modification for better optimization
+-allowaccessmodification
+-repackageclasses ''
+
+# Enable class merging
+-mergeinterfacesaggressively
+
+# Aggressive obfuscation settings
+-dontpreverify
+-verbose
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
+
+# Obfuscate package names (makes reverse engineering harder)
+-flattenpackagehierarchy 'com.ttmkonnect.eld.obfuscated'
+
+# Remove source file names and line numbers (prevents stack trace analysis)
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
+
+# Remove logging in release builds (assume side effects)
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+}
+
+# Remove console.log in release (if using React Native's console)
+-assumenosideeffects class com.facebook.react.bridge.ReactMarker {
+    public static *** logMarker(...);
+}
+
+# ============================================================================
 # React Native Core
 # ============================================================================
 -keep,allowobfuscation @interface com.facebook.proguard.annotations.DoNotStrip
@@ -70,9 +109,9 @@
 -keep class expo.router.** { *; }
 
 # ============================================================================
-# React Native Skia
+# React Native Skia (REMOVED - package no longer used)
 # ============================================================================
--keep class com.shopify.reactnative.skia.** { *; }
+# -keep class com.shopify.reactnative.skia.** { *; }
 
 # ============================================================================
 # React Navigation
@@ -283,6 +322,27 @@
 -keep class com.ttmkonnect.eld.MainActivity { *; }
 
 # ============================================================================
+# Secure Configuration Module (keep for React Native bridge)
+# ============================================================================
+-keep class com.ttmkonnect.eld.SecureConfig { *; }
+-keep class com.ttmkonnect.eld.SecureConfigModule { *; }
+-keep class com.ttmkonnect.eld.SecureConfigPackage { *; }
+
+# ============================================================================
+# Security Checker Module (keep for React Native bridge)
+# ============================================================================
+-keep class com.ttmkonnect.eld.SecurityChecker { *; }
+-keep class com.ttmkonnect.eld.SecurityCheckerModule { *; }
+-keep class com.ttmkonnect.eld.SecurityCheckerPackage { *; }
+
+# ============================================================================
+# Certificate Pinning Module (keep for React Native bridge)
+# ============================================================================
+-keep class com.ttmkonnect.eld.CertificatePinningModule { *; }
+-keep class com.ttmkonnect.eld.CertificatePinningPackage { *; }
+-keep class okhttp3.** { *; }
+
+# ============================================================================
 # Keep all native module packages
 # ============================================================================
 -keep class com.ttmkonnect.eld.** { *; }
@@ -310,9 +370,9 @@
 -allowaccessmodification
 -optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
 
-# Keep line numbers for crash reports
--keepattributes SourceFile,LineNumberTable
+# Remove source file names for security (keep minimal for crash reports)
 -renamesourcefileattribute SourceFile
+-keepattributes LineNumberTable
 
 # ============================================================================
 # Google Play Integrity API

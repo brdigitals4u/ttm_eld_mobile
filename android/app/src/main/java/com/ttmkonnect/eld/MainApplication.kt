@@ -27,6 +27,9 @@ class MainApplication : Application(), ReactApplication {
             // packages.add(MyReactNativePackage())
             packages.add(JMBluetoothPackage())
             packages.add(PlayIntegrityPackage())
+            packages.add(SecureConfigPackage())
+            packages.add(SecurityCheckerPackage())
+            packages.add(CertificatePinningPackage())
             return packages
           }
 
