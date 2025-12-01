@@ -6,8 +6,8 @@
  * Once all permissions are granted, navigates to the next screen.
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, Platform } from "react-native"
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { View, StyleSheet, TouchableOpacity } from "react-native"
 import { router } from "expo-router"
 import {
   Camera,
@@ -15,7 +15,6 @@ import {
   Bluetooth,
   MapPin,
   CheckCircle,
-  AlertCircle,
 } from "lucide-react-native"
 import Animated, {
   useSharedValue,
@@ -23,15 +22,12 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  withDelay,
-  interpolate,
-  Extrapolate,
-  runOnJS,
 } from "react-native-reanimated"
 
 import { SafeAreaContainer } from "@/components/SafeAreaContainer"
-import { COLORS } from "@/constants/colors"
+import { Text } from "@/components/Text"
 import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
 import { requestCorePermissions, checkCorePermissions, PermissionResult } from "@/utils/permissions"
 import { settingsStorage } from "@/utils/storage"
 
@@ -75,11 +71,13 @@ const PERMISSIONS: PermissionItem[] = [
 ]
 
 export default function PermissionsScreen() {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const [permissions, setPermissions] = useState<Record<string, PermissionResult>>({})
   const [isRequesting, setIsRequesting] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [allGranted, setAllGranted] = useState(false)
-  const [hasSeenPermissionsBefore, setHasSeenPermissionsBefore] = useState(false)
+  const [_hasSeenPermissionsBefore, setHasSeenPermissionsBefore] = useState(false)
   const hasSeenPermissionsRef = useRef(false)
 
   // Animation values
@@ -313,8 +311,163 @@ export default function PermissionsScreen() {
   const grantedCount = Object.values(permissions).filter((p) => p.granted).length
   const allPermissionsGranted = grantedCount === PERMISSIONS.length
 
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        checkmarkOverlay: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 12,
+          position: "absolute",
+          right: -4,
+          top: -4,
+        },
+        container: {
+          backgroundColor: colors.background,
+          flex: 1,
+        },
+        content: {
+          flex: 1,
+          paddingHorizontal: 24,
+          paddingTop: 40,
+        },
+        header: {
+          marginBottom: 32,
+        },
+        iconContainer: {
+          alignItems: "center",
+          borderRadius: 16,
+          height: 64,
+          justifyContent: "center",
+          marginRight: 16,
+          position: "relative",
+          width: 64,
+        },
+        permissionCard: {
+          marginBottom: 12,
+        },
+        permissionCardContent: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.border,
+          borderRadius: 16,
+          borderWidth: 2,
+          elevation: 2,
+          flexDirection: "row",
+          padding: 16,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+        },
+        permissionCardGranted: {
+          backgroundColor: `${colors.tint}22`,
+          borderColor: colors.tint,
+        },
+        permissionDescription: {
+          color: colors.textDim,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        permissionInfo: {
+          flex: 1,
+        },
+        permissionName: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "600",
+          marginBottom: 4,
+        },
+        permissionsList: {
+          flex: 1,
+          gap: 16,
+        },
+        primaryButton: {
+          alignItems: "center",
+          backgroundColor: colors.buttonPrimary,
+          borderRadius: 16,
+          elevation: 4,
+          marginBottom: 120,
+          marginTop: 24,
+          paddingHorizontal: 32,
+          paddingVertical: 18,
+          shadowColor: `${colors.tint}66`,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        primaryButtonDisabled: {
+          opacity: 0.6,
+        },
+        primaryButtonText: {
+          color: colors.buttonPrimaryText,
+          fontSize: 18,
+          fontWeight: "bold",
+        },
+        progressBarBackground: {
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 4,
+          height: 8,
+          marginBottom: 8,
+          overflow: "hidden",
+        },
+        progressBarFill: {
+          backgroundColor: colors.tint,
+          borderRadius: 4,
+          height: "100%",
+        },
+        progressContainer: {
+          marginBottom: 32,
+        },
+        progressText: {
+          color: colors.textDim,
+          fontSize: 14,
+          textAlign: "center",
+        },
+        requestButton: {
+          backgroundColor: colors.buttonPrimary,
+          borderRadius: 8,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+        },
+        requestButtonText: {
+          color: colors.buttonPrimaryText,
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        subtitle: {
+          color: colors.textDim,
+          fontSize: 16,
+          lineHeight: 24,
+        },
+        successContainer: {
+          alignItems: "center",
+          marginTop: 32,
+          paddingVertical: 24,
+        },
+        successSubtext: {
+          color: colors.textDim,
+          fontSize: 16,
+          marginTop: 8,
+        },
+        successText: {
+          color: colors.text,
+          fontSize: 24,
+          fontWeight: "bold",
+          marginTop: 16,
+        },
+        title: {
+          color: colors.text,
+          fontSize: 32,
+          fontWeight: "bold",
+          marginBottom: 8,
+        },
+      }),
+    [colors],
+  )
+
   return (
-    <View style={styles.content}>
+    <View style={[styles.content, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
@@ -400,156 +553,6 @@ export default function PermissionsScreen() {
   )
 }
 
-const styles = StyleSheet.create({
-  checkmarkOverlay: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    position: "absolute",
-    right: -4,
-    top: -4,
-  },
-  container: {
-    backgroundColor: COLORS.white,
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  iconContainer: {
-    alignItems: "center",
-    borderRadius: 16,
-    height: 64,
-    justifyContent: "center",
-    marginRight: 16,
-    position: "relative",
-    width: 64,
-  },
-  permissionCard: {
-    marginBottom: 12,
-  },
-  permissionCardContent: {
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    borderWidth: 2,
-    elevation: 2,
-    flexDirection: "row",
-    padding: 16,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  permissionCardGranted: {
-    backgroundColor: `${COLORS.primary}08`,
-    borderColor: COLORS.primary,
-  },
-  permissionDescription: {
-    color: COLORS.ink500,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  permissionInfo: {
-    flex: 1,
-  },
-  permissionName: {
-    color: COLORS.ink700,
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  permissionsList: {
-    flex: 1,
-    gap: 16,
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    elevation: 4,
-    marginBottom: 120,
-    marginTop: 24,
-    paddingHorizontal: 32,
-    paddingVertical: 18,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  progressBarBackground: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 4,
-    height: 8,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 4,
-    height: "100%",
-  },
-  progressContainer: {
-    marginBottom: 32,
-  },
-  progressText: {
-    color: COLORS.ink500,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  requestButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  requestButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  subtitle: {
-    color: COLORS.ink500,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  successContainer: {
-    alignItems: "center",
-    marginTop: 32,
-    paddingVertical: 24,
-  },
-  successSubtext: {
-    color: COLORS.ink500,
-    fontSize: 16,
-    marginTop: 8,
-  },
-  successText: {
-    color: COLORS.ink700,
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 16,
-  },
-  title: {
-    color: COLORS.ink700,
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-})
-
 // Memoized Permission Card Component for better performance
 interface PermissionCardProps {
   permission: PermissionItem
@@ -562,10 +565,82 @@ interface PermissionCardProps {
   checkmarkStyle: any
 }
 
-const PermissionCard: React.FC<PermissionCardProps> = React.memo(
+const PermissionCard: React.FC<PermissionCardProps> = memo(
   ({ permission, index, currentIndex, isGranted, Icon, onPress, disabled, checkmarkStyle }) => {
+    const { theme } = useAppTheme()
+    const { colors } = theme
     const cardScale = useSharedValue(1)
     const cardOpacity = useSharedValue(isGranted ? 0.6 : 1)
+
+    // Dynamic styles for PermissionCard
+    const cardStyles = useMemo(
+      () =>
+        StyleSheet.create({
+          checkmarkOverlay: {
+            backgroundColor: colors.cardBackground,
+            borderRadius: 12,
+            position: "absolute",
+            right: -4,
+            top: -4,
+          },
+          iconContainer: {
+            alignItems: "center",
+            borderRadius: 16,
+            height: 64,
+            justifyContent: "center",
+            marginRight: 16,
+            position: "relative",
+            width: 64,
+          },
+          permissionCard: {
+            marginBottom: 12,
+          },
+          permissionCardContent: {
+            alignItems: "center",
+            backgroundColor: colors.cardBackground,
+            borderColor: colors.border,
+            borderRadius: 16,
+            borderWidth: 2,
+            elevation: 2,
+            flexDirection: "row",
+            padding: 16,
+            shadowColor: `${colors.text}22`,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+          },
+          permissionCardGranted: {
+            backgroundColor: `${colors.tint}22`,
+            borderColor: colors.tint,
+          },
+          permissionDescription: {
+            color: colors.textDim,
+            fontSize: 14,
+            lineHeight: 20,
+          },
+          permissionInfo: {
+            flex: 1,
+          },
+          permissionName: {
+            color: colors.text,
+            fontSize: 18,
+            fontWeight: "600",
+            marginBottom: 4,
+          },
+          requestButton: {
+            backgroundColor: colors.buttonPrimary,
+            borderRadius: 8,
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+          },
+          requestButtonText: {
+            color: colors.buttonPrimaryText,
+            fontSize: 14,
+            fontWeight: "600",
+          },
+        }),
+      [colors],
+    )
 
     useEffect(() => {
       cardOpacity.value = withSpring(isGranted ? 0.6 : 1, { damping: 15 })
@@ -582,28 +657,28 @@ const PermissionCard: React.FC<PermissionCardProps> = React.memo(
     })
 
     return (
-      <Animated.View style={[styles.permissionCard, cardAnimatedStyle]}>
+      <Animated.View style={[cardStyles.permissionCard, cardAnimatedStyle]}>
         <TouchableOpacity
-          style={[styles.permissionCardContent, isGranted && styles.permissionCardGranted]}
+          style={[cardStyles.permissionCardContent, isGranted && cardStyles.permissionCardGranted]}
           onPress={onPress}
           disabled={disabled}
           activeOpacity={0.7}
         >
-          <View style={[styles.iconContainer, { backgroundColor: `${permission.color}15` }]}>
+          <View style={[cardStyles.iconContainer, { backgroundColor: `${permission.color}15` }]}>
             <Icon size={32} color={permission.color} />
             {isGranted && (
-              <Animated.View style={[styles.checkmarkOverlay, checkmarkStyle]}>
+              <Animated.View style={[cardStyles.checkmarkOverlay, checkmarkStyle]}>
                 <CheckCircle size={20} color={permission.color} fill={permission.color} />
               </Animated.View>
             )}
           </View>
-          <View style={styles.permissionInfo}>
-            <Text style={styles.permissionName}>{permission.name}</Text>
-            <Text style={styles.permissionDescription}>{permission.description}</Text>
+          <View style={cardStyles.permissionInfo}>
+            <Text style={cardStyles.permissionName}>{permission.name}</Text>
+            <Text style={cardStyles.permissionDescription}>{permission.description}</Text>
           </View>
           {!isGranted && (
-            <View style={styles.requestButton}>
-              <Text style={styles.requestButtonText}>Grant</Text>
+            <View style={cardStyles.requestButton}>
+              <Text style={cardStyles.requestButtonText}>Grant</Text>
             </View>
           )}
         </TouchableOpacity>

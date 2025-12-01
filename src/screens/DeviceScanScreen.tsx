@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react"
 import {
   View,
   StyleSheet,
@@ -39,7 +39,11 @@ const getSignalStrength = (dBm: number, colors: any): { bars: number; color: str
 }
 
 // Signal strength bars component
-const SignalStrengthBars: React.FC<{ signal: number; colors: any }> = ({ signal, colors }) => {
+const SignalStrengthBars: React.FC<{ signal: number; colors: any; styles: any }> = ({
+  signal,
+  colors,
+  styles,
+}) => {
   const { bars, color } = getSignalStrength(signal, colors)
 
   return (
@@ -67,7 +71,8 @@ const DeviceCard: React.FC<{
   isConnecting: boolean
   onPress: () => void
   colors: any
-}> = React.memo(({ device, isConnecting, onPress, colors }) => {
+  styles: any
+}> = memo(({ device, isConnecting, onPress, colors, styles }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current
 
   const handlePressIn = () => {
@@ -119,7 +124,7 @@ const DeviceCard: React.FC<{
               <Text style={styles.deviceSignal} size="xs" preset="formHelper">
                 {device.signal} dBm
               </Text>
-              <SignalStrengthBars signal={device.signal} colors={colors} />
+              <SignalStrengthBars signal={device.signal} colors={colors} styles={styles} />
             </View>
           </View>
         </View>
@@ -162,6 +167,206 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
   const [connectionStatus, setConnectionStatus] = useState<
     "connecting" | "establishing" | "authenticating"
   >("connecting")
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        connectButton: {
+          backgroundColor: themeColors.tint,
+          borderRadius: 8,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+        },
+        connectButtonText: {
+          color: themeColors.cardBackground,
+          fontSize: 14,
+        },
+        connectingContainer: {
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+        },
+        container: {
+          backgroundColor: themeColors.background,
+          flex: 1,
+        },
+        deviceAddress: {
+          color: themeColors.textDim,
+          fontSize: 12,
+          marginBottom: 6,
+        },
+        deviceCard: {
+          alignItems: "center",
+          backgroundColor: themeColors.surface,
+          borderColor: themeColors.border,
+          borderRadius: 12,
+          borderWidth: 1,
+          elevation: 3,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 12,
+          padding: 16,
+          shadowColor: "#000000",
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        deviceCardLeft: {
+          alignItems: "center",
+          flex: 1,
+          flexDirection: "row",
+        },
+        deviceCardRight: {
+          marginLeft: 12,
+        },
+        deviceIconContainer: {
+          alignItems: "center",
+          backgroundColor: themeColors.infoBackground,
+          borderRadius: 24,
+          height: 48,
+          justifyContent: "center",
+          marginRight: 12,
+          width: 48,
+        },
+        deviceInfo: {
+          flex: 1,
+        },
+        deviceList: {
+          flex: 1,
+          padding: 20,
+        },
+        deviceListContent: {
+          paddingBottom: 20,
+        },
+        deviceName: {
+          color: themeColors.text,
+          fontSize: 18,
+          marginBottom: 4,
+        },
+        deviceSignal: {
+          color: themeColors.textDim,
+          fontSize: 12,
+        },
+        deviceSignalRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 6,
+        },
+        emptyState: {
+          alignItems: "center",
+          flex: 1,
+          justifyContent: "center",
+          paddingHorizontal: 40,
+        },
+        emptyStateIconContainer: {
+          alignItems: "center",
+          backgroundColor: themeColors.sectionBackground,
+          borderRadius: 60,
+          height: 120,
+          justifyContent: "center",
+          marginBottom: 24,
+          position: "relative",
+          width: 120,
+        },
+        emptyStateText: {
+          color: themeColors.textDim,
+          fontSize: 14,
+          marginBottom: 24,
+          textAlign: "center",
+        },
+        emptyStateTitle: {
+          color: themeColors.text,
+          fontSize: 20,
+          marginBottom: 8,
+          textAlign: "center",
+        },
+        headerIconContainer: {
+          alignItems: "center",
+          backgroundColor: themeColors.infoBackground,
+          borderRadius: 28,
+          height: 56,
+          justifyContent: "center",
+          marginRight: 12,
+          width: 56,
+        },
+        scanButton: {
+          alignItems: "center",
+          backgroundColor: themeColors.tint,
+          borderRadius: 12,
+          elevation: 4,
+          justifyContent: "center",
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+          shadowColor: themeColors.tint,
+          shadowOffset: {
+            width: 0,
+            height: 4,
+          },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        scanButtonContent: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 8,
+        },
+        scanButtonDisabled: {
+          backgroundColor: themeColors.textDim,
+          opacity: 0.5,
+        },
+        scanButtonText: {
+          color: themeColors.cardBackground,
+          fontSize: 16,
+        },
+        scanningButton: {
+          backgroundColor: themeColors.error,
+        },
+        scanningIndicator: {
+          marginTop: 16,
+        },
+        signalBar: {
+          borderRadius: 1.5,
+          width: 3,
+        },
+        signalBarsContainer: {
+          alignItems: "flex-end",
+          flexDirection: "row",
+          gap: 2,
+          marginLeft: 4,
+        },
+        statusContainer: {
+          backgroundColor: themeColors.background,
+          borderBottomColor: themeColors.border,
+          borderBottomWidth: 1,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        statusDot: {
+          borderRadius: 4,
+          height: 8,
+          marginRight: 8,
+          width: 8,
+        },
+        statusRow: {
+          alignItems: "center",
+          flexDirection: "row",
+        },
+        statusText: {
+          color: themeColors.textDim,
+        },
+        waveRing: {
+          borderColor: themeColors.tint,
+          borderRadius: 60,
+          borderWidth: 2,
+          height: 120,
+          position: "absolute",
+          width: 120,
+        },
+      }),
+    [themeColors],
+  )
 
   useEffect(() => {
     initializeBluetooth()
@@ -385,7 +590,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
   const renderDevice = useCallback(
     ({ item }: { item: BleDevice }) => (
-      <DeviceCard device={item} isConnecting={isConnecting} onPress={() => connectToDevice(item)} colors={themeColors} />
+      <DeviceCard
+        device={item}
+        isConnecting={isConnecting}
+        onPress={() => connectToDevice(item)}
+        colors={themeColors}
+        styles={styles}
+      />
     ),
     [isConnecting, themeColors],
   )
@@ -413,7 +624,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       return (
         <View style={styles.emptyState}>
           <View style={styles.emptyStateIconContainer}>
-            <AlertCircle size={64} color={colors.textDim} />
+            <AlertCircle size={64} color={themeColors.textDim} />
           </View>
           <Text style={styles.emptyStateTitle} weight="bold" size="lg">
             {translate("deviceScan.bluetoothNotInitialized" as any)}
@@ -429,7 +640,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       return (
         <View style={styles.emptyState}>
           <View style={styles.emptyStateIconContainer}>
-            <X size={64} color={colors.error} />
+            <X size={64} color={themeColors.error} />
           </View>
           <Text style={styles.emptyStateTitle} weight="bold" size="lg">
             Bluetooth Disabled
@@ -483,7 +694,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     return (
       <View style={styles.emptyState}>
         <View style={styles.emptyStateIconContainer}>
-          <Bluetooth size={64} color={colors.textDim} />
+          <Bluetooth size={64} color={themeColors.textDim} />
         </View>
         <Text style={styles.emptyStateTitle} weight="bold" size="lg">
           {translate("deviceScan.noDevices" as any)}
@@ -613,201 +824,5 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     </>
   )
 }
-
-const styles = StyleSheet.create({
-  connectButton: {
-    backgroundColor: themeColors.tint,
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  connectButtonText: {
-    color: themeColors.cardBackground,
-    fontSize: 14,
-  },
-  connectingContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  container: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  deviceAddress: {
-    color: colors.textDim,
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  deviceCard: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 12,
-    borderWidth: 1,
-    elevation: 3,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    padding: 16,
-    shadowColor: colors.palette.light.shadowColor,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  deviceCardLeft: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-  },
-  deviceCardRight: {
-    marginLeft: 12,
-  },
-  deviceIconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.infoBackground,
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    marginRight: 12,
-    width: 48,
-  },
-  deviceInfo: {
-    flex: 1,
-  },
-  deviceList: {
-    flex: 1,
-    padding: 20,
-  },
-  deviceListContent: {
-    paddingBottom: 20,
-  },
-  deviceName: {
-    color: colors.text,
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  deviceSignal: {
-    color: colors.textDim,
-    fontSize: 12,
-  },
-  deviceSignalRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  emptyState: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 40,
-  },
-  emptyStateIconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.sectionBackground,
-    borderRadius: 60,
-    height: 120,
-    justifyContent: "center",
-    marginBottom: 24,
-    position: "relative",
-    width: 120,
-  },
-  emptyStateText: {
-    color: colors.textDim,
-    fontSize: 14,
-    marginBottom: 24,
-    textAlign: "center",
-  },
-  emptyStateTitle: {
-    color: colors.text,
-    fontSize: 20,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  headerIconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.infoBackground,
-    borderRadius: 28,
-    height: 56,
-    justifyContent: "center",
-    marginRight: 12,
-    width: 56,
-  },
-  scanButton: {
-    alignItems: "center",
-    backgroundColor: themeColors.tint,
-    borderRadius: 12,
-    elevation: 4,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    shadowColor: themeColors.tint,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  scanButtonContent: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  scanButtonDisabled: {
-    backgroundColor: colors.textDim,
-    opacity: 0.5,
-  },
-  scanButtonText: {
-    color: themeColors.cardBackground,
-    fontSize: 16,
-  },
-  scanningButton: {
-    backgroundColor: colors.error,
-  },
-  scanningIndicator: {
-    marginTop: 16,
-  },
-  signalBar: {
-    borderRadius: 1.5,
-    width: 3,
-  },
-  signalBarsContainer: {
-    alignItems: "flex-end",
-    flexDirection: "row",
-    gap: 2,
-    marginLeft: 4,
-  },
-  statusContainer: {
-    backgroundColor: colors.background,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  statusDot: {
-    borderRadius: 4,
-    height: 8,
-    marginRight: 8,
-    width: 8,
-  },
-  statusRow: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  statusText: {
-    color: colors.textDim,
-  },
-  waveRing: {
-    borderColor: themeColors.tint,
-    borderRadius: 60,
-    borderWidth: 2,
-    height: 120,
-    position: "absolute",
-    width: 120,
-  },
-})
 
 export default DeviceScanScreen

@@ -99,6 +99,40 @@ function MenuItem({ title, subtitle, icon, onPress, index }: MenuItemProps) {
     pressScale.value = withSpring(1, { damping: 10 })
   }
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        menuItem: {
+          marginBottom: 12,
+        },
+        menuItemContent: {
+          alignItems: "center",
+          flexDirection: "row",
+        },
+        menuItemIcon: {
+          alignItems: "center",
+          borderRadius: 12,
+          height: 48,
+          justifyContent: "center",
+          marginRight: 14,
+          width: 48,
+        },
+        menuItemSubtitle: {
+          fontSize: 14,
+          fontWeight: "500",
+        },
+        menuItemText: {
+          flex: 1,
+        },
+        menuItemTitle: {
+          fontSize: 16,
+          fontWeight: "700",
+          marginBottom: 4,
+        },
+      }),
+    [],
+  )
+
   return (
     <Animated.View style={animatedStyle}>
       <TouchableOpacity
@@ -157,6 +191,45 @@ function InfoCard({ icon, label, value, subtext, color, index }: InfoCardProps) 
     opacity: opacity.value,
   }))
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        infoCard: {
+          alignItems: "flex-start",
+          flexDirection: "row",
+          marginBottom: 16,
+        },
+        infoCardContent: {
+          flex: 1,
+        },
+        infoCardIcon: {
+          alignItems: "center",
+          borderRadius: 12,
+          height: 44,
+          justifyContent: "center",
+          marginRight: 14,
+          width: 44,
+        },
+        infoCardLabel: {
+          fontSize: 13,
+          fontWeight: "500",
+          letterSpacing: 0.5,
+          marginBottom: 4,
+          textTransform: "uppercase",
+        },
+        infoCardSubtext: {
+          fontSize: 13,
+          marginTop: 4,
+        },
+        infoCardValue: {
+          fontSize: 16,
+          fontWeight: "600",
+          marginBottom: 2,
+        },
+      }),
+    [],
+  )
+
   return (
     <Animated.View style={[styles.infoCard, animatedStyle]}>
       <View style={[styles.infoCardIcon, { backgroundColor: `${color || colors.tint}15` }]}>
@@ -177,10 +250,6 @@ export default function ProfileScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
 
-  // Dynamic styles based on theme
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
   const {
     user,
     logout,
@@ -314,6 +383,272 @@ export default function ProfileScreen() {
     (hosStatus?.time_remaining?.cycle_time_remaining || 0) / 60,
   )
 
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        avatarContainer: {
+          alignItems: "center",
+          borderRadius: 50,
+          borderWidth: 4,
+          elevation: 4,
+          height: 100,
+          justifyContent: "center",
+          marginBottom: 16,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          width: 100,
+        },
+        compactEldGrid: {
+          gap: 8,
+          marginBottom: 8,
+        },
+        compactEldIcon: {
+          alignItems: "center",
+          height: 36,
+          justifyContent: "center",
+          width: 36,
+        },
+        compactEldRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 12,
+          paddingVertical: 10,
+        },
+        compactEldText: {
+          flex: 1,
+          fontSize: 15,
+          fontWeight: "500",
+        },
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          padding: 16,
+          paddingBottom: 40,
+        },
+        disabledIcon: {
+          alignItems: "center",
+          backgroundColor: `${colors.textDim}1F`,
+          borderRadius: 18,
+          height: 36,
+          justifyContent: "center",
+          width: 36,
+        },
+        divider: {
+          backgroundColor: colors.border,
+          height: 1,
+          marginVertical: 16,
+        },
+        editButton: {
+          marginBottom: 16,
+          marginTop: 20,
+        },
+        enabledIcon: {
+          alignItems: "center",
+          backgroundColor: `${colors.success}1F`,
+          borderRadius: 18,
+          height: 36,
+          justifyContent: "center",
+          width: 36,
+        },
+        gradientHeader: {
+          alignItems: "center",
+          borderRadius: 20,
+          elevation: 8,
+          marginBottom: 20,
+          padding: 24,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        headerBadge: {
+          alignItems: "center",
+          backgroundColor: `${colors.cardBackground}40`,
+          borderRadius: 20,
+          flexDirection: "row",
+          gap: 6,
+          marginBottom: 4,
+          paddingHorizontal: 16,
+          paddingVertical: 6,
+        },
+        headerBadgeText: {
+          color: colors.cardBackground,
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        headerDriverId: {
+          color: `${colors.cardBackground}E6`,
+          fontSize: 13,
+          fontWeight: "500",
+        },
+        headerName: {
+          color: colors.cardBackground,
+          fontSize: 26,
+          fontWeight: "800",
+          marginBottom: 8,
+          textAlign: "center",
+        },
+        infoCard: {
+          alignItems: "flex-start",
+          flexDirection: "row",
+          marginBottom: 16,
+        },
+        infoCardContent: {
+          flex: 1,
+        },
+        infoCardIcon: {
+          alignItems: "center",
+          borderRadius: 12,
+          height: 44,
+          justifyContent: "center",
+          marginRight: 14,
+          width: 44,
+        },
+        infoCardLabel: {
+          fontSize: 13,
+          fontWeight: "500",
+          letterSpacing: 0.5,
+          marginBottom: 4,
+          textTransform: "uppercase",
+        },
+        infoCardSubtext: {
+          fontSize: 13,
+          marginTop: 4,
+        },
+        infoCardValue: {
+          fontSize: 16,
+          fontWeight: "600",
+          marginBottom: 2,
+        },
+        logoutButton: {
+          marginBottom: 140,
+          marginTop: 0,
+        },
+        menuItem: {
+          marginBottom: 12,
+        },
+        menuItemContent: {
+          alignItems: "center",
+          flexDirection: "row",
+        },
+        menuItemIcon: {
+          alignItems: "center",
+          borderRadius: 12,
+          height: 48,
+          justifyContent: "center",
+          marginRight: 14,
+          width: 48,
+        },
+        menuItemSubtitle: {
+          fontSize: 14,
+          fontWeight: "500",
+        },
+        menuItemText: {
+          flex: 1,
+        },
+        menuItemTitle: {
+          fontSize: 16,
+          fontWeight: "700",
+          marginBottom: 4,
+        },
+        section: {
+          marginBottom: 20,
+        },
+        sectionHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 10,
+          marginBottom: 16,
+        },
+        sectionTitle: {
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        statCard: {
+          alignItems: "center",
+          borderRadius: 16,
+          elevation: 3,
+          flex: 1,
+          padding: 16,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        statIconContainer: {
+          alignItems: "center",
+          borderRadius: 24,
+          height: 48,
+          justifyContent: "center",
+          marginBottom: 12,
+          width: 48,
+        },
+        statLabel: {
+          fontSize: 12,
+          fontWeight: "600",
+          textAlign: "center",
+        },
+        statValue: {
+          fontSize: 24,
+          fontWeight: "800",
+          marginBottom: 4,
+        },
+        statsContainer: {
+          flexDirection: "row",
+          gap: 10,
+          justifyContent: "space-between",
+          marginBottom: 20,
+        },
+        statusBadge: {
+          alignItems: "center",
+          borderRadius: 16,
+          elevation: 3,
+          flexDirection: "row",
+          gap: 12,
+          marginBottom: 20,
+          padding: 16,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        statusDot: {
+          borderRadius: 6,
+          height: 12,
+          width: 12,
+        },
+        statusText: {
+          fontSize: 15,
+          fontWeight: "600",
+        },
+        violationCard: {
+          alignItems: "center",
+          borderRadius: 12,
+          flexDirection: "row",
+          gap: 14,
+          marginBottom: 16,
+          padding: 16,
+        },
+        violationContent: {
+          flex: 1,
+        },
+        violationCount: {
+          fontSize: 14,
+          fontWeight: "500",
+        },
+        violationTitle: {
+          fontSize: 16,
+          fontWeight: "700",
+          marginBottom: 4,
+        },
+      }),
+    [colors],
+  )
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
@@ -366,7 +701,7 @@ export default function ProfileScreen() {
             {/* Gradient Header Card */}
             <Animated.View style={headerAnimatedStyle}>
               <LinearGradient
-                colors={isDark ? [colors.tint, colors.palette.primary800] : [colors.tint, colors.info]}
+                colors={isDark ? [colors.tint, colors.palette.primary400] : [colors.tint, colors.info]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gradientHeader}
@@ -914,263 +1249,3 @@ export default function ProfileScreen() {
     </GestureHandlerRootView>
   )
 }
-
-        avatarContainer: {
-          alignItems: "center",
-          borderRadius: 50,
-          borderWidth: 4,
-          elevation: 4,
-          height: 100,
-          justifyContent: "center",
-          marginBottom: 16,
-          shadowColor: colors.palette.neutral900,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.2,
-          shadowRadius: 4,
-          width: 100,
-        },
-  compactEldGrid: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  compactEldIcon: {
-    alignItems: "center",
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
-  compactEldRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    paddingVertical: 10,
-  },
-  compactEldText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-        disabledIcon: {
-          alignItems: "center",
-          backgroundColor: `${colors.textDim}1F`,
-          borderRadius: 18,
-          height: 36,
-          justifyContent: "center",
-          width: 36,
-        },
-        divider: {
-          backgroundColor: colors.border,
-          height: 1,
-          marginVertical: 16,
-        },
-  editButton: {
-    marginBottom: 16,
-    marginTop: 20,
-  },
-        enabledIcon: {
-          alignItems: "center",
-          backgroundColor: `${colors.success}1F`,
-          borderRadius: 18,
-          height: 36,
-          justifyContent: "center",
-          width: 36,
-        },
-        gradientHeader: {
-          alignItems: "center",
-          borderRadius: 20,
-          elevation: 8,
-          marginBottom: 20,
-          padding: 24,
-          shadowColor: colors.palette.neutral900,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-        },
-        headerBadge: {
-          alignItems: "center",
-          backgroundColor: `${colors.cardBackground}40`,
-          borderRadius: 20,
-          flexDirection: "row",
-          gap: 6,
-          marginBottom: 4,
-          paddingHorizontal: 16,
-          paddingVertical: 6,
-        },
-        headerBadgeText: {
-          color: colors.cardBackground,
-          fontSize: 14,
-          fontWeight: "600",
-        },
-        headerDriverId: {
-          color: `${colors.cardBackground}E6`,
-          fontSize: 13,
-          fontWeight: "500",
-        },
-        headerName: {
-          color: colors.cardBackground,
-          fontSize: 26,
-          fontWeight: "800",
-          marginBottom: 8,
-          textAlign: "center",
-        },
-  infoCard: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  infoCardContent: {
-    flex: 1,
-  },
-  infoCardIcon: {
-    alignItems: "center",
-    borderRadius: 12,
-    height: 44,
-    justifyContent: "center",
-    marginRight: 14,
-    width: 44,
-  },
-  infoCardLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    letterSpacing: 0.5,
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  infoCardSubtext: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  infoCardValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  logoutButton: {
-    marginBottom: 140,
-    marginTop: 0,
-  },
-  menuItem: {
-    marginBottom: 12,
-  },
-  menuItemContent: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  menuItemIcon: {
-    alignItems: "center",
-    borderRadius: 12,
-    height: 48,
-    justifyContent: "center",
-    marginRight: 14,
-    width: 48,
-  },
-  menuItemSubtitle: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  menuItemText: {
-    flex: 1,
-  },
-  menuItemTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-        statCard: {
-          alignItems: "center",
-          borderRadius: 16,
-          elevation: 3,
-          flex: 1,
-          padding: 16,
-          shadowColor: colors.palette.neutral900,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-  statIconContainer: {
-    alignItems: "center",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    marginBottom: 12,
-    width: 48,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  statusBadge: {
-    alignItems: "center",
-    borderRadius: 16,
-    elevation: 3,
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  statusDot: {
-    borderRadius: 6,
-    height: 12,
-    width: 12,
-  },
-  statusText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  violationCard: {
-    alignItems: "center",
-    borderRadius: 12,
-    flexDirection: "row",
-    gap: 14,
-    marginBottom: 16,
-    padding: 16,
-  },
-  violationContent: {
-    flex: 1,
-  },
-  violationCount: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  violationTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-})

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   View,
   StyleSheet,
@@ -18,14 +18,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import { useDriverLogin } from "@/api/organization"
 import { AnimatedButton } from "@/components/AnimatedButton"
-import { BetaBanner } from "@/components/BetaBanner"
+import { LoginSuccessModal } from "@/components/LoginSuccessModal"
 import { Text } from "@/components/Text"
-import { COLORS } from "@/constants/colors"
 import { LoginCredentials } from "@/database/schemas"
 import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
 import { analyticsService } from "@/services/AnalyticsService"
 import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 import { settingsStorage } from "@/utils/storage"
 
 const loadingAnimation = require("assets/animations/loading.json")
@@ -34,6 +34,8 @@ const successAnimation = require("assets/animations/success.json")
 const TENANT_OPTIONS = [{ value: "TTM_001", label: "OmVahana Fleet" }]
 
 export const LoginScreen: React.FC = () => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const { login } = useAuth()
   const toast = useToast()
   const driverLoginMutation = useDriverLogin()
@@ -50,6 +52,8 @@ export const LoginScreen: React.FC = () => {
   const [privacyError, setPrivacyError] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [tenantPickerVisible, setTenantPickerVisible] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [loginResult, setLoginResult] = useState<any>(null)
 
   const selectedTenant = useMemo(
     () => TENANT_OPTIONS.find((tenant) => tenant.value === credentials.tenant_code),
@@ -148,30 +152,20 @@ export const LoginScreen: React.FC = () => {
       await analyticsService.logLoginSuccess("email", credentials.tenant_code).catch(() => {})
 
       // Set driver properties for analytics
-      const userId = result?.user?.id || result?.id || result?.driverProfile?.driver_id
-      const vehicleId = result?.vehicleAssignment?.vehicle_info?.id
-      const organizationId = result?.user?.organizationId || result?.organizationId
+      const userId = (result as any)?.user?.id || (result as any)?.id || (result as any)?.driverProfile?.driver_id
+      const vehicleId = (result as any)?.vehicleAssignment?.vehicle_info?.id
+      const organizationId = (result as any)?.user?.organizationId || (result as any)?.organizationId
       if (userId) {
         await analyticsService
           .setDriverProperties(userId.toString(), vehicleId?.toString(), organizationId?.toString())
           .catch(() => {})
       }
 
-      toast.success("Login successful!", 2000)
+      // Store login result for modal continue handler
+      setLoginResult({ userId, result })
 
-      // Check if user has accepted privacy policy
-      // Extract user ID from login result
-      if (userId) {
-        const hasAccepted = await settingsStorage.getPrivacyPolicyAccepted(userId)
-        if (!hasAccepted) {
-          // Navigate to privacy policy screen
-          router.replace("/privacy-policy")
-          return
-        }
-      }
-
-      // Navigate to device scan if already accepted
-      router.replace("/device-scan")
+      // Show success modal instead of navigating immediately
+      setShowSuccessModal(true)
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred"
       let errorCode: string | undefined
@@ -207,16 +201,340 @@ export const LoginScreen: React.FC = () => {
     toast.info(`Contact support to reset your password!`, 2000)
   }
 
-  const handleRegister = () => {
+  const _handleRegister = () => {
     // Navigate to register screen
   }
 
   const handleLoginSuccess = () => {
-    // Navigation is handled in handleLogin after checking privacy acceptance
     // This function is kept for compatibility with AnimatedButton
+    // Actual navigation happens in handleModalContinue
+  }
+
+  const handleModalContinue = async () => {
+    if (!loginResult) {
+      return
+    }
+
+    const { userId } = loginResult
+
+    // Close modal first
+    setShowSuccessModal(false)
+
+    // Use requestAnimationFrame to ensure modal closes before navigation
+    requestAnimationFrame(async () => {
+      // Wait for modal animation to complete
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      try {
+        // Check if user has accepted privacy policy
+        if (userId) {
+          const hasAccepted = await settingsStorage.getPrivacyPolicyAccepted(userId)
+          if (!hasAccepted) {
+            // Navigate to privacy policy screen
+            router.replace("/privacy-policy")
+            return
+          }
+        }
+
+        // Navigate to device scan if already accepted
+        router.replace("/device-scan")
+      } catch (error) {
+        console.error("Navigation error:", error)
+        // Fallback navigation
+        if (userId) {
+          const hasAccepted = await settingsStorage.getPrivacyPolicyAccepted(userId)
+          router.replace(hasAccepted ? "/device-scan" : "/privacy-policy")
+        }
+      }
+    })
   }
 
   // Debug: Check current language and translation
+
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        safeArea: {
+          backgroundColor: colors.background,
+          flex: 1,
+        },
+        container: {
+          backgroundColor: colors.background,
+          flex: 1,
+        },
+        scrollContent: {
+          flexGrow: 1,
+          paddingBottom: 96,
+          paddingHorizontal: 24,
+          paddingTop: 64,
+        },
+        header: {
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 48,
+          marginTop: 48,
+        },
+        welcomeTitle: {
+          color: colors.text,
+          fontSize: 32,
+          fontWeight: "bold",
+          lineHeight: 35,
+          textAlign: "center",
+        },
+        welcomeSubtitle: {
+          color: colors.textDim,
+          fontSize: 16,
+          textAlign: "center",
+        },
+        formContainer: {
+          flex: 1,
+        },
+        inputGroup: {
+          marginBottom: 24,
+        },
+        label: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+          marginBottom: 12,
+        },
+        inputWrapper: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderColor: colors.border,
+          borderRadius: 16,
+          borderWidth: 1,
+          flexDirection: "row",
+          height: 60,
+          paddingHorizontal: 20,
+        },
+        inputError: {
+          borderColor: colors.error,
+        },
+        textInput: {
+          color: colors.text,
+          flex: 1,
+          fontSize: 16,
+        },
+        eyeIcon: {
+          marginLeft: 8,
+          padding: 4,
+        },
+        eyeIconText: {
+          fontSize: 20,
+        },
+        errorText: {
+          color: colors.error,
+          fontSize: 12,
+          marginTop: 6,
+        },
+        rememberMeContainer: {
+          marginBottom: 16,
+        },
+        rememberMeText: {
+          color: colors.text,
+          fontSize: 14,
+        },
+        privacyContainer: {
+          marginBottom: 16,
+        },
+        checkboxContainer: {
+          alignItems: "flex-start",
+          flexDirection: "row",
+        },
+        checkbox: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.textDim,
+          borderRadius: 6,
+          borderWidth: 2,
+          height: 24,
+          justifyContent: "center",
+          marginRight: 12,
+          marginTop: 2,
+          width: 24,
+        },
+        checkboxChecked: {
+          backgroundColor: colors.tint,
+          borderColor: colors.tint,
+        },
+        checkmark: {
+          color: colors.buttonPrimaryText,
+          fontSize: 16,
+          fontWeight: "bold",
+        },
+        privacyTextContainer: {
+          flex: 1,
+        },
+        privacyText: {
+          color: colors.text,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        privacyLink: {
+          color: colors.tint,
+          fontWeight: "600",
+          textDecorationLine: "underline",
+        },
+        forgotContainer: {
+          alignItems: "flex-end",
+          marginBottom: 32,
+        },
+        forgotText: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "500",
+        },
+        loginButton: {
+          alignItems: "center",
+          backgroundColor: colors.buttonPrimary,
+          borderRadius: 16,
+          elevation: 4,
+          height: 60,
+          justifyContent: "center",
+          marginBottom: 32,
+          shadowColor: `${colors.tint}66`,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        loginButtonText: {
+          color: colors.buttonPrimaryText,
+          fontSize: 18,
+          fontWeight: "bold",
+        },
+        dividerContainer: {
+          alignItems: "center",
+          flexDirection: "row",
+          marginBottom: 32,
+        },
+        dividerLine: {
+          backgroundColor: colors.border,
+          flex: 1,
+          height: 1,
+        },
+        dividerText: {
+          color: colors.textDim,
+          fontSize: 14,
+          marginHorizontal: 16,
+        },
+        socialContainer: {
+          flexDirection: "row",
+          gap: 20,
+          justifyContent: "center",
+          marginBottom: 32,
+        },
+        socialButton: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 20,
+          height: 80,
+          justifyContent: "center",
+          width: 80,
+        },
+        socialIcon: {
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        socialEmoji: {
+          fontSize: 32,
+        },
+        signupContainer: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "center",
+        },
+        signupText: {
+          color: colors.textDim,
+          fontSize: 14,
+        },
+        signupLink: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "bold",
+        },
+        imageContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+        },
+        loginHeaderImage: {
+          height: 72,
+          marginBottom: 8,
+          width: 72,
+        },
+        tenantWrapper: {
+          justifyContent: "center",
+        },
+        tenantContent: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          width: "100%",
+        },
+        tenantSelectedText: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+        },
+        tenantChevron: {
+          color: colors.textDim,
+          fontSize: 18,
+        },
+        modalOverlay: {
+          alignItems: "center",
+          backgroundColor: `${colors.palette.neutral900}73`,
+          flex: 1,
+          justifyContent: "center",
+          padding: 24,
+        },
+        modalContent: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 20,
+          paddingHorizontal: 24,
+          paddingVertical: 28,
+          width: "100%",
+        },
+        modalTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "700",
+          marginBottom: 12,
+        },
+        modalDivider: {
+          backgroundColor: colors.border,
+          height: StyleSheet.hairlineWidth,
+          marginBottom: 12,
+          opacity: 0.6,
+        },
+        modalOption: {
+          alignItems: "center",
+          borderRadius: 14,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+        },
+        modalOptionActive: {
+          backgroundColor: `${colors.tint}1A`,
+        },
+        modalOptionLabel: {
+          color: colors.text,
+          fontSize: 16,
+        },
+        modalOptionLabelActive: {
+          color: colors.tint,
+          fontWeight: "600",
+        },
+        modalOptionCheck: {
+          color: colors.tint,
+          fontSize: 16,
+          fontWeight: "700",
+        },
+      }),
+    [colors],
+  )
 
   // Lottie animations (import your own JSON files or use existing ones)
   return (
@@ -272,7 +590,7 @@ export const LoginScreen: React.FC = () => {
                 <TextInput
                   style={styles.textInput}
                   placeholder="Email"
-                  placeholderTextColor={COLORS.ink300}
+                  placeholderTextColor={colors.textDim}
                   value={credentials.email}
                   onChangeText={(text) => {
                     setCredentials((p) => ({ ...p, email: text }))
@@ -292,7 +610,7 @@ export const LoginScreen: React.FC = () => {
                 <TextInput
                   style={styles.textInput}
                   placeholder="Password"
-                  placeholderTextColor={COLORS.ink300}
+                  placeholderTextColor={colors.textDim}
                   value={credentials.password}
                   onChangeText={(text) => {
                     setCredentials((p) => ({ ...p, password: text }))
@@ -408,304 +726,10 @@ export const LoginScreen: React.FC = () => {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Success Modal */}
+      <LoginSuccessModal visible={showSuccessModal} onContinue={handleModalContinue} />
     </SafeAreaView>
   )
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: COLORS.white,
-    flex: 1,
-  },
-  container: {
-    backgroundColor: COLORS.white,
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 96,
-    paddingHorizontal: 24,
-    paddingTop: 64,
-  },
-
-  /* Header */
-  header: {
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 48,
-    marginTop: 48,
-  },
-  welcomeTitle: {
-    color: COLORS.black,
-    fontSize: 32,
-    fontWeight: "bold",
-    lineHeight: 35,
-    textAlign: "center",
-  },
-  welcomeSubtitle: {
-    color: COLORS.ink500,
-    fontSize: 16,
-    textAlign: "center",
-  },
-
-  /* Form */
-  formContainer: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    color: COLORS.black,
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  inputWrapper: {
-    alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    height: 60,
-    paddingHorizontal: 20,
-  },
-  inputError: {
-    borderColor: "#EF4444",
-  },
-  textInput: {
-    color: COLORS.ink700,
-    flex: 1,
-    fontSize: 16,
-  },
-  eyeIcon: {
-    marginLeft: 8,
-    padding: 4,
-  },
-  eyeIconText: {
-    fontSize: 20,
-  },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 6,
-  },
-
-  /* Remember Me */
-  rememberMeContainer: {
-    marginBottom: 16,
-  },
-  rememberMeText: {
-    color: COLORS.ink700,
-    fontSize: 14,
-  },
-
-  /* Privacy Policy */
-  privacyContainer: {
-    marginBottom: 16,
-  },
-  checkboxContainer: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-  },
-  checkbox: {
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderColor: COLORS.ink300,
-    borderRadius: 6,
-    borderWidth: 2,
-    height: 24,
-    justifyContent: "center",
-    marginRight: 12,
-    marginTop: 2,
-    width: 24,
-  },
-  checkboxChecked: {
-    backgroundColor: COLORS.indigo,
-    borderColor: COLORS.indigo,
-  },
-  checkmark: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  privacyTextContainer: {
-    flex: 1,
-  },
-  privacyText: {
-    color: COLORS.ink700,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  privacyLink: {
-    color: COLORS.indigo,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
-
-  /* Forgot Password */
-  forgotContainer: {
-    alignItems: "flex-end",
-    marginBottom: 32,
-  },
-  forgotText: {
-    color: COLORS.black,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-
-  /* Login Button */
-  loginButton: {
-    alignItems: "center",
-    backgroundColor: COLORS.indigo,
-    borderRadius: 16,
-    elevation: 4,
-    height: 60,
-    justifyContent: "center",
-    marginBottom: 32,
-    shadowColor: COLORS.indigo,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  loginButtonText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  /* Divider */
-  dividerContainer: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: 32,
-  },
-  dividerLine: {
-    backgroundColor: COLORS.border,
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    color: COLORS.ink500,
-    fontSize: 14,
-    marginHorizontal: 16,
-  },
-
-  /* Social Login */
-  socialContainer: {
-    flexDirection: "row",
-    gap: 20,
-    justifyContent: "center",
-    marginBottom: 32,
-  },
-  socialButton: {
-    alignItems: "center",
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    height: 80,
-    justifyContent: "center",
-    width: 80,
-  },
-  socialIcon: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  socialEmoji: {
-    fontSize: 32,
-  },
-
-  /* Sign Up */
-  signupContainer: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-  },
-  signupText: {
-    color: COLORS.ink500,
-    fontSize: 14,
-  },
-  signupLink: {
-    color: COLORS.black,
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  imageContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-  },
-  loginHeaderImage: {
-    height: 72,
-    marginBottom: 8,
-    width: 72,
-  },
-  tenantWrapper: {
-    justifyContent: "center",
-  },
-  tenantContent: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  tenantSelectedText: {
-    color: COLORS.ink700,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  tenantChevron: {
-    color: COLORS.ink500,
-    fontSize: 18,
-  },
-  modalOverlay: {
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.45)",
-    flex: 1,
-    justifyContent: "center",
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    width: "100%",
-  },
-  modalTitle: {
-    color: COLORS.black,
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  modalDivider: {
-    backgroundColor: COLORS.border,
-    height: StyleSheet.hairlineWidth,
-    marginBottom: 12,
-    opacity: 0.6,
-  },
-  modalOption: {
-    alignItems: "center",
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  modalOptionActive: {
-    backgroundColor: COLORS.indigo + "10",
-  },
-  modalOptionLabel: {
-    color: COLORS.ink700,
-    fontSize: 16,
-  },
-  modalOptionLabelActive: {
-    color: COLORS.indigo,
-    fontWeight: "600",
-  },
-  modalOptionCheck: {
-    color: COLORS.indigo,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-})

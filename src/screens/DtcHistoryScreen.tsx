@@ -114,6 +114,96 @@ export const DtcHistoryScreen: React.FC = () => {
     console.log("DTC item pressed:", item)
   }, [])
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        clearButton: {
+          padding: 4,
+        },
+        container: {
+          backgroundColor: themeColors.background || "#FFFFFF",
+          flex: 1,
+        },
+        filterButton: {
+          backgroundColor: themeColors.palette.neutral200 || "#E5E7EB",
+          borderColor: themeColors.palette.neutral300 || "#D1D5DB",
+          borderRadius: 8,
+          borderWidth: 1,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+        },
+        filterButtonActive: {
+          backgroundColor: themeColors.tint || "#5750F1",
+          borderColor: themeColors.tint || "#5750F1",
+        },
+        filterButtonText: {
+          color: themeColors.palette.neutral700 || "#374151",
+          fontSize: 12,
+          fontWeight: "500",
+        },
+        filterButtonTextActive: {
+          color: "#FFFFFF",
+        },
+        filterButtons: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+        },
+        filterLabel: {
+          color: themeColors.palette.neutral700 || "#374151",
+          fontSize: 14,
+          fontWeight: "600",
+          marginBottom: 8,
+        },
+        filterRow: {
+          marginBottom: 12,
+        },
+        filtersContainer: {
+          backgroundColor: themeColors.palette.neutral100 || "#FAFAFA",
+          borderBottomColor: themeColors.palette.neutral200 || "#E5E7EB",
+          borderBottomWidth: 1,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        },
+        headerFilterButton: {
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 8,
+        },
+        resultsContainer: {
+          backgroundColor: themeColors.background || "#FFFFFF",
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        resultsText: {
+          color: themeColors.palette.neutral600 || "#4B5563",
+          fontSize: 14,
+        },
+        searchContainer: {
+          alignItems: "center",
+          backgroundColor: themeColors.palette.neutral100 || "#F9FAFB",
+          borderColor: themeColors.palette.neutral200 || "#E5E7EB",
+          borderRadius: 12,
+          borderWidth: 1,
+          flexDirection: "row",
+          marginBottom: 8,
+          marginHorizontal: 16,
+          marginTop: 12,
+          paddingHorizontal: 12,
+        },
+        searchIcon: {
+          marginRight: 8,
+        },
+        searchInput: {
+          color: themeColors.palette.neutral900 || "#111827",
+          flex: 1,
+          fontSize: 16,
+          paddingVertical: 12,
+        },
+      }),
+    [themeColors],
+  )
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -146,19 +236,19 @@ export const DtcHistoryScreen: React.FC = () => {
       <View style={styles.searchContainer}>
         <Search
           size={20}
-          color={colors.palette.neutral500 || "#6B7280"}
+          color={themeColors.palette.neutral500 || "#6B7280"}
           style={styles.searchIcon}
         />
         <TextInput
           style={styles.searchInput}
           placeholder={translate("dtc.searchPlaceholder" as any)}
-          placeholderTextColor={colors.palette.neutral500 || "#6B7280"}
+          placeholderTextColor={themeColors.palette.neutral500 || "#6B7280"}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearButton}>
-            <X size={20} color={colors.palette.neutral500 || "#6B7280"} />
+            <X size={20} color={themeColors.palette.neutral500 || "#6B7280"} />
           </TouchableOpacity>
         )}
       </View>
@@ -245,89 +335,3 @@ export const DtcHistoryScreen: React.FC = () => {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  clearButton: {
-    padding: 4,
-  },
-  container: {
-    backgroundColor: colors.background || "#FFFFFF",
-    flex: 1,
-  },
-  filterButton: {
-    backgroundColor: colors.palette.neutral200 || "#E5E7EB",
-    borderColor: colors.palette.neutral300 || "#D1D5DB",
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  filterButtonActive: {
-    backgroundColor: colors.tint || "#5750F1",
-    borderColor: colors.tint || "#5750F1",
-  },
-  filterButtonText: {
-    color: colors.palette.neutral700 || "#374151",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  filterButtonTextActive: {
-    color: "#FFFFFF",
-  },
-  filterButtons: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  filterLabel: {
-    color: colors.palette.neutral700 || "#374151",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  filterRow: {
-    marginBottom: 12,
-  },
-  filtersContainer: {
-    backgroundColor: colors.palette.neutral100 || "#FAFAFA",
-    borderBottomColor: colors.palette.neutral200 || "#E5E7EB",
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerFilterButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 8,
-  },
-  resultsContainer: {
-    backgroundColor: colors.background || "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  resultsText: {
-    color: colors.palette.neutral600 || "#4B5563",
-    fontSize: 14,
-  },
-  searchContainer: {
-    alignItems: "center",
-    backgroundColor: colors.palette.neutral100 || "#F9FAFB",
-    borderColor: colors.palette.neutral200 || "#E5E7EB",
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    marginBottom: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    color: colors.palette.neutral900 || "#111827",
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 12,
-  },
-})
