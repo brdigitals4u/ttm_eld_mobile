@@ -7,7 +7,7 @@
  */
 
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { View, StyleSheet, TouchableOpacity } from "react-native"
+import { View, StyleSheet, TouchableOpacity, StatusBar } from "react-native"
 import { router } from "expo-router"
 import {
   Camera,
@@ -24,6 +24,7 @@ import Animated, {
   withSequence,
 } from "react-native-reanimated"
 
+import { Header } from "@/components/Header"
 import { SafeAreaContainer } from "@/components/SafeAreaContainer"
 import { Text } from "@/components/Text"
 import { translate } from "@/i18n/translate"
@@ -72,7 +73,7 @@ const PERMISSIONS: PermissionItem[] = [
 
 export default function PermissionsScreen() {
   const { theme } = useAppTheme()
-  const { colors } = theme
+  const { colors, isDark } = theme
   const [permissions, setPermissions] = useState<Record<string, PermissionResult>>({})
   const [isRequesting, setIsRequesting] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -329,7 +330,7 @@ export default function PermissionsScreen() {
         content: {
           flex: 1,
           paddingHorizontal: 24,
-          paddingTop: 40,
+          paddingTop: 24,
         },
         header: {
           marginBottom: 32,
@@ -352,13 +353,8 @@ export default function PermissionsScreen() {
           borderColor: colors.border,
           borderRadius: 16,
           borderWidth: 2,
-          elevation: 2,
           flexDirection: "row",
           padding: 16,
-          shadowColor: colors.palette.neutral900,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
         },
         permissionCardGranted: {
           backgroundColor: `${colors.tint}22`,
@@ -436,7 +432,7 @@ export default function PermissionsScreen() {
           fontWeight: "600",
         },
         subtitle: {
-          color: colors.textDim,
+          color: "#FFFFFF",
           fontSize: 16,
           lineHeight: 24,
         },
@@ -457,7 +453,7 @@ export default function PermissionsScreen() {
           marginTop: 16,
         },
         title: {
-          color: colors.text,
+          color: "#FFFFFF",
           fontSize: 32,
           fontWeight: "bold",
           marginBottom: 8,
@@ -467,17 +463,28 @@ export default function PermissionsScreen() {
   )
 
   return (
-    <View style={[styles.content, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          {translate("permissions.title" as any) || "App Permissions"}
-        </Text>
-        <Text style={styles.subtitle}>
-          {translate("permissions.subtitle" as any) ||
-            "We need these permissions to provide the best experience"}
-        </Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        animated={true}
+        backgroundColor={colors.background}
+        showHideTransition="fade"
+        hidden={false}
+        barStyle={isDark ? "light-content" : "dark-content"}
+      />
+      <Header
+        title={translate("permissions.title" as any) || "App Permissions"}
+        titleMode="center"
+        backgroundColor={colors.background}
+        titleStyle={{ color: "#FFFFFF", fontSize: 32, fontWeight: "bold" }}
+        safeAreaEdges={["top"]}
+      />
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>
+            {translate("permissions.subtitle" as any) ||
+              "We need these permissions to provide the best experience"}
+          </Text>
+        </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
@@ -549,6 +556,7 @@ export default function PermissionsScreen() {
           )}
         </>
       )}
+      </View>
     </View>
   )
 }
@@ -601,13 +609,8 @@ const PermissionCard: React.FC<PermissionCardProps> = memo(
             borderColor: colors.border,
             borderRadius: 16,
             borderWidth: 2,
-            elevation: 2,
             flexDirection: "row",
             padding: 16,
-            shadowColor: `${colors.text}22`,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
           },
           permissionCardGranted: {
             backgroundColor: `${colors.tint}22`,

@@ -60,7 +60,7 @@ const en = {
     today: "Today",
   },
   login: {
-    welcomeTitle: "Welcome to TTM Fleet",
+    welcomeTitle: "Welcome to TTM Family",
     welcomeSubtitle: "Sign in to continue your journey",
     tenant: "Tenant",
     selectTenant: "Select tenant",

@@ -262,3 +262,4 @@ if (require.main === module) {
 }
 
 module.exports = { findLatestBuild, getBuildSize, loadHistory }
+

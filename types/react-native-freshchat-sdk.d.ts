@@ -28,3 +28,4 @@ declare module "react-native-freshchat-sdk" {
   export const Freshchat: FreshchatInstance
   export { FreshchatConfig, FreshchatUser }
 }
+

@@ -12,12 +12,14 @@ import {
   Pressable,
   Modal,
   SafeAreaView,
+  StatusBar,
 } from "react-native"
 import { router } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import { useDriverLogin } from "@/api/organization"
 import { AnimatedButton } from "@/components/AnimatedButton"
+import { Header } from "@/components/Header"
 import { LoginSuccessModal } from "@/components/LoginSuccessModal"
 import { Text } from "@/components/Text"
 import { LoginCredentials } from "@/database/schemas"
@@ -35,7 +37,7 @@ const TENANT_OPTIONS = [{ value: "TTM_001", label: "OmVahana Fleet" }]
 
 export const LoginScreen: React.FC = () => {
   const { theme } = useAppTheme()
-  const { colors } = theme
+  const { colors, isDark } = theme
   const { login } = useAuth()
   const toast = useToast()
   const driverLoginMutation = useDriverLogin()
@@ -152,9 +154,13 @@ export const LoginScreen: React.FC = () => {
       await analyticsService.logLoginSuccess("email", credentials.tenant_code).catch(() => {})
 
       // Set driver properties for analytics
-      const userId = (result as any)?.user?.id || (result as any)?.id || (result as any)?.driverProfile?.driver_id
+      const userId =
+        (result as any)?.user?.id ||
+        (result as any)?.id ||
+        (result as any)?.driverProfile?.driver_id
       const vehicleId = (result as any)?.vehicleAssignment?.vehicle_info?.id
-      const organizationId = (result as any)?.user?.organizationId || (result as any)?.organizationId
+      const organizationId =
+        (result as any)?.user?.organizationId || (result as any)?.organizationId
       if (userId) {
         await analyticsService
           .setDriverProperties(userId.toString(), vehicleId?.toString(), organizationId?.toString())
@@ -255,94 +261,6 @@ export const LoginScreen: React.FC = () => {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        safeArea: {
-          backgroundColor: colors.background,
-          flex: 1,
-        },
-        container: {
-          backgroundColor: colors.background,
-          flex: 1,
-        },
-        scrollContent: {
-          flexGrow: 1,
-          paddingBottom: 96,
-          paddingHorizontal: 24,
-          paddingTop: 64,
-        },
-        header: {
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 48,
-          marginTop: 48,
-        },
-        welcomeTitle: {
-          color: colors.text,
-          fontSize: 32,
-          fontWeight: "bold",
-          lineHeight: 35,
-          textAlign: "center",
-        },
-        welcomeSubtitle: {
-          color: colors.textDim,
-          fontSize: 16,
-          textAlign: "center",
-        },
-        formContainer: {
-          flex: 1,
-        },
-        inputGroup: {
-          marginBottom: 24,
-        },
-        label: {
-          color: colors.text,
-          fontSize: 16,
-          fontWeight: "600",
-          marginBottom: 12,
-        },
-        inputWrapper: {
-          alignItems: "center",
-          backgroundColor: colors.sectionBackground,
-          borderColor: colors.border,
-          borderRadius: 16,
-          borderWidth: 1,
-          flexDirection: "row",
-          height: 60,
-          paddingHorizontal: 20,
-        },
-        inputError: {
-          borderColor: colors.error,
-        },
-        textInput: {
-          color: colors.text,
-          flex: 1,
-          fontSize: 16,
-        },
-        eyeIcon: {
-          marginLeft: 8,
-          padding: 4,
-        },
-        eyeIconText: {
-          fontSize: 20,
-        },
-        errorText: {
-          color: colors.error,
-          fontSize: 12,
-          marginTop: 6,
-        },
-        rememberMeContainer: {
-          marginBottom: 16,
-        },
-        rememberMeText: {
-          color: colors.text,
-          fontSize: 14,
-        },
-        privacyContainer: {
-          marginBottom: 16,
-        },
-        checkboxContainer: {
-          alignItems: "flex-start",
-          flexDirection: "row",
-        },
         checkbox: {
           alignItems: "center",
           backgroundColor: colors.cardBackground,
@@ -359,23 +277,45 @@ export const LoginScreen: React.FC = () => {
           backgroundColor: colors.tint,
           borderColor: colors.tint,
         },
+        checkboxContainer: {
+          alignItems: "flex-start",
+          flexDirection: "row",
+        },
         checkmark: {
           color: colors.buttonPrimaryText,
           fontSize: 16,
           fontWeight: "bold",
         },
-        privacyTextContainer: {
+        container: {
+          backgroundColor: colors.background,
           flex: 1,
         },
-        privacyText: {
-          color: colors.text,
-          fontSize: 14,
-          lineHeight: 20,
+        dividerContainer: {
+          alignItems: "center",
+          flexDirection: "row",
+          marginBottom: 32,
         },
-        privacyLink: {
-          color: colors.tint,
-          fontWeight: "600",
-          textDecorationLine: "underline",
+        dividerLine: {
+          backgroundColor: colors.border,
+          flex: 1,
+          height: 1,
+        },
+        dividerText: {
+          color: colors.textDim,
+          fontSize: 14,
+          marginHorizontal: 16,
+        },
+        errorText: {
+          color: colors.error,
+          fontSize: 12,
+          marginTop: 6,
+        },
+        eyeIcon: {
+          marginLeft: 8,
+          padding: 4,
+        },
+        eyeIconText: {
+          fontSize: 20,
         },
         forgotContainer: {
           alignItems: "flex-end",
@@ -385,6 +325,42 @@ export const LoginScreen: React.FC = () => {
           color: colors.text,
           fontSize: 14,
           fontWeight: "500",
+        },
+        formContainer: {
+          flex: 1,
+        },
+        header: {
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 48,
+          marginTop: 60,
+        },
+        imageContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+        },
+        inputError: {
+          borderColor: colors.error,
+        },
+        inputGroup: {
+          marginBottom: 24,
+        },
+        inputWrapper: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderColor: colors.border,
+          borderRadius: 16,
+          borderWidth: 1,
+          flexDirection: "row",
+          height: 60,
+          paddingHorizontal: 20,
+        },
+        label: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+          marginBottom: 12,
         },
         loginButton: {
           alignItems: "center",
@@ -404,90 +380,10 @@ export const LoginScreen: React.FC = () => {
           fontSize: 18,
           fontWeight: "bold",
         },
-        dividerContainer: {
-          alignItems: "center",
-          flexDirection: "row",
-          marginBottom: 32,
-        },
-        dividerLine: {
-          backgroundColor: colors.border,
-          flex: 1,
-          height: 1,
-        },
-        dividerText: {
-          color: colors.textDim,
-          fontSize: 14,
-          marginHorizontal: 16,
-        },
-        socialContainer: {
-          flexDirection: "row",
-          gap: 20,
-          justifyContent: "center",
-          marginBottom: 32,
-        },
-        socialButton: {
-          alignItems: "center",
-          backgroundColor: colors.sectionBackground,
-          borderRadius: 20,
-          height: 80,
-          justifyContent: "center",
-          width: 80,
-        },
-        socialIcon: {
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        socialEmoji: {
-          fontSize: 32,
-        },
-        signupContainer: {
-          alignItems: "center",
-          flexDirection: "row",
-          justifyContent: "center",
-        },
-        signupText: {
-          color: colors.textDim,
-          fontSize: 14,
-        },
-        signupLink: {
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: "bold",
-        },
-        imageContainer: {
-          alignItems: "center",
-          justifyContent: "center",
-          width: "100%",
-        },
         loginHeaderImage: {
           height: 72,
           marginBottom: 8,
           width: 72,
-        },
-        tenantWrapper: {
-          justifyContent: "center",
-        },
-        tenantContent: {
-          alignItems: "center",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          width: "100%",
-        },
-        tenantSelectedText: {
-          color: colors.text,
-          fontSize: 16,
-          fontWeight: "600",
-        },
-        tenantChevron: {
-          color: colors.textDim,
-          fontSize: 18,
-        },
-        modalOverlay: {
-          alignItems: "center",
-          backgroundColor: `${colors.palette.neutral900}73`,
-          flex: 1,
-          justifyContent: "center",
-          padding: 24,
         },
         modalContent: {
           backgroundColor: colors.cardBackground,
@@ -495,12 +391,6 @@ export const LoginScreen: React.FC = () => {
           paddingHorizontal: 24,
           paddingVertical: 28,
           width: "100%",
-        },
-        modalTitle: {
-          color: colors.text,
-          fontSize: 18,
-          fontWeight: "700",
-          marginBottom: 12,
         },
         modalDivider: {
           backgroundColor: colors.border,
@@ -519,6 +409,11 @@ export const LoginScreen: React.FC = () => {
         modalOptionActive: {
           backgroundColor: `${colors.tint}1A`,
         },
+        modalOptionCheck: {
+          color: colors.tint,
+          fontSize: 16,
+          fontWeight: "700",
+        },
         modalOptionLabel: {
           color: colors.text,
           fontSize: 16,
@@ -527,10 +422,120 @@ export const LoginScreen: React.FC = () => {
           color: colors.tint,
           fontWeight: "600",
         },
-        modalOptionCheck: {
-          color: colors.tint,
-          fontSize: 16,
+        modalOverlay: {
+          alignItems: "center",
+          backgroundColor: `${colors.palette.neutral900}73`,
+          flex: 1,
+          justifyContent: "center",
+          padding: 24,
+        },
+        modalTitle: {
+          color: colors.text,
+          fontSize: 18,
           fontWeight: "700",
+          marginBottom: 12,
+        },
+        privacyContainer: {
+          marginBottom: 16,
+        },
+        privacyLink: {
+          color: colors.tint,
+          fontWeight: "600",
+          textDecorationLine: "underline",
+        },
+        privacyText: {
+          color: colors.text,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        privacyTextContainer: {
+          flex: 1,
+        },
+        rememberMeContainer: {
+          marginBottom: 16,
+        },
+        rememberMeText: {
+          color: colors.text,
+          fontSize: 14,
+        },
+        safeArea: {
+          backgroundColor: colors.background,
+          flex: 1,
+        },
+        scrollContent: {
+          flexGrow: 1,
+          paddingBottom: 96,
+          paddingHorizontal: 24,
+        },
+        signupContainer: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "center",
+        },
+        signupLink: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "bold",
+        },
+        signupText: {
+          color: colors.textDim,
+          fontSize: 14,
+        },
+        socialButton: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 20,
+          height: 80,
+          justifyContent: "center",
+          width: 80,
+        },
+        socialContainer: {
+          flexDirection: "row",
+          gap: 20,
+          justifyContent: "center",
+          marginBottom: 32,
+        },
+        socialEmoji: {
+          fontSize: 32,
+        },
+        socialIcon: {
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        tenantChevron: {
+          color: colors.textDim,
+          fontSize: 18,
+        },
+        tenantContent: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          width: "100%",
+        },
+        tenantSelectedText: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+        },
+        tenantWrapper: {
+          justifyContent: "center",
+        },
+        textInput: {
+          color: colors.text,
+          flex: 1,
+          fontSize: 16,
+        },
+        welcomeSubtitle: {
+          color: colors.textDim,
+          fontSize: 16,
+          textAlign: "center",
+        },
+        welcomeTitle: {
+          color: colors.text,
+          fontSize: 32,
+          fontWeight: "bold",
+          lineHeight: 35,
+          textAlign: "center",
         },
       }),
     [colors],
@@ -538,158 +543,156 @@ export const LoginScreen: React.FC = () => {
 
   // Lottie animations (import your own JSON files or use existing ones)
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, styles.scrollContent]}>
+      <StatusBar
+        animated={true}
+        backgroundColor={colors.background}
+        showHideTransition="fade"
+        hidden={false}
+        barStyle={isDark ? "light-content" : "dark-content"}
+      />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Image
-              source={require("assets/images/trident_logo.png")}
-              style={styles.loginHeaderImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
-            <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <Image
+            source={require("assets/images/trident_logo.png")}
+            style={styles.loginHeaderImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
+          <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
+        </View>
+
+        {/* Form Container */}
+        <View style={styles.formContainer}>
+          {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>{translate("login.tenant" as any)}</Text>
+            <Pressable
+              style={[
+                styles.inputWrapper,
+                styles.tenantWrapper,
+                errors.tenant_code && styles.inputError,
+              ]}
+              onPress={() => setTenantPickerVisible(true)}
+            >
+              <View style={styles.tenantContent}>
+                <Text style={styles.tenantSelectedText}>
+                  {selectedTenant?.label ||
+                    credentials.tenant_code ||
+                    translate("login.selectTenant" as any)}
+                </Text>
+                <Text style={styles.tenantChevron}>▾</Text>
+              </View>
+            </Pressable>
+            {!!errors.tenant_code && <Text style={styles.errorText}>{errors.tenant_code}</Text>}
           </View>
 
-          {/* Form Container */}
-          <View style={styles.formContainer}>
-            {/* Email */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{translate("login.tenant" as any)}</Text>
-              <Pressable
-                style={[
-                  styles.inputWrapper,
-                  styles.tenantWrapper,
-                  errors.tenant_code && styles.inputError,
-                ]}
-                onPress={() => setTenantPickerVisible(true)}
-              >
-                <View style={styles.tenantContent}>
-                  <Text style={styles.tenantSelectedText}>
-                    {selectedTenant?.label ||
-                      credentials.tenant_code ||
-                      translate("login.selectTenant" as any)}
-                  </Text>
-                  <Text style={styles.tenantChevron}>▾</Text>
-                </View>
-              </Pressable>
-              {!!errors.tenant_code && <Text style={styles.errorText}>{errors.tenant_code}</Text>}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
-              <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Email"
-                  placeholderTextColor={colors.textDim}
-                  value={credentials.email}
-                  onChangeText={(text) => {
-                    setCredentials((p) => ({ ...p, email: text }))
-                    setErrors((p) => ({ ...p, email: "" }))
-                  }}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
-              </View>
-              {!!errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-            </View>
-
-            {/* Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{translate("login.password" as any)}</Text>
-              <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Password"
-                  placeholderTextColor={colors.textDim}
-                  value={credentials.password}
-                  onChangeText={(text) => {
-                    setCredentials((p) => ({ ...p, password: text }))
-                    setErrors((p) => ({ ...p, password: "" }))
-                  }}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Text style={styles.eyeIconText}>{showPassword ? "👁️" : "🔒"}</Text>
-                </TouchableOpacity>
-              </View>
-              {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-            </View>
-
-            {/* Remember Me */}
-            <View style={styles.rememberMeContainer}>
-              <Pressable
-                style={styles.checkboxContainer}
-                onPress={() => setRememberMe(!rememberMe)}
-              >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.rememberMeText}>Remember me</Text>
-              </Pressable>
-            </View>
-
-            {/* Privacy Policy Agreement */}
-            <View style={styles.privacyContainer}>
-              <Pressable
-                style={styles.checkboxContainer}
-                onPress={() => {
-                  setAgreedToPrivacy(!agreedToPrivacy)
-                  setPrivacyError("")
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Email"
+                placeholderTextColor={colors.textDim}
+                value={credentials.email}
+                onChangeText={(text) => {
+                  setCredentials((p) => ({ ...p, email: text }))
+                  setErrors((p) => ({ ...p, email: "" }))
                 }}
-              >
-                <View style={[styles.checkbox, agreedToPrivacy && styles.checkboxChecked]}>
-                  {agreedToPrivacy && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <View style={styles.privacyTextContainer}>
-                  <Text style={styles.privacyText}>
-                    I agree to the{" "}
-                    <Text
-                      style={styles.privacyLink}
-                      onPress={(e) => {
-                        e.stopPropagation()
-                        Linking.openURL("https://ttmkonnect.com/privacy")
-                      }}
-                    >
-                      Privacy Policy
-                    </Text>
-                  </Text>
-                </View>
-              </Pressable>
-              {!!privacyError && <Text style={styles.errorText}>{privacyError}</Text>}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
             </View>
-
-            {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotContainer} onPress={handleForgotPassword}>
-              <Text style={styles.forgotText}>Forget password?</Text>
-            </TouchableOpacity>
-
-            {/* Login Button */}
-            <AnimatedButton
-              title={driverLoginMutation.isPending ? "Logging in…" : "Login now"}
-              onPress={handleLogin}
-              onSuccess={handleLoginSuccess}
-              loadingAnimation={loadingAnimation}
-              successAnimation={successAnimation}
-              disabled={isButtonDisabled}
-              style={styles.loginButton}
-              textStyle={styles.loginButtonText}
-              successDuration={1500}
-            />
+            {!!errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           </View>
-        </ScrollView>
+
+          {/* Password */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>{translate("login.password" as any)}</Text>
+            <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Password"
+                placeholderTextColor={colors.textDim}
+                value={credentials.password}
+                onChangeText={(text) => {
+                  setCredentials((p) => ({ ...p, password: text }))
+                  setErrors((p) => ({ ...p, password: "" }))
+                }}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Text style={styles.eyeIconText}>{showPassword ? "👁️" : "🔒"}</Text>
+              </TouchableOpacity>
+            </View>
+            {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          </View>
+
+          {/* Remember Me */}
+          <View style={styles.rememberMeContainer}>
+            <Pressable style={styles.checkboxContainer} onPress={() => setRememberMe(!rememberMe)}>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.rememberMeText}>Remember me</Text>
+            </Pressable>
+          </View>
+
+          {/* Privacy Policy Agreement */}
+          <View style={styles.privacyContainer}>
+            <Pressable
+              style={styles.checkboxContainer}
+              onPress={() => {
+                setAgreedToPrivacy(!agreedToPrivacy)
+                setPrivacyError("")
+              }}
+            >
+              <View style={[styles.checkbox, agreedToPrivacy && styles.checkboxChecked]}>
+                {agreedToPrivacy && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <View style={styles.privacyTextContainer}>
+                <Text style={styles.privacyText}>
+                  I agree to the{" "}
+                  <Text
+                    style={styles.privacyLink}
+                    onPress={(e) => {
+                      e.stopPropagation()
+                      Linking.openURL("https://ttmkonnect.com/privacy")
+                    }}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </View>
+            </Pressable>
+            {!!privacyError && <Text style={styles.errorText}>{privacyError}</Text>}
+          </View>
+
+          {/* Forgot Password */}
+          <TouchableOpacity style={styles.forgotContainer} onPress={handleForgotPassword}>
+            <Text style={styles.forgotText}>Forget password?</Text>
+          </TouchableOpacity>
+
+          {/* Login Button */}
+          <AnimatedButton
+            title={driverLoginMutation.isPending ? "Logging in…" : "Login now"}
+            onPress={handleLogin}
+            onSuccess={handleLoginSuccess}
+            loadingAnimation={loadingAnimation}
+            successAnimation={successAnimation}
+            disabled={isButtonDisabled}
+            style={styles.loginButton}
+            textStyle={styles.loginButtonText}
+            successDuration={1500}
+          />
+        </View>
       </KeyboardAvoidingView>
 
       <Modal
@@ -732,4 +735,3 @@ export const LoginScreen: React.FC = () => {
     </SafeAreaView>
   )
 }
-
