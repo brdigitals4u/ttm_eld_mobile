@@ -1,12 +1,12 @@
-import { Platform } from 'react-native'
-import * as Battery from 'expo-battery'
+import { Platform } from "react-native"
+import * as Battery from "expo-battery"
 
-import { deviceHeartbeatService } from '@/services/device-heartbeat-service'
-import { locationQueueService } from '@/services/location-queue'
+import { deviceHeartbeatService } from "@/services/device-heartbeat-service"
+import { locationQueueService } from "@/services/location-queue"
 
 const LOW_BATTERY_THRESHOLD = 0.2
 
-type BackgroundSyncStatus = 'new-data' | 'no-data' | 'skipped' | 'failed'
+type BackgroundSyncStatus = "new-data" | "no-data" | "skipped" | "failed"
 
 export interface BackgroundSyncResult {
   status: BackgroundSyncStatus
@@ -29,14 +29,14 @@ export async function runBackgroundSync(): Promise<BackgroundSyncResult> {
     const isBatteryLow = batteryLevel !== null && batteryLevel <= LOW_BATTERY_THRESHOLD
 
     if (isLowPowerMode || isBatteryLow) {
-      console.log('🔋 BackgroundSync: Skipping due to low power state', {
+      console.log("🔋 BackgroundSync: Skipping due to low power state", {
         isLowPowerMode,
         batteryLevel,
       })
 
       return {
-        status: 'skipped',
-        reason: isLowPowerMode ? 'low-power-mode' : 'low-battery',
+        status: "skipped",
+        reason: isLowPowerMode ? "low-power-mode" : "low-battery",
       }
     }
 
@@ -44,12 +44,12 @@ export async function runBackgroundSync(): Promise<BackgroundSyncResult> {
 
     const queueSizeBefore = locationQueueService.getQueueSize()
     if (queueSizeBefore > 0) {
-      console.log('📍 BackgroundSync: Flushing location queue during background fetch', {
+      console.log("📍 BackgroundSync: Flushing location queue during background fetch", {
         queueSizeBefore,
       })
       await locationQueueService.flush()
     } else {
-      console.log('📍 BackgroundSync: Location queue empty during background fetch')
+      console.log("📍 BackgroundSync: Location queue empty during background fetch")
     }
 
     await deviceHeartbeatService.sendHeartbeatNow()
@@ -57,12 +57,12 @@ export async function runBackgroundSync(): Promise<BackgroundSyncResult> {
     const newData = queueSizeBefore > 0
 
     return {
-      status: newData ? 'new-data' : 'no-data',
+      status: newData ? "new-data" : "no-data",
     }
   } catch (error: any) {
-    console.error('❌ BackgroundSync: Failed during background fetch', error)
+    console.error("❌ BackgroundSync: Failed during background fetch", error)
     return {
-      status: 'failed',
+      status: "failed",
       error,
     }
   }
@@ -72,15 +72,14 @@ export async function runBackgroundSync(): Promise<BackgroundSyncResult> {
  * Utility helper to check battery optimization state on Android.
  */
 export async function isBatteryOptimizationEnabled(): Promise<boolean | null> {
-  if (Platform.OS !== 'android') {
+  if (Platform.OS !== "android") {
     return null
   }
 
   try {
     return await Battery.isBatteryOptimizationEnabledAsync()
   } catch (error) {
-    console.error('❌ BackgroundSync: Failed to check battery optimization state', error)
+    console.error("❌ BackgroundSync: Failed to check battery optimization state", error)
     return null
   }
 }
-

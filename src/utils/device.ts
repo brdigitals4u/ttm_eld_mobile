@@ -3,12 +3,13 @@
  * Provides device ID, app version, and other device-specific information
  */
 
-import * as Device from 'expo-device'
-import { Platform } from 'react-native'
-import Constants from 'expo-constants'
-import { asyncStorage } from './storage'
+import { Platform } from "react-native"
+import Constants from "expo-constants"
+import * as Device from "expo-device"
 
-const DEVICE_ID_KEY = '@ttm_eld_device_id'
+import { asyncStorage } from "./storage"
+
+const DEVICE_ID_KEY = "@ttm_eld_device_id"
 
 /**
  * Get or create a unique device ID
@@ -25,7 +26,7 @@ export async function getDeviceId(): Promise<string> {
     // Generate a new device ID
     // Format: platform-modelId-timestamp-random
     const platform = Platform.OS
-    const modelId = Device.modelId || 'unknown'
+    const modelId = Device.modelId || "unknown"
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2, 9)
     const deviceId = `${platform}-${modelId}-${timestamp}-${random}`
@@ -34,7 +35,7 @@ export async function getDeviceId(): Promise<string> {
     await asyncStorage.setItem(DEVICE_ID_KEY, deviceId)
     return deviceId
   } catch (error) {
-    console.error('Error getting device ID:', error)
+    console.error("Error getting device ID:", error)
     // Fallback to a simple ID
     return `device-${Platform.OS}-${Date.now()}`
   }
@@ -44,7 +45,7 @@ export async function getDeviceId(): Promise<string> {
  * Get app version string
  */
 export function getAppVersion(): string {
-  return Constants.expoConfig?.version || '1.0.0'
+  return Constants.expoConfig?.version || "1.0.0"
 }
 
 /**
@@ -71,11 +72,10 @@ export async function getDeviceInfo(): Promise<{
  */
 export async function getEldDeviceId(): Promise<string | null> {
   try {
-    const { getEldDevice } = await import('./eldStorage')
+    const { getEldDevice } = await import("./eldStorage")
     const eldDevice = await getEldDevice()
     return eldDevice?.address || null
   } catch {
     return null
   }
 }
-

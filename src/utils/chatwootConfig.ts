@@ -3,7 +3,7 @@
  * Settings for integrating Chatwoot chat widget into the mobile app
  */
 
-import { normalizeUrl, isValidUrl, getSafeUrl } from './urlNormalizer'
+import { normalizeUrl, isValidUrl, getSafeUrl } from "./urlNormalizer"
 
 const DEFAULT_BASE_URL = "http://213.210.13.196:8084"
 const DEFAULT_WEBSITE_TOKEN = "S6Mz2mJKTm9poMN9ap5njB6f"
@@ -19,7 +19,7 @@ const normaliseUrl = (value: string) => value.replace(/\/+$/, "")
 const rawBaseUrl = envOrDefault(process.env.EXPO_PUBLIC_CHATWOOT_BASE_URL, DEFAULT_BASE_URL)
 const normalizedBaseUrl = normalizeUrl(rawBaseUrl)
 const BASE_URL = normaliseUrl(
-  isValidUrl(normalizedBaseUrl) ? normalizedBaseUrl : getSafeUrl(rawBaseUrl, DEFAULT_BASE_URL)
+  isValidUrl(normalizedBaseUrl) ? normalizedBaseUrl : getSafeUrl(rawBaseUrl, DEFAULT_BASE_URL),
 )
 
 export const CHATWOOT_CONFIG = {
@@ -34,18 +34,15 @@ export const CHATWOOT_CONFIG = {
     `${BASE_URL}/api/secure-iframe?api_key=ttm_admin_key_001`,
   ),
 
-  INTEGRATION_API_URL: envOrDefault(
-    process.env.EXPO_PUBLIC_CHATWOOT_INTEGRATION_API_URL,
-    BASE_URL,
-  ),
+  INTEGRATION_API_URL: envOrDefault(process.env.EXPO_PUBLIC_CHATWOOT_INTEGRATION_API_URL, BASE_URL),
 
   // Widget Configuration
   WIDGET_CONFIG: {
-    locale: 'en',
-    type: 'expanded_bubble', // or 'standard'
-    launcherTitle: 'Chat with Support',
-    position: 'right' as const,
-    darkMode: 'auto' as const, // 'light', 'dark', or 'auto'
+    locale: "en",
+    type: "expanded_bubble", // or 'standard'
+    launcherTitle: "Chat with Support",
+    position: "right" as const,
+    darkMode: "auto" as const, // 'light', 'dark', or 'auto'
   },
 
   // SDK Script URLs
@@ -58,8 +55,8 @@ export const CHATWOOT_CONFIG = {
   MESSAGE_TIMEOUT: 30000,
 
   // Enable debug logging
-  DEBUG: process.env.NODE_ENV === 'development',
-};
+  DEBUG: process.env.NODE_ENV === "development",
+}
 
 /**
  * Generate Chatwoot HTML with embedded widget
@@ -70,11 +67,11 @@ export const generateChatwootHTML = (
   userIdentifier?: string,
   userName?: string,
   userEmail?: string,
-  customAttributes?: Record<string, any>
+  customAttributes?: Record<string, any>,
 ): string => {
   const customAttrsScript = customAttributes
     ? `customAttributes: ${JSON.stringify(customAttributes)},`
-    : '';
+    : ""
 
   return `
     <!DOCTYPE html>
@@ -122,11 +119,15 @@ export const generateChatwootHTML = (
                 position: "${CHATWOOT_CONFIG.WIDGET_CONFIG.position}",
                 darkMode: "${CHATWOOT_CONFIG.WIDGET_CONFIG.darkMode}",
                 ${customAttrsScript}
-                ${userIdentifier ? `user: {
+                ${
+                  userIdentifier
+                    ? `user: {
                   identifier: "${userIdentifier}",
-                  ${userName ? `name: "${userName}",` : ''}
-                  ${userEmail ? `email: "${userEmail}",` : ''}
-                },` : ''}
+                  ${userName ? `name: "${userName}",` : ""}
+                  ${userEmail ? `email: "${userEmail}",` : ""}
+                },`
+                    : ""
+                }
               });
               
               // Send message to React Native that widget is ready
@@ -168,24 +169,24 @@ export const generateChatwootHTML = (
       </script>
     </body>
     </html>
-  `;
-};
+  `
+}
 
 /**
  * Chatwoot User Data Interface
  */
 export interface ChatwootUser {
-  identifier: string; // Unique user ID (e.g., driver ID)
-  name?: string;
-  email?: string;
-  phone?: string;
-  customAttributes?: Record<string, any>;
+  identifier: string // Unique user ID (e.g., driver ID)
+  name?: string
+  email?: string
+  phone?: string
+  customAttributes?: Record<string, any>
 }
 
 /**
  * Chatwoot Message Interface
  */
 export interface ChatwootMessage {
-  type: string;
-  payload: any;
+  type: string
+  payload: any
 }

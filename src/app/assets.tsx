@@ -1,56 +1,57 @@
-import { router } from 'expo-router';
-import { ArrowLeft, FileText, Plus, Truck } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { toast } from '@/components/Toast';
-import LoadingButton from '@/components/LoadingButton';
-import ElevatedCard from '@/components/EvevatedCard';
-import { useAssets } from '@/contexts';
-import { useAppTheme } from '@/theme/context';
-import { Asset } from '@/types/assets';
-import { Text } from '@/components/Text';
-import { translate } from '@/i18n/translate';
-import { SafeAreaContainer } from '@/components/SafeAreaContainer';
+import React, { useState } from "react"
+import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native"
+import { router } from "expo-router"
+import { ArrowLeft, FileText, Plus, Truck } from "lucide-react-native"
+
+import ElevatedCard from "@/components/EvevatedCard"
+import LoadingButton from "@/components/LoadingButton"
+import { SafeAreaContainer } from "@/components/SafeAreaContainer"
+import { Text } from "@/components/Text"
+import { toast } from "@/components/Toast"
+import { useAssets } from "@/contexts"
+import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
+import { Asset } from "@/types/assets"
 
 export default function AssetsScreen() {
-  const { theme } = useAppTheme();
-  const { colors, isDark } = theme;
-  const { assets, addAsset, deleteAsset, isLoading } = useAssets();
-  const [showAddForm, setShowAddForm] = useState(false);
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+  const { assets, addAsset, deleteAsset, isLoading } = useAssets()
+  const [showAddForm, setShowAddForm] = useState(false)
   const [formData, setFormData] = useState({
-    type: 'truck' as 'truck' | 'trailer',
-    number: '',
-    make: '',
-    model: '',
-    year: '',
-    vin: '',
-    licensePlate: '',
-  });
+    type: "truck" as "truck" | "trailer",
+    number: "",
+    make: "",
+    model: "",
+    year: "",
+    vin: "",
+    licensePlate: "",
+  })
 
   const handleAddAsset = () => {
-    setShowAddForm(true);
-  };
+    setShowAddForm(true)
+  }
 
   const handleCancelAdd = () => {
-    setShowAddForm(false);
+    setShowAddForm(false)
     setFormData({
-      type: 'truck',
-      number: '',
-      make: '',
-      model: '',
-      year: '',
-      vin: '',
-      licensePlate: '',
-    });
-  };
+      type: "truck",
+      number: "",
+      make: "",
+      model: "",
+      year: "",
+      vin: "",
+      licensePlate: "",
+    })
+  }
 
   const handleSubmit = async () => {
     if (!formData.number) {
-      toast.warning('Please enter the asset number.');
-      return;
+      toast.warning("Please enter the asset number.")
+      return
     }
 
-    const assetData: Omit<Asset, 'id' | 'documents'> = {
+    const assetData: Omit<Asset, "id" | "documents"> = {
       ...formData,
       make: formData.make || undefined,
       model: formData.model || undefined,
@@ -58,20 +59,20 @@ export default function AssetsScreen() {
       vin: formData.vin || undefined,
       licensePlate: formData.licensePlate || undefined,
       isActive: true,
-    };
+    }
 
-    await addAsset(assetData);
-    handleCancelAdd();
-  };
+    await addAsset(assetData)
+    handleCancelAdd()
+  }
 
   const handleDeleteAsset = (id: string, number: string) => {
     try {
-      deleteAsset(id);
-      toast.success('Asset deleted successfully');
+      deleteAsset(id)
+      toast.success("Asset deleted successfully")
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to delete asset');
+      toast.error(error?.message || "Failed to delete asset")
     }
-  };
+  }
 
   const renderAssetItem = ({ item }: { item: Asset }) => (
     <ElevatedCard style={styles.assetCard}>
@@ -81,9 +82,7 @@ export default function AssetsScreen() {
             <Truck size={24} color={colors.tint} />
           </View>
           <View style={styles.assetDetails}>
-            <Text style={[styles.assetNumber, { color: colors.text }]}>
-              {item.number}
-            </Text>
+            <Text style={[styles.assetNumber, { color: colors.text }]}>{item.number}</Text>
             <Text style={[styles.assetType, { color: colors.textDim }]}>
               {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
             </Text>
@@ -94,23 +93,21 @@ export default function AssetsScreen() {
             )}
           </View>
         </View>
-        
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: item.isActive ? colors.success : colors.textDim }
-        ]}>
-          <Text style={styles.statusBadgeText}>
-            {item.isActive ? 'ACTIVE' : 'INACTIVE'}
-          </Text>
+
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: item.isActive ? colors.success : colors.textDim },
+          ]}
+        >
+          <Text style={styles.statusBadgeText}>{item.isActive ? "ACTIVE" : "INACTIVE"}</Text>
         </View>
       </View>
 
       {(item.vin || item.licensePlate) && (
         <View style={styles.assetMeta}>
           {item.vin && (
-            <Text style={[styles.assetMetaText, { color: colors.textDim }]}>
-              VIN: {item.vin}
-            </Text>
+            <Text style={[styles.assetMetaText, { color: colors.textDim }]}>VIN: {item.vin}</Text>
           )}
           {item.licensePlate && (
             <Text style={[styles.assetMetaText, { color: colors.textDim }]}>
@@ -127,7 +124,7 @@ export default function AssetsScreen() {
             {item.documents.length} documents
           </Text>
         </View>
-        
+
         <LoadingButton
           title="Delete"
           onPress={() => handleDeleteAsset(item.id, item.number)}
@@ -135,7 +132,7 @@ export default function AssetsScreen() {
         />
       </View>
     </ElevatedCard>
-  );
+  )
 
   if (showAddForm) {
     return (
@@ -144,25 +141,29 @@ export default function AssetsScreen() {
           <Pressable onPress={handleCancelAdd} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.text} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>{translate("assets.addAsset" as any)}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {translate("assets.addAsset" as any)}
+          </Text>
           <View style={styles.placeholder} />
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>{translate("assets.assetType" as any)}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>
+              {translate("assets.assetType" as any)}
+            </Text>
             <View style={styles.typeSelector}>
               {[
-                { key: 'truck', label: 'Truck' },
-                { key: 'trailer', label: 'Trailer' },
+                { key: "truck", label: "Truck" },
+                { key: "trailer", label: "Trailer" },
               ].map((type) => (
                 <Pressable
                   key={type.key}
-                  onPress={() => setFormData(prev => ({ ...prev, type: type.key as any }))}
+                  onPress={() => setFormData((prev) => ({ ...prev, type: type.key as any }))}
                   style={[
                     styles.typeButton,
                     {
-                      backgroundColor: formData.type === type.key ? colors.tint : 'transparent',
+                      backgroundColor: formData.type === type.key ? colors.tint : "transparent",
                       borderColor: colors.tint,
                     },
                   ]}
@@ -171,7 +172,7 @@ export default function AssetsScreen() {
                     style={[
                       styles.typeButtonText,
                       {
-                        color: formData.type === type.key ? '#fff' : colors.tint,
+                        color: formData.type === type.key ? "#fff" : colors.tint,
                       },
                     ]}
                   >
@@ -188,15 +189,15 @@ export default function AssetsScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="Enter asset number"
               placeholderTextColor={colors.textDim}
               value={formData.number}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, number: text }))}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, number: text }))}
             />
           </View>
 
@@ -207,15 +208,15 @@ export default function AssetsScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                    backgroundColor: isDark ? colors.surface : "#F3F4F6",
                     color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    borderColor: isDark ? "transparent" : "#E5E7EB",
                   },
                 ]}
                 placeholder="Make"
                 placeholderTextColor={colors.textDim}
                 value={formData.make}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, make: text }))}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, make: text }))}
               />
             </View>
 
@@ -225,15 +226,15 @@ export default function AssetsScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                    backgroundColor: isDark ? colors.surface : "#F3F4F6",
                     color: colors.text,
-                    borderColor: isDark ? 'transparent' : '#E5E7EB',
+                    borderColor: isDark ? "transparent" : "#E5E7EB",
                   },
                 ]}
                 placeholder="Model"
                 placeholderTextColor={colors.textDim}
                 value={formData.model}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, model: text }))}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, model: text }))}
               />
             </View>
           </View>
@@ -244,15 +245,15 @@ export default function AssetsScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="Year"
               placeholderTextColor={colors.textDim}
               value={formData.year}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, year: text }))}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, year: text }))}
               keyboardType="numeric"
             />
           </View>
@@ -263,15 +264,15 @@ export default function AssetsScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="Vehicle Identification Number"
               placeholderTextColor={colors.textDim}
               value={formData.vin}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, vin: text }))}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, vin: text }))}
               autoCapitalize="characters"
             />
           </View>
@@ -282,20 +283,20 @@ export default function AssetsScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="License plate number"
               placeholderTextColor={colors.textDim}
               value={formData.licensePlate}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, licensePlate: text }))}
+              onChangeText={(text) => setFormData((prev) => ({ ...prev, licensePlate: text }))}
               autoCapitalize="characters"
             />
           </View>
 
-          <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+          <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
             <View style={styles.formButtons}>
               <LoadingButton
                 title="Cancel"
@@ -313,7 +314,7 @@ export default function AssetsScreen() {
           </SafeAreaContainer>
         </View>
       </View>
-    );
+    )
   }
 
   return (
@@ -326,7 +327,7 @@ export default function AssetsScreen() {
         <LoadingButton
           title="Add"
           onPress={handleAddAsset}
-          icon={<Plus size={16} color={isDark ? colors.text : '#fff'} />}
+          icon={<Plus size={16} color={isDark ? colors.text : "#fff"} />}
         />
       </View>
 
@@ -350,121 +351,36 @@ export default function AssetsScreen() {
         />
       )}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-  },
-  placeholder: {
-    width: 60,
-  },
-  form: {
-    flex: 1,
-    padding: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 8,
-  },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-  },
-  typeButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    textAlign: 'center',
-  },
-  formButtons: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  assetsList: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  assetsListContent: {
-    paddingBottom: 20,
+  assetActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   assetCard: {
     marginBottom: 16,
   },
-  assetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  assetInfo: {
-    flexDirection: 'row',
+  assetDetails: {
     flex: 1,
+  },
+  assetHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
   assetIcon: {
     marginRight: 12,
   },
-  assetDetails: {
+  assetInfo: {
+    flexDirection: "row",
     flex: 1,
-  },
-  assetNumber: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    marginBottom: 4,
-  },
-  assetType: {
-    fontSize: 14,
-    marginBottom: 2,
   },
   assetMakeModel: {
     fontSize: 14,
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700' as const,
   },
   assetMeta: {
     marginBottom: 12,
@@ -473,34 +389,119 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 2,
   },
-  assetActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  assetNumber: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    marginBottom: 4,
   },
-  documentsInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  assetType: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  assetsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  assetsListContent: {
+    paddingBottom: 20,
+  },
+  backButton: {
+    padding: 8,
+  },
+  container: {
+    flex: 1,
   },
   documentsCount: {
     fontSize: 14,
     marginLeft: 6,
   },
+  documentsInfo: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
   emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
     margin: 20,
     padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    marginTop: 16,
-    textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
     marginTop: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
-});
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+    marginTop: 16,
+    textAlign: "center",
+  },
+  form: {
+    flex: 1,
+    padding: 20,
+  },
+  formButtons: {
+    flexDirection: "row",
+    marginTop: 20,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+  },
+  input: {
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    height: 50,
+    paddingHorizontal: 16,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputRow: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    marginBottom: 8,
+  },
+  placeholder: {
+    width: 60,
+  },
+  statusBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700" as const,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+  },
+  typeButton: {
+    borderRadius: 8,
+    borderWidth: 2,
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    textAlign: "center",
+  },
+  typeSelector: {
+    flexDirection: "row",
+    gap: 12,
+  },
+})

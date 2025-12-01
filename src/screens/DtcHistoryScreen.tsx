@@ -3,58 +3,58 @@
  * Uses FlatList with performance optimizations
  */
 
-import React, { useState, useMemo, useCallback } from 'react'
-import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native'
-import { router } from 'expo-router'
-import { Search, Filter, X } from 'lucide-react-native'
-import { Text } from '@/components/Text'
-import { Header } from '@/components/Header'
-import { DtcList } from '@/components/DtcList'
-import { useObdData } from '@/contexts/obd-data-context'
-import { colors } from '@/theme/colors'
-import { MalfunctionRecord } from '@/contexts/obd-data-context'
-import { translate } from '@/i18n/translate'
-import { useAppTheme } from '@/theme/context'
+import React, { useState, useMemo, useCallback } from "react"
+import { View, StyleSheet, TextInput, TouchableOpacity } from "react-native"
+import { router } from "expo-router"
+import { Search, Filter, X } from "lucide-react-native"
 
-type SortOption = 'date' | 'code' | 'severity'
-type FilterSeverity = 'all' | 'critical' | 'warning' | 'info'
+import { DtcList } from "@/components/DtcList"
+import { Header } from "@/components/Header"
+import { Text } from "@/components/Text"
+import { useObdData } from "@/contexts/obd-data-context"
+import { MalfunctionRecord } from "@/contexts/obd-data-context"
+import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
+
+type SortOption = "date" | "code" | "severity"
+type FilterSeverity = "all" | "critical" | "warning" | "info"
 
 export const DtcHistoryScreen: React.FC = () => {
   const { theme } = useAppTheme()
   const { colors: themeColors, isDark } = theme
   const { recentMalfunctions, refreshConnectionStatus } = useObdData()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<SortOption>('date')
-  const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>('all')
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState<SortOption>("date")
+  const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>("all")
   const [showFilters, setShowFilters] = useState(false)
 
   // Get severity for a DTC code
-  const getDtcSeverity = useCallback((code: string): 'critical' | 'warning' | 'info' => {
+  const getDtcSeverity = useCallback((code: string): "critical" | "warning" | "info" => {
     const upperCode = code.toUpperCase()
-    
+
     if (
-      upperCode.startsWith('P0195') ||
-      upperCode.startsWith('P0300') ||
-      upperCode.startsWith('P0301') ||
-      upperCode.startsWith('P0302') ||
-      upperCode.startsWith('P0303') ||
-      upperCode.startsWith('P0304') ||
-      upperCode.startsWith('P0420') ||
-      upperCode.startsWith('P0171') ||
-      upperCode.startsWith('P0172')
+      upperCode.startsWith("P0195") ||
+      upperCode.startsWith("P0300") ||
+      upperCode.startsWith("P0301") ||
+      upperCode.startsWith("P0302") ||
+      upperCode.startsWith("P0303") ||
+      upperCode.startsWith("P0304") ||
+      upperCode.startsWith("P0420") ||
+      upperCode.startsWith("P0171") ||
+      upperCode.startsWith("P0172")
     ) {
-      return 'critical'
+      return "critical"
     }
-    
+
     if (
-      upperCode.startsWith('P0128') ||
-      upperCode.startsWith('P0401') ||
-      upperCode.startsWith('P0455')
+      upperCode.startsWith("P0128") ||
+      upperCode.startsWith("P0401") ||
+      upperCode.startsWith("P0455")
     ) {
-      return 'warning'
+      return "warning"
     }
-    
-    return 'info'
+
+    return "info"
   }, [])
 
   // Filter and sort DTC records
@@ -67,14 +67,14 @@ export const DtcHistoryScreen: React.FC = () => {
       filtered = filtered.filter((record) => {
         return record.codes.some((code) => {
           const codeStr = code.code.toLowerCase()
-          const descStr = (code.faultDescription || code.genericDescription || '').toLowerCase()
+          const descStr = (code.faultDescription || code.genericDescription || "").toLowerCase()
           return codeStr.includes(query) || descStr.includes(query)
         })
       })
     }
 
     // Filter by severity
-    if (filterSeverity !== 'all') {
+    if (filterSeverity !== "all") {
       filtered = filtered.filter((record) => {
         return record.codes.some((code) => {
           const severity = getDtcSeverity(code.code)
@@ -86,15 +86,15 @@ export const DtcHistoryScreen: React.FC = () => {
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'date':
+        case "date":
           return b.timestamp.getTime() - a.timestamp.getTime() // Newest first
-        case 'code':
-          const codeA = a.codes[0]?.code || ''
-          const codeB = b.codes[0]?.code || ''
+        case "code":
+          const codeA = a.codes[0]?.code || ""
+          const codeB = b.codes[0]?.code || ""
           return codeA.localeCompare(codeB)
-        case 'severity':
-          const severityA = getDtcSeverity(a.codes[0]?.code || '')
-          const severityB = getDtcSeverity(b.codes[0]?.code || '')
+        case "severity":
+          const severityA = getDtcSeverity(a.codes[0]?.code || "")
+          const severityB = getDtcSeverity(b.codes[0]?.code || "")
           const severityOrder = { critical: 0, warning: 1, info: 2 }
           return severityOrder[severityA] - severityOrder[severityB]
         default:
@@ -111,7 +111,7 @@ export const DtcHistoryScreen: React.FC = () => {
 
   const handleItemPress = useCallback((item: MalfunctionRecord) => {
     // Could navigate to detail screen in future
-    console.log('DTC item pressed:', item)
+    console.log("DTC item pressed:", item)
   }, [])
 
   return (
@@ -123,7 +123,7 @@ export const DtcHistoryScreen: React.FC = () => {
         backgroundColor={themeColors.background}
         leftIcon="back"
         leftIconColor={themeColors.tint}
-        onLeftPress={() => (router.canGoBack() ? router.back() : router.push('/(tabs)/dashboard'))}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/(tabs)/dashboard"))}
         RightActionComponent={
           <TouchableOpacity
             onPress={() => setShowFilters(!showFilters)}
@@ -134,27 +134,31 @@ export const DtcHistoryScreen: React.FC = () => {
         }
         containerStyle={{
           borderBottomWidth: 1,
-          borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
         }}
         style={{
           paddingHorizontal: 16,
         }}
-        safeAreaEdges={['top']}
+        safeAreaEdges={["top"]}
       />
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Search size={20} color={colors.palette.neutral500 || '#6B7280'} style={styles.searchIcon} />
+        <Search
+          size={20}
+          color={colors.palette.neutral500 || "#6B7280"}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
-          placeholder={translate('dtc.searchPlaceholder' as any)}
-          placeholderTextColor={colors.palette.neutral500 || '#6B7280'}
+          placeholder={translate("dtc.searchPlaceholder" as any)}
+          placeholderTextColor={colors.palette.neutral500 || "#6B7280"}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-            <X size={20} color={colors.palette.neutral500 || '#6B7280'} />
+          <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearButton}>
+            <X size={20} color={colors.palette.neutral500 || "#6B7280"} />
           </TouchableOpacity>
         )}
       </View>
@@ -163,16 +167,13 @@ export const DtcHistoryScreen: React.FC = () => {
       {showFilters && (
         <View style={styles.filtersContainer}>
           <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>{translate('dtc.sortBy' as any)}</Text>
+            <Text style={styles.filterLabel}>{translate("dtc.sortBy" as any)}</Text>
             <View style={styles.filterButtons}>
-              {(['date', 'code', 'severity'] as SortOption[]).map((option) => (
+              {(["date", "code", "severity"] as SortOption[]).map((option) => (
                 <TouchableOpacity
                   key={option}
                   onPress={() => setSortBy(option)}
-                  style={[
-                    styles.filterButton,
-                    sortBy === option && styles.filterButtonActive,
-                  ]}
+                  style={[styles.filterButton, sortBy === option && styles.filterButtonActive]}
                 >
                   <Text
                     style={[
@@ -180,9 +181,11 @@ export const DtcHistoryScreen: React.FC = () => {
                       sortBy === option && styles.filterButtonTextActive,
                     ]}
                   >
-                    {option === 'date' ? translate('dtc.date' as any) : 
-                     option === 'code' ? translate('dtc.code' as any) : 
-                     translate('dtc.severityLabel' as any)}
+                    {option === "date"
+                      ? translate("dtc.date" as any)
+                      : option === "code"
+                        ? translate("dtc.code" as any)
+                        : translate("dtc.severityLabel" as any)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -190,9 +193,9 @@ export const DtcHistoryScreen: React.FC = () => {
           </View>
 
           <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>{translate('dtc.severity' as any)}</Text>
+            <Text style={styles.filterLabel}>{translate("dtc.severity" as any)}</Text>
             <View style={styles.filterButtons}>
-              {(['all', 'critical', 'warning', 'info'] as FilterSeverity[]).map((severity) => (
+              {(["all", "critical", "warning", "info"] as FilterSeverity[]).map((severity) => (
                 <TouchableOpacity
                   key={severity}
                   onPress={() => setFilterSeverity(severity)}
@@ -207,10 +210,13 @@ export const DtcHistoryScreen: React.FC = () => {
                       filterSeverity === severity && styles.filterButtonTextActive,
                     ]}
                   >
-                    {severity === 'all' ? translate('dtc.all' as any) :
-                     severity === 'critical' ? translate('dtc.critical' as any) :
-                     severity === 'warning' ? translate('dtc.warning' as any) :
-                     translate('dtc.info' as any)}
+                    {severity === "all"
+                      ? translate("dtc.all" as any)
+                      : severity === "critical"
+                        ? translate("dtc.critical" as any)
+                        : severity === "warning"
+                          ? translate("dtc.warning" as any)
+                          : translate("dtc.info" as any)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -222,9 +228,9 @@ export const DtcHistoryScreen: React.FC = () => {
       {/* Results Count */}
       <View style={styles.resultsContainer}>
         <Text style={styles.resultsText}>
-          {translate('dtc.found' as any, {
+          {translate("dtc.found" as any, {
             count: filteredAndSortedData.length,
-            plural: filteredAndSortedData.length !== 1 ? 's' : '',
+            plural: filteredAndSortedData.length !== 1 ? "s" : "",
           })}
         </Text>
       </View>
@@ -234,95 +240,94 @@ export const DtcHistoryScreen: React.FC = () => {
         data={filteredAndSortedData}
         onRefresh={handleRefresh}
         onItemPress={handleItemPress}
-        emptyMessage={translate('dtc.noMatch' as any)}
+        emptyMessage={translate("dtc.noMatch" as any)}
       />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
+  clearButton: {
+    padding: 4,
+  },
   container: {
+    backgroundColor: colors.background || "#FFFFFF",
     flex: 1,
-    backgroundColor: colors.background || '#FFFFFF',
+  },
+  filterButton: {
+    backgroundColor: colors.palette.neutral200 || "#E5E7EB",
+    borderColor: colors.palette.neutral300 || "#D1D5DB",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterButtonActive: {
+    backgroundColor: colors.tint || "#5750F1",
+    borderColor: colors.tint || "#5750F1",
+  },
+  filterButtonText: {
+    color: colors.palette.neutral700 || "#374151",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  filterButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  filterButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterLabel: {
+    color: colors.palette.neutral700 || "#374151",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  filterRow: {
+    marginBottom: 12,
+  },
+  filtersContainer: {
+    backgroundColor: colors.palette.neutral100 || "#FAFAFA",
+    borderBottomColor: colors.palette.neutral200 || "#E5E7EB",
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   headerFilterButton: {
+    alignItems: "center",
+    justifyContent: "center",
     padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  },
+  resultsContainer: {
+    backgroundColor: colors.background || "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  resultsText: {
+    color: colors.palette.neutral600 || "#4B5563",
+    fontSize: 14,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.palette.neutral100 || '#F9FAFB',
+    alignItems: "center",
+    backgroundColor: colors.palette.neutral100 || "#F9FAFB",
+    borderColor: colors.palette.neutral200 || "#E5E7EB",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    marginBottom: 8,
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 12,
     paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.palette.neutral200 || '#E5E7EB',
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
+    color: colors.palette.neutral900 || "#111827",
     flex: 1,
     fontSize: 16,
-    color: colors.palette.neutral900 || '#111827',
     paddingVertical: 12,
-  },
-  clearButton: {
-    padding: 4,
-  },
-  filtersContainer: {
-    backgroundColor: colors.palette.neutral100 || '#FAFAFA',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.palette.neutral200 || '#E5E7EB',
-  },
-  filterRow: {
-    marginBottom: 12,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.palette.neutral700 || '#374151',
-    marginBottom: 8,
-  },
-  filterButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.palette.neutral200 || '#E5E7EB',
-    borderWidth: 1,
-    borderColor: colors.palette.neutral300 || '#D1D5DB',
-  },
-  filterButtonActive: {
-    backgroundColor: colors.tint || '#5750F1',
-    borderColor: colors.tint || '#5750F1',
-  },
-  filterButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.palette.neutral700 || '#374151',
-  },
-  filterButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  resultsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.background || '#FFFFFF',
-  },
-  resultsText: {
-    fontSize: 14,
-    color: colors.palette.neutral600 || '#4B5563',
   },
 })
-

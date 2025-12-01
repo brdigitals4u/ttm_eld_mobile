@@ -2,6 +2,7 @@ import { I18nManager } from "react-native"
 import * as Localization from "expo-localization"
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
+
 import "intl-pluralrules"
 import { settingsStorage } from "@/utils/storage"
 
@@ -9,7 +10,6 @@ import { settingsStorage } from "@/utils/storage"
 import ar from "./ar"
 import en, { Translations } from "./en"
 import es from "./es"
-
 
 const fallbackLocale = "en-US"
 
@@ -79,7 +79,7 @@ export const initI18n = async () => {
     interpolation: {
       escapeValue: false,
     },
-    compatibilityJSON: 'v4', // Use v4 format
+    compatibilityJSON: "v4", // Use v4 format
   })
 
   return i18n
@@ -91,7 +91,7 @@ export const initI18n = async () => {
 export const changeLanguage = async (languageCode: string) => {
   // Extract primary tag (e.g., 'en' from 'en-US')
   const primaryTag = languageCode.split("-")[0]
-  
+
   if (!supportedTags.includes(primaryTag)) {
     console.warn(`Language ${languageCode} is not supported`)
     return false

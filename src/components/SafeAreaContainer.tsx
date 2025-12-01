@@ -1,23 +1,23 @@
 /**
  * SafeAreaContainer Component
- * 
+ *
  * Provides consistent safe area padding across the app, especially for bottom buttons
  * that might overlap with device navigation bars.
- * 
+ *
  * Usage:
  * <SafeAreaContainer>
  *   <YourContent />
  * </SafeAreaContainer>
- * 
+ *
  * Or with custom padding:
  * <SafeAreaContainer bottomPadding={20}>
  *   <YourContent />
  * </SafeAreaContainer>
  */
 
-import React from 'react'
-import { View, ViewStyle, StyleSheet } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import React from "react"
+import { View, ViewStyle, StyleSheet } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface SafeAreaContainerProps {
   children: React.ReactNode
@@ -45,7 +45,7 @@ interface SafeAreaContainerProps {
    * Apply safe area insets to all edges
    * Default: false (only bottom)
    */
-  edges?: ('top' | 'bottom' | 'left' | 'right')[]
+  edges?: ("top" | "bottom" | "left" | "right")[]
   /**
    * Additional style to apply
    */
@@ -58,23 +58,21 @@ export const SafeAreaContainer: React.FC<SafeAreaContainerProps> = ({
   topPadding = 0,
   leftPadding = 0,
   rightPadding = 0,
-  edges = ['bottom'],
+  edges = ["bottom"],
   style,
 }) => {
   const insets = useSafeAreaInsets()
 
   const containerStyle: ViewStyle = {
-    paddingBottom: edges.includes('bottom') ? Math.max(insets.bottom, bottomPadding) : bottomPadding,
-    paddingTop: edges.includes('top') ? Math.max(insets.top, topPadding) : topPadding,
-    paddingLeft: edges.includes('left') ? Math.max(insets.left, leftPadding) : leftPadding,
-    paddingRight: edges.includes('right') ? Math.max(insets.right, rightPadding) : rightPadding,
+    paddingBottom: edges.includes("bottom")
+      ? Math.max(insets.bottom, bottomPadding)
+      : bottomPadding,
+    paddingTop: edges.includes("top") ? Math.max(insets.top, topPadding) : topPadding,
+    paddingLeft: edges.includes("left") ? Math.max(insets.left, leftPadding) : leftPadding,
+    paddingRight: edges.includes("right") ? Math.max(insets.right, rightPadding) : rightPadding,
   }
 
-  return (
-    <View style={[styles.container, containerStyle, style]}>
-      {children}
-    </View>
-  )
+  return <View style={[styles.container, containerStyle, style]}>{children}</View>
 }
 
 const styles = StyleSheet.create({
@@ -82,6 +80,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 })
-
-
-

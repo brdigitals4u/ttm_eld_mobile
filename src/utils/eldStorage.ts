@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
-const ELD_DEVICE_KEY = '@ttm_eld_device'
+const ELD_DEVICE_KEY = "@ttm_eld_device"
 
 export interface EldDeviceInfo {
   address: string
@@ -14,9 +14,9 @@ export interface EldDeviceInfo {
 export const saveEldDevice = async (deviceInfo: EldDeviceInfo): Promise<void> => {
   try {
     await AsyncStorage.setItem(ELD_DEVICE_KEY, JSON.stringify(deviceInfo))
-    console.log('✅ ELD device info saved:', deviceInfo)
+    console.log("✅ ELD device info saved:", deviceInfo)
   } catch (error) {
-    console.error('❌ Failed to save ELD device info:', error)
+    console.error("❌ Failed to save ELD device info:", error)
   }
 }
 
@@ -28,12 +28,12 @@ export const getEldDevice = async (): Promise<EldDeviceInfo | null> => {
     const data = await AsyncStorage.getItem(ELD_DEVICE_KEY)
     if (data) {
       const deviceInfo = JSON.parse(data) as EldDeviceInfo
-      console.log('📱 Retrieved ELD device info:', deviceInfo)
+      console.log("📱 Retrieved ELD device info:", deviceInfo)
       return deviceInfo
     }
     return null
   } catch (error) {
-    console.error('❌ Failed to retrieve ELD device info:', error)
+    console.error("❌ Failed to retrieve ELD device info:", error)
     return null
   }
 }
@@ -44,8 +44,8 @@ export const getEldDevice = async (): Promise<EldDeviceInfo | null> => {
 export const clearEldDevice = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ELD_DEVICE_KEY)
-    console.log('🗑️  ELD device info cleared')
+    console.log("🗑️  ELD device info cleared")
   } catch (error) {
-    console.error('❌ Failed to clear ELD device info:', error)
+    console.error("❌ Failed to clear ELD device info:", error)
   }
 }

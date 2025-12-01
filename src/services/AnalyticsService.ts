@@ -1,5 +1,6 @@
-import analytics from '@react-native-firebase/analytics'
-import { Platform } from 'react-native'
+import { Platform } from "react-native"
+import analytics from "@react-native-firebase/analytics"
+
 import {
   AUTH_EVENTS,
   ELD_EVENTS,
@@ -13,14 +14,14 @@ import {
   FEATURE_EVENTS,
   SYNC_EVENTS,
   ENGAGEMENT_EVENTS,
-} from '@/constants/analyticsEvents'
+} from "@/constants/analyticsEvents"
 
 /**
  * Firebase Analytics Service
- * 
+ *
  * Comprehensive analytics tracking for user behavior, app usage, and key events.
  * Designed to provide valuable insights for Customer Relationship teams.
- * 
+ *
  * Events are automatically tracked for:
  * - Screen views (via Expo Router integration)
  * - User properties (driver ID, vehicle assignment, etc.)
@@ -43,18 +44,18 @@ class AnalyticsService {
     try {
       // Enable analytics collection (enabled by default)
       await analytics().setAnalyticsCollectionEnabled(true)
-      
+
       // Set default event parameters
       await analytics().setDefaultEventParameters({
         platform: Platform.OS,
-        app_version: '1.0.0', // Update this dynamically if needed
+        app_version: "1.0.0", // Update this dynamically if needed
       })
 
       this.initialized = true
       this.startSession()
-      console.log('✅ Firebase Analytics initialized')
+      console.log("✅ Firebase Analytics initialized")
     } catch (error) {
-      console.error('❌ Failed to initialize Firebase Analytics:', error)
+      console.error("❌ Failed to initialize Firebase Analytics:", error)
       // Don't throw - analytics failures shouldn't break the app
     }
   }
@@ -94,7 +95,7 @@ class AnalyticsService {
         screen_class: screenClass || screenName,
       })
     } catch (error) {
-      console.error('Error logging screen view:', error)
+      console.error("Error logging screen view:", error)
     }
   }
 
@@ -124,14 +125,14 @@ class AnalyticsService {
     for (const [key, value] of Object.entries(params)) {
       // Parameter names: max 40 chars, alphanumeric + underscore
       const sanitizedKey = key
-        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .replace(/[^a-zA-Z0-9_]/g, "_")
         .substring(0, 40)
         .toLowerCase()
 
       // Parameter values: strings max 100 chars, numbers, booleans
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         sanitized[sanitizedKey] = value.substring(0, 100)
-      } else if (typeof value === 'number' || typeof value === 'boolean') {
+      } else if (typeof value === "number" || typeof value === "boolean") {
         sanitized[sanitizedKey] = value
       } else if (value != null) {
         sanitized[sanitizedKey] = String(value).substring(0, 100)
@@ -162,7 +163,7 @@ class AnalyticsService {
     try {
       await analytics().setUserId(userId)
     } catch (error) {
-      console.error('Error setting user ID:', error)
+      console.error("Error setting user ID:", error)
     }
   }
 
@@ -174,7 +175,7 @@ class AnalyticsService {
       await analytics().resetAnalyticsData()
       this.endSession()
     } catch (error) {
-      console.error('Error resetting analytics data:', error)
+      console.error("Error resetting analytics data:", error)
     }
   }
 
@@ -203,21 +204,21 @@ class AnalyticsService {
 
   async logLoginAttempt(method?: string, tenantCode?: string): Promise<void> {
     await this.logEvent(AUTH_EVENTS.LOGIN_ATTEMPT, {
-      method: method || 'unknown',
+      method: method || "unknown",
       tenant_code: tenantCode,
     })
   }
 
   async logLoginSuccess(method?: string, tenantCode?: string): Promise<void> {
     await this.logEvent(AUTH_EVENTS.LOGIN_SUCCESS, {
-      method: method || 'unknown',
+      method: method || "unknown",
       tenant_code: tenantCode,
     })
   }
 
   async logLoginFailure(method?: string, errorCode?: string, errorMessage?: string): Promise<void> {
     await this.logEvent(AUTH_EVENTS.LOGIN_FAILURE, {
-      method: method || 'unknown',
+      method: method || "unknown",
       error_code: errorCode,
       error_message: errorMessage,
     })
@@ -275,7 +276,11 @@ class AnalyticsService {
     })
   }
 
-  async logDeviceFound(deviceId: string, deviceName: string, signalStrength?: number): Promise<void> {
+  async logDeviceFound(
+    deviceId: string,
+    deviceName: string,
+    signalStrength?: number,
+  ): Promise<void> {
     await this.logEvent(ELD_EVENTS.DEVICE_FOUND, {
       device_id: deviceId,
       device_name: deviceName,
@@ -296,14 +301,21 @@ class AnalyticsService {
     })
   }
 
-  async logConnectionSuccess(deviceId: string, connectionType: string = 'bluetooth'): Promise<void> {
+  async logConnectionSuccess(
+    deviceId: string,
+    connectionType: string = "bluetooth",
+  ): Promise<void> {
     await this.logEvent(ELD_EVENTS.CONNECTION_SUCCESS, {
       device_id: deviceId,
       connection_type: connectionType,
     })
   }
 
-  async logConnectionFailure(deviceId: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logConnectionFailure(
+    deviceId: string,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(ELD_EVENTS.CONNECTION_FAILURE, {
       device_id: deviceId,
       error_code: errorCode,
@@ -411,7 +423,7 @@ class AnalyticsService {
     fromStatus: string,
     toStatus: string,
     location?: { latitude: number; longitude: number },
-    odometer?: number
+    odometer?: number,
   ): Promise<void> {
     await this.logEvent(HOS_EVENTS.STATUS_CHANGE_SUCCESS, {
       from_status: fromStatus,
@@ -422,18 +434,23 @@ class AnalyticsService {
     })
 
     // Also log specific status transition events
-    if (toStatus === 'driving') {
+    if (toStatus === "driving") {
       await this.logEvent(HOS_EVENTS.STATUS_TO_DRIVING, { from_status: fromStatus })
-    } else if (toStatus === 'on_duty') {
+    } else if (toStatus === "on_duty") {
       await this.logEvent(HOS_EVENTS.STATUS_TO_ON_DUTY, { from_status: fromStatus })
-    } else if (toStatus === 'off_duty') {
+    } else if (toStatus === "off_duty") {
       await this.logEvent(HOS_EVENTS.STATUS_TO_OFF_DUTY, { from_status: fromStatus })
-    } else if (toStatus === 'sleeper_berth') {
+    } else if (toStatus === "sleeper_berth") {
       await this.logEvent(HOS_EVENTS.STATUS_TO_SLEEPER_BERTH, { from_status: fromStatus })
     }
   }
 
-  async logStatusChangeFailure(fromStatus: string, toStatus: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logStatusChangeFailure(
+    fromStatus: string,
+    toStatus: string,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(HOS_EVENTS.STATUS_CHANGE_FAILURE, {
       from_status: fromStatus,
       to_status: toStatus,
@@ -453,7 +470,7 @@ class AnalyticsService {
   async logHosTimeRemainingViewed(
     drivingTimeRemaining?: number,
     onDutyTimeRemaining?: number,
-    cycleTimeRemaining?: number
+    cycleTimeRemaining?: number,
   ): Promise<void> {
     await this.logEvent(HOS_EVENTS.HOS_TIME_REMAINING_VIEWED, {
       driving_time_remaining: drivingTimeRemaining,
@@ -530,7 +547,11 @@ class AnalyticsService {
     })
   }
 
-  async logCertificationFailure(logDate: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logCertificationFailure(
+    logDate: string,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(LOGS_EVENTS.CERTIFICATION_FAILURE, {
       log_date: logDate,
       error_code: errorCode,
@@ -560,7 +581,11 @@ class AnalyticsService {
     })
   }
 
-  async logTransferFailure(method: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logTransferFailure(
+    method: string,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(LOGS_EVENTS.TRANSFER_FAILURE, {
       transfer_method: method,
       error_code: errorCode,
@@ -645,7 +670,11 @@ class AnalyticsService {
     })
   }
 
-  async logReceiptUploadFailure(purchaseId?: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logReceiptUploadFailure(
+    purchaseId?: string,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(FUEL_EVENTS.RECEIPT_UPLOAD_FAILURE, {
       purchase_id: purchaseId,
       error_code: errorCode,
@@ -667,13 +696,13 @@ class AnalyticsService {
   // 6. INSPECTIONS (DVIR)
   // ============================================================================
 
-  async logInspectionStarted(inspectionType: 'pre_trip' | 'post_trip' | 'dot'): Promise<void> {
+  async logInspectionStarted(inspectionType: "pre_trip" | "post_trip" | "dot"): Promise<void> {
     await this.logEvent(INSPECTION_EVENTS.INSPECTION_STARTED, {
       inspection_type: inspectionType,
     })
   }
 
-  async logInspectionTypeSelected(inspectionType: 'pre_trip' | 'post_trip' | 'dot'): Promise<void> {
+  async logInspectionTypeSelected(inspectionType: "pre_trip" | "post_trip" | "dot"): Promise<void> {
     await this.logEvent(INSPECTION_EVENTS.INSPECTION_TYPE_SELECTED, {
       inspection_type: inspectionType,
     })
@@ -682,7 +711,7 @@ class AnalyticsService {
   async logInspectionItemUpdated(
     itemId: string,
     itemName: string,
-    status: 'pass' | 'fail' | 'na'
+    status: "pass" | "fail" | "na",
   ): Promise<void> {
     await this.logEvent(INSPECTION_EVENTS.INSPECTION_ITEM_UPDATED, {
       item_id: itemId,
@@ -691,17 +720,17 @@ class AnalyticsService {
     })
 
     // Also log specific status events
-    if (status === 'pass') {
+    if (status === "pass") {
       await this.logEvent(INSPECTION_EVENTS.INSPECTION_ITEM_PASSED, {
         item_id: itemId,
         item_name: itemName,
       })
-    } else if (status === 'fail') {
+    } else if (status === "fail") {
       await this.logEvent(INSPECTION_EVENTS.INSPECTION_ITEM_FAILED, {
         item_id: itemId,
         item_name: itemName,
       })
-    } else if (status === 'na') {
+    } else if (status === "na") {
       await this.logEvent(INSPECTION_EVENTS.INSPECTION_ITEM_NA, {
         item_id: itemId,
         item_name: itemName,
@@ -715,7 +744,7 @@ class AnalyticsService {
     passedItems: number,
     failedItems: number,
     naItems: number,
-    requiredItemsPending: number
+    requiredItemsPending: number,
   ): Promise<void> {
     await this.logEvent(INSPECTION_EVENTS.INSPECTION_COMPLETION_ATTEMPT, {
       inspection_type: inspectionType,
@@ -731,7 +760,7 @@ class AnalyticsService {
     inspectionType: string,
     totalItems: number,
     passedItems: number,
-    failedItems: number
+    failedItems: number,
   ): Promise<void> {
     await this.logEvent(INSPECTION_EVENTS.INSPECTION_COMPLETED, {
       inspection_type: inspectionType,
@@ -741,7 +770,11 @@ class AnalyticsService {
     })
   }
 
-  async logInspectionCompletionFailure(inspectionType: string, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logInspectionCompletionFailure(
+    inspectionType: string,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(INSPECTION_EVENTS.INSPECTION_COMPLETION_FAILURE, {
       inspection_type: inspectionType,
       error_code: errorCode,
@@ -855,7 +888,12 @@ class AnalyticsService {
   // 9. ERRORS & ISSUES
   // ============================================================================
 
-  async logApiError(endpoint: string, statusCode?: number, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logApiError(
+    endpoint: string,
+    statusCode?: number,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(ERROR_EVENTS.API_ERROR, {
       api_endpoint: endpoint,
       http_status_code: statusCode,
@@ -909,12 +947,16 @@ class AnalyticsService {
 
   async logValidationError(field: string, errorMessage: string): Promise<void> {
     await this.logEvent(ERROR_EVENTS.VALIDATION_ERROR, {
-      error_type: 'validation',
+      error_type: "validation",
       error_message: `${field}: ${errorMessage}`,
     })
   }
 
-  async logSyncError(syncType: 'location' | 'obd' | 'aws', errorCode?: string, errorMessage?: string): Promise<void> {
+  async logSyncError(
+    syncType: "location" | "obd" | "aws",
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(ERROR_EVENTS.SYNC_ERROR, {
       sync_type: syncType,
       error_code: errorCode,
@@ -922,7 +964,11 @@ class AnalyticsService {
     })
   }
 
-  async logSyncFailure(syncType: 'location' | 'obd' | 'aws', errorCode?: string, errorMessage?: string): Promise<void> {
+  async logSyncFailure(
+    syncType: "location" | "obd" | "aws",
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(ERROR_EVENTS.SYNC_FAILURE, {
       sync_type: syncType,
       error_code: errorCode,
@@ -1023,7 +1069,11 @@ class AnalyticsService {
     })
   }
 
-  async logLocationBatchUploadFailure(recordCount: number, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logLocationBatchUploadFailure(
+    recordCount: number,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(SYNC_EVENTS.LOCATION_BATCH_UPLOAD_FAILURE, {
       record_count: recordCount,
       error_code: errorCode,
@@ -1050,7 +1100,11 @@ class AnalyticsService {
     })
   }
 
-  async logObdSyncFailure(recordCount: number, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logObdSyncFailure(
+    recordCount: number,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(SYNC_EVENTS.OBD_SYNC_FAILURE, {
       record_count: recordCount,
       error_code: errorCode,
@@ -1071,7 +1125,11 @@ class AnalyticsService {
     })
   }
 
-  async logAwsSyncFailure(recordCount: number, errorCode?: string, errorMessage?: string): Promise<void> {
+  async logAwsSyncFailure(
+    recordCount: number,
+    errorCode?: string,
+    errorMessage?: string,
+  ): Promise<void> {
     await this.logEvent(SYNC_EVENTS.AWS_SYNC_FAILURE, {
       record_count: recordCount,
       error_code: errorCode,
@@ -1079,21 +1137,31 @@ class AnalyticsService {
     })
   }
 
-  async logSyncRetryAttempt(syncType: 'location' | 'obd' | 'aws', retryCount: number): Promise<void> {
+  async logSyncRetryAttempt(
+    syncType: "location" | "obd" | "aws",
+    retryCount: number,
+  ): Promise<void> {
     await this.logEvent(SYNC_EVENTS.SYNC_RETRY_ATTEMPT, {
       sync_type: syncType,
       retry_count: retryCount,
     })
   }
 
-  async logSyncRetrySuccess(syncType: 'location' | 'obd' | 'aws', retryCount: number): Promise<void> {
+  async logSyncRetrySuccess(
+    syncType: "location" | "obd" | "aws",
+    retryCount: number,
+  ): Promise<void> {
     await this.logEvent(SYNC_EVENTS.SYNC_RETRY_SUCCESS, {
       sync_type: syncType,
       retry_count: retryCount,
     })
   }
 
-  async logSyncRetryFailure(syncType: 'location' | 'obd' | 'aws', retryCount: number, errorCode?: string): Promise<void> {
+  async logSyncRetryFailure(
+    syncType: "location" | "obd" | "aws",
+    retryCount: number,
+    errorCode?: string,
+  ): Promise<void> {
     await this.logEvent(SYNC_EVENTS.SYNC_RETRY_FAILURE, {
       sync_type: syncType,
       retry_count: retryCount,
@@ -1105,7 +1173,11 @@ class AnalyticsService {
   // 12. USER ENGAGEMENT
   // ============================================================================
 
-  async logButtonClicked(buttonName: string, buttonLocation: string, screenName?: string): Promise<void> {
+  async logButtonClicked(
+    buttonName: string,
+    buttonLocation: string,
+    screenName?: string,
+  ): Promise<void> {
     await this.logEvent(ENGAGEMENT_EVENTS.BUTTON_CLICKED, {
       button_name: buttonName,
       button_location: buttonLocation,
@@ -1120,7 +1192,11 @@ class AnalyticsService {
     })
   }
 
-  async logFormAbandoned(formName: string, completionPercentage: number, screenName?: string): Promise<void> {
+  async logFormAbandoned(
+    formName: string,
+    completionPercentage: number,
+    screenName?: string,
+  ): Promise<void> {
     await this.logEvent(ENGAGEMENT_EVENTS.FORM_ABANDONED, {
       form_name: formName,
       form_completion_percentage: completionPercentage,
@@ -1154,7 +1230,7 @@ class AnalyticsService {
   /**
    * @deprecated Use logConnectionSuccess instead
    */
-  async logEldConnection(deviceId: string, connectionType: string = 'bluetooth'): Promise<void> {
+  async logEldConnection(deviceId: string, connectionType: string = "bluetooth"): Promise<void> {
     await this.logConnectionSuccess(deviceId, connectionType)
   }
 
@@ -1197,7 +1273,7 @@ class AnalyticsService {
    * @deprecated Use logAppError instead
    */
   async logError(errorMessage: string, errorType?: string): Promise<void> {
-    await this.logAppError(errorType || 'unknown', errorMessage)
+    await this.logAppError(errorType || "unknown", errorMessage)
   }
 
   /**
@@ -1209,17 +1285,17 @@ class AnalyticsService {
   async setDriverProperties(
     driverId: string,
     vehicleId?: string,
-    organizationId?: string
+    organizationId?: string,
   ): Promise<void> {
     await this.setUserId(driverId)
-    await this.setUserProperty('driver_id', driverId)
-    
+    await this.setUserProperty("driver_id", driverId)
+
     if (vehicleId) {
-      await this.setUserProperty('vehicle_id', vehicleId)
+      await this.setUserProperty("vehicle_id", vehicleId)
     }
-    
+
     if (organizationId) {
-      await this.setUserProperty('organization_id', organizationId)
+      await this.setUserProperty("organization_id", organizationId)
     }
   }
 
@@ -1228,9 +1304,9 @@ class AnalyticsService {
    */
   async clearDriverProperties(): Promise<void> {
     await this.setUserId(null)
-    await this.setUserProperty('driver_id', null)
-    await this.setUserProperty('vehicle_id', null)
-    await this.setUserProperty('organization_id', null)
+    await this.setUserProperty("driver_id", null)
+    await this.setUserProperty("vehicle_id", null)
+    await this.setUserProperty("organization_id", null)
     await this.resetAnalyticsData()
   }
 }

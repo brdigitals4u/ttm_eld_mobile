@@ -1,14 +1,15 @@
 /**
  * Device Heartbeat Service
- * 
+ *
  * Sends device heartbeat to backend every 5 minutes while driver session is active.
  * Runs in background on all screens.
  */
 
-import * as Device from 'expo-device'
-import { Platform } from 'react-native'
-import { getEldDeviceId, getAppVersion } from '@/utils/device'
-import { driverApi } from '@/api/driver'
+import { Platform } from "react-native"
+import * as Device from "expo-device"
+
+import { driverApi } from "@/api/driver"
+import { getEldDeviceId, getAppVersion } from "@/utils/device"
 
 // Helper to get battery level from ELD data if available
 let getBatteryFromEld: (() => number | undefined) | null = null
@@ -20,7 +21,7 @@ export function setBatteryGetter(fn: () => number | undefined) {
 // Network info - simple fallback
 async function getNetworkType(): Promise<string> {
   // Return 'unknown' as fallback (can be enhanced later with NetInfo if needed)
-  return 'unknown'
+  return "unknown"
 }
 
 class DeviceHeartbeatService {
@@ -32,21 +33,24 @@ class DeviceHeartbeatService {
    */
   async start() {
     if (this.isRunning) {
-      console.log('💓 DeviceHeartbeat: Already running')
+      console.log("💓 DeviceHeartbeat: Already running")
       return
     }
 
     this.isRunning = true
-    
+
     // Send initial heartbeat immediately
     await this.sendHeartbeat()
 
     // Then send every 5 minutes
-    this.interval = setInterval(async () => {
-      await this.sendHeartbeat()
-    }, 5 * 60 * 1000) // 5 minutes
+    this.interval = setInterval(
+      async () => {
+        await this.sendHeartbeat()
+      },
+      5 * 60 * 1000,
+    ) // 5 minutes
 
-    console.log('💓 DeviceHeartbeat: Started (every 5 minutes)')
+    console.log("💓 DeviceHeartbeat: Started (every 5 minutes)")
   }
 
   /**
@@ -58,7 +62,7 @@ class DeviceHeartbeatService {
       this.interval = null
     }
     this.isRunning = false
-    console.log('💓 DeviceHeartbeat: Stopped')
+    console.log("💓 DeviceHeartbeat: Stopped")
   }
 
   /**
@@ -81,7 +85,7 @@ class DeviceHeartbeatService {
       // Note: expo-device doesn't have batteryLevel, use ELD data only
 
       await driverApi.sendHeartbeat({
-        device_id: eldDeviceId || 'unknown',
+        device_id: eldDeviceId || "unknown",
         timestamp: new Date().toISOString(),
         battery_percent: batteryPercent,
         gps_enabled: true,
@@ -89,9 +93,9 @@ class DeviceHeartbeatService {
         app_version: appVersion,
       })
 
-      console.log('💓 DeviceHeartbeat: Sent successfully')
+      console.log("💓 DeviceHeartbeat: Sent successfully")
     } catch (error) {
-      console.error('❌ DeviceHeartbeat: Failed to send:', error)
+      console.error("❌ DeviceHeartbeat: Failed to send:", error)
     }
   }
 
@@ -113,4 +117,3 @@ class DeviceHeartbeatService {
 
 // Export singleton instance
 export const deviceHeartbeatService = new DeviceHeartbeatService()
-

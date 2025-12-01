@@ -126,3 +126,4 @@ npm run test:security
 4. **Block Compromised Devices**: Consider blocking app on rooted devices
 5. **Commercial Solutions**: Consider RASP solutions for maximum protection
 
+

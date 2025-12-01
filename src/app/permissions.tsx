@@ -314,90 +314,89 @@ export default function PermissionsScreen() {
   const allPermissionsGranted = grantedCount === PERMISSIONS.length
 
   return (
-
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {translate("permissions.title" as any) || "App Permissions"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {translate("permissions.subtitle" as any) ||
-              "We need these permissions to provide the best experience"}
-          </Text>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarBackground}>
-            <Animated.View style={[styles.progressBarFill, progressBarStyle]} />
-          </View>
-          <Text style={styles.progressText}>
-            {grantedCount} of {PERMISSIONS.length} permissions granted
-          </Text>
-        </View>
-
-        {/* Permissions List */}
-        <View style={styles.permissionsList}>
-          {PERMISSIONS.map((permission, index) => {
-            // Map permission ID to PermissionResult name
-            const permissionNameMap: Record<PermissionItem["id"], PermissionResult["name"]> = {
-              camera: "camera",
-              mediaLibrary: "mediaLibrary",
-              bluetooth: "bluetooth",
-              location: "location",
-            }
-            const permissionName = permissionNameMap[permission.id]
-            const permissionResult = permissions[permissionName]
-            const isGranted = permissionResult?.granted || false
-            const Icon = permission.icon
-
-            return (
-              <PermissionCard
-                key={permission.id}
-                permission={permission}
-                index={index}
-                currentIndex={currentIndex}
-                isGranted={isGranted}
-                Icon={Icon}
-                onPress={() => !isGranted && requestPermission(permission.id)}
-                disabled={isGranted || isRequesting}
-                checkmarkStyle={checkmarkStyle}
-              />
-            )
-          })}
-        </View>
-
-        {/* Action Button */}
-        {!allPermissionsGranted && (
-          <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
-            <Animated.View style={buttonStyle}>
-              <TouchableOpacity
-                style={[styles.primaryButton, isRequesting && styles.primaryButtonDisabled]}
-                onPress={requestAllPermissions}
-                disabled={isRequesting}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isRequesting ? "Requesting..." : "Grant All Permissions"}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </SafeAreaContainer>
-        )}
-
-        {/* Success State */}
-        {allPermissionsGranted && (
-          <>
-            {!hasSeenPermissionsRef.current && (
-                <TouchableOpacity style={styles.primaryButton} onPress={handleAllGranted}>
-                  <Text style={styles.primaryButtonText}>
-                    {translate("permissions.continueButton" as any) || "Continue to Login"}
-                  </Text>
-                </TouchableOpacity>
-            )}
-          </>
-        )}
+    <View style={styles.content}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          {translate("permissions.title" as any) || "App Permissions"}
+        </Text>
+        <Text style={styles.subtitle}>
+          {translate("permissions.subtitle" as any) ||
+            "We need these permissions to provide the best experience"}
+        </Text>
       </View>
+
+      {/* Progress Bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBarBackground}>
+          <Animated.View style={[styles.progressBarFill, progressBarStyle]} />
+        </View>
+        <Text style={styles.progressText}>
+          {grantedCount} of {PERMISSIONS.length} permissions granted
+        </Text>
+      </View>
+
+      {/* Permissions List */}
+      <View style={styles.permissionsList}>
+        {PERMISSIONS.map((permission, index) => {
+          // Map permission ID to PermissionResult name
+          const permissionNameMap: Record<PermissionItem["id"], PermissionResult["name"]> = {
+            camera: "camera",
+            mediaLibrary: "mediaLibrary",
+            bluetooth: "bluetooth",
+            location: "location",
+          }
+          const permissionName = permissionNameMap[permission.id]
+          const permissionResult = permissions[permissionName]
+          const isGranted = permissionResult?.granted || false
+          const Icon = permission.icon
+
+          return (
+            <PermissionCard
+              key={permission.id}
+              permission={permission}
+              index={index}
+              currentIndex={currentIndex}
+              isGranted={isGranted}
+              Icon={Icon}
+              onPress={() => !isGranted && requestPermission(permission.id)}
+              disabled={isGranted || isRequesting}
+              checkmarkStyle={checkmarkStyle}
+            />
+          )
+        })}
+      </View>
+
+      {/* Action Button */}
+      {!allPermissionsGranted && (
+        <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
+          <Animated.View style={buttonStyle}>
+            <TouchableOpacity
+              style={[styles.primaryButton, isRequesting && styles.primaryButtonDisabled]}
+              onPress={requestAllPermissions}
+              disabled={isRequesting}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isRequesting ? "Requesting..." : "Grant All Permissions"}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </SafeAreaContainer>
+      )}
+
+      {/* Success State */}
+      {allPermissionsGranted && (
+        <>
+          {!hasSeenPermissionsRef.current && (
+            <TouchableOpacity style={styles.primaryButton} onPress={handleAllGranted}>
+              <Text style={styles.primaryButtonText}>
+                {translate("permissions.continueButton" as any) || "Continue to Login"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
+    </View>
   )
 }
 
@@ -474,6 +473,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 16,
     elevation: 4,
+    marginBottom: 120,
     marginTop: 24,
     paddingHorizontal: 32,
     paddingVertical: 18,
@@ -481,7 +481,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    marginBottom: 120
   },
   primaryButtonDisabled: {
     opacity: 0.6,

@@ -1,14 +1,15 @@
 /**
  * Violation Toast Component
- * 
+ *
  * Toast notification for medium priority violations.
  * Auto-dismisses after 5 seconds.
  */
 
-import React, { useEffect, useState, useRef, useCallback } from 'react'
-import { View, StyleSheet, Text, Animated } from 'react-native'
-import { AlertCircle } from 'lucide-react-native'
-import { useViolationNotifications, ActiveViolation } from '@/contexts/ViolationNotificationContext'
+import React, { useEffect, useState, useRef, useCallback } from "react"
+import { View, StyleSheet, Text, Animated } from "react-native"
+import { AlertCircle } from "lucide-react-native"
+
+import { useViolationNotifications, ActiveViolation } from "@/contexts/ViolationNotificationContext"
 
 interface ViolationToastProps {
   violation: ActiveViolation
@@ -100,47 +101,46 @@ export const ViolationToast: React.FC<ViolationToastProps> = ({ violation, onDis
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 100,
     left: 16,
     right: 16,
     zIndex: 999,
-    backgroundColor: '#EAB308', // Yellow
+    backgroundColor: "#EAB308", // Yellow
     borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+    alignItems: "center",
+    flexDirection: "row",
     gap: 12,
+    padding: 16,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  message: {
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   textContainer: {
     flex: 1,
     gap: 4,
   },
   title: {
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  message: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
-    lineHeight: 18,
+    fontWeight: "800",
   },
 })
-

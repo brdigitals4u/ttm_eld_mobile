@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
-import { toast } from '@/components/Toast'
 import createContextHook from "@nkzw/create-context-hook"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { useAuthStore } from '../stores/authStore'
-import { useStatusStore, useStatusActions } from '../stores/statusStore'
 
+import { hosApi, HOSClock, HOSLogEntry, HOSELDEvent } from "@/api/hos"
+import { toast } from "@/components/Toast"
 import {
   DriverStatus,
   HoursOfService,
@@ -15,7 +14,9 @@ import {
   StatusState,
   StatusUpdate,
 } from "@/types/status"
-import { hosApi, HOSClock, HOSLogEntry, HOSELDEvent } from "@/api/hos"
+
+import { useAuthStore } from "../stores/authStore"
+import { useStatusStore, useStatusActions } from "../stores/statusStore"
 // Import useAuth from index to match what's provided by AllContextsProvider
 // Note: We can't import from index directly due to circular dependency,
 // so we'll need to inject the auth data differently
@@ -80,7 +81,7 @@ const STATUS_REASONS: StatusReason[] = [
   { id: "13", text: "Securing load", category: "onDuty" },
   { id: "14", text: "Checking equipment", category: "onDuty" },
   { id: "15", text: "Vehicle wash/cleaning", category: "onDuty" },
-  
+
   // Off Duty Reasons
   { id: "16", text: "Meal break", category: "offDuty" },
   { id: "17", text: "Rest break", category: "offDuty" },
@@ -89,33 +90,33 @@ const STATUS_REASONS: StatusReason[] = [
   { id: "20", text: "Lunch break", category: "offDuty" },
   { id: "21", text: "Dinner break", category: "offDuty" },
   { id: "22", text: "Rest area break", category: "offDuty" },
-  
+
   // Driving Reasons
   { id: "23", text: "Starting route", category: "driving" },
   { id: "24", text: "Continuing route", category: "driving" },
   { id: "25", text: "Highway driving", category: "driving" },
   { id: "26", text: "City driving", category: "driving" },
   { id: "27", text: "Local delivery", category: "driving" },
-  
+
   // Sleeper Berth Reasons
   { id: "28", text: "Start of sleep period", category: "sleeperBerth" },
   { id: "29", text: "End of sleep period", category: "sleeperBerth" },
   { id: "30", text: "Split sleeper berth", category: "sleeperBerth" },
   { id: "31", text: "Rest in sleeper berth", category: "sleeperBerth" },
-  
+
   // Personal Conveyance Reasons
   { id: "32", text: "Personal errands", category: "personalConveyance" },
   { id: "33", text: "Going home", category: "personalConveyance" },
   { id: "34", text: "Personal use", category: "personalConveyance" },
   { id: "35", text: "Non-work travel", category: "personalConveyance" },
-  
+
   // Yard Moves Reasons
   { id: "36", text: "Moving trailer in yard", category: "yardMove" },
   { id: "37", text: "Repositioning vehicle", category: "yardMove" },
   { id: "38", text: "Yard maneuvers", category: "yardMove" },
   { id: "39", text: "Switching trailers", category: "yardMove" },
   { id: "40", text: "Parking in yard", category: "yardMove" },
-  
+
   // Other - always available
   { id: "41", text: "Other", category: "all" },
 ]
@@ -125,7 +126,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
   const [localState, setLocalState] = useState({
     isInitialized: false,
   })
-  
+
   // Use Zustand store with a single subscription to avoid multiple re-renders
   const storeState = useStatusStore()
   // Remove auth dependency for now to avoid circular import issues
@@ -135,10 +136,10 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
   useEffect(() => {
     const initializeStatusData = async () => {
       if (localState.isInitialized) return
-      
+
       try {
-        console.log('🔄 StatusContext: Initializing status data...')
-        
+        console.log("🔄 StatusContext: Initializing status data...")
+
         // Load additional data that might not be in Zustand store
         const logEntriesJson = await AsyncStorage.getItem("logEntries")
 
@@ -148,7 +149,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
         }
 
         setLocalState({ isInitialized: true })
-        console.log('✅ StatusContext: Status data initialized successfully')
+        console.log("✅ StatusContext: Status data initialized successfully")
       } catch (error) {
         console.error("❌ StatusContext: Failed to initialize status data:", error)
         storeState.setError("Failed to initialize status data")
@@ -162,66 +163,68 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
   useEffect(() => {
     const updateHoursOfService = () => {
       const now = Date.now()
-      const elapsedMinutes = Math.round((now - storeState.hoursOfService.lastCalculated) / (1000 * 60))
+      const elapsedMinutes = Math.round(
+        (now - storeState.hoursOfService.lastCalculated) / (1000 * 60),
+      )
 
       // Only update if time has passed
       if (elapsedMinutes < 1) return
 
       const updatedHos = { ...storeState.hoursOfService, lastCalculated: now }
 
-        // Update based on current status
-        if (storeState.currentStatus === "driving") {
-          updatedHos.driveTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.driveTimeRemaining - elapsedMinutes),
-          )
-          updatedHos.shiftTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.shiftTimeRemaining - elapsedMinutes),
-          )
-          updatedHos.cycleTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.cycleTimeRemaining - elapsedMinutes),
-          )
-          // Reset break timer when driving
-          updatedHos.breakTimeRemaining = 8 * 60
-        } else if (storeState.currentStatus === "onDuty" || storeState.currentStatus === "yardMove") {
-          // On duty not driving still counts against shift and cycle
-          updatedHos.shiftTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.shiftTimeRemaining - elapsedMinutes),
-          )
-          updatedHos.cycleTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.cycleTimeRemaining - elapsedMinutes),
-          )
-          // Break timer counts down when not driving
-          updatedHos.breakTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.breakTimeRemaining - elapsedMinutes),
-          )
-        } else if (storeState.currentStatus === "sleeperBerth") {
-          // Sleeper berth counts as rest, so it recharges drive time
-          const rechargeRate = storeState.splitSleepSettings.enabled ? 0.75 : 0.5
-          updatedHos.driveTimeRemaining = Math.min(
-            11 * 60,
-            Math.round(updatedHos.driveTimeRemaining + elapsedMinutes * rechargeRate),
-          )
-          // Break timer counts down faster when in sleeper berth
-          updatedHos.breakTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.breakTimeRemaining - elapsedMinutes * 2),
-          )
-        } else if (
-          storeState.currentStatus === "offDuty" ||
-          storeState.currentStatus === "personalConveyance"
-        ) {
-          // Off duty and personal conveyance count as rest
-          updatedHos.breakTimeRemaining = Math.max(
-            0,
-            Math.round(updatedHos.breakTimeRemaining - elapsedMinutes),
-          )
-        }
+      // Update based on current status
+      if (storeState.currentStatus === "driving") {
+        updatedHos.driveTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.driveTimeRemaining - elapsedMinutes),
+        )
+        updatedHos.shiftTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.shiftTimeRemaining - elapsedMinutes),
+        )
+        updatedHos.cycleTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.cycleTimeRemaining - elapsedMinutes),
+        )
+        // Reset break timer when driving
+        updatedHos.breakTimeRemaining = 8 * 60
+      } else if (storeState.currentStatus === "onDuty" || storeState.currentStatus === "yardMove") {
+        // On duty not driving still counts against shift and cycle
+        updatedHos.shiftTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.shiftTimeRemaining - elapsedMinutes),
+        )
+        updatedHos.cycleTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.cycleTimeRemaining - elapsedMinutes),
+        )
+        // Break timer counts down when not driving
+        updatedHos.breakTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.breakTimeRemaining - elapsedMinutes),
+        )
+      } else if (storeState.currentStatus === "sleeperBerth") {
+        // Sleeper berth counts as rest, so it recharges drive time
+        const rechargeRate = storeState.splitSleepSettings.enabled ? 0.75 : 0.5
+        updatedHos.driveTimeRemaining = Math.min(
+          11 * 60,
+          Math.round(updatedHos.driveTimeRemaining + elapsedMinutes * rechargeRate),
+        )
+        // Break timer counts down faster when in sleeper berth
+        updatedHos.breakTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.breakTimeRemaining - elapsedMinutes * 2),
+        )
+      } else if (
+        storeState.currentStatus === "offDuty" ||
+        storeState.currentStatus === "personalConveyance"
+      ) {
+        // Off duty and personal conveyance count as rest
+        updatedHos.breakTimeRemaining = Math.max(
+          0,
+          Math.round(updatedHos.breakTimeRemaining - elapsedMinutes),
+        )
+      }
 
       // Update Zustand store
       storeState.updateHoursOfService(updatedHos)
@@ -248,24 +251,24 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       const tomorrow = new Date(now)
       tomorrow.setDate(tomorrow.getDate() + 1)
       tomorrow.setHours(0, 0, 0, 0)
-      
+
       const timeUntilMidnight = tomorrow.getTime() - now.getTime()
-      
+
       const timeoutId = setTimeout(async () => {
         try {
           await createDailyHOSLog()
-          console.log('📅 Daily HOS log created at midnight')
-          
+          console.log("📅 Daily HOS log created at midnight")
+
           // Set up next day's timer
           createDailyLogAtMidnight()
         } catch (error) {
-          console.error('Failed to create daily HOS log at midnight:', error)
+          console.error("Failed to create daily HOS log at midnight:", error)
         }
       }, timeUntilMidnight)
-      
+
       return () => clearTimeout(timeoutId)
     }
-    
+
     createDailyLogAtMidnight()
   }, [])
 
@@ -335,7 +338,7 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       // Warning for critical status changes
       if (status === "driving" && storeState.hoursOfService.driveTimeRemaining < 60) {
         toast.warning(
-          `You have less than ${storeState.formatDuration(storeState.hoursOfService.driveTimeRemaining)} of driving time remaining.`
+          `You have less than ${storeState.formatDuration(storeState.hoursOfService.driveTimeRemaining)} of driving time remaining.`,
         )
       }
     } catch (error) {
@@ -354,75 +357,76 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       // Get driver ID from auth store
       const authState = useAuthStore.getState()
       const driverId = authState.driverProfile?.driver_id || authState.user?.id || "driver_uuid"
-      
+
       // Calculate today's totals from status history
       const today = new Date()
       const startOfDay = new Date(today)
       startOfDay.setHours(0, 0, 0, 0)
-      
+
       const endOfDay = new Date(today)
       endOfDay.setHours(23, 59, 59, 999)
-      
+
       // Filter logs for today
       const todaysLogs = storeState.statusHistory.filter((log: StatusUpdate) => {
         const logDate = new Date(log.timestamp)
         return logDate >= startOfDay && logDate <= endOfDay
       })
-      
+
       // Calculate total times for each duty status
       let totalDrivingTime = 0
       let totalOnDutyTime = 0
       let totalOffDutyTime = 0
-      
+
       // Sort logs by timestamp and calculate durations
-      const sortedLogs = todaysLogs.sort((a: StatusUpdate, b: StatusUpdate) => a.timestamp - b.timestamp)
-      
+      const sortedLogs = todaysLogs.sort(
+        (a: StatusUpdate, b: StatusUpdate) => a.timestamp - b.timestamp,
+      )
+
       for (let i = 0; i < sortedLogs.length - 1; i++) {
         const currentLog = sortedLogs[i]
         const nextLog = sortedLogs[i + 1]
         const duration = Math.round((nextLog.timestamp - currentLog.timestamp) / (1000 * 60)) // minutes, rounded to integer
-        
+
         switch (currentLog.status) {
-          case 'driving':
+          case "driving":
             totalDrivingTime += duration
             totalOnDutyTime += duration
             break
-          case 'onDuty':
-          case 'yardMove':
+          case "onDuty":
+          case "yardMove":
             totalOnDutyTime += duration
             break
-          case 'offDuty':
-          case 'sleeping':
-          case 'sleeperBerth':
-          case 'personalConveyance':
+          case "offDuty":
+          case "sleeping":
+          case "sleeperBerth":
+          case "personalConveyance":
             totalOffDutyTime += duration
             break
         }
       }
-      
+
       // Create daily HOS log with integer values
       const dailyHOSLog = {
         driver: driverId,
-        log_date: today.toISOString().split('T')[0], // YYYY-MM-DD format
+        log_date: today.toISOString().split("T")[0], // YYYY-MM-DD format
         total_driving_time: Math.round(totalDrivingTime),
         total_on_duty_time: Math.round(totalOnDutyTime),
         total_off_duty_time: Math.round(totalOffDutyTime),
         is_certified: false,
       }
-      
-      console.log('📤 HOS API: Creating daily HOS log:', JSON.stringify(dailyHOSLog, null, 2))
+
+      console.log("📤 HOS API: Creating daily HOS log:", JSON.stringify(dailyHOSLog, null, 2))
       await hosApi.createDailyHOSLog(dailyHOSLog)
-      console.log('✅ HOS API: Daily HOS log created successfully')
-      
+      console.log("✅ HOS API: Daily HOS log created successfully")
+
       // Note: Clock ID management removed - new driver API handles this automatically
-      
+
       // Update HOS status after creating daily log
       updateHosStatusFromLogs()
-      
     } catch (error: any) {
-      console.error('Failed to create daily HOS log:', error)
+      console.error("Failed to create daily HOS log:", error)
       // Don't throw error to avoid breaking certification flow
-      console.warn('Daily HOS log creation failed, but certification will continue')
+      console.warn("Daily HOS log creation failed, but certification will continue")
     }
   }
 
@@ -442,7 +446,9 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
 
       storeState.setCertification(certification)
 
-      toast.success("Your logs have been successfully certified. No further changes can be made until uncertified.")
+      toast.success(
+        "Your logs have been successfully certified. No further changes can be made until uncertified.",
+      )
     } catch (error) {
       console.error("Failed to certify logs:", error)
       toast.error("Failed to certify logs")
@@ -492,11 +498,13 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       await AsyncStorage.setItem("logCertification", JSON.stringify(certification))
 
       storeState.setCertification(certification)
-      storeState.setLogEntries(storeState.logEntries.map((entry) => ({
-        ...entry,
-        isCertified: false,
-        isEditable: true,
-      })))
+      storeState.setLogEntries(
+        storeState.logEntries.map((entry) => ({
+          ...entry,
+          isCertified: false,
+          isEditable: true,
+        })),
+      )
 
       toast.success("Your logs have been uncertified. You can now make changes.")
     } catch (error) {
@@ -518,54 +526,59 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
       const today = new Date()
       const startOfDay = new Date(today)
       startOfDay.setHours(0, 0, 0, 0)
-      
+
       // Filter logs for today
       const todaysLogs = storeState.statusHistory.filter((log: StatusUpdate) => {
         const logDate = new Date(log.timestamp)
         const logTimestamp = logDate.getTime()
         return logTimestamp >= startOfDay.getTime() && logTimestamp <= now
       })
-      
+
       // Calculate total times for each duty status
       let totalDrivingTime = 0
       let totalOnDutyTime = 0
       let totalOffDutyTime = 0
-      
+
       // Sort logs by timestamp and calculate durations
-      const sortedLogs = todaysLogs.sort((a: StatusUpdate, b: StatusUpdate) => a.timestamp - b.timestamp)
-      
+      const sortedLogs = todaysLogs.sort(
+        (a: StatusUpdate, b: StatusUpdate) => a.timestamp - b.timestamp,
+      )
+
       for (let i = 0; i < sortedLogs.length - 1; i++) {
         const currentLog = sortedLogs[i]
         const nextLog = sortedLogs[i + 1]
         const duration = Math.round((nextLog.timestamp - currentLog.timestamp) / (1000 * 60)) // minutes, rounded to integer
-        
+
         switch (currentLog.status) {
-          case 'driving':
+          case "driving":
             totalDrivingTime += duration
             totalOnDutyTime += duration
             break
-          case 'onDuty':
-          case 'yardMove':
+          case "onDuty":
+          case "yardMove":
             totalOnDutyTime += duration
             break
-          case 'offDuty':
-          case 'sleeping':
-          case 'sleeperBerth':
-          case 'personalConveyance':
+          case "offDuty":
+          case "sleeping":
+          case "sleeperBerth":
+          case "personalConveyance":
             totalOffDutyTime += duration
             break
         }
       }
-      
+
       // Calculate remaining times (in minutes) - round to integers
       const maxDrivingTime = 11 * 60 // 11 hours
-      const maxOnDutyTime = 14 * 60 // 14 hours  
+      const maxOnDutyTime = 14 * 60 // 14 hours
       const maxCycleTime = 70 * 60 // 70 hours
-      
+
       const drivingTimeRemaining = Math.max(0, Math.ceil(maxDrivingTime - totalDrivingTime))
       const onDutyTimeRemaining = Math.max(0, Math.ceil(maxOnDutyTime - totalOnDutyTime))
-      const cycleTimeRemaining = Math.max(0, Math.ceil(maxCycleTime - (totalOnDutyTime + totalOffDutyTime)))
-      
+      const cycleTimeRemaining = Math.max(
+        0,
+        Math.ceil(maxCycleTime - (totalOnDutyTime + totalOffDutyTime)),
+      )
+
       // Update auth store with calculated times
       useAuthStore.getState().updateHosStatus({
         current_status: storeState.currentStatus.toUpperCase(),
@@ -576,18 +589,17 @@ export const [StatusProvider, useStatus] = createContextHook(() => {
           driving_time_remaining: drivingTimeRemaining,
           on_duty_time_remaining: onDutyTimeRemaining,
           cycle_time_remaining: cycleTimeRemaining,
-        }
+        },
       })
-      
-      console.log('🔄 HOS Status updated:', {
+
+      console.log("🔄 HOS Status updated:", {
         current_status: storeState.currentStatus,
         driving_time_remaining: drivingTimeRemaining,
         on_duty_time_remaining: onDutyTimeRemaining,
-        cycle_time_remaining: cycleTimeRemaining
+        cycle_time_remaining: cycleTimeRemaining,
       })
-      
     } catch (error) {
-      console.error('Failed to update HOS status from logs:', error)
+      console.error("Failed to update HOS status from logs:", error)
     }
   }
 

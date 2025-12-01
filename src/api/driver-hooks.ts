@@ -1,14 +1,15 @@
 /**
  * React Query Hooks for Driver API
- * 
+ *
  * Provides React Query hooks for all driver API endpoints.
  * Includes proper caching, refetch intervals, and error handling.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { driverApi } from './driver'
-import { ApiError } from './client'
-import { QUERY_KEYS } from './constants'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+
+import { ApiError } from "./client"
+import { QUERY_KEYS } from "./constants"
+import { driverApi } from "./driver"
 
 // ============================================================================
 // HOS Hooks
@@ -18,12 +19,9 @@ import { QUERY_KEYS } from './constants'
  * Hook: Get Current HOS Status
  * Polls every 30 seconds when enabled
  */
-export const useHOSCurrentStatus = (options?: {
-  enabled?: boolean
-  refetchInterval?: number
-}) => {
+export const useHOSCurrentStatus = (options?: { enabled?: boolean; refetchInterval?: number }) => {
   return useQuery({
-    queryKey: ['driver', 'hos', 'current-status'],
+    queryKey: ["driver", "hos", "current-status"],
     queryFn: () => driverApi.getCurrentHOSStatus(),
     enabled: options?.enabled !== false,
     refetchInterval: options?.refetchInterval ?? 30000, // 30 seconds
@@ -43,7 +41,7 @@ export const useHOSCurrentStatus = (options?: {
  */
 export const useHOSClocks = (enabled: boolean = true) => {
   return useQuery({
-    queryKey: ['driver', 'hos', 'clocks'],
+    queryKey: ["driver", "hos", "clocks"],
     queryFn: () => driverApi.getHOSClocks(),
     enabled,
     retry: (failureCount, error) => {
@@ -66,12 +64,12 @@ export const useChangeDutyStatus = () => {
     mutationFn: driverApi.changeDutyStatus,
     onSuccess: () => {
       // Invalidate HOS status and clocks to refetch
-      queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'current-status'] })
-      queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'clocks'] })
-      queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'logs'] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "hos", "current-status"] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "hos", "clocks"] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "hos", "logs"] })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to change duty status:', error)
+      console.error("Failed to change duty status:", error)
     },
   })
 }
@@ -81,7 +79,7 @@ export const useChangeDutyStatus = () => {
  */
 export const useHOSLogs = (date: string, enabled: boolean = true) => {
   return useQuery({
-    queryKey: ['driver', 'hos', 'logs', date],
+    queryKey: ["driver", "hos", "logs", date],
     queryFn: () => driverApi.getHOSLogs(date),
     enabled: enabled && !!date,
     retry: (failureCount, error) => {
@@ -99,7 +97,7 @@ export const useHOSLogs = (date: string, enabled: boolean = true) => {
  */
 export const useViolations = (enabled: boolean = true) => {
   return useQuery({
-    queryKey: ['driver', 'hos', 'violations'],
+    queryKey: ["driver", "hos", "violations"],
     queryFn: () => driverApi.getViolations(),
     enabled,
     retry: (failureCount, error) => {
@@ -122,10 +120,10 @@ export const useCertifyLog = () => {
     mutationFn: driverApi.certifyLog,
     onSuccess: (data) => {
       // Invalidate logs for the certified date
-      queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'logs', data.date] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "hos", "logs", data.date] })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to certify log:', error)
+      console.error("Failed to certify log:", error)
     },
   })
 }
@@ -140,10 +138,10 @@ export const useAnnotateLog = () => {
     mutationFn: driverApi.annotateLog,
     onSuccess: (data) => {
       // Invalidate logs to refetch with annotation
-      queryClient.invalidateQueries({ queryKey: ['driver', 'hos', 'logs'] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "hos", "logs"] })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to annotate log:', error)
+      console.error("Failed to annotate log:", error)
     },
   })
 }
@@ -159,7 +157,7 @@ export const useSubmitLocation = () => {
   return useMutation({
     mutationFn: driverApi.submitLocation,
     onError: (error: ApiError) => {
-      console.error('Failed to submit location:', error)
+      console.error("Failed to submit location:", error)
     },
   })
 }
@@ -177,7 +175,7 @@ export const useDeviceHeartbeat = () => {
   return useMutation({
     mutationFn: driverApi.sendHeartbeat,
     onError: (error: ApiError) => {
-      console.error('Failed to send heartbeat:', error)
+      console.error("Failed to send heartbeat:", error)
     },
   })
 }
@@ -189,7 +187,7 @@ export const useReportMalfunction = () => {
   return useMutation({
     mutationFn: driverApi.reportMalfunction,
     onError: (error: ApiError) => {
-      console.error('Failed to report malfunction:', error)
+      console.error("Failed to report malfunction:", error)
     },
   })
 }
@@ -204,7 +202,7 @@ export const useReportMalfunction = () => {
  */
 export const useDriverProfile = (enabled: boolean = true) => {
   return useQuery({
-    queryKey: ['driver', 'profile'],
+    queryKey: ["driver", "profile"],
     queryFn: () => driverApi.getDriverProfile(),
     enabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -220,7 +218,7 @@ export const useDriverProfile = (enabled: boolean = true) => {
  */
 export const useMyVehicle = (enabled: boolean = true) => {
   return useQuery({
-    queryKey: ['driver', 'vehicle'],
+    queryKey: ["driver", "vehicle"],
     queryFn: () => driverApi.getMyVehicle(),
     enabled,
     retry: (failureCount, error) => {
@@ -237,9 +235,12 @@ export const useMyVehicle = (enabled: boolean = true) => {
 /**
  * Hook: Get Available Vehicles
  */
-export const useAvailableVehicles = (params?: { status?: string; search?: string }, enabled: boolean = true) => {
+export const useAvailableVehicles = (
+  params?: { status?: string; search?: string },
+  enabled: boolean = true,
+) => {
   return useQuery({
-    queryKey: ['driver', 'vehicles', params],
+    queryKey: ["driver", "vehicles", params],
     queryFn: () => driverApi.getAvailableVehicles(params),
     enabled,
     retry: (failureCount, error) => {
@@ -255,9 +256,12 @@ export const useAvailableVehicles = (params?: { status?: string; search?: string
 /**
  * Hook: Get My Trips
  */
-export const useMyTrips = (params?: { status?: string; start_date?: string; end_date?: string }, enabled: boolean = true) => {
+export const useMyTrips = (
+  params?: { status?: string; start_date?: string; end_date?: string },
+  enabled: boolean = true,
+) => {
   return useQuery({
-    queryKey: ['driver', 'trips', params],
+    queryKey: ["driver", "trips", params],
     queryFn: () => driverApi.getMyTrips(params),
     enabled,
     retry: (failureCount, error) => {
@@ -276,9 +280,9 @@ export const useMyTrips = (params?: { status?: string; start_date?: string; end_
  */
 export const useTripDetails = (tripId: string | null, enabled: boolean = true) => {
   return useQuery({
-    queryKey: ['driver', 'trip', tripId],
+    queryKey: ["driver", "trip", tripId],
     queryFn: () => {
-      if (!tripId) throw new Error('Trip ID is required')
+      if (!tripId) throw new Error("Trip ID is required")
       return driverApi.getTripDetails(tripId)
     },
     enabled: enabled && !!tripId,
@@ -303,7 +307,7 @@ export const useRegisterPushToken = () => {
   return useMutation({
     mutationFn: driverApi.registerPushToken,
     onError: (error: ApiError) => {
-      console.error('Failed to register push token:', error)
+      console.error("Failed to register push token:", error)
     },
   })
 }
@@ -313,17 +317,18 @@ export const useRegisterPushToken = () => {
  * Polls every 60 seconds when enabled
  */
 export const useNotifications = (options?: {
-  status?: 'unread' | 'read' | 'all'
+  status?: "unread" | "read" | "all"
   limit?: number
   enabled?: boolean
   refetchInterval?: number
 }) => {
   return useQuery({
-    queryKey: ['driver', 'notifications', options?.status || 'all'],
-    queryFn: () => driverApi.getNotifications({
-      status: options?.status,
-      limit: options?.limit,
-    }),
+    queryKey: ["driver", "notifications", options?.status || "all"],
+    queryFn: () =>
+      driverApi.getNotifications({
+        status: options?.status,
+        limit: options?.limit,
+      }),
     enabled: options?.enabled !== false,
     refetchInterval: options?.refetchInterval ?? 60000, // 60 seconds
     retry: (failureCount, error) => {
@@ -346,10 +351,10 @@ export const useMarkNotificationRead = () => {
     mutationFn: driverApi.markNotificationRead,
     onSuccess: () => {
       // Invalidate notifications to refetch
-      queryClient.invalidateQueries({ queryKey: ['driver', 'notifications'] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "notifications"] })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to mark notification read:', error)
+      console.error("Failed to mark notification read:", error)
     },
   })
 }
@@ -364,11 +369,10 @@ export const useMarkAllNotificationsRead = () => {
     mutationFn: driverApi.markAllNotificationsRead,
     onSuccess: () => {
       // Invalidate notifications to refetch
-      queryClient.invalidateQueries({ queryKey: ['driver', 'notifications'] })
+      queryClient.invalidateQueries({ queryKey: ["driver", "notifications"] })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to mark all notifications read:', error)
+      console.error("Failed to mark all notifications read:", error)
     },
   })
 }
-

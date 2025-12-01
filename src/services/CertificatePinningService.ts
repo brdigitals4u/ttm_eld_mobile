@@ -1,21 +1,21 @@
 /**
  * Certificate Pinning Service
  * Provides certificate pinning for API calls to prevent MITM attacks
- * 
+ *
  * Note: Certificate pinning is implemented via the native CertificatePinningModule
  * which uses OkHttp CertificatePinner for Android.
  */
 
-import { Platform } from 'react-native'
+import { Platform } from "react-native"
 
 // Certificate hashes (SHA-256) for pinned domains
 // These should be obtained from your server's SSL certificate
 const PINNED_CERTIFICATES: Record<string, string[]> = {
-  'api.ttmkonnect.com': [
+  "api.ttmkonnect.com": [
     // Add your actual certificate SHA-256 hashes here
     // Example: 'sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
   ],
-  'oy47qb63f3.execute-api.us-east-1.amazonaws.com': [
+  "oy47qb63f3.execute-api.us-east-1.amazonaws.com": [
     // AWS API Gateway certificate hashes
   ],
 }
@@ -25,7 +25,7 @@ class CertificatePinningService {
    * Check if certificate pinning is enabled for a domain
    */
   isPinningEnabled(domain: string): boolean {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS !== "android") {
       // Certificate pinning on iOS requires different implementation
       return false
     }
@@ -46,7 +46,7 @@ class CertificatePinningService {
    */
   async validateCertificate(domain: string, certificateHash: string): Promise<boolean> {
     const pinnedCerts = this.getPinnedCertificates(domain)
-    
+
     if (pinnedCerts.length === 0) {
       // No pinning configured for this domain
       return true
@@ -65,7 +65,7 @@ class CertificatePinningService {
     if (!PINNED_CERTIFICATES[domain]) {
       PINNED_CERTIFICATES[domain] = []
     }
-    
+
     if (!PINNED_CERTIFICATES[domain].includes(certificateHash)) {
       PINNED_CERTIFICATES[domain].push(certificateHash)
     }
@@ -76,20 +76,19 @@ export const certificatePinningService = new CertificatePinningService()
 
 /**
  * Instructions for implementing certificate pinning:
- * 
+ *
  * 1. Extract certificate hashes from your server certificates:
  *    openssl s_client -connect api.ttmkonnect.com:443 -showcerts | \
  *    openssl x509 -pubkey -noout | \
  *    openssl pkey -pubin -outform der | \
  *    openssl dgst -sha256 -binary | \
  *    openssl enc -base64
- * 
+ *
  * 2. Add the hashes to PINNED_CERTIFICATES above
- * 
+ *
  * 3. For production, implement native certificate pinning:
  *    - Android: Use OkHttp CertificatePinner in a native module
  *    - iOS: Use NSURLSession with certificate pinning
- * 
+ *
  * 4. Update API client to use pinned requests for critical endpoints
  */
-

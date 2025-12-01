@@ -4,22 +4,24 @@
  * Shows connection status and scrolling marquee with HOS/ELD compliance messages
  */
 
-import React from 'react'
-import { View, StyleSheet, Modal, ActivityIndicator } from 'react-native'
-import { useAppTheme } from '@/theme/context'
-import { Text } from './Text'
-import { MarqueeText } from './MarqueeText'
-import { translate } from '@/i18n/translate'
+import React from "react"
+import { View, StyleSheet, Modal, ActivityIndicator } from "react-native"
+
+import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
+
+import { MarqueeText } from "./MarqueeText"
+import { Text } from "./Text"
 
 export interface EldConnectionModalProps {
   visible: boolean
-  status?: 'connecting' | 'establishing' | 'authenticating'
+  status?: "connecting" | "establishing" | "authenticating"
   messages?: string[]
 }
 
 export const EldConnectionModal: React.FC<EldConnectionModalProps> = ({
   visible,
-  status = 'connecting',
+  status = "connecting",
   messages = [],
 }) => {
   const { theme } = useAppTheme()
@@ -28,12 +30,12 @@ export const EldConnectionModal: React.FC<EldConnectionModalProps> = ({
   // Get status text based on current status
   const getStatusText = () => {
     switch (status) {
-      case 'establishing':
-        return translate('deviceScan.connectionModal.establishingConnection' as any)
-      case 'authenticating':
-        return translate('deviceScan.connectionModal.authenticating' as any)
+      case "establishing":
+        return translate("deviceScan.connectionModal.establishingConnection" as any)
+      case "authenticating":
+        return translate("deviceScan.connectionModal.authenticating" as any)
       default:
-        return translate('deviceScan.connectionModal.connecting' as any)
+        return translate("deviceScan.connectionModal.connecting" as any)
     }
   }
 
@@ -42,12 +44,12 @@ export const EldConnectionModal: React.FC<EldConnectionModalProps> = ({
     messages.length > 0
       ? messages
       : [
-          translate('deviceScan.connectionModal.marqueeMessages.0' as any),
-          translate('deviceScan.connectionModal.marqueeMessages.1' as any),
-          translate('deviceScan.connectionModal.marqueeMessages.2' as any),
-          translate('deviceScan.connectionModal.marqueeMessages.3' as any),
-          translate('deviceScan.connectionModal.marqueeMessages.4' as any),
-          translate('deviceScan.connectionModal.marqueeMessages.5' as any),
+          translate("deviceScan.connectionModal.marqueeMessages.0" as any),
+          translate("deviceScan.connectionModal.marqueeMessages.1" as any),
+          translate("deviceScan.connectionModal.marqueeMessages.2" as any),
+          translate("deviceScan.connectionModal.marqueeMessages.3" as any),
+          translate("deviceScan.connectionModal.marqueeMessages.4" as any),
+          translate("deviceScan.connectionModal.marqueeMessages.5" as any),
         ]
 
   return (
@@ -60,7 +62,12 @@ export const EldConnectionModal: React.FC<EldConnectionModalProps> = ({
         // Modal is not dismissible - do nothing
       }}
     >
-      <View style={[styles.overlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.75)' }]}>
+      <View
+        style={[
+          styles.overlay,
+          { backgroundColor: isDark ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.75)" },
+        ]}
+      >
         <View style={[styles.content, { backgroundColor: colors.surface || colors.background }]}>
           {/* Loading Spinner */}
           <View style={styles.spinnerContainer}>
@@ -74,11 +81,16 @@ export const EldConnectionModal: React.FC<EldConnectionModalProps> = ({
 
           {/* Subtitle */}
           <Text style={[styles.subtitle, { color: colors.textDim }]} size="sm" preset="formHelper">
-            {translate('deviceScan.connectionModal.pleaseWait' as any)}
+            {translate("deviceScan.connectionModal.pleaseWait" as any)}
           </Text>
 
           {/* Marquee Container */}
-          <View style={[styles.marqueeContainer, { backgroundColor: colors.sectionBackground || colors.background }]}>
+          <View
+            style={[
+              styles.marqueeContainer,
+              { backgroundColor: colors.sectionBackground || colors.background },
+            ]}
+          >
             <MarqueeText
               messages={marqueeMessages}
               speed={20000}
@@ -93,25 +105,36 @@ export const EldConnectionModal: React.FC<EldConnectionModalProps> = ({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   content: {
-    width: '85%',
-    maxWidth: 500,
+    alignItems: "center",
     borderRadius: 24,
+    elevation: 8,
+    maxWidth: 500,
     padding: 32,
-    alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 8,
     },
     shadowOpacity: 0.3,
     shadowRadius: 16,
-    elevation: 8,
+    width: "85%",
+  },
+  marquee: {
+    height: 40,
+  },
+  marqueeContainer: {
+    borderRadius: 8,
+    height: 40,
+    justifyContent: "center",
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    width: "100%",
+  },
+  overlay: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
   },
   spinnerContainer: {
     marginBottom: 24,
@@ -119,26 +142,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 20,
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
     marginBottom: 32,
-    textAlign: 'center',
-  },
-  marqueeContainer: {
-    width: '100%',
-    height: 40,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  marquee: {
-    height: 40,
+    textAlign: "center",
   },
 })
-
-
-
-

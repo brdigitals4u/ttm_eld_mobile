@@ -44,3 +44,4 @@ If Freshchat fails to open, ensure:
 - The App ID/App Key match the sandbox workspace credentials.
 
 
+

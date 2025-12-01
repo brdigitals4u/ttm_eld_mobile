@@ -1,120 +1,125 @@
-import { router } from 'expo-router';
-import { ArrowLeft, CheckCircle, Clock, XCircle } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { toast } from '@/components/Toast';
-import LoadingButton from '@/components/LoadingButton';
-import ElevatedCard from '@/components/EvevatedCard';
-import { useInspection } from '@/contexts';
-import { useAppTheme } from '@/theme/context';
-import { InspectionItem } from '@/types/inspection';
-import { Text } from '@/components/Text';
-import { translate } from '@/i18n/translate';
+import React, { useState } from "react"
+import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native"
+import { router } from "expo-router"
+import { ArrowLeft, CheckCircle, Clock, XCircle } from "lucide-react-native"
+
+import ElevatedCard from "@/components/EvevatedCard"
+import LoadingButton from "@/components/LoadingButton"
+import { Text } from "@/components/Text"
+import { toast } from "@/components/Toast"
+import { useInspection } from "@/contexts"
+import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
+import { InspectionItem } from "@/types/inspection"
 
 export default function InspectionScreen() {
-  const { theme } = useAppTheme();
-  const { colors, isDark } = theme;
-  const { currentInspection, startInspection, updateInspectionItem, completeInspection, isLoading } = useInspection();
-  const [selectedType, setSelectedType] = useState<'pre-trip' | 'post-trip' | 'dot'>('pre-trip');
-  const [signature, setSignature] = useState('');
-  const [showSignature, setShowSignature] = useState(false);
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+  const {
+    currentInspection,
+    startInspection,
+    updateInspectionItem,
+    completeInspection,
+    isLoading,
+  } = useInspection()
+  const [selectedType, setSelectedType] = useState<"pre-trip" | "post-trip" | "dot">("pre-trip")
+  const [signature, setSignature] = useState("")
+  const [showSignature, setShowSignature] = useState(false)
 
   const handleStartInspection = async () => {
-    await startInspection(selectedType);
-  };
+    await startInspection(selectedType)
+  }
 
-  const handleItemUpdate = async (item: InspectionItem, status: 'pass' | 'fail' | 'na') => {
+  const handleItemUpdate = async (item: InspectionItem, status: "pass" | "fail" | "na") => {
     try {
-      await updateInspectionItem(item.id, status);
-      toast.success(`Item marked as ${status.toUpperCase()}`);
+      await updateInspectionItem(item.id, status)
+      toast.success(`Item marked as ${status.toUpperCase()}`)
     } catch (error) {
-      toast.error('Failed to update item');
+      toast.error("Failed to update item")
     }
-  };
+  }
 
   const handleCompleteInspection = () => {
-    if (!currentInspection) return;
+    if (!currentInspection) return
 
     const pendingRequired = currentInspection.items.filter(
-      item => item.isRequired && item.status === 'pending'
-    );
+      (item) => item.isRequired && item.status === "pending",
+    )
 
     if (pendingRequired.length > 0) {
-      toast.warning(`Please complete all required items (${pendingRequired.length} remaining).`);
-      return;
+      toast.warning(`Please complete all required items (${pendingRequired.length} remaining).`)
+      return
     }
 
-    setShowSignature(true);
-  };
+    setShowSignature(true)
+  }
 
   const handleSubmitSignature = async () => {
     if (!signature.trim()) {
-      toast.warning('Please enter your signature to complete the inspection.');
-      return;
+      toast.warning("Please enter your signature to complete the inspection.")
+      return
     }
 
-    await completeInspection(signature.trim());
-    setSignature('');
-    setShowSignature(false);
-    router.back();
-  };
+    await completeInspection(signature.trim())
+    setSignature("")
+    setShowSignature(false)
+    router.back()
+  }
 
-  const getStatusColor = (status: 'pass' | 'fail' | 'na' | 'pending') => {
+  const getStatusColor = (status: "pass" | "fail" | "na" | "pending") => {
     switch (status) {
-      case 'pass':
-        return colors.success || '#10B981';
-      case 'fail':
-        return colors.error || '#EF4444';
-      case 'na':
-        return colors.textDim;
+      case "pass":
+        return colors.success || "#10B981"
+      case "fail":
+        return colors.error || "#EF4444"
+      case "na":
+        return colors.textDim
       default:
-        return colors.warning || '#F59E0B';
+        return colors.warning || "#F59E0B"
     }
-  };
+  }
 
-  const getStatusIcon = (status: 'pass' | 'fail' | 'na' | 'pending') => {
+  const getStatusIcon = (status: "pass" | "fail" | "na" | "pending") => {
     switch (status) {
-      case 'pass':
-        return <CheckCircle size={20} color={colors.success || '#10B981'} />;
-      case 'fail':
-        return <XCircle size={20} color={colors.error || '#EF4444'} />;
-      case 'na':
-        return <Text style={{ color: colors.textDim, fontSize: 16, fontWeight: '600' as const }}>N/A</Text>;
+      case "pass":
+        return <CheckCircle size={20} color={colors.success || "#10B981"} />
+      case "fail":
+        return <XCircle size={20} color={colors.error || "#EF4444"} />
+      case "na":
+        return (
+          <Text style={{ color: colors.textDim, fontSize: 16, fontWeight: "600" as const }}>
+            N/A
+          </Text>
+        )
       default:
-        return <Clock size={20} color={colors.warning || '#F59E0B'} />;
+        return <Clock size={20} color={colors.warning || "#F59E0B"} />
     }
-  };
+  }
 
   const renderInspectionItem = ({ item }: { item: InspectionItem }) => (
     <ElevatedCard style={styles.inspectionItem}>
       <View style={styles.itemHeader}>
         <View style={styles.itemInfo}>
-          <Text style={[styles.itemCategory, { color: colors.textDim }]}>
-            {item.category}
-          </Text>
+          <Text style={[styles.itemCategory, { color: colors.textDim }]}>{item.category}</Text>
           <Text style={[styles.itemName, { color: colors.text }]}>
             {item.item}
-            {item.isRequired && <Text style={{ color: colors.error || '#EF4444' }}> *</Text>}
+            {item.isRequired && <Text style={{ color: colors.error || "#EF4444" }}> *</Text>}
           </Text>
           {item.notes && (
-            <Text style={[styles.itemNotes, { color: colors.textDim }]}>
-              Notes: {item.notes}
-            </Text>
+            <Text style={[styles.itemNotes, { color: colors.textDim }]}>Notes: {item.notes}</Text>
           )}
         </View>
-        <View style={styles.itemStatus}>
-          {getStatusIcon(item.status)}
-        </View>
+        <View style={styles.itemStatus}>{getStatusIcon(item.status)}</View>
       </View>
 
       <View style={styles.itemActions}>
         <Pressable
-          onPress={() => handleItemUpdate(item, 'pass')}
+          onPress={() => handleItemUpdate(item, "pass")}
           style={[
             styles.statusButton,
             {
-              backgroundColor: item.status === 'pass' ? (colors.success || '#10B981') : 'transparent',
-              borderColor: colors.success || '#10B981',
+              backgroundColor: item.status === "pass" ? colors.success || "#10B981" : "transparent",
+              borderColor: colors.success || "#10B981",
             },
           ]}
         >
@@ -122,7 +127,7 @@ export default function InspectionScreen() {
             style={[
               styles.statusButtonText,
               {
-                color: item.status === 'pass' ? '#fff' : (colors.success || '#10B981'),
+                color: item.status === "pass" ? "#fff" : colors.success || "#10B981",
               },
             ]}
           >
@@ -131,12 +136,12 @@ export default function InspectionScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => handleItemUpdate(item, 'fail')}
+          onPress={() => handleItemUpdate(item, "fail")}
           style={[
             styles.statusButton,
             {
-              backgroundColor: item.status === 'fail' ? (colors.error || '#EF4444') : 'transparent',
-              borderColor: colors.error || '#EF4444',
+              backgroundColor: item.status === "fail" ? colors.error || "#EF4444" : "transparent",
+              borderColor: colors.error || "#EF4444",
             },
           ]}
         >
@@ -144,7 +149,7 @@ export default function InspectionScreen() {
             style={[
               styles.statusButtonText,
               {
-                color: item.status === 'fail' ? '#fff' : (colors.error || '#EF4444'),
+                color: item.status === "fail" ? "#fff" : colors.error || "#EF4444",
               },
             ]}
           >
@@ -153,11 +158,11 @@ export default function InspectionScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => handleItemUpdate(item, 'na')}
+          onPress={() => handleItemUpdate(item, "na")}
           style={[
             styles.statusButton,
             {
-              backgroundColor: item.status === 'na' ? colors.textDim : 'transparent',
+              backgroundColor: item.status === "na" ? colors.textDim : "transparent",
               borderColor: colors.textDim,
             },
           ]}
@@ -166,7 +171,7 @@ export default function InspectionScreen() {
             style={[
               styles.statusButtonText,
               {
-                color: item.status === 'na' ? '#fff' : colors.textDim,
+                color: item.status === "na" ? "#fff" : colors.textDim,
               },
             ]}
           >
@@ -175,7 +180,7 @@ export default function InspectionScreen() {
         </Pressable>
       </View>
     </ElevatedCard>
-  );
+  )
 
   if (showSignature) {
     return (
@@ -184,7 +189,9 @@ export default function InspectionScreen() {
           <Pressable onPress={() => setShowSignature(false)} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.text} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>{translate("inspection.complete" as any)}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {translate("inspection.complete" as any)}
+          </Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -201,9 +208,9 @@ export default function InspectionScreen() {
               style={[
                 styles.signatureInput,
                 {
-                  backgroundColor: isDark ? colors.surface : '#F3F4F6',
+                  backgroundColor: isDark ? colors.surface : "#F3F4F6",
                   color: colors.text,
-                  borderColor: isDark ? 'transparent' : '#E5E7EB',
+                  borderColor: isDark ? "transparent" : "#E5E7EB",
                 },
               ]}
               placeholder="Enter your full name as signature"
@@ -229,7 +236,7 @@ export default function InspectionScreen() {
           </ElevatedCard>
         </View>
       </View>
-    );
+    )
   }
 
   if (!currentInspection) {
@@ -239,24 +246,24 @@ export default function InspectionScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.text} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>{translate("inspection.title" as any)}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {translate("inspection.title" as any)}
+          </Text>
           <View style={styles.placeholder} />
         </View>
 
         <View style={styles.startForm}>
           <ElevatedCard>
-            <Text style={[styles.startTitle, { color: colors.text }]}>
-              Start New Inspection
-            </Text>
+            <Text style={[styles.startTitle, { color: colors.text }]}>Start New Inspection</Text>
             <Text style={[styles.startDescription, { color: colors.textDim }]}>
               Select the type of inspection you want to perform:
             </Text>
 
             <View style={styles.typeSelector}>
               {[
-                { key: 'pre-trip', label: 'Pre-Trip Inspection' },
-                { key: 'post-trip', label: 'Post-Trip Inspection' },
-                { key: 'dot', label: 'DOT Inspection' },
+                { key: "pre-trip", label: "Pre-Trip Inspection" },
+                { key: "post-trip", label: "Post-Trip Inspection" },
+                { key: "dot", label: "DOT Inspection" },
               ].map((type) => (
                 <Pressable
                   key={type.key}
@@ -264,7 +271,7 @@ export default function InspectionScreen() {
                   style={[
                     styles.typeButton,
                     {
-                      backgroundColor: selectedType === type.key ? colors.tint : 'transparent',
+                      backgroundColor: selectedType === type.key ? colors.tint : "transparent",
                       borderColor: colors.tint,
                     },
                   ]}
@@ -272,9 +279,9 @@ export default function InspectionScreen() {
                   <Text
                     style={[
                       styles.typeButtonText,
-                    {
-                      color: selectedType === type.key ? '#fff' : colors.tint,
-                    },
+                      {
+                        color: selectedType === type.key ? "#fff" : colors.tint,
+                      },
                     ]}
                   >
                     {type.label}
@@ -292,12 +299,12 @@ export default function InspectionScreen() {
           </ElevatedCard>
         </View>
       </View>
-    );
+    )
   }
 
-  const completedItems = currentInspection.items.filter(item => item.status !== 'pending').length;
-  const totalItems = currentInspection.items.length;
-  const progress = (completedItems / totalItems) * 100;
+  const completedItems = currentInspection.items.filter((item) => item.status !== "pending").length
+  const totalItems = currentInspection.items.length
+  const progress = (completedItems / totalItems) * 100
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -306,7 +313,8 @@ export default function InspectionScreen() {
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
         <Text style={[styles.title, { color: colors.text }]}>
-          {currentInspection.type.charAt(0).toUpperCase() + currentInspection.type.slice(1)} Inspection
+          {currentInspection.type.charAt(0).toUpperCase() + currentInspection.type.slice(1)}{" "}
+          Inspection
         </Text>
         <View style={styles.placeholder} />
       </View>
@@ -320,7 +328,9 @@ export default function InspectionScreen() {
             {Math.round(progress)}%
           </Text>
         </View>
-        <View style={[styles.progressBar, { backgroundColor: isDark ? colors.surface : '#E5E7EB' }]}>
+        <View
+          style={[styles.progressBar, { backgroundColor: isDark ? colors.surface : "#E5E7EB" }]}
+        >
           <View
             style={[
               styles.progressFill,
@@ -341,7 +351,7 @@ export default function InspectionScreen() {
         contentContainerStyle={styles.inspectionListContent}
       />
 
-      <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+      <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
         <View style={styles.completeButton}>
           <LoadingButton
             title={translate("inspection.complete" as any)}
@@ -351,87 +361,29 @@ export default function InspectionScreen() {
         </View>
       </SafeAreaContainer>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    padding: 8,
+  },
+  completeButton: {
+    padding: 20,
+  },
   container: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: 20,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 60,
   },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-  },
-  placeholder: {
-    width: 40,
-  },
-  startForm: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  startTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  startDescription: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  typeSelector: {
-    marginBottom: 24,
-  },
-  typeButton: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    marginBottom: 12,
-  },
-  typeButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    textAlign: 'center',
-  },
-  progressCard: {
-    marginHorizontal: 20,
+  inspectionItem: {
     marginBottom: 16,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  progressTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-  },
-  progressPercentage: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
   },
   inspectionList: {
     flex: 1,
@@ -440,81 +392,139 @@ const styles = StyleSheet.create({
   inspectionListContent: {
     paddingBottom: 20,
   },
-  inspectionItem: {
-    marginBottom: 16,
+  itemActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  itemCategory: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    marginBottom: 4,
+    textTransform: "uppercase",
   },
   itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   itemInfo: {
     flex: 1,
   },
-  itemCategory: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
   itemName: {
     fontSize: 16,
-    fontWeight: '500' as const,
+    fontWeight: "500" as const,
     marginBottom: 4,
   },
   itemNotes: {
     fontSize: 14,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   itemStatus: {
     marginLeft: 12,
   },
-  itemActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  placeholder: {
+    width: 40,
   },
-  statusButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginHorizontal: 4,
+  progressBar: {
+    borderRadius: 4,
+    height: 8,
+    overflow: "hidden",
   },
-  statusButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    textAlign: 'center',
+  progressCard: {
+    marginBottom: 16,
+    marginHorizontal: 20,
   },
-  completeButton: {
-    padding: 20,
+  progressFill: {
+    borderRadius: 4,
+    height: "100%",
   },
-  signatureForm: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
+  progressHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
-  signatureTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    marginBottom: 8,
-    textAlign: 'center',
+  progressPercentage: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+  },
+  signatureButtons: {
+    flexDirection: "row",
   },
   signatureDescription: {
     fontSize: 16,
-    textAlign: 'center',
     marginBottom: 24,
+    textAlign: "center",
+  },
+  signatureForm: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
   },
   signatureInput: {
-    height: 50,
-    borderWidth: 1,
     borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    height: 50,
+    marginBottom: 24,
     paddingHorizontal: 16,
+  },
+  signatureTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  startDescription: {
     fontSize: 16,
     marginBottom: 24,
+    textAlign: "center",
   },
-  signatureButtons: {
-    flexDirection: 'row',
+  startForm: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
   },
-});
+  startTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  statusButton: {
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    marginHorizontal: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    textAlign: "center",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+  },
+  typeButton: {
+    borderRadius: 8,
+    borderWidth: 2,
+    marginBottom: 12,
+    padding: 16,
+  },
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    textAlign: "center",
+  },
+  typeSelector: {
+    marginBottom: 24,
+  },
+})

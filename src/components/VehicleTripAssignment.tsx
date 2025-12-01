@@ -6,13 +6,7 @@
  */
 
 import React, { useState, useMemo } from "react"
-import {
-  View,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-} from "react-native"
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from "react-native"
 import { format } from "date-fns"
 import { Package, Edit2, AlertCircle } from "lucide-react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
@@ -20,7 +14,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { useMyVehicle, useMyTrips, useAvailableVehicles } from "@/api/driver-hooks"
 import { translate } from "@/i18n/translate"
 import { useAuth } from "@/stores/authStore"
-import { colors } from "@/theme/colors"
+import { useAppTheme } from "@/theme/context"
 
 interface VehicleTripAssignmentProps {
   onEditVehicle?: () => void
@@ -31,6 +25,10 @@ export const VehicleTripAssignment: React.FC<VehicleTripAssignmentProps> = ({
   onEditVehicle,
   onEditTrip,
 }) => {
+  // Get theme colors - supports both light and dark themes
+  const { theme } = useAppTheme()
+  const { colors } = theme
+
   const { isAuthenticated, vehicleAssignment, user } = useAuth()
   const [showVehicleSelector, setShowVehicleSelector] = useState(false)
   const [showTripSelector, setShowTripSelector] = useState(false)
@@ -114,13 +112,143 @@ export const VehicleTripAssignment: React.FC<VehicleTripAssignmentProps> = ({
     }
   }
 
-  // Show loading state if data is being fetched
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 20,
+          elevation: 3,
+          marginHorizontal: 20,
+          marginTop: 16,
+          padding: 20,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+        },
+        cardContent: {
+          boxShadow: "none",
+          elevation: 0,
+          gap: 12,
+        },
+        cardHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        },
+        cardHeaderLeft: {
+          alignItems: "center",
+          flexDirection: "row",
+          flex: 1,
+          gap: 12,
+        },
+        cardSubtitle: {
+          color: colors.textDim,
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        cardTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "800",
+          marginBottom: 4,
+        },
+        container: {
+          flex: 1,
+        },
+        editButton: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 18,
+          height: 36,
+          justifyContent: "center",
+          width: 36,
+        },
+        emptyState: {
+          alignItems: "center",
+          gap: 12,
+          justifyContent: "center",
+          paddingVertical: 32,
+        },
+        emptyStateText: {
+          color: colors.textDim,
+          fontSize: 14,
+          fontWeight: "600",
+          textAlign: "center",
+        },
+        iconCircle: {
+          alignItems: "center",
+          borderRadius: 24,
+          height: 48,
+          justifyContent: "center",
+          width: 48,
+        },
+        infoLabel: {
+          color: colors.textDim,
+          flex: 1,
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        infoRow: {
+          alignItems: "flex-start",
+          borderBottomColor: colors.border,
+          borderBottomWidth: 1,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingVertical: 8,
+        },
+        infoValue: {
+          color: colors.text,
+          flex: 2,
+          fontSize: 14,
+          fontWeight: "700",
+          textAlign: "right",
+        },
+        loadingContainer: {
+          alignItems: "center",
+          flex: 1,
+          justifyContent: "center",
+          padding: 32,
+        },
+        loadingText: {
+          color: colors.textDim,
+          fontSize: 16,
+          fontWeight: "600",
+          marginTop: 16,
+        },
+        locationText: {
+          fontSize: 13,
+          lineHeight: 18,
+        },
+        scrollView: {
+          flex: 1,
+        },
+        statusBadge: {
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 4,
+        },
+        statusText: {
+          fontSize: 12,
+          fontWeight: "800",
+          textTransform: "uppercase",
+        },
+        vinText: {
+          fontFamily: "monospace",
+          fontSize: 12,
+        },
+      }),
+    [colors],
+  )
 
+  // Show loading state if data is being fetched
 
   return (
     <GestureHandlerRootView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-
         {/* Trip Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -129,16 +257,11 @@ export const VehicleTripAssignment: React.FC<VehicleTripAssignmentProps> = ({
                 style={[
                   styles.iconCircle,
                   {
-                    backgroundColor: hasTrip
-                      ? colors.success + "20"
-                      : colors.error + "20",
+                    backgroundColor: hasTrip ? colors.success + "20" : colors.error + "20",
                   },
                 ]}
               >
-                <Package
-                  size={24}
-                  color={hasTrip ? colors.success : colors.error}
-                />
+                <Package size={24} color={hasTrip ? colors.success : colors.error} />
               </View>
               <View>
                 <Text style={styles.cardTitle}>{translate("vehicleTrip.tripInfo" as any)}</Text>
@@ -151,7 +274,7 @@ export const VehicleTripAssignment: React.FC<VehicleTripAssignmentProps> = ({
             </View>
             {hasTrip && onEditTrip && (
               <TouchableOpacity style={styles.editButton} onPress={onEditTrip}>
-                <Edit2 size={18} color={colors.PRIMARY} />
+                <Edit2 size={18} color={colors.tint} />
               </TouchableOpacity>
             )}
           </View>
@@ -171,35 +294,39 @@ export const VehicleTripAssignment: React.FC<VehicleTripAssignmentProps> = ({
                       { backgroundColor: `${getStatusColor(displayTrip.status)}20` },
                     ]}
                   >
-                    <Text style={[styles.statusText, { color: getStatusColor(displayTrip.status) }]}>
+                    <Text
+                      style={[styles.statusText, { color: getStatusColor(displayTrip.status) }]}
+                    >
                       {displayTrip.status}
                     </Text>
                   </View>
                 </View>
               )}
-              {displayTrip.start_location?.address && displayTrip.start_location.address !== "N/A" && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>
-                    {translate("vehicleTrip.startLocation" as any)}:
-                  </Text>
-                  <Text style={[styles.infoValue, styles.locationText]}>
-                    {displayTrip.start_location.address}
-                  </Text>
-                </View>
-              )}
+              {displayTrip.start_location?.address &&
+                displayTrip.start_location.address !== "N/A" && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>
+                      {translate("vehicleTrip.startLocation" as any)}:
+                    </Text>
+                    <Text style={[styles.infoValue, styles.locationText]}>
+                      {displayTrip.start_location.address}
+                    </Text>
+                  </View>
+                )}
               {displayTrip.end_location?.address && displayTrip.end_location.address !== "N/A" && (
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>{translate("vehicleTrip.endLocation" as any)}:</Text>
+                  <Text style={styles.infoLabel}>
+                    {translate("vehicleTrip.endLocation" as any)}:
+                  </Text>
                   <Text style={[styles.infoValue, styles.locationText]}>
                     {displayTrip.end_location.address}
                   </Text>
                 </View>
               )}
-
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <AlertCircle size={32} color="#9CA3AF" />
+              <AlertCircle size={32} color={colors.textDim} />
               <Text style={styles.emptyStateText}>
                 {translate("vehicleTrip.tripMissing" as any)}
               </Text>
@@ -210,130 +337,3 @@ export const VehicleTripAssignment: React.FC<VehicleTripAssignmentProps> = ({
     </GestureHandlerRootView>
   )
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    elevation: 3,
-    marginHorizontal: 20,
-    marginTop: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  cardContent: {
-    gap: 12,
-    boxShadow: 'none',
-    elevation: 0,
-  },
-  cardHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  cardHeaderLeft: {
-    alignItems: "center",
-    flexDirection: "row",
-    flex: 1,
-    gap: 12,
-  },
-  cardSubtitle: {
-    color: "#6B7280",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  cardTitle: {
-    color: "#1F2937",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  container: {
-    flex: 1,
-  },
-  editButton: {
-    alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 18,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
-  emptyState: {
-    alignItems: "center",
-    gap: 12,
-    justifyContent: "center",
-    paddingVertical: 32,
-  },
-  emptyStateText: {
-    color: "#9CA3AF",
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  iconCircle: {
-    alignItems: "center",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  infoLabel: {
-    color: "#6B7280",
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  infoRow: {
-    alignItems: "flex-start",
-    borderBottomColor: "#F3F4F6",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-  },
-  infoValue: {
-    color: "#1F2937",
-    flex: 2,
-    fontSize: 14,
-    fontWeight: "700",
-    textAlign: "right",
-  },
-  loadingContainer: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    padding: 32,
-  },
-  loadingText: {
-    color: "#6B7280",
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 16,
-  },
-  locationText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  statusBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  vinText: {
-    fontFamily: "monospace",
-    fontSize: 12,
-  },
-})

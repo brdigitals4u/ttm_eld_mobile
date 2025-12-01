@@ -1,15 +1,16 @@
 /**
  * Team Driver Motion Restrictions Hook
- * 
+ *
  * Enforces ELD compliance rules for team drivers:
  * - Co-drivers can make entries while vehicle in motion (if logged in before motion)
  * - Co-drivers cannot switch driving roles when vehicle is in motion
  * - Only authenticated co-drivers can access their own records
  */
 
-import { useEffect, useState, useCallback } from 'react'
-import { useObdData } from '@/contexts/obd-data-context'
-import { useCoDriver } from '@/contexts/codriver-context'
+import { useEffect, useState, useCallback } from "react"
+
+import { useCoDriver } from "@/contexts/codriver-context"
+import { useObdData } from "@/contexts/obd-data-context"
 
 export interface MotionRestrictions {
   canMakeEntries: boolean
@@ -23,7 +24,7 @@ export interface UseTeamDriverMotionRestrictionsOptions {
 }
 
 export function useTeamDriverMotionRestrictions(
-  options: UseTeamDriverMotionRestrictionsOptions = {}
+  options: UseTeamDriverMotionRestrictionsOptions = {},
 ): MotionRestrictions & {
   isVehicleInMotion: boolean
   wasCoDriverLoggedInBeforeMotion: boolean
@@ -92,7 +93,7 @@ export function useTeamDriverMotionRestrictions(
         canMakeEntries: false, // Standard restriction: no entries while moving
         canSwitchRoles: false,
         canEditRecords: false,
-        restrictionReason: 'Vehicle is in motion. Entries are blocked for safety.',
+        restrictionReason: "Vehicle is in motion. Entries are blocked for safety.",
       }
     }
 
@@ -103,7 +104,8 @@ export function useTeamDriverMotionRestrictions(
         canMakeEntries: true, // Can make entries on own records
         canSwitchRoles: false, // Cannot switch driving roles while moving
         canEditRecords: true, // Can edit own records
-        restrictionReason: 'Vehicle is in motion. You can edit your own records but cannot switch roles.',
+        restrictionReason:
+          "Vehicle is in motion. You can edit your own records but cannot switch roles.",
       }
     } else {
       // Co-driver logged in after motion started - standard restrictions apply
@@ -111,7 +113,8 @@ export function useTeamDriverMotionRestrictions(
         canMakeEntries: false,
         canSwitchRoles: false,
         canEditRecords: false,
-        restrictionReason: 'Vehicle is in motion. Co-driver must log in before vehicle starts moving to make entries.',
+        restrictionReason:
+          "Vehicle is in motion. Co-driver must log in before vehicle starts moving to make entries.",
       }
     }
   }, [isVehicleInMotion, activeCoDriver, wasCoDriverLoggedInBeforeMotion])
@@ -133,4 +136,3 @@ export function useTeamDriverMotionRestrictions(
     wasCoDriverLoggedInBeforeMotion,
   }
 }
-

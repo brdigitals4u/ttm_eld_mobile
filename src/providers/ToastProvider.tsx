@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { Toast, toast, ToastState } from '@/components/Toast'
+import React, { useState, useEffect } from "react"
+
+import { Toast, toast, ToastState } from "@/components/Toast"
 
 interface ToastProviderProps {
   children: React.ReactNode
@@ -8,8 +9,8 @@ interface ToastProviderProps {
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toastState, setToastState] = useState<ToastState>({
     visible: false,
-    message: '',
-    type: 'info',
+    message: "",
+    type: "info",
   })
 
   useEffect(() => {
@@ -21,7 +22,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   }, [])
 
   const handleDismiss = () => {
-    setToastState(prev => ({ ...prev, visible: false }))
+    setToastState((prev) => ({ ...prev, visible: false }))
   }
 
   return (
@@ -42,16 +43,16 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 // Hook for easy toast usage
 export const useToast = () => {
   return {
-    success: (message: string, duration?: number, position?: 'top' | 'bottom') => {
+    success: (message: string, duration?: number, position?: "top" | "bottom") => {
       toast.success(message, duration, position)
     },
-    warning: (message: string, duration?: number, position?: 'top' | 'bottom') => {
+    warning: (message: string, duration?: number, position?: "top" | "bottom") => {
       toast.warning(message, duration, position)
     },
-    error: (message: string, duration?: number, position?: 'top' | 'bottom') => {
+    error: (message: string, duration?: number, position?: "top" | "bottom") => {
       toast.error(message, duration, position)
     },
-    info: (message: string, duration?: number, position?: 'top' | 'bottom') => {
+    info: (message: string, duration?: number, position?: "top" | "bottom") => {
       toast.info(message, duration, position)
     },
     hide: () => {

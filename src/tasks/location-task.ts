@@ -1,5 +1,5 @@
-import * as TaskManager from "expo-task-manager"
 import * as Location from "expo-location"
+import * as TaskManager from "expo-task-manager"
 
 import { useStatusStore } from "@/stores/statusStore"
 
@@ -39,4 +39,3 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, ({ data, error }) => {
 
   console.log("📍 Background location update:", latitude, longitude)
 })
-

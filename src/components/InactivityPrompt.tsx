@@ -8,16 +8,17 @@
 
 import React, { useMemo, useRef, useEffect, useState } from "react"
 import { View, StyleSheet, TouchableOpacity, Platform } from "react-native"
+import * as Haptics from "expo-haptics"
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
 import { AlertTriangle, Clock } from "lucide-react-native"
-import * as Haptics from "expo-haptics"
+
 import { useChangeDutyStatus } from "@/api/driver-hooks"
-import { useLocationData } from "@/hooks/useLocationData"
+import { Text } from "@/components/Text"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
+import { useLocationData } from "@/hooks/useLocationData"
 import { useToast } from "@/providers/ToastProvider"
 import { inactivityMonitor } from "@/services/inactivity-monitor"
-import { Text } from "@/components/Text"
-import { colors } from "@/theme/colors"
+import { useAppTheme } from "@/theme/context"
 
 interface InactivityPromptProps {
   visible: boolean
@@ -32,6 +33,8 @@ export const InactivityPrompt: React.FC<InactivityPromptProps> = ({
   onContinueDriving,
   onStatusChange,
 }) => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const bottomSheetRef = useRef<BottomSheetModal>(null)
   const changeDutyStatusMutation = useChangeDutyStatus()
   const { locationData } = useLocationData()
@@ -80,6 +83,100 @@ export const InactivityPrompt: React.FC<InactivityPromptProps> = ({
   }, [visible])
 
   const snapPoints = useMemo(() => ["50%"], [])
+
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        button: {
+          alignItems: "center",
+          borderRadius: 16,
+          justifyContent: "center",
+          minHeight: 56,
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+        },
+        buttonContainer: {
+          gap: 12,
+          width: "100%",
+        },
+        changeStatusButton: {
+          backgroundColor: colors.sectionBackground,
+          borderColor: colors.border,
+          borderWidth: 2,
+        },
+        changeStatusButtonText: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        content: {
+          alignItems: "center",
+          flex: 1,
+          justifyContent: "center",
+          padding: 24,
+        },
+        continueButton: {
+          backgroundColor: colors.tint,
+        },
+        continueButtonText: {
+          color: colors.cardBackground,
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        handleIndicator: {
+          backgroundColor: colors.border,
+          width: 40,
+        },
+        iconContainer: {
+          alignItems: "center",
+          backgroundColor: colors.warningBackground,
+          borderRadius: 48,
+          height: 96,
+          justifyContent: "center",
+          marginBottom: 24,
+          width: 96,
+        },
+        message: {
+          color: colors.textDim,
+          fontSize: 16,
+          fontWeight: "500",
+          lineHeight: 24,
+          marginBottom: 24,
+          paddingHorizontal: 16,
+          textAlign: "center",
+        },
+        modalBackground: {
+          backgroundColor: colors.cardBackground,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+        },
+        timerContainer: {
+          alignItems: "center",
+          backgroundColor: colors.warningBackground,
+          borderRadius: 12,
+          flexDirection: "row",
+          gap: 8,
+          marginBottom: 32,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        timerText: {
+          color: colors.warning,
+          fontSize: 16,
+          fontWeight: "700",
+        },
+        title: {
+          color: colors.text,
+          fontSize: 24,
+          fontWeight: "800",
+          lineHeight: 32,
+          marginBottom: 12,
+          textAlign: "center",
+        },
+      }),
+    [colors],
+  )
 
   /**
    * Handle auto-switch to On-Duty Not Driving
@@ -192,7 +289,7 @@ export const InactivityPrompt: React.FC<InactivityPromptProps> = ({
       <BottomSheetView style={styles.content}>
         {/* Alert Icon */}
         <View style={styles.iconContainer}>
-          <AlertTriangle size={48} color="#F59E0B" strokeWidth={2.5} />
+          <AlertTriangle size={48} color={colors.warning} strokeWidth={2.5} />
         </View>
 
         {/* Title */}
@@ -206,7 +303,7 @@ export const InactivityPrompt: React.FC<InactivityPromptProps> = ({
 
         {/* Countdown Timer */}
         <View style={styles.timerContainer}>
-          <Clock size={20} color="#F59E0B" />
+          <Clock size={20} color={colors.warning} />
           <Text style={styles.timerText}>Auto-switching in {formatTime(timeRemaining)}</Text>
         </View>
 
@@ -230,92 +327,3 @@ export const InactivityPrompt: React.FC<InactivityPromptProps> = ({
     </BottomSheetModal>
   )
 }
-
-const styles = StyleSheet.create({
-  modalBackground: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  handleIndicator: {
-    backgroundColor: "#D1D5DB",
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "#FEF3C7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#111827",
-    textAlign: "center",
-    marginBottom: 12,
-    lineHeight: 32,
-  },
-  message: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#6B7280",
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 24,
-    paddingHorizontal: 16,
-  },
-  timerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginBottom: 32,
-  },
-  timerText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#F59E0B",
-  },
-  buttonContainer: {
-    width: "100%",
-    gap: 12,
-  },
-  button: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 56,
-  },
-  continueButton: {
-    backgroundColor: "#5750F1", // Indigo theme color
-  },
-  continueButtonText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  changeStatusButton: {
-    backgroundColor: "#F3F4F6",
-    borderWidth: 2,
-    borderColor: "#D1D5DB",
-  },
-  changeStatusButtonText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#374151",
-  },
-})

@@ -9,7 +9,11 @@ import React, {
 } from "react"
 import { Alert, AppState, AppStateStatus, Platform } from "react-native"
 
-import { checkCorePermissions, openPermissionSettings, requestCorePermissions } from "@/utils/permissions"
+import {
+  checkCorePermissions,
+  openPermissionSettings,
+  requestCorePermissions,
+} from "@/utils/permissions"
 
 type CorePermissionName = "bluetooth" | "mediaLibrary" | "camera" | "location"
 
@@ -33,8 +37,10 @@ interface PermissionsContextValue {
 const PermissionsContext = createContext<PermissionsContextValue | undefined>(undefined)
 
 const PLATFORM_LABEL_MAP: Record<CorePermissionName, string> = {
-  bluetooth: Platform.select({ ios: "Bluetooth", android: "Nearby devices / Bluetooth" }) ?? "Bluetooth",
-  mediaLibrary: Platform.select({ ios: "Photo Library", android: "Photos and media" }) ?? "Media library",
+  bluetooth:
+    Platform.select({ ios: "Bluetooth", android: "Nearby devices / Bluetooth" }) ?? "Bluetooth",
+  mediaLibrary:
+    Platform.select({ ios: "Photo Library", android: "Photos and media" }) ?? "Media library",
   camera: "Camera",
   location: Platform.select({ ios: "Location", android: "Location" }) ?? "Location",
 }
@@ -104,7 +110,9 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const nextPermissions = results.map(toPermissionStatus)
       permissionsRef.current = nextPermissions
       setPermissions(nextPermissions)
-      const deniedPermissions = nextPermissions.filter((item) => !item.granted).map((item) => item.name)
+      const deniedPermissions = nextPermissions
+        .filter((item) => !item.granted)
+        .map((item) => item.name)
       showDeniedAlert(deniedPermissions)
       return nextPermissions
     },
@@ -115,7 +123,9 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     async (options?: { skipIfGranted?: boolean }) => {
       setIsRequesting(true)
       try {
-        const results = await requestCorePermissions({ skipIfGranted: options?.skipIfGranted ?? true })
+        const results = await requestCorePermissions({
+          skipIfGranted: options?.skipIfGranted ?? true,
+        })
         return updatePermissions(results)
       } catch (error) {
         console.error("Failed to request permissions:", error)
@@ -220,4 +230,3 @@ export const usePermissions = (): PermissionsContextValue => {
   }
   return context
 }
-

@@ -1,20 +1,21 @@
 /**
  * HOS Component - Displays Hours of Service information
- * 
+ *
  * Automatically updates based on /api/driver/hos/current-status/ API response
  * Polls every 30 seconds to keep data fresh
  */
 
 import React from "react"
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native"
+import { router } from "expo-router"
 import { Clock, AlertTriangle, Shield } from "lucide-react-native"
 import * as Progress from "react-native-progress"
-import { router } from "expo-router"
+
 import { useHOSCurrentStatus } from "@/api/driver-hooks"
-import { Text } from "@/components/Text"
-import HOSCircle from "@/components/HOSSvg"
-import { colors } from "@/theme/colors"
 import HOSServiceCardSkeleton from "@/components/HOSServiceCardSkeleton"
+import HOSCircle from "@/components/HOSSvg"
+import { Text } from "@/components/Text"
+import { colors } from "@/theme/colors"
 
 interface HOSComponentProps {
   onScrollToTop?: () => void
@@ -45,11 +46,12 @@ const formatCycleTime = (minutes: number | null | undefined): string => {
   return formatTime(minutes)
 }
 
-export const HOSComponent: React.FC<HOSComponentProps> = ({ 
-  onScrollToTop,
-  compact = false 
-}) => {
-  const { data: hosStatus, isLoading, error } = useHOSCurrentStatus({
+export const HOSComponent: React.FC<HOSComponentProps> = ({ onScrollToTop, compact = false }) => {
+  const {
+    data: hosStatus,
+    isLoading,
+    error,
+  } = useHOSCurrentStatus({
     enabled: true,
     refetchInterval: 30000, // Poll every 30 seconds
   })
@@ -74,8 +76,9 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
   const cycleProgress = clocks.cycle.remaining_minutes / clocks.cycle.limit_minutes
 
   // Filter to only unresolved violations (if resolved field exists)
-  const unresolvedViolations = violations?.filter((v: any) => v.resolved === false || v.resolved === undefined) || []
-  
+  const unresolvedViolations =
+    violations?.filter((v: any) => v.resolved === false || v.resolved === undefined) || []
+
   // Check for violations
   const hasViolations = unresolvedViolations.length > 0
   const driveViolation = clocks.drive.remaining_minutes <= 0
@@ -86,11 +89,7 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.headerLeft}
-          onPress={onScrollToTop}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.headerLeft} onPress={onScrollToTop} activeOpacity={0.7}>
           <Clock size={20} color="#22C55E" strokeWidth={2.5} />
           <Text style={styles.title}>Hours of Service</Text>
           {hasViolations && (
@@ -100,34 +99,25 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
             </View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => router.push("/hos" as any)}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity onPress={() => router.push("/hos" as any)} activeOpacity={0.7}>
           <Text style={styles.viewDetailsText}>View Details →</Text>
         </TouchableOpacity>
       </View>
 
       {/* Current Status & Can Drive */}
       <View style={styles.currentStatusRow}>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: can_drive ? "#ECFDF5" : "#FEE2E2" }
-        ]}>
-          <Text style={[
-            styles.statusBadgeText,
-            { color: can_drive ? "#059669" : "#DC2626" }
-          ]}>
-            {current_status?.replace(/_/g, ' ').toUpperCase() || 'OFF DUTY'}
+        <View style={[styles.statusBadge, { backgroundColor: can_drive ? "#ECFDF5" : "#FEE2E2" }]}>
+          <Text style={[styles.statusBadgeText, { color: can_drive ? "#059669" : "#DC2626" }]}>
+            {current_status?.replace(/_/g, " ").toUpperCase() || "OFF DUTY"}
           </Text>
-          {!can_drive && (
-            <Text style={styles.cannotDriveText}>Cannot Drive</Text>
-          )}
+          {!can_drive && <Text style={styles.cannotDriveText}>Cannot Drive</Text>}
         </View>
         {!can_drive && cannot_drive_reasons && cannot_drive_reasons.length > 0 && (
           <View style={styles.reasonsContainer}>
             {cannot_drive_reasons.map((reason, index) => (
-              <Text key={index} style={styles.reasonText}>• {reason}</Text>
+              <Text key={index} style={styles.reasonText}>
+                • {reason}
+              </Text>
             ))}
           </View>
         )}
@@ -135,8 +125,8 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
 
       {/* Main Timer - 11-Hour Drive Limit */}
       <View style={styles.mainTimerWrapper}>
-        <HOSCircle 
-          text={formatTime(clocks.drive.remaining_minutes)} 
+        <HOSCircle
+          text={formatTime(clocks.drive.remaining_minutes)}
           size={140}
           progress={Math.min(100, Math.max(0, driveProgress * 100))}
           strokeWidth={8}
@@ -156,9 +146,7 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
         <View style={styles.clockItem}>
           <View style={styles.clockHeader}>
             <Text style={styles.clockLabel}>14-Hr Shift</Text>
-            {shiftViolation && (
-              <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />
-            )}
+            {shiftViolation && <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />}
           </View>
           <View style={styles.circularProgressWrapper}>
             <Progress.Circle
@@ -171,10 +159,12 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
               unfilledColor="#E5E7EB"
             />
             <View style={styles.circularProgressText}>
-              <Text style={[
-                styles.circularClockValue,
-                { color: shiftViolation ? "#EF4444" : colors.text }
-              ]}>
+              <Text
+                style={[
+                  styles.circularClockValue,
+                  { color: shiftViolation ? "#EF4444" : colors.text },
+                ]}
+              >
                 {formatTime(clocks.shift.remaining_minutes)}
               </Text>
             </View>
@@ -185,11 +175,9 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
         <View style={styles.clockItem}>
           <View style={styles.clockHeader}>
             <Text style={styles.clockLabel}>
-              {clocks.cycle.type === '70_8' ? '70-Hr' : '60-Hr'} Cycle
+              {clocks.cycle.type === "70_8" ? "70-Hr" : "60-Hr"} Cycle
             </Text>
-            {cycleViolation && (
-              <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />
-            )}
+            {cycleViolation && <AlertTriangle size={12} color="#EF4444" strokeWidth={2} />}
           </View>
           <View style={styles.circularProgressWrapper}>
             <Progress.Circle
@@ -202,10 +190,12 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
               unfilledColor="#E5E7EB"
             />
             <View style={styles.circularProgressText}>
-              <Text style={[
-                styles.circularClockValue,
-                { color: cycleViolation ? "#EF4444" : colors.text }
-              ]}>
+              <Text
+                style={[
+                  styles.circularClockValue,
+                  { color: cycleViolation ? "#EF4444" : colors.text },
+                ]}
+              >
                 {formatCycleTime(clocks.cycle.remaining_minutes)}
               </Text>
             </View>
@@ -218,7 +208,11 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
         <View style={styles.breakAlert}>
           <Clock size={14} color="#F59E0B" strokeWidth={2} />
           <Text style={styles.breakAlertText}>
-            Break required - {formatTime(Math.max(0, clocks.break.trigger_after_minutes - clocks.break.driving_since_break))} until required
+            Break required -{" "}
+            {formatTime(
+              Math.max(0, clocks.break.trigger_after_minutes - clocks.break.driving_since_break),
+            )}{" "}
+            until required
           </Text>
         </View>
       )}
@@ -235,14 +229,15 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
         <View style={styles.violationsSummary}>
           <AlertTriangle size={16} color="#EF4444" strokeWidth={2} />
           <Text style={styles.violationsSummaryText}>
-            {unresolvedViolations.length} active violation{unresolvedViolations.length !== 1 ? 's' : ''}
+            {unresolvedViolations.length} active violation
+            {unresolvedViolations.length !== 1 ? "s" : ""}
           </Text>
         </View>
       )}
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.signButton}
           onPress={() => router.push("/status" as any)}
           activeOpacity={0.7}
@@ -255,210 +250,209 @@ export const HOSComponent: React.FC<HOSComponentProps> = ({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  actionButtons: {
+    borderTopColor: "#E5E7EB",
+    borderTopWidth: 1,
+    marginTop: 20,
+    paddingTop: 16,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  breakAlert: {
     alignItems: "center",
-    marginBottom: 16,
-  },
-  headerLeft: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 8,
     flexDirection: "row",
-    alignItems: "center",
     gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  breakAlertText: {
+    color: "#92400E",
     flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  violationBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  violationBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    color: colors.PRIMARY,
+    fontSize: 12,
     fontWeight: "500",
   },
-  currentStatusRow: {
-    marginBottom: 20,
-  },
-  statusBadge: {
-    flexDirection: "row",
+  breakInfo: {
     alignItems: "center",
+    borderRadius: 8,
+    flexDirection: "row",
+    marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-    gap: 8,
-    alignSelf: "flex-start",
   },
-  statusBadgeText: {
-    fontSize: 13,
-    fontWeight: "600",
+  breakInfoText: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "400",
   },
   cannotDriveText: {
+    color: "#DC2626",
     fontSize: 11,
-    color: "#DC2626",
     fontWeight: "500",
   },
-  reasonsContainer: {
-    marginTop: 8,
-    paddingLeft: 8,
-  },
-  reasonText: {
-    fontSize: 12,
-    color: "#DC2626",
-    marginTop: 4,
-  },
-  mainTimerWrapper: {
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  mainTimerLabel: {
+  circularClockValue: {
+    color: colors.text,
     fontSize: 14,
-    fontWeight: "500",
-    color: "#6B7280",
-    marginTop: 12,
-  },
-  violationIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-  },
-  violationText: {
-    fontSize: 12,
-    color: "#EF4444",
     fontWeight: "600",
+  },
+  circularProgressText: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+  },
+  circularProgressWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  clockHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 12,
+  },
+  clockItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  clockLabel: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "500",
   },
   clocksGrid: {
     flexDirection: "row",
     justifyContent: "space-around",
     marginVertical: 20,
   },
-  clockItem: {
+  container: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    elevation: 4,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  currentStatusRow: {
+    marginBottom: 20,
+  },
+  errorContainer: {
     alignItems: "center",
-    flex: 1,
+    padding: 20,
   },
-  clockHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 12,
-  },
-  clockLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#6B7280",
-  },
-  circularProgressWrapper: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  circularProgressText: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  circularClockValue: {
+  errorText: {
+    color: "#EF4444",
     fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
   },
-  breakAlert: {
-    flexDirection: "row",
+  header: {
     alignItems: "center",
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 8,
-    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
-  breakAlertText: {
-    fontSize: 12,
-    color: "#92400E",
-    fontWeight: "500",
+  headerLeft: {
+    alignItems: "center",
+    flexDirection: "row",
     flex: 1,
+    gap: 8,
   },
-  breakInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  breakInfoText: {
-    fontSize: 12,
+  mainTimerLabel: {
     color: "#6B7280",
-    fontWeight: "400",
-  },
-  violationsSummary: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FEE2E2",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 8,
+    fontSize: 14,
+    fontWeight: "500",
     marginTop: 12,
   },
-  violationsSummaryText: {
-    fontSize: 12,
-    color: "#991B1B",
-    fontWeight: "600",
-    flex: 1,
+  mainTimerWrapper: {
+    alignItems: "center",
+    marginVertical: 24,
   },
-  actionButtons: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+  reasonText: {
+    color: "#DC2626",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  reasonsContainer: {
+    marginTop: 8,
+    paddingLeft: 8,
   },
   signButton: {
-    backgroundColor: colors.PRIMARY,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
     alignItems: "center",
+    backgroundColor: colors.PRIMARY,
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
   },
   signButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
   },
-  errorContainer: {
-    padding: 20,
+  statusBadge: {
     alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  errorText: {
-    color: "#EF4444",
+  statusBadgeText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  title: {
+    color: "#1F2937",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  viewDetailsText: {
+    color: colors.PRIMARY,
     fontSize: 14,
+    fontWeight: "500",
+  },
+  violationBadge: {
+    alignItems: "center",
+    backgroundColor: "#EF4444",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  violationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  violationIndicator: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+  },
+  violationText: {
+    color: "#EF4444",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  violationsSummary: {
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  violationsSummaryText: {
+    color: "#991B1B",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
   },
 })
-

@@ -1,23 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  SafeAreaView,
-} from 'react-native'
-import { router } from 'expo-router'
-import { ArrowLeft } from 'lucide-react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useAppTheme } from '@/theme/context'
-import { Text } from '@/components/Text'
-import Pdf from 'react-native-pdf'
-import { Asset } from 'expo-asset'
-import { translate } from '@/i18n/translate'
-import { useToast } from '@/providers/ToastProvider'
-import { useAuth } from '@/stores/authStore'
-import { settingsStorage } from '@/utils/storage'
-import { submitPrivacyPolicyAcceptance } from '@/api/submissions'
+import React, { useState, useEffect } from "react"
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView } from "react-native"
+import { Asset } from "expo-asset"
+import { router } from "expo-router"
+import { ArrowLeft } from "lucide-react-native"
+import Pdf from "react-native-pdf"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
+import { submitPrivacyPolicyAcceptance } from "@/api/submissions"
+import { Text } from "@/components/Text"
+import { translate } from "@/i18n/translate"
+import { useToast } from "@/providers/ToastProvider"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
+import { settingsStorage } from "@/utils/storage"
 
 export const PrivacyPolicyScreen: React.FC = () => {
   const { theme } = useAppTheme()
@@ -45,7 +40,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
     setPdfUri(null)
 
     try {
-      const pdfAsset = require('assets/files/pdf/TTM_Konnect_Beta_Testing_Agreement.pdf')
+      const pdfAsset = require("assets/files/pdf/TTM_Konnect_Beta_Testing_Agreement.pdf")
       const asset = Asset.fromModule(pdfAsset)
       await asset.downloadAsync()
 
@@ -54,13 +49,13 @@ export const PrivacyPolicyScreen: React.FC = () => {
       } else if (asset.uri) {
         setPdfUri(asset.uri)
       } else {
-        throw new Error('Could not resolve PDF URI')
+        throw new Error("Could not resolve PDF URI")
       }
 
       setLoading(false)
     } catch (err) {
-      console.error('Error preparing PDF:', err)
-      setError('Failed to load PDF. Please try again.')
+      console.error("Error preparing PDF:", err)
+      setError("Failed to load PDF. Please try again.")
       setLoading(false)
     }
   }
@@ -80,8 +75,8 @@ export const PrivacyPolicyScreen: React.FC = () => {
 
   const handleError = (error: any) => {
     setLoading(false)
-    setError('Failed to load PDF. Please try again.')
-    console.error('PDF Error:', error)
+    setError("Failed to load PDF. Please try again.")
+    console.error("PDF Error:", error)
   }
 
   const handleSubmit = async () => {
@@ -93,19 +88,19 @@ export const PrivacyPolicyScreen: React.FC = () => {
 
     try {
       // Get user name from firstName and lastName
-      const userName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim()
+      const userName = user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim()
 
       // Submit to API with navigateOnError option
       // This ensures navigation happens even if API call fails
       const result = await submitPrivacyPolicyAcceptance(
         {
-        userId: user.id,
-        email: user.email,
-        name: userName,
+          userId: user.id,
+          email: user.email,
+          name: userName,
         },
         {
           navigateOnError: true, // Navigate even on error
-        }
+        },
       )
 
       // Store acceptance locally (always store, even if API failed)
@@ -113,48 +108,45 @@ export const PrivacyPolicyScreen: React.FC = () => {
 
       // Show appropriate message based on API result
       if (result.success) {
-      toast.success('Privacy policy accepted successfully!', 2000)
+        toast.success("Privacy policy accepted successfully!", 2000)
       } else {
         // API failed but we still proceed with navigation
         toast.warning(
-          result.message || 'Privacy policy saved locally. Some features may be limited.',
-          3000
+          result.message || "Privacy policy saved locally. Some features may be limited.",
+          3000,
         )
       }
 
       // Navigate to device scan screen (always navigate, regardless of API result)
       // Use setTimeout to ensure UI updates before navigation
       setTimeout(() => {
-      router.replace('/device-scan')
+        router.replace("/device-scan")
       }, 500)
     } catch (error: any) {
       // This catch block should rarely execute now due to navigateOnError,
       // but keep it as a safety net
-      console.error('Error submitting privacy policy acceptance:', error)
-      
+      console.error("Error submitting privacy policy acceptance:", error)
+
       // Still store acceptance locally and navigate
       try {
         await settingsStorage.setPrivacyPolicyAccepted(user.id)
-        toast.warning('Privacy policy saved locally. Please check your connection.', 3000)
-        
+        toast.warning("Privacy policy saved locally. Please check your connection.", 3000)
+
         // Navigate even on error
         setTimeout(() => {
-          router.replace('/device-scan')
+          router.replace("/device-scan")
         }, 500)
       } catch (storageError) {
-        console.error('Error storing privacy policy acceptance:', storageError)
-      toast.error(
-        error.message || translate('privacyPolicy.error' as any),
-        4000
-      )
-      setIsSubmitting(false)
+        console.error("Error storing privacy policy acceptance:", storageError)
+        toast.error(error.message || translate("privacyPolicy.error" as any), 4000)
+        setIsSubmitting(false)
       }
     }
   }
 
   const handleBack = () => {
     // Prevent going back - user must accept privacy policy
-    toast.info('Please accept the privacy policy to continue', 2000)
+    toast.info("Please accept the privacy policy to continue", 2000)
   }
 
   return (
@@ -164,7 +156,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
           <ArrowLeft size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-          {translate('privacyPolicy.title' as any)}
+          {translate("privacyPolicy.title" as any)}
         </Text>
         <View style={styles.headerPlaceholder} />
       </View>
@@ -174,7 +166,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.tint} />
             <Text style={[styles.loadingText, { color: colors.textDim }]}>
-              {translate('privacyPolicy.loading' as any)}
+              {translate("privacyPolicy.loading" as any)}
             </Text>
           </View>
         )}
@@ -186,7 +178,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
               onPress={loadPdf}
               style={[styles.retryButton, { backgroundColor: colors.tint }]}
             >
-              <Text style={styles.retryButtonText}>{translate('common.retry' as any)}</Text>
+              <Text style={styles.retryButtonText}>{translate("common.retry" as any)}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -206,7 +198,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
             {!canSubmit && numberOfPages > 0 && (
               <View style={styles.scrollHint}>
                 <Text style={[styles.scrollHintText, { color: colors.textDim }]}>
-                  {translate('privacyPolicy.scrollToBottom' as any)}
+                  {translate("privacyPolicy.scrollToBottom" as any)}
                 </Text>
                 <Text style={[styles.pageIndicator, { color: colors.textDim }]}>
                   {currentPage} / {numberOfPages}
@@ -234,7 +226,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Text style={styles.submitButtonText}>
-                {translate('privacyPolicy.submitButton' as any)}
+                {translate("privacyPolicy.submitButton" as any)}
               </Text>
             )}
           </TouchableOpacity>
@@ -245,110 +237,109 @@ export const PrivacyPolicyScreen: React.FC = () => {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    marginLeft: -8,
+    padding: 8,
+  },
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerPlaceholder: {
-    width: 40,
-  },
-  pdfContainer: {
-    flex: 1,
-  },
-  pdf: {
-    flex: 1,
-    width: '100%',
-  },
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
   errorContainer: {
+    alignItems: "center",
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
     padding: 20,
   },
   errorText: {
     fontSize: 16,
-    textAlign: 'center',
     marginBottom: 20,
+    textAlign: "center",
   },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  scrollHint: {
-    position: 'absolute',
-    bottom: 80,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingVertical: 12,
+  header: {
+    alignItems: "center",
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  scrollHintText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 4,
+  headerPlaceholder: {
+    width: 40,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 12,
   },
   pageIndicator: {
     fontSize: 12,
   },
+  pdf: {
+    flex: 1,
+    width: "100%",
+  },
+  pdfContainer: {
+    flex: 1,
+  },
+  retryButton: {
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  scrollHint: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    bottom: 80,
+    left: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    position: "absolute",
+    right: 0,
+  },
+  scrollHintText: {
+    fontSize: 14,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  submitButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    justifyContent: "center",
+    minHeight: 52,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  submitButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
   submitContainer: {
+    borderTopColor: "rgba(0, 0, 0, 0.1)",
+    borderTopWidth: 1,
     marginBottom: 120,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  submitButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
 })
-

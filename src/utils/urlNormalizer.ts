@@ -1,9 +1,9 @@
 /**
  * URL Normalization Utility
- * 
+ *
  * Fixes malformed URLs that may occur in production environments,
  * especially when environment variables are incorrectly set.
- * 
+ *
  * Handles cases like:
  * - "http:serverid" -> "http://serverid" (missing //)
  * - "https:serverid" -> "https://serverid"
@@ -17,9 +17,12 @@
  * @param defaultProtocol The protocol to use if missing (default: 'http')
  * @returns A normalized URL string
  */
-export function normalizeUrl(url: string | undefined | null, defaultProtocol: string = 'http'): string {
-  if (!url || typeof url !== 'string') {
-    return ''
+export function normalizeUrl(
+  url: string | undefined | null,
+  defaultProtocol: string = "http",
+): string {
+  if (!url || typeof url !== "string") {
+    return ""
   }
 
   // Trim whitespace
@@ -27,7 +30,7 @@ export function normalizeUrl(url: string | undefined | null, defaultProtocol: st
 
   // If empty, return empty string
   if (normalized.length === 0) {
-    return ''
+    return ""
   }
 
   // Check if URL has a protocol
@@ -35,7 +38,7 @@ export function normalizeUrl(url: string | undefined | null, defaultProtocol: st
 
   // If URL starts with "http:" or "https:" but missing "//", fix it
   if (/^https?:[^/]/.test(normalized)) {
-    normalized = normalized.replace(/^(https?):/, '$1://')
+    normalized = normalized.replace(/^(https?):/, "$1://")
   }
 
   // If no protocol at all, add default protocol
@@ -47,10 +50,10 @@ export function normalizeUrl(url: string | undefined | null, defaultProtocol: st
   }
 
   // Remove trailing slashes (but keep protocol slashes)
-  normalized = normalized.replace(/([^/])\/+$/, '$1')
+  normalized = normalized.replace(/([^/])\/+$/, "$1")
 
   // Ensure protocol is followed by //
-  normalized = normalized.replace(/^(https?):([^/])/, '$1://$2')
+  normalized = normalized.replace(/^(https?):([^/])/, "$1://$2")
 
   return normalized
 }
@@ -61,7 +64,7 @@ export function normalizeUrl(url: string | undefined | null, defaultProtocol: st
  * @returns true if valid, false otherwise
  */
 export function isValidUrl(url: string | undefined | null): boolean {
-  if (!url || typeof url !== 'string') {
+  if (!url || typeof url !== "string") {
     return false
   }
 
@@ -72,7 +75,7 @@ export function isValidUrl(url: string | undefined | null): boolean {
     }
 
     const urlObj = new URL(normalized)
-    return !!urlObj.hostname && urlObj.hostname !== 'undefined'
+    return !!urlObj.hostname && urlObj.hostname !== "undefined"
   } catch {
     return false
   }
@@ -86,7 +89,7 @@ export function isValidUrl(url: string | undefined | null): boolean {
  */
 export function getSafeUrl(url: string | undefined | null, fallbackUrl?: string): string {
   const normalized = normalizeUrl(url)
-  
+
   if (isValidUrl(normalized)) {
     return normalized
   }
@@ -98,7 +101,5 @@ export function getSafeUrl(url: string | undefined | null, fallbackUrl?: string)
     }
   }
 
-  return ''
+  return ""
 }
-
-

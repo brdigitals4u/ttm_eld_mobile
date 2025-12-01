@@ -1,11 +1,11 @@
 /**
  * Unidentified Driver API
- * 
+ *
  * API for handling unidentified driver records and reassignment
  */
 
-import { apiClient } from './client'
-import { API_ENDPOINTS } from './constants'
+import { apiClient } from "./client"
+import { API_ENDPOINTS } from "./constants"
 
 export interface UnidentifiedDriverRecord {
   id: string
@@ -46,7 +46,7 @@ export interface ReassignRecordsResponse {
  */
 export async function getUnidentifiedRecords(
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
 ): Promise<GetUnidentifiedRecordsResponse> {
   const params: any = {}
   if (startDate) {
@@ -57,8 +57,8 @@ export async function getUnidentifiedRecords(
   }
 
   const response = await apiClient.get<GetUnidentifiedRecordsResponse>(
-    API_ENDPOINTS.UNIDENTIFIED_DRIVERS || '/api/hos/unidentified-drivers',
-    { params }
+    API_ENDPOINTS.UNIDENTIFIED_DRIVERS || "/api/hos/unidentified-drivers",
+    { params },
   )
   return response.data
 }
@@ -67,12 +67,11 @@ export async function getUnidentifiedRecords(
  * Reassign unidentified driver records to a driver
  */
 export async function reassignUnidentifiedRecords(
-  request: ReassignRecordsRequest
+  request: ReassignRecordsRequest,
 ): Promise<ReassignRecordsResponse> {
   const response = await apiClient.post<ReassignRecordsResponse>(
-    API_ENDPOINTS.UNIDENTIFIED_DRIVERS_REASSIGN || '/api/hos/unidentified-drivers/reassign',
-    request
+    API_ENDPOINTS.UNIDENTIFIED_DRIVERS_REASSIGN || "/api/hos/unidentified-drivers/reassign",
+    request,
   )
   return response.data
 }
-

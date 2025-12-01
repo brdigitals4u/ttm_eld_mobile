@@ -1,26 +1,19 @@
 import React, { useState } from "react"
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native"
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { router } from "expo-router"
 import { ArrowLeft, Camera, ThumbsUp, X } from "lucide-react-native"
 
-import ElevatedCard from "@/components/EvevatedCard"
-import LoadingButton from "@/components/LoadingButton"
-import { toast } from "@/components/Toast"
-import { useAppTheme } from "@/theme/context"
-import { Header } from "@/components/Header"
 import { useCreateDVIR, useAddDVIRDefect } from "@/api/dvirs"
-import { useAuth } from "@/stores/authStore"
-import { useLocationData } from "@/hooks/useLocationData"
-import { useEldVehicleData } from "@/hooks/useEldVehicleData"
-import { translate } from "@/i18n/translate"
+import ElevatedCard from "@/components/EvevatedCard"
+import { Header } from "@/components/Header"
+import LoadingButton from "@/components/LoadingButton"
 import { SafeAreaContainer } from "@/components/SafeAreaContainer"
+import { toast } from "@/components/Toast"
+import { useEldVehicleData } from "@/hooks/useEldVehicleData"
+import { useLocationData } from "@/hooks/useLocationData"
+import { translate } from "@/i18n/translate"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 type InspectionType = "pre-trip" | "post-trip"
 type SafetyStatus = "safe" | "unsafe" | null
@@ -42,7 +35,9 @@ export default function DVIRScreen() {
   const [inspectionType, setInspectionType] = useState<InspectionType>("pre-trip")
   const [safetyStatus, setSafetyStatus] = useState<SafetyStatus>(null)
   const [showCertifyModal, setShowCertifyModal] = useState(false)
-  const [defects, setDefects] = useState<Array<{ defect_type: string; severity: string; description: string }>>([])
+  const [defects, setDefects] = useState<
+    Array<{ defect_type: string; severity: string; description: string }>
+  >([])
 
   const [vehiclePhotos, setVehiclePhotos] = useState<PhotoSlot[]>([
     { id: "driver-side", label: "Driver Side", taken: false },
@@ -86,9 +81,9 @@ export default function DVIRScreen() {
       return
     }
 
-    const vehicleId = vehicleAssignment?.vehicle_info?.id 
-      ? parseInt(vehicleAssignment.vehicle_info.id) 
-      : undefined;
+    const vehicleId = vehicleAssignment?.vehicle_info?.id
+      ? parseInt(vehicleAssignment.vehicle_info.id)
+      : undefined
 
     if (!vehicleId) {
       toast.error("No vehicle assigned")
@@ -98,16 +93,19 @@ export default function DVIRScreen() {
     try {
       // Map inspection type and safety status to API format
       const inspectionTypeApi = inspectionType === "pre-trip" ? "pre_trip" : "post_trip"
-      const statusApi = safetyStatus === "safe" ? "pass" : safetyStatus === "unsafe" ? "fail" : "pass_with_defects"
-      
+      const statusApi =
+        safetyStatus === "safe" ? "pass" : safetyStatus === "unsafe" ? "fail" : "pass_with_defects"
+
       // Get odometer from ELD device or vehicle assignment
-      const odometer = eldOdometer.source === 'eld' && eldOdometer.value !== null
-        ? eldOdometer.value
-        : (vehicleAssignment?.vehicle_info?.current_odometer 
-          ? (typeof vehicleAssignment.vehicle_info.current_odometer === 'object' && vehicleAssignment.vehicle_info.current_odometer?.value
-            ? vehicleAssignment.vehicle_info.current_odometer.value
-            : vehicleAssignment.vehicle_info.current_odometer)
-          : undefined)
+      const odometer =
+        eldOdometer.source === "eld" && eldOdometer.value !== null
+          ? eldOdometer.value
+          : vehicleAssignment?.vehicle_info?.current_odometer
+            ? typeof vehicleAssignment.vehicle_info.current_odometer === "object" &&
+              vehicleAssignment.vehicle_info.current_odometer?.value
+              ? vehicleAssignment.vehicle_info.current_odometer.value
+              : vehicleAssignment.vehicle_info.current_odometer
+            : undefined
 
       // Create DVIR POST API call
       const dvirResponse = await createDVIRMutation.mutateAsync({
@@ -131,9 +129,9 @@ export default function DVIRScreen() {
             await addDefectMutation.mutateAsync({
               dvir: dvirResponse.id,
               defect_type: defect.defect_type,
-              severity: defect.severity as 'critical' | 'major' | 'minor',
+              severity: defect.severity as "critical" | "major" | "minor",
               description: defect.description,
-              status: 'pending',
+              status: "pending",
             })
           } catch (error) {
             console.error("Failed to add defect:", error)
@@ -205,187 +203,194 @@ export default function DVIRScreen() {
           }}
           safeAreaEdges={["top"]}
         />
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {/* Inspection Type Toggle */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              inspectionType === "pre-trip" && styles.toggleButtonActive,
-              { borderColor: colors.tint },
-            ]}
-            onPress={() => setInspectionType("pre-trip")}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                { color: inspectionType === "pre-trip" ? colors.tint : colors.textDim },
-              ]}
-            >
-              Pre-Trip
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              inspectionType === "post-trip" && styles.toggleButtonActive,
-              { borderColor: colors.tint },
-            ]}
-            onPress={() => setInspectionType("post-trip")}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                { color: inspectionType === "post-trip" ? colors.tint : colors.textDim },
-              ]}
-            >
-              Post-Trip
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Vehicle Photos Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Take walkaround photos</Text>
-          {renderPhotoGrid(vehiclePhotos)}
-        </View>
-
-        {/* Trailer Photos Section */}
-        <View style={styles.section}>{renderPhotoGrid(trailerPhotos, true)}</View>
-
-        {/* Vehicle Defects Section */}
-        <ElevatedCard style={styles.defectsCard}>
-          <Text style={[styles.defectsTitle, { color: colors.text }]}>{translate("dvir.addDefect" as any)}</Text>
-          <Text style={[styles.defectsSubtitle, { color: colors.textDim }]}>
-            Any vehicle attributes not displayed are certified safe by the driver
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.addDefectsButton, { borderColor: colors.tint }]}
-            onPress={() => {
-              // TODO: Open defect form modal
-              toast.info("Defect form will open here")
-            }}
-          >
-            <Text style={[styles.addDefectsText, { color: colors.tint }]}>Add defects</Text>
-          </TouchableOpacity>
-        </ElevatedCard>
-
-        {/* Trailer Defects Section */}
-        <ElevatedCard style={styles.defectsCard}>
-          <Text style={[styles.defectsTitle, { color: colors.text }]}>Add new trailer defects</Text>
-          <Text style={[styles.defectsSubtitle, { color: colors.textDim }]}>
-            Any trailer attributes not displayed are certified safe by the driver
-          </Text>
-
-          <TouchableOpacity
-            style={[styles.addDefectsButton, { borderColor: colors.tint }]}
-            onPress={() => {
-              // TODO: Open defect form modal
-              toast.info("Defect form will open here")
-            }}
-          >
-            <Text style={[styles.addDefectsText, { color: colors.tint }]}>Add defects</Text>
-          </TouchableOpacity>
-        </ElevatedCard>
-
-        {/* Safety Status Section */}
-        <ElevatedCard style={[styles.safetyCard, { borderColor: "#FF6B6B", borderWidth: 2 }]}>
-          <Text style={[styles.safetyTitle, { color: colors.text }]}>Choose safety status</Text>
-          <Text style={[styles.safetyRequired, { color: "#FF6B6B" }]}>Required</Text>
-
-          <View style={styles.safetyButtons}>
+        <ScrollView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          contentContainerStyle={styles.contentContainer}
+        >
+          {/* Inspection Type Toggle */}
+          <View style={styles.toggleContainer}>
             <TouchableOpacity
               style={[
-                styles.safetyButton,
-                safetyStatus === "safe" && styles.safetyButtonActive,
-                { borderColor: colors.border },
+                styles.toggleButton,
+                inspectionType === "pre-trip" && styles.toggleButtonActive,
+                { borderColor: colors.tint },
               ]}
-              onPress={() => setSafetyStatus("safe")}
+              onPress={() => setInspectionType("pre-trip")}
             >
               <Text
                 style={[
-                  styles.safetyButtonText,
-                  { color: safetyStatus === "safe" ? colors.tint : colors.text },
+                  styles.toggleText,
+                  { color: inspectionType === "pre-trip" ? colors.tint : colors.textDim },
                 ]}
               >
-                Safe to drive
+                Pre-Trip
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
-                styles.safetyButton,
-                safetyStatus === "unsafe" && [
-                  styles.safetyButtonActive,
-                  { backgroundColor: "#FFE5E5" },
-                ],
-                { borderColor: safetyStatus === "unsafe" ? "#FF6B6B" : colors.border },
+                styles.toggleButton,
+                inspectionType === "post-trip" && styles.toggleButtonActive,
+                { borderColor: colors.tint },
               ]}
-              onPress={() => setSafetyStatus("unsafe")}
+              onPress={() => setInspectionType("post-trip")}
             >
               <Text
                 style={[
-                  styles.safetyButtonText,
-                  { color: safetyStatus === "unsafe" ? "#FF6B6B" : colors.text },
+                  styles.toggleText,
+                  { color: inspectionType === "post-trip" ? colors.tint : colors.textDim },
                 ]}
               >
-                Unsafe
+                Post-Trip
               </Text>
             </TouchableOpacity>
           </View>
-        </ElevatedCard>
 
-        <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
-          <LoadingButton title="Next" onPress={handleNext} fullWidth style={styles.nextButton} />
-        </SafeAreaContainer>
-      </ScrollView>
+          {/* Vehicle Photos Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Take walkaround photos
+            </Text>
+            {renderPhotoGrid(vehiclePhotos)}
+          </View>
 
-      {/* Certify Modal */}
-      <Modal
-        visible={showCertifyModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowCertifyModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+          {/* Trailer Photos Section */}
+          <View style={styles.section}>{renderPhotoGrid(trailerPhotos, true)}</View>
+
+          {/* Vehicle Defects Section */}
+          <ElevatedCard style={styles.defectsCard}>
+            <Text style={[styles.defectsTitle, { color: colors.text }]}>
+              {translate("dvir.addDefect" as any)}
+            </Text>
+            <Text style={[styles.defectsSubtitle, { color: colors.textDim }]}>
+              Any vehicle attributes not displayed are certified safe by the driver
+            </Text>
+
             <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowCertifyModal(false)}
+              style={[styles.addDefectsButton, { borderColor: colors.tint }]}
+              onPress={() => {
+                // TODO: Open defect form modal
+                toast.info("Defect form will open here")
+              }}
             >
-              <ArrowLeft size={24} color={colors.text} />
+              <Text style={[styles.addDefectsText, { color: colors.tint }]}>Add defects</Text>
             </TouchableOpacity>
+          </ElevatedCard>
 
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Certify DVIR</Text>
+          {/* Trailer Defects Section */}
+          <ElevatedCard style={styles.defectsCard}>
+            <Text style={[styles.defectsTitle, { color: colors.text }]}>
+              Add new trailer defects
+            </Text>
+            <Text style={[styles.defectsSubtitle, { color: colors.textDim }]}>
+              Any trailer attributes not displayed are certified safe by the driver
+            </Text>
 
-            <View style={styles.modalIcon}>
-              <ThumbsUp size={48} color="#4CAF50" />
+            <TouchableOpacity
+              style={[styles.addDefectsButton, { borderColor: colors.tint }]}
+              onPress={() => {
+                // TODO: Open defect form modal
+                toast.info("Defect form will open here")
+              }}
+            >
+              <Text style={[styles.addDefectsText, { color: colors.tint }]}>Add defects</Text>
+            </TouchableOpacity>
+          </ElevatedCard>
+
+          {/* Safety Status Section */}
+          <ElevatedCard style={[styles.safetyCard, { borderColor: "#FF6B6B", borderWidth: 2 }]}>
+            <Text style={[styles.safetyTitle, { color: colors.text }]}>Choose safety status</Text>
+            <Text style={[styles.safetyRequired, { color: "#FF6B6B" }]}>Required</Text>
+
+            <View style={styles.safetyButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.safetyButton,
+                  safetyStatus === "safe" && styles.safetyButtonActive,
+                  { borderColor: colors.border },
+                ]}
+                onPress={() => setSafetyStatus("safe")}
+              >
+                <Text
+                  style={[
+                    styles.safetyButtonText,
+                    { color: safetyStatus === "safe" ? colors.tint : colors.text },
+                  ]}
+                >
+                  Safe to drive
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.safetyButton,
+                  safetyStatus === "unsafe" && [
+                    styles.safetyButtonActive,
+                    { backgroundColor: "#FFE5E5" },
+                  ],
+                  { borderColor: safetyStatus === "unsafe" ? "#FF6B6B" : colors.border },
+                ]}
+                onPress={() => setSafetyStatus("unsafe")}
+              >
+                <Text
+                  style={[
+                    styles.safetyButtonText,
+                    { color: safetyStatus === "unsafe" ? "#FF6B6B" : colors.text },
+                  ]}
+                >
+                  Unsafe
+                </Text>
+              </TouchableOpacity>
             </View>
+          </ElevatedCard>
 
-            <Text style={[styles.modalVehicleTitle, { color: colors.text }]}>
-              Safe DVIR for {vehicleAssignment?.vehicle_info?.vehicle_unit || 'Vehicle'}
-            </Text>
+          <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
+            <LoadingButton title="Next" onPress={handleNext} fullWidth style={styles.nextButton} />
+          </SafeAreaContainer>
+        </ScrollView>
 
-            <Text style={[styles.modalCertifyText, { color: colors.textDim }]}>
-              I certify that {vehicleAssignment?.vehicle_info?.vehicle_unit || 'this vehicle'} is safe to drive.
-            </Text>
+        {/* Certify Modal */}
+        <Modal
+          visible={showCertifyModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowCertifyModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowCertifyModal(false)}
+              >
+                <ArrowLeft size={24} color={colors.text} />
+              </TouchableOpacity>
 
-            <LoadingButton
-              title="Certify and Submit"
-              onPress={handleCertifyAndSubmit}
-              fullWidth
-              style={styles.certifyButton}
-              loading={createDVIRMutation.isPending || addDefectMutation.isPending}
-              disabled={createDVIRMutation.isPending || addDefectMutation.isPending}
-            />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Certify DVIR</Text>
+
+              <View style={styles.modalIcon}>
+                <ThumbsUp size={48} color="#4CAF50" />
+              </View>
+
+              <Text style={[styles.modalVehicleTitle, { color: colors.text }]}>
+                Safe DVIR for {vehicleAssignment?.vehicle_info?.vehicle_unit || "Vehicle"}
+              </Text>
+
+              <Text style={[styles.modalCertifyText, { color: colors.textDim }]}>
+                I certify that {vehicleAssignment?.vehicle_info?.vehicle_unit || "this vehicle"} is
+                safe to drive.
+              </Text>
+
+              <LoadingButton
+                title="Certify and Submit"
+                onPress={handleCertifyAndSubmit}
+                fullWidth
+                style={styles.certifyButton}
+                loading={createDVIRMutation.isPending || addDefectMutation.isPending}
+                disabled={createDVIRMutation.isPending || addDefectMutation.isPending}
+              />
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
       </View>
     </>
   )

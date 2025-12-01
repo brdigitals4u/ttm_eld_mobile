@@ -1,21 +1,29 @@
-import React, { useState } from 'react'
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
-import { Text } from '@/components/Text'
-import { Header } from '@/components/Header'
-import { useAppTheme } from '@/theme/context'
-import { useViolations } from '@/api/driver-hooks'
-import { useAuth } from '@/stores/authStore'
-import { AlertTriangle, CheckCircle, Clock, FileText } from 'lucide-react-native'
-import { router } from 'expo-router'
-import ElevatedCard from '@/components/EvevatedCard'
-import { translate } from '@/i18n/translate'
+import React, { useState } from "react"
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native"
+import { router } from "expo-router"
+import { AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react-native"
+
+import { useViolations } from "@/api/driver-hooks"
+import ElevatedCard from "@/components/EvevatedCard"
+import { Header } from "@/components/Header"
+import { Text } from "@/components/Text"
+import { translate } from "@/i18n/translate"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 export default function ViolationsScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
   const { isAuthenticated } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
-  
+
   const { data: violationsData, isLoading, refetch } = useViolations(isAuthenticated)
 
   const onRefresh = async () => {
@@ -25,24 +33,24 @@ export default function ViolationsScreen() {
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A'
+    if (!dateString) return "N/A"
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     })
   }
 
   const getViolationIcon = (type: string) => {
     switch (type) {
-      case 'shiftHours':
+      case "shiftHours":
         return <Clock size={20} color="#EF4444" strokeWidth={2.5} />
-      case 'driveHours':
+      case "driveHours":
         return <AlertTriangle size={20} color="#EF4444" strokeWidth={2.5} />
-      case 'breakRequired':
+      case "breakRequired":
         return <Clock size={20} color="#F59E0B" strokeWidth={2.5} />
       default:
         return <AlertTriangle size={20} color="#EF4444" strokeWidth={2.5} />
@@ -51,13 +59,13 @@ export default function ViolationsScreen() {
 
   const getViolationColor = (type: string) => {
     switch (type) {
-      case 'shiftHours':
-      case 'driveHours':
-        return '#EF4444'
-      case 'breakRequired':
-        return '#F59E0B'
+      case "shiftHours":
+      case "driveHours":
+        return "#EF4444"
+      case "breakRequired":
+        return "#F59E0B"
       default:
-        return '#EF4444'
+        return "#EF4444"
     }
   }
 
@@ -65,7 +73,7 @@ export default function ViolationsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-       <Header
+      <Header
         title={translate("violations.title" as any)}
         titleMode="center"
         backgroundColor={colors.background}
@@ -106,11 +114,17 @@ export default function ViolationsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.emptyContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.PRIMARY} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.PRIMARY}
+            />
           }
         >
           <CheckCircle size={64} color="#10B981" strokeWidth={2} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>{translate("violations.noViolations" as any)}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            {translate("violations.noViolations" as any)}
+          </Text>
           <Text style={[styles.emptyText, { color: colors.textDim }]}>
             You are currently in compliance with all Hours of Service regulations.
           </Text>
@@ -120,7 +134,11 @@ export default function ViolationsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.PRIMARY} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.PRIMARY}
+            />
           }
         >
           {/* Summary Card */}
@@ -128,16 +146,15 @@ export default function ViolationsScreen() {
             <View style={styles.summaryHeader}>
               <AlertTriangle size={24} color="#EF4444" strokeWidth={2.5} />
               <View style={styles.summaryContent}>
-                <Text style={[styles.summaryTitle, { color: colors.text }]}>
-                  Active Violations
-                </Text>
-                <Text style={[styles.summaryCount, { color: '#EF4444' }]}>
-                  {violations.length} violation{violations.length !== 1 ? 's' : ''}
+                <Text style={[styles.summaryTitle, { color: colors.text }]}>Active Violations</Text>
+                <Text style={[styles.summaryCount, { color: "#EF4444" }]}>
+                  {violations.length} violation{violations.length !== 1 ? "s" : ""}
                 </Text>
               </View>
             </View>
             <Text style={[styles.summaryMessage, { color: colors.textDim }]}>
-              These violations require immediate attention. Review each violation and take appropriate action.
+              These violations require immediate attention. Review each violation and take
+              appropriate action.
             </Text>
           </ElevatedCard>
 
@@ -149,13 +166,18 @@ export default function ViolationsScreen() {
             return (
               <ElevatedCard key={violation.id || index} style={styles.violationCard}>
                 <View style={styles.violationHeader}>
-                  <View style={[styles.violationIconContainer, { backgroundColor: `${violationColor}15` }]}>
+                  <View
+                    style={[
+                      styles.violationIconContainer,
+                      { backgroundColor: `${violationColor}15` },
+                    ]}
+                  >
                     {getViolationIcon(violation.type)}
                   </View>
                   <View style={styles.violationHeaderContent}>
                     <View style={styles.violationTitleRow}>
                       <Text style={[styles.violationType, { color: violationColor }]}>
-                        {violation.type?.replace(/([A-Z])/g, ' $1').trim() || 'HOS Violation'}
+                        {violation.type?.replace(/([A-Z])/g, " $1").trim() || "HOS Violation"}
                       </Text>
                       {isResolved && (
                         <View style={styles.resolvedBadge}>
@@ -196,8 +218,8 @@ export default function ViolationsScreen() {
           {/* Info Footer */}
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.textDim }]}>
-              Violations are automatically detected based on Hours of Service regulations.
-              Contact your fleet manager if you have questions about any violation.
+              Violations are automatically detected based on Hours of Service regulations. Contact
+              your fleet manager if you have questions about any violation.
             </Text>
           </View>
         </ScrollView>
@@ -210,140 +232,139 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
   contentContainer: {
-    padding: 16,
     gap: 16,
+    padding: 16,
+  },
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  detailRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 13,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  footer: {
+    marginTop: 8,
+    padding: 16,
+  },
+  footerText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
   },
   loadingContainer: {
+    alignItems: "center",
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     gap: 16,
+    justifyContent: "center",
   },
   loadingText: {
     fontSize: 16,
     marginTop: 8,
   },
-  emptyContainer: {
+  resolvedBadge: {
+    alignItems: "center",
+    backgroundColor: "#D1FAE5",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  resolvedText: {
+    color: "#10B981",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
   },
   summaryCard: {
-    padding: 16,
     marginBottom: 8,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    padding: 16,
   },
   summaryContent: {
     flex: 1,
   },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
   summaryCount: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
+  },
+  summaryHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
   },
   summaryMessage: {
     fontSize: 13,
     lineHeight: 18,
   },
-  violationCard: {
-    padding: 16,
-  },
-  violationHeader: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  violationIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  violationHeaderContent: {
-    flex: 1,
-  },
-  violationTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "700",
     marginBottom: 4,
   },
-  violationType: {
-    fontSize: 16,
-    fontWeight: '700',
-    textTransform: 'capitalize',
-  },
-  resolvedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  resolvedText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#10B981',
+  violationCard: {
+    padding: 16,
   },
   violationDescription: {
     fontSize: 14,
     lineHeight: 20,
   },
   violationDetails: {
+    borderTopColor: "#E5E7EB",
+    borderTopWidth: 1,
     gap: 8,
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  violationHeader: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
   },
-  detailLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 13,
+  violationHeaderContent: {
     flex: 1,
   },
-  footer: {
-    padding: 16,
-    marginTop: 8,
+  violationIconContainer: {
+    alignItems: "center",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
   },
-  footerText: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
+  violationTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  violationType: {
+    fontSize: 16,
+    fontWeight: "700",
+    textTransform: "capitalize",
   },
 })
-

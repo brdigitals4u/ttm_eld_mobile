@@ -1,9 +1,10 @@
-import React, { useMemo, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native'
-import { Calendar, MapPin, Fuel, Truck, Receipt } from 'lucide-react-native'
-import Animated, { FadeInUp } from 'react-native-reanimated'
-import { useAppTheme } from '@/theme/context'
-import { DriverFuelPurchaseListItem } from '@/api/fuel-purchase'
+import React, { useMemo, useCallback } from "react"
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native"
+import { Calendar, MapPin, Fuel, Truck, Receipt } from "lucide-react-native"
+import Animated, { FadeInUp } from "react-native-reanimated"
+
+import { DriverFuelPurchaseListItem } from "@/api/fuel-purchase"
+import { useAppTheme } from "@/theme/context"
 
 const AnimatedView = Animated.createAnimatedComponent(View)
 
@@ -16,25 +17,25 @@ interface FuelPurchaseCardProps {
 
 // Memoized helper functions
 const formatDate = (dateString: string): string => {
-  if (!dateString) return ''
+  if (!dateString) return ""
   try {
     const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
     })
   } catch {
-    return ''
+    return ""
   }
 }
 
-const formatCurrency = (amount: number | string, currency: string = 'USD'): string => {
+const formatCurrency = (amount: number | string, currency: string = "USD"): string => {
   const num = Number(amount) || 0
   try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
       currency: currency.toUpperCase(),
     }).format(num)
   } catch {
@@ -47,17 +48,20 @@ const litersToGallons = (liters: number | string): string => {
   return (num / 3.78541).toFixed(2)
 }
 
-// Get fuel grade color
-const getFuelGradeColor = (grade: string | null | undefined, isDark: boolean): string => {
-  if (!grade) return isDark ? '#6B7280' : '#9CA3AF'
+// Get fuel grade color - uses theme colors
+const getFuelGradeColor = (
+  grade: string | null | undefined,
+  colors: any,
+): string => {
+  if (!grade) return colors.textDim
   const gradeLower = grade.toLowerCase()
-  if (gradeLower.includes('premium') || gradeLower.includes('93')) {
-    return '#F59E0B' // Amber/Gold
+  if (gradeLower.includes("premium") || gradeLower.includes("93")) {
+    return colors.warning // Amber/Gold
   }
-  if (gradeLower.includes('mid') || gradeLower.includes('89') || gradeLower.includes('plus')) {
-    return '#3B82F6' // Blue
+  if (gradeLower.includes("mid") || gradeLower.includes("89") || gradeLower.includes("plus")) {
+    return colors.tint // Blue
   }
-  return isDark ? '#6B7280' : '#9CA3AF' // Gray for regular
+  return colors.textDim // Gray for regular
 }
 
 const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
@@ -77,28 +81,28 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
   // Memoize computed values
   const gallons = useMemo(
     () => litersToGallons(purchase.fuel_quantity_liters),
-    [purchase.fuel_quantity_liters]
+    [purchase.fuel_quantity_liters],
   )
 
   const price = useMemo(
-    () => formatCurrency(purchase.transaction_price_amount, 'USD'),
-    [purchase.transaction_price_amount]
+    () => formatCurrency(purchase.transaction_price_amount, "USD"),
+    [purchase.transaction_price_amount],
   )
 
   const formattedDate = useMemo(
     () => formatDate(purchase.transaction_time),
-    [purchase.transaction_time]
+    [purchase.transaction_time],
   )
 
   const fuelGradeColor = useMemo(
-    () => getFuelGradeColor(purchase.fuel_grade, isDark),
-    [purchase.fuel_grade, isDark]
+    () => getFuelGradeColor(purchase.fuel_grade, colors),
+    [purchase.fuel_grade, colors],
   )
 
-  const merchantName = purchase.merchant_name || purchase.transaction_location || 'Unknown Station'
-  const state = purchase.state || ''
-  const fuelGrade = purchase.fuel_grade || ''
-  const vehicleUnit = purchase.vehicle?.vehicle_unit || ''
+  const merchantName = purchase.merchant_name || purchase.transaction_location || "Unknown Station"
+  const state = purchase.state || ""
+  const fuelGrade = purchase.fuel_grade || ""
+  const vehicleUnit = purchase.vehicle?.vehicle_unit || ""
 
   // Handlers
   const handleCardPress = useCallback(() => {
@@ -116,20 +120,56 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
         onReceiptPress()
       }
     },
-    [onReceiptPress, purchase.receipt_image_url]
+    [onReceiptPress, purchase.receipt_image_url],
+  )
+
+  // Dynamic styles based on theme
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          alignItems: "center",
+          borderRadius: 16,
+          borderWidth: 1,
+          elevation: 1,
+          flexDirection: "row",
+          padding: 16,
+          position: "relative",
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 3,
+        },
+        receiptIconContainer: {
+          alignItems: "center",
+          borderRadius: 14,
+          elevation: 2,
+          height: 28,
+          justifyContent: "center",
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 3,
+          width: 28,
+        },
+        logo: {
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 24,
+          height: 48,
+          width: 48,
+        },
+      }),
+    [colors],
   )
 
   return (
-    <AnimatedView
-      entering={FadeInUp.duration(300).delay(index * 40)}
-      style={styles.cardContainer}
-    >
+    <AnimatedView entering={FadeInUp.duration(300).delay(index * 40)} style={styles.cardContainer}>
       <TouchableOpacity
         style={[
-          styles.card,
+          dynamicStyles.card,
           {
-            backgroundColor: isDark ? '#181B20' : '#FFFFFF',
-            borderColor: isDark ? '#242830' : 'rgba(0,0,0,0.06)',
+            backgroundColor: colors.cardBackground,
+            borderColor: colors.border,
           },
         ]}
         onPress={handleCardPress}
@@ -139,17 +179,14 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
       >
         {/* Left: Fuel Icon/Logo */}
         <View style={styles.leftSection}>
-        <View style={[styles.iconCircle, { backgroundColor: `${fuelGradeColor}20` }]}>
-              <Fuel size={24} color={fuelGradeColor} strokeWidth={2} />
-            </View>
+          <View style={[styles.iconCircle, { backgroundColor: `${fuelGradeColor}20` }]}>
+            <Fuel size={24} color={fuelGradeColor} strokeWidth={2} />
+          </View>
         </View>
 
         {/* Center: Merchant + Time + Chips */}
         <View style={styles.centerSection}>
-          <Text
-            style={[styles.merchantName, { color: colors.text }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.merchantName, { color: colors.text }]} numberOfLines={1}>
             {merchantName}
           </Text>
           <View style={styles.timeRow}>
@@ -165,22 +202,12 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
                   style={[
                     styles.chip,
                     {
-                      backgroundColor: isDark
-                        ? `${fuelGradeColor}20`
-                        : `${fuelGradeColor}15`,
+                      backgroundColor: colors.sectionBackground,
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.chipDot,
-                      { backgroundColor: fuelGradeColor },
-                    ]}
-                  />
-                  <Text
-                    style={[styles.chipText, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
+                  <View style={[styles.chipDot, { backgroundColor: fuelGradeColor }]} />
+                  <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
                     {fuelGrade}
                   </Text>
                 </View>
@@ -190,17 +217,12 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
                   style={[
                     styles.chip,
                     {
-                      backgroundColor: isDark
-                        ? 'rgba(255,255,255,0.08)'
-                        : 'rgba(0,0,0,0.05)',
+                      backgroundColor: colors.sectionBackground,
                     },
                   ]}
                 >
                   <Truck size={12} color={colors.tint} strokeWidth={2} />
-                  <Text
-                    style={[styles.chipText, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
+                  <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
                     {vehicleUnit}
                   </Text>
                 </View>
@@ -211,15 +233,9 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
 
         {/* Right: Big Numbers */}
         <View style={styles.rightSection}>
-          <Text style={[styles.gallonsText, { color: colors.text }]}>
-            {gallons}
-          </Text>
-          <Text style={[styles.gallonsLabel, { color: colors.textDim }]}>
-            gal
-          </Text>
-          <Text style={[styles.priceText, { color: colors.text }]}>
-            {price}
-          </Text>
+          <Text style={[styles.gallonsText, { color: colors.text }]}>{gallons}</Text>
+          <Text style={[styles.gallonsLabel, { color: colors.textDim }]}>gal</Text>
+          <Text style={[styles.priceText, { color: colors.text }]}>{price}</Text>
         </View>
 
         {/* Receipt Thumbnail (corner overlay) */}
@@ -232,8 +248,8 @@ const _FuelPurchaseCard: React.FC<FuelPurchaseCardProps> = ({
             accessibilityRole="button"
             accessibilityLabel="View receipt"
           >
-            <View style={[styles.receiptIconContainer, { backgroundColor: colors.tint }]}>
-              <Receipt size={14} color="#fff" strokeWidth={2.5} />
+            <View style={[dynamicStyles.receiptIconContainer, { backgroundColor: colors.tint }]}>
+              <Receipt size={14} color={colors.text} strokeWidth={2.5} />
             </View>
           </TouchableOpacity>
         )}
@@ -254,118 +270,87 @@ export const FuelPurchaseCard = React.memo(_FuelPurchaseCard, (prev, next) => {
 
 const styles = StyleSheet.create({
   cardContainer: {
-    marginHorizontal: 16,
     marginBottom: 12,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-  },
-  leftSection: {
-    marginRight: 12,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
+    marginHorizontal: 16,
   },
   centerSection: {
     flex: 1,
     gap: 4,
   },
+  chip: {
+    alignItems: "center",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  chipDot: {
+    borderRadius: 3,
+    height: 6,
+    width: 6,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  chipsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
+  },
+  gallonsLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    marginTop: -2,
+    textTransform: "uppercase",
+  },
+  gallonsText: {
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    lineHeight: 24,
+  },
+  iconCircle: {
+    alignItems: "center",
+    borderRadius: 24,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  leftSection: {
+    marginRight: 12,
+  },
   merchantName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.3,
   },
+  priceText: {
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    marginTop: 4,
+  },
+  receiptThumbnail: {
+    bottom: 12,
+    position: "absolute",
+    right: 12,
+  },
+  rightSection: {
+    alignItems: "flex-end",
+    marginLeft: 12,
+  },
   timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 4,
   },
   timeText: {
     fontSize: 12,
-    fontWeight: '500',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  chipDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  rightSection: {
-    alignItems: 'flex-end',
-    marginLeft: 12,
-  },
-  gallonsText: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    lineHeight: 24,
-  },
-  gallonsLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: -2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  priceText: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 4,
-    letterSpacing: -0.3,
-  },
-  receiptThumbnail: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-  },
-  receiptIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    fontWeight: "500",
   },
 })

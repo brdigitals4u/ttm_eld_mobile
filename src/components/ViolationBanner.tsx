@@ -1,15 +1,16 @@
 /**
  * Violation Banner Component
- * 
+ *
  * Dismissible banner for high priority violations.
  * Auto-dismisses after 10 seconds.
  */
 
-import React, { useEffect, useState, useRef } from 'react'
-import { View, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native'
-import { AlertCircle, X } from 'lucide-react-native'
-import { router } from 'expo-router'
-import { useViolationNotifications, ActiveViolation } from '@/contexts/ViolationNotificationContext'
+import React, { useEffect, useState, useRef } from "react"
+import { View, StyleSheet, TouchableOpacity, Text, Animated } from "react-native"
+import { router } from "expo-router"
+import { AlertCircle, X } from "lucide-react-native"
+
+import { useViolationNotifications, ActiveViolation } from "@/contexts/ViolationNotificationContext"
 
 interface ViolationBannerProps {
   violation: ActiveViolation
@@ -47,7 +48,7 @@ export const ViolationBanner: React.FC<ViolationBannerProps> = ({ violation, onD
 
   const handleViewDetails = () => {
     handleDismiss()
-    router.push('/violations' as any)
+    router.push("/violations" as any)
   }
 
   if (!isVisible || !violation) {
@@ -86,17 +87,11 @@ export const ViolationBanner: React.FC<ViolationBannerProps> = ({ violation, onD
         </View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.viewButton}
-            onPress={handleViewDetails}
-          >
+          <TouchableOpacity style={styles.viewButton} onPress={handleViewDetails}>
             <Text style={styles.viewButtonText}>View</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.dismissButton}
-            onPress={handleDismiss}
-          >
+          <TouchableOpacity style={styles.dismissButton} onPress={handleDismiss}>
             <X size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -106,73 +101,72 @@ export const ViolationBanner: React.FC<ViolationBannerProps> = ({ violation, onD
 }
 
 const styles = StyleSheet.create({
+  buttonContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
-    backgroundColor: '#F97316', // Orange
+    backgroundColor: "#F97316", // Orange
     paddingTop: 50, // Account for status bar
     paddingHorizontal: 16,
     paddingBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 12,
   },
+  dismissButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 16,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
   iconContainer: {
-    width: 40,
-    height: 40,
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  message: {
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
   },
   textContainer: {
     flex: 1,
     gap: 4,
   },
   title: {
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  message: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
-    lineHeight: 20,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontWeight: "800",
   },
   viewButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 12,
   },
   viewButtonText: {
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  dismissButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontWeight: "700",
   },
 })
-

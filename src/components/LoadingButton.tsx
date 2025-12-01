@@ -1,76 +1,77 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
-import { useAppTheme } from '@/theme/context';
-import { Text } from '@/components/Text';
+import React from "react"
+import { ActivityIndicator, Pressable, StyleSheet, View, ViewStyle } from "react-native"
+
+import { Text } from "@/components/Text"
+import { useAppTheme } from "@/theme/context"
 
 interface ButtonProps {
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: React.ReactNode;
-  fullWidth?: boolean;
-  style?: ViewStyle;
+  title: string
+  onPress: () => void
+  variant?: "primary" | "secondary" | "outline" | "danger"
+  disabled?: boolean
+  loading?: boolean
+  icon?: React.ReactNode
+  fullWidth?: boolean
+  style?: ViewStyle
 }
 
 export default function Button({
   title,
   onPress,
-  variant = 'primary',
+  variant = "primary",
   disabled = false,
   loading = false,
   icon,
   fullWidth = false,
   style,
 }: ButtonProps) {
-  const { theme } = useAppTheme();
-  
-  const { colors, isDark } = theme;
-  
+  const { theme } = useAppTheme()
+
+  const { colors, isDark } = theme
+
   const getBackgroundColor = () => {
-    if (disabled) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    
+    if (disabled) return isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
+
     switch (variant) {
-      case 'primary':
-        return colors.tint;
-      case 'secondary':
-        return colors.palette.accent500;
-      case 'outline':
-        return 'transparent';
-      case 'danger':
-        return colors.error;
+      case "primary":
+        return colors.tint
+      case "secondary":
+        return colors.palette.accent500
+      case "outline":
+        return "transparent"
+      case "danger":
+        return colors.error
       default:
-        return colors.tint;
+        return colors.tint
     }
-  };
-  
+  }
+
   const getTextColor = () => {
-    if (disabled) return isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-    
+    if (disabled) return isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"
+
     switch (variant) {
-      case 'outline':
-        return colors.tint;
-      case 'primary':
-      case 'secondary':
-      case 'danger':
-        return '#fff';
+      case "outline":
+        return colors.tint
+      case "primary":
+      case "secondary":
+      case "danger":
+        return "#fff"
       default:
-        return '#fff';
+        return "#fff"
     }
-  };
-  
+  }
+
   const getBorderColor = () => {
-    if (disabled) return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    
+    if (disabled) return isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"
+
     switch (variant) {
-      case 'outline':
-        return colors.tint;
+      case "outline":
+        return colors.tint
       default:
-        return 'transparent';
+        return "transparent"
     }
-  };
-  
+  }
+
   return (
     <Pressable
       onPress={onPress}
@@ -81,7 +82,7 @@ export default function Button({
           backgroundColor: getBackgroundColor(),
           borderColor: getBorderColor(),
           opacity: pressed ? 0.8 : 1,
-          width: fullWidth ? '100%' : undefined,
+          width: fullWidth ? "100%" : undefined,
         },
         style,
       ]}
@@ -97,29 +98,29 @@ export default function Button({
         )}
       </View>
     </Pressable>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    alignItems: "center",
     borderRadius: 8,
     borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
   },
   iconContainer: {
     marginRight: 8,
   },
   title: {
     fontSize: 16,
-    fontWeight: '600' as const,
-    textAlign: 'center',
+    fontWeight: "600" as const,
+    textAlign: "center",
   },
-});
+})

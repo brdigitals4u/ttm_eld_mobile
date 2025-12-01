@@ -122,11 +122,13 @@ const ar: Translations = {
     failedToConnect: "فشل الاتصال",
     failedToStartScan: "فشل بدء المسح",
     failedToStopScan: "فشل إيقاف المسح",
-    bluetoothPermissionsRequired: "مطلوب أذونات Bluetooth لاستخدام هذا التطبيق. يرجى منح الأذونات وإعادة تشغيل التطبيق.",
+    bluetoothPermissionsRequired:
+      "مطلوب أذونات Bluetooth لاستخدام هذا التطبيق. يرجى منح الأذونات وإعادة تشغيل التطبيق.",
     failedToInitializeBluetooth: "فشل تهيئة Bluetooth",
     deviceNotConnected: "الجهاز غير متصل. يرجى المحاولة مرة أخرى.",
     connectionLost: "فقد الاتصال. يرجى المحاولة مرة أخرى.",
-    failedToStartEldTransmission: "فشل بدء إرسال بيانات ELD. يمكنك المحاولة مرة أخرى من لوحة التحكم.",
+    failedToStartEldTransmission:
+      "فشل بدء إرسال بيانات ELD. يمكنك المحاولة مرة أخرى من لوحة التحكم.",
     failedToCompleteSetup: "فشل إكمال الإعداد",
     connectionModal: {
       connecting: "جارٍ الاتصال بجهاز ELD...",

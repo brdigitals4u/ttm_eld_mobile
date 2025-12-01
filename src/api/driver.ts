@@ -1,19 +1,21 @@
 /**
  * Driver API Module - Complete Mobile API Integration
- * 
+ *
  * Implements all driver-specific endpoints per the Mobile API Complete Reference:
  * - HOS Management (status, logs, violations, certify, annotate)
  * - Location Tracking (single update, batch upload)
  * - Device Health (heartbeat, malfunction reporting)
  * - Notifications (register, poll, mark read)
- * 
+ *
  * All endpoints use Bearer token authentication and support idempotency keys.
  */
 
-import { apiClient, ApiError } from './client'
-import { API_ENDPOINTS } from './constants'
-import { getDeviceId, getAppVersion, getEldDeviceId } from '@/utils/device'
-import * as Crypto from 'expo-crypto'
+import * as Crypto from "expo-crypto"
+
+import { getDeviceId, getAppVersion, getEldDeviceId } from "@/utils/device"
+
+import { apiClient, ApiError } from "./client"
+import { API_ENDPOINTS } from "./constants"
 
 /**
  * Generate a UUID v4 using expo-crypto
@@ -129,7 +131,13 @@ export interface HOSClocks {
 }
 
 export interface ChangeDutyStatusRequest {
-  duty_status: 'off_duty' | 'sleeper_berth' | 'driving' | 'on_duty' | 'personal_conveyance' | 'yard_move'
+  duty_status:
+    | "off_duty"
+    | "sleeper_berth"
+    | "driving"
+    | "on_duty"
+    | "personal_conveyance"
+    | "yard_move"
   location: {
     latitude: number
     longitude: number
@@ -355,7 +363,7 @@ export interface DeviceHeartbeatResponse {
 
 export interface DeviceMalfunctionRequest {
   device_id: string
-  malfunction_code: 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6'
+  malfunction_code: "M1" | "M2" | "M3" | "M4" | "M5" | "M6"
   description: string
   symptoms?: string[]
   timestamp: string
@@ -370,7 +378,7 @@ export interface DeviceMalfunctionResponse {
 
 export interface NotificationRegisterRequest {
   device_token: string
-  platform: 'ios' | 'android'
+  platform: "ios" | "android"
   device_id: string
   app_version?: string
 }
@@ -386,7 +394,7 @@ export interface Notification {
   notification_type: string
   title: string
   message: string
-  priority: 'low' | 'medium' | 'high'
+  priority: "low" | "medium" | "high"
   is_read: boolean
   created_at: string
   data?: any
@@ -427,11 +435,9 @@ export const driverApi = {
    * Poll every 30 seconds when HOS screen is visible
    */
   async getCurrentHOSStatus(): Promise<HOSCurrentStatus> {
-    const response = await apiClient.get<HOSCurrentStatus>(
-      API_ENDPOINTS.DRIVER.HOS_CURRENT_STATUS
-    )
+    const response = await apiClient.get<HOSCurrentStatus>(API_ENDPOINTS.DRIVER.HOS_CURRENT_STATUS)
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to fetch HOS status', status: 500 })
+      throw new ApiError({ message: "Failed to fetch HOS status", status: 500 })
     }
     return response.data
   },
@@ -442,11 +448,9 @@ export const driverApi = {
    * On-demand when viewing detailed clocks screen
    */
   async getHOSClocks(): Promise<HOSClocks> {
-    const response = await apiClient.get<HOSClocks>(
-      API_ENDPOINTS.DRIVER.HOS_CLOCKS
-    )
+    const response = await apiClient.get<HOSClocks>(API_ENDPOINTS.DRIVER.HOS_CLOCKS)
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to fetch HOS clocks', status: 500 })
+      throw new ApiError({ message: "Failed to fetch HOS clocks", status: 500 })
     }
     return response.data
   },
@@ -456,9 +460,7 @@ export const driverApi = {
    * POST /api/driver/hos/change-status/
    * User-initiated action (button tap)
    */
-  async changeDutyStatus(
-    request: ChangeDutyStatusRequest
-  ): Promise<ChangeDutyStatusResponse> {
+  async changeDutyStatus(request: ChangeDutyStatusRequest): Promise<ChangeDutyStatusResponse> {
     // Generate idempotency key
     const idempotencyKey = `driver-hos-change-${Date.now()}-${await generateUUID()}`
     const deviceId = await getDeviceId()
@@ -467,11 +469,11 @@ export const driverApi = {
     const response = await apiClient.post<ChangeDutyStatusResponse>(
       API_ENDPOINTS.DRIVER.HOS_CHANGE_STATUS,
       request,
-      { idempotencyKey, deviceId, appVersion }
+      { idempotencyKey, deviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to change duty status', status: 500 })
+      throw new ApiError({ message: "Failed to change duty status", status: 500 })
     }
 
     return response.data
@@ -485,11 +487,11 @@ export const driverApi = {
   async getHOSLogs(date: string): Promise<HOSLogsResponse> {
     const endpoint = `${API_ENDPOINTS.DRIVER.HOS_LOGS}?date=${date}`
     const response = await apiClient.get<HOSLogsResponse>(endpoint)
-    
+
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to fetch HOS logs', status: 500 })
+      throw new ApiError({ message: "Failed to fetch HOS logs", status: 500 })
     }
-    
+
     return response.data
   },
 
@@ -499,14 +501,12 @@ export const driverApi = {
    * On app foreground or when viewing violations screen
    */
   async getViolations(): Promise<ViolationsResponse> {
-    const response = await apiClient.get<ViolationsResponse>(
-      API_ENDPOINTS.DRIVER.HOS_VIOLATIONS
-    )
-    
+    const response = await apiClient.get<ViolationsResponse>(API_ENDPOINTS.DRIVER.HOS_VIOLATIONS)
+
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to fetch violations', status: 500 })
+      throw new ApiError({ message: "Failed to fetch violations", status: 500 })
     }
-    
+
     return response.data
   },
 
@@ -523,11 +523,11 @@ export const driverApi = {
     const response = await apiClient.post<CertifyLogResponse>(
       API_ENDPOINTS.DRIVER.HOS_CERTIFY,
       request,
-      { idempotencyKey, deviceId, appVersion }
+      { idempotencyKey, deviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to certify log', status: 500 })
+      throw new ApiError({ message: "Failed to certify log", status: 500 })
     }
 
     return response.data
@@ -546,11 +546,11 @@ export const driverApi = {
     const response = await apiClient.post<AnnotateLogResponse>(
       API_ENDPOINTS.DRIVER.HOS_ANNOTATE,
       request,
-      { idempotencyKey, deviceId, appVersion }
+      { idempotencyKey, deviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to annotate log', status: 500 })
+      throw new ApiError({ message: "Failed to annotate log", status: 500 })
     }
 
     return response.data
@@ -573,11 +573,11 @@ export const driverApi = {
         longitude: location.longitude,
         speed_mph: location.speed_mph,
         timestamp: location.timestamp || new Date().toISOString(),
-      }
+      },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to submit location', status: 500 })
+      throw new ApiError({ message: "Failed to submit location", status: 500 })
     }
 
     return response.data
@@ -590,15 +590,15 @@ export const driverApi = {
    */
   async submitLocationBatch(
     locations: LocationBatchItem[],
-    deviceId?: string
+    deviceId?: string,
   ): Promise<LocationBatchResponse> {
     if (locations.length === 0) {
-      throw new ApiError({ message: 'No locations to submit', status: 400 })
+      throw new ApiError({ message: "No locations to submit", status: 400 })
     }
 
     // Use ELD device ID if available, otherwise use app device ID
     const eldDeviceId = await getEldDeviceId()
-    const finalDeviceId = deviceId || eldDeviceId || await getDeviceId()
+    const finalDeviceId = deviceId || eldDeviceId || (await getDeviceId())
 
     // Generate idempotency key
     const idempotencyKey = `driver-${finalDeviceId}-locbatch-${new Date().toISOString()}-${await generateUUID()}`
@@ -612,11 +612,11 @@ export const driverApi = {
     const response = await apiClient.post<LocationBatchResponse>(
       API_ENDPOINTS.DRIVER.LOCATION_BATCH,
       request,
-      { idempotencyKey, deviceId: finalDeviceId, appVersion }
+      { idempotencyKey, deviceId: finalDeviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to submit location batch', status: 500 })
+      throw new ApiError({ message: "Failed to submit location batch", status: 500 })
     }
 
     return response.data
@@ -645,11 +645,11 @@ export const driverApi = {
     const response = await apiClient.post<DeviceHeartbeatResponse>(
       API_ENDPOINTS.DRIVER.DEVICE_HEARTBEAT,
       fullRequest,
-      { deviceId, appVersion }
+      { deviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to send heartbeat', status: 500 })
+      throw new ApiError({ message: "Failed to send heartbeat", status: 500 })
     }
 
     return response.data
@@ -660,9 +660,7 @@ export const driverApi = {
    * POST /api/driver/device/malfunction/
    * When hardware detects failure or driver reports issue
    */
-  async reportMalfunction(
-    request: DeviceMalfunctionRequest
-  ): Promise<DeviceMalfunctionResponse> {
+  async reportMalfunction(request: DeviceMalfunctionRequest): Promise<DeviceMalfunctionResponse> {
     const deviceId = await getDeviceId()
     const appVersion = getAppVersion()
 
@@ -675,11 +673,11 @@ export const driverApi = {
     const response = await apiClient.post<DeviceMalfunctionResponse>(
       API_ENDPOINTS.DRIVER.DEVICE_MALFUNCTION,
       fullRequest,
-      { deviceId, appVersion }
+      { deviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to report malfunction', status: 500 })
+      throw new ApiError({ message: "Failed to report malfunction", status: 500 })
     }
 
     return response.data
@@ -695,7 +693,7 @@ export const driverApi = {
    * Once per install
    */
   async registerPushToken(
-    request: NotificationRegisterRequest
+    request: NotificationRegisterRequest,
   ): Promise<NotificationRegisterResponse> {
     const deviceId = await getDeviceId()
     const appVersion = getAppVersion()
@@ -709,11 +707,11 @@ export const driverApi = {
     const response = await apiClient.post<NotificationRegisterResponse>(
       API_ENDPOINTS.DRIVER.NOTIFICATIONS_REGISTER,
       fullRequest,
-      { deviceId, appVersion }
+      { deviceId, appVersion },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to register push token', status: 500 })
+      throw new ApiError({ message: "Failed to register push token", status: 500 })
     }
 
     return response.data
@@ -725,18 +723,18 @@ export const driverApi = {
    * Every 60 seconds when notifications screen visible or on foreground
    */
   async getNotifications(params?: {
-    status?: 'unread' | 'read' | 'all'
+    status?: "unread" | "read" | "all"
     limit?: number
   }): Promise<NotificationsResponse> {
     const queryParams = new URLSearchParams()
-    if (params?.status) queryParams.append('status', params.status)
-    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.status) queryParams.append("status", params.status)
+    if (params?.limit) queryParams.append("limit", params.limit.toString())
 
-    const endpoint = `${API_ENDPOINTS.DRIVER.NOTIFICATIONS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    const endpoint = `${API_ENDPOINTS.DRIVER.NOTIFICATIONS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
     const response = await apiClient.get<NotificationsResponse>(endpoint)
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to fetch notifications', status: 500 })
+      throw new ApiError({ message: "Failed to fetch notifications", status: 500 })
     }
 
     return response.data
@@ -746,16 +744,14 @@ export const driverApi = {
    * Mark Notification Read
    * POST /api/driver/notifications/read/
    */
-  async markNotificationRead(
-    notificationId: string
-  ): Promise<MarkNotificationReadResponse> {
+  async markNotificationRead(notificationId: string): Promise<MarkNotificationReadResponse> {
     const response = await apiClient.post<MarkNotificationReadResponse>(
       API_ENDPOINTS.DRIVER.NOTIFICATIONS_READ,
-      { notification_id: notificationId }
+      { notification_id: notificationId },
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to mark notification read', status: 500 })
+      throw new ApiError({ message: "Failed to mark notification read", status: 500 })
     }
 
     return response.data
@@ -768,11 +764,11 @@ export const driverApi = {
   async markAllNotificationsRead(): Promise<MarkAllReadResponse> {
     const response = await apiClient.post<MarkAllReadResponse>(
       API_ENDPOINTS.DRIVER.NOTIFICATIONS_READ_ALL,
-      {}
+      {},
     )
 
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to mark all notifications read', status: 500 })
+      throw new ApiError({ message: "Failed to mark all notifications read", status: 500 })
     }
 
     return response.data
@@ -786,14 +782,14 @@ export const driverApi = {
     try {
       const response = await apiClient.get<any>(API_ENDPOINTS.DRIVER.PROFILE)
       if (!response.success || !response.data) {
-        throw new ApiError({ message: 'Failed to get driver profile', status: 500 })
+        throw new ApiError({ message: "Failed to get driver profile", status: 500 })
       }
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {
         throw error
       }
-      throw new ApiError({ message: 'Failed to get driver profile', status: 500 })
+      throw new ApiError({ message: "Failed to get driver profile", status: 500 })
     }
   },
 
@@ -804,7 +800,7 @@ export const driverApi = {
   async getMyVehicle(): Promise<VehicleResponse> {
     const response = await apiClient.get<VehicleResponse>(API_ENDPOINTS.DRIVER.VEHICLE)
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to get vehicle assignment', status: 500 })
+      throw new ApiError({ message: "Failed to get vehicle assignment", status: 500 })
     }
     return response.data
   },
@@ -813,16 +809,19 @@ export const driverApi = {
    * List Available Vehicles
    * GET /api/driver/vehicles/
    */
-  async getAvailableVehicles(params?: { status?: string; search?: string }): Promise<{ vehicles: VehicleInfo[]; count: number }> {
+  async getAvailableVehicles(params?: {
+    status?: string
+    search?: string
+  }): Promise<{ vehicles: VehicleInfo[]; count: number }> {
     const queryParams = new URLSearchParams()
-    if (params?.status) queryParams.append('status', params.status)
-    if (params?.search) queryParams.append('search', params.search)
-    
-    const endpoint = `${API_ENDPOINTS.DRIVER.VEHICLES}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    if (params?.status) queryParams.append("status", params.status)
+    if (params?.search) queryParams.append("search", params.search)
+
+    const endpoint = `${API_ENDPOINTS.DRIVER.VEHICLES}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
     const response = await apiClient.get<{ vehicles: VehicleInfo[]; count: number }>(endpoint)
-    
+
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to get available vehicles', status: 500 })
+      throw new ApiError({ message: "Failed to get available vehicles", status: 500 })
     }
     return response.data
   },
@@ -831,17 +830,21 @@ export const driverApi = {
    * Get My Trips
    * GET /api/driver/trips/
    */
-  async getMyTrips(params?: { status?: string; start_date?: string; end_date?: string }): Promise<TripsResponse> {
+  async getMyTrips(params?: {
+    status?: string
+    start_date?: string
+    end_date?: string
+  }): Promise<TripsResponse> {
     const queryParams = new URLSearchParams()
-    if (params?.status) queryParams.append('status', params.status)
-    if (params?.start_date) queryParams.append('start_date', params.start_date)
-    if (params?.end_date) queryParams.append('end_date', params.end_date)
-    
-    const endpoint = `${API_ENDPOINTS.DRIVER.TRIPS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    if (params?.status) queryParams.append("status", params.status)
+    if (params?.start_date) queryParams.append("start_date", params.start_date)
+    if (params?.end_date) queryParams.append("end_date", params.end_date)
+
+    const endpoint = `${API_ENDPOINTS.DRIVER.TRIPS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
     const response = await apiClient.get<TripsResponse>(endpoint)
-    
+
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to get trips', status: 500 })
+      throw new ApiError({ message: "Failed to get trips", status: 500 })
     }
     return response.data
   },
@@ -851,13 +854,12 @@ export const driverApi = {
    * GET /api/driver/trips/{trip_id}/
    */
   async getTripDetails(tripId: string): Promise<TripDetailsResponse> {
-    const endpoint = API_ENDPOINTS.DRIVER.TRIP_DETAILS.replace('{id}', tripId)
+    const endpoint = API_ENDPOINTS.DRIVER.TRIP_DETAILS.replace("{id}", tripId)
     const response = await apiClient.get<TripDetailsResponse>(endpoint)
-    
+
     if (!response.success || !response.data) {
-      throw new ApiError({ message: 'Failed to get trip details', status: 500 })
+      throw new ApiError({ message: "Failed to get trip details", status: 500 })
     }
     return response.data
   },
 }
-

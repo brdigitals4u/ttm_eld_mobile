@@ -1,11 +1,11 @@
 /**
  * Centralized Shadow System
- * 
+ *
  * Provides consistent shadow definitions across the app for both iOS and Android.
  * iOS uses shadowColor/shadowOffset/shadowRadius, Android uses elevation.
  */
 
-import { ViewStyle } from 'react-native'
+import { ViewStyle } from "react-native"
 
 export interface ShadowStyle {
   shadowColor: string
@@ -23,7 +23,7 @@ export const shadows = {
    * Small shadow - for subtle elevation (cards, inputs)
    */
   small: {
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -34,7 +34,7 @@ export const shadows = {
    * Medium shadow - for standard elevation (buttons, cards)
    */
   medium: {
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -45,7 +45,7 @@ export const shadows = {
    * Large shadow - for prominent elevation (modals, headers)
    */
   large: {
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -56,7 +56,7 @@ export const shadows = {
    * Elevated shadow - for maximum elevation (floating elements)
    */
   elevated: {
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.2,
     shadowRadius: 24,
@@ -68,7 +68,7 @@ export const shadows = {
  * Create a custom shadow style
  */
 export function createShadow(
-  color: string = '#000',
+  color: string = "#000",
   offset: { width: number; height: number } = { width: 0, height: 4 },
   opacity: number = 0.1,
   radius: number = 8,
@@ -86,11 +86,14 @@ export function createShadow(
 /**
  * Get shadow style for dark mode
  */
-export function getShadowForTheme(isDark: boolean, preset: keyof typeof shadows = 'medium'): ShadowStyle {
+export function getShadowForTheme(
+  isDark: boolean,
+  preset: keyof typeof shadows = "medium",
+): ShadowStyle {
   const baseShadow = shadows[preset]
   return {
     ...baseShadow,
-    shadowColor: isDark ? '#FFFFFF' : '#000',
+    shadowColor: isDark ? "#FFFFFF" : "#000",
     shadowOpacity: isDark ? baseShadow.shadowOpacity * 0.5 : baseShadow.shadowOpacity,
   }
 }
@@ -100,11 +103,17 @@ export function getShadowForTheme(isDark: boolean, preset: keyof typeof shadows 
  */
 export function applyShadow(
   style: ViewStyle,
-  preset: keyof typeof shadows = 'medium',
+  preset: keyof typeof shadows = "medium",
   customColor?: string,
 ): ViewStyle {
   const shadow = customColor
-    ? createShadow(customColor, shadows[preset].shadowOffset, shadows[preset].shadowOpacity, shadows[preset].shadowRadius, shadows[preset].elevation)
+    ? createShadow(
+        customColor,
+        shadows[preset].shadowOffset,
+        shadows[preset].shadowOpacity,
+        shadows[preset].shadowRadius,
+        shadows[preset].elevation,
+      )
     : shadows[preset]
 
   return {
@@ -112,6 +121,3 @@ export function applyShadow(
     ...shadow,
   }
 }
-
-
-

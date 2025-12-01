@@ -4,13 +4,13 @@
  * Transforms DTC string codes to ObdDataPayload format for backend sync
  */
 
-import { ObdDataPayload } from '@/api/obd'
-import { decodeObdCode, ObdCodeDetails } from '@/utils/obd-code-decoder'
+import { ObdDataPayload } from "@/api/obd"
+import { decodeObdCode, ObdCodeDetails } from "@/utils/obd-code-decoder"
 
 /**
  * Transform DTC codes to ObdDataPayload format
  * Uses same structure as handleData() payload for consistent backend sync
- * 
+ *
  * @param dtcCodes - Array of DTC code strings (e.g., ["P0195", "P0300"])
  * @param ecuId - ECU identifier (string)
  * @param ecuIdHex - ECU identifier in hex format (e.g., "0x7E0")
@@ -27,7 +27,7 @@ export const handleDtcData = (
   timestamp: Date,
   location: { latitude: number; longitude: number } | undefined,
   driverId: string,
-  deviceId?: string
+  deviceId?: string,
 ): ObdDataPayload => {
   // Decode all DTC codes to get full details
   const decodedCodes: ObdCodeDetails[] = dtcCodes.map((code) => decodeObdCode(code))
@@ -44,7 +44,7 @@ export const handleDtcData = (
 
   // Build raw data structure matching handleData format
   const rawFaultDetails = {
-    dataType: 'fault_data' as const,
+    dataType: "fault_data" as const,
     faultCodes: [
       {
         ecuId,
@@ -63,7 +63,7 @@ export const handleDtcData = (
     driver_id: driverId,
     timestamp: timestamp.toISOString(),
     raw_data: rawFaultDetails,
-    data_type: 'fault_data',
+    data_type: "fault_data",
     fault_codes: faultCodesPayload,
     device_id: deviceId ?? undefined,
     deviceId: deviceId ?? undefined,
@@ -77,4 +77,3 @@ export const handleDtcData = (
 
   return payload
 }
-

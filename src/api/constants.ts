@@ -40,24 +40,24 @@ export const API_ENDPOINTS = {
     HOS_VIOLATIONS: "/driver/hos/violations/",
     HOS_CERTIFY: "/driver/hos/certify/",
     HOS_ANNOTATE: "/driver/hos/annotate/",
-    
+
     // Location Tracking
     LOCATION_UPDATE: "/driver/location/update/",
     LOCATION_BATCH: "/driver/location/batch/v2/",
-    
+
     // Device Health
     DEVICE_HEARTBEAT: "/driver/device/heartbeat/",
     DEVICE_MALFUNCTION: "/driver/device/malfunction/",
-    
+
     // Notifications
     NOTIFICATIONS_REGISTER: "/driver/notifications/register/",
     NOTIFICATIONS: "/driver/notifications/",
     NOTIFICATIONS_READ: "/driver/notifications/read/",
     NOTIFICATIONS_READ_ALL: "/driver/notifications/read-all/",
-    
+
     // Profile
     PROFILE: "/drivers/me/",
-    
+
     // Vehicle & Trip Management
     VEHICLE: "/driver/vehicle/",
     VEHICLES: "/driver/vehicles/",
@@ -272,12 +272,12 @@ export const VIOLATION_TYPES = {
   ELEVEN_HOUR_DRIVING: "11_hour_driving",
   FOURTEEN_HOUR_SHIFT: "14_hour_shift",
   DRIVING_AFTER_SHIFT: "driving_after_shift",
-  
+
   // High priority violations
   THIRTY_MINUTE_BREAK: "30_minute_break",
   SIXTY_HOUR_CYCLE: "60_hour_cycle",
   SEVENTY_HOUR_CYCLE: "70_hour_cycle",
-  
+
   // Medium priority violations
   IMPROPER_PC_DRIVING: "improper_pc_driving",
   YARD_MOVE_VIOLATION: "yard_move_violation",

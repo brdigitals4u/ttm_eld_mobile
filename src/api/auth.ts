@@ -1,28 +1,29 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, ApiError } from './client'
-import { API_ENDPOINTS, QUERY_KEYS, SUCCESS_MESSAGES, ERROR_MESSAGES } from './constants'
-import { tokenStorage, userStorage } from '@/utils/storage'
-import { RealmService } from '@/database/realm'
-import { LoginCredentials, RegisterCredentials, AuthResponse, UserType } from '@/database/schemas'
-import { BSON } from 'realm'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { BSON } from "realm"
+
+import { RealmService } from "@/database/realm"
+import { LoginCredentials, RegisterCredentials, AuthResponse, UserType } from "@/database/schemas"
+import { tokenStorage, userStorage } from "@/utils/storage"
+
+import { apiClient, ApiError } from "./client"
+import { API_ENDPOINTS, QUERY_KEYS, SUCCESS_MESSAGES, ERROR_MESSAGES } from "./constants"
 
 // Authentication API functions
 export const authApi = {
-
   // Register user
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, credentials)
-    
+
     if (response.success && response.data) {
       // Store tokens securely
       await tokenStorage.setTokens(
         response.data.tokens.accessToken,
-        response.data.tokens.refreshToken
+        response.data.tokens.refreshToken,
       )
-      
+
       // Store user ID
       await userStorage.setUserId(response.data.user._id.toString())
-      
+
       // Store user data in Realm
       await RealmService.createUser({
         _id: new BSON.ObjectId(),
@@ -36,7 +37,7 @@ export const authApi = {
         createdAt: response.data.user.createdAt,
         updatedAt: response.data.user.updatedAt,
       })
-      
+
       // Store auth session in Realm
       await RealmService.createAuthSession({
         accessToken: response.data.tokens.accessToken,
@@ -46,7 +47,7 @@ export const authApi = {
         createdAt: new Date(),
       })
     }
-    
+
     return response.data!
   },
 
@@ -56,13 +57,13 @@ export const authApi = {
       await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT)
     } catch (error) {
       // Even if API call fails, we should clear local data
-      console.warn('Logout API call failed:', error)
+      console.warn("Logout API call failed:", error)
     }
-    
+
     // Clear stored tokens and user data
     await tokenStorage.removeTokens()
     await userStorage.removeUserId()
-    
+
     // Clear Realm data
     await RealmService.deleteAuthSession()
   },
@@ -70,23 +71,23 @@ export const authApi = {
   // Refresh token
   async refreshToken(): Promise<{ accessToken: string; expiresAt: Date }> {
     const refreshToken = await tokenStorage.getRefreshToken()
-    
+
     if (!refreshToken) {
       throw new ApiError({
         message: ERROR_MESSAGES.UNAUTHORIZED,
         status: 401,
       })
     }
-    
+
     const response = await apiClient.post<{ accessToken: string; expiresAt: Date }>(
       API_ENDPOINTS.AUTH.REFRESH_TOKEN,
-      { refreshToken }
+      { refreshToken },
     )
-    
+
     if (response.success && response.data) {
       // Update stored access token
       await tokenStorage.setAccessToken(response.data.accessToken)
-      
+
       // Update Realm auth session
       const session = RealmService.getAuthSession()
       if (session) {
@@ -96,26 +97,26 @@ export const authApi = {
         })
       }
     }
-    
+
     return response.data!
   },
 
   // Get current user profile
   async getCurrentUser(): Promise<UserType> {
-    const response = await apiClient.get<UserType>(API_ENDPOINTS.USER.PROFILE) as any
-    
+    const response = (await apiClient.get<UserType>(API_ENDPOINTS.USER.PROFILE)) as any
+
     if (response.success && response.data) {
       // Update user data in Realm
-        await RealmService.updateUser(response.data._id.toString(), response.data)
+      await RealmService.updateUser(response.data._id.toString(), response.data)
     }
-    
+
     return response.data!
   },
 
   // Forgot password
   async forgotPassword(email: string): Promise<void> {
     const response = await apiClient.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email })
-    
+
     if (!response.success) {
       throw new ApiError({
         message: response.message || ERROR_MESSAGES.SERVER_ERROR,
@@ -130,7 +131,7 @@ export const authApi = {
       token,
       password: newPassword,
     })
-    
+
     if (!response.success) {
       throw new ApiError({
         message: response.message || ERROR_MESSAGES.SERVER_ERROR,
@@ -142,7 +143,7 @@ export const authApi = {
   // Verify email
   async verifyEmail(token: string): Promise<void> {
     const response = await apiClient.post(API_ENDPOINTS.AUTH.VERIFY_EMAIL, { token })
-    
+
     if (response.success && response.data) {
       // Update user verification status in Realm
       const userId = await userStorage.getUserId()
@@ -157,7 +158,7 @@ export const authApi = {
 
 export const useRegister = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: authApi.register,
     onSuccess: (data) => {
@@ -166,14 +167,14 @@ export const useRegister = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.AUTH })
     },
     onError: (error: ApiError) => {
-      console.error('Register error:', error)
+      console.error("Register error:", error)
     },
   })
 }
 
 export const useLogout = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
@@ -181,7 +182,7 @@ export const useLogout = () => {
       queryClient.clear()
     },
     onError: (error: ApiError) => {
-      console.error('Logout error:', error)
+      console.error("Logout error:", error)
       // Still clear queries even if API call fails
       queryClient.clear()
     },
@@ -207,7 +208,7 @@ export const useForgotPassword = () => {
   return useMutation({
     mutationFn: authApi.forgotPassword,
     onError: (error: ApiError) => {
-      console.error('Forgot password error:', error)
+      console.error("Forgot password error:", error)
     },
   })
 }
@@ -217,14 +218,14 @@ export const useResetPassword = () => {
     mutationFn: ({ token, password }: { token: string; password: string }) =>
       authApi.resetPassword(token, password),
     onError: (error: ApiError) => {
-      console.error('Reset password error:', error)
+      console.error("Reset password error:", error)
     },
   })
 }
 
 export const useVerifyEmail = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: authApi.verifyEmail,
     onSuccess: () => {
@@ -232,7 +233,7 @@ export const useVerifyEmail = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USER_PROFILE })
     },
     onError: (error: ApiError) => {
-      console.error('Verify email error:', error)
+      console.error("Verify email error:", error)
     },
   })
 }

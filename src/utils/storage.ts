@@ -1,6 +1,7 @@
-import * as SecureStore from 'expo-secure-store'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { STORAGE_KEYS } from '@/api/constants'
+import * as SecureStore from "expo-secure-store"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+
+import { STORAGE_KEYS } from "@/api/constants"
 
 // Secure storage functions for sensitive data
 export const secureStorage = {
@@ -8,7 +9,7 @@ export const secureStorage = {
     try {
       await SecureStore.setItemAsync(key, value)
     } catch (error) {
-      console.error('Error storing secure item:', error)
+      console.error("Error storing secure item:", error)
       throw error
     }
   },
@@ -17,7 +18,7 @@ export const secureStorage = {
     try {
       return await SecureStore.getItemAsync(key)
     } catch (error) {
-      console.error('Error retrieving secure item:', error)
+      console.error("Error retrieving secure item:", error)
       return null
     }
   },
@@ -26,7 +27,7 @@ export const secureStorage = {
     try {
       await SecureStore.deleteItemAsync(key)
     } catch (error) {
-      console.error('Error removing secure item:', error)
+      console.error("Error removing secure item:", error)
       throw error
     }
   },
@@ -34,9 +35,9 @@ export const secureStorage = {
   async clear(): Promise<void> {
     try {
       const keys = [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]
-      await Promise.all(keys.map(key => SecureStore.deleteItemAsync(key)))
+      await Promise.all(keys.map((key) => SecureStore.deleteItemAsync(key)))
     } catch (error) {
-      console.error('Error clearing secure storage:', error)
+      console.error("Error clearing secure storage:", error)
       throw error
     }
   },
@@ -48,7 +49,7 @@ export const asyncStorage = {
     try {
       await AsyncStorage.setItem(key, value)
     } catch (error) {
-      console.error('Error storing async item:', error)
+      console.error("Error storing async item:", error)
       throw error
     }
   },
@@ -57,7 +58,7 @@ export const asyncStorage = {
     try {
       return await AsyncStorage.getItem(key)
     } catch (error) {
-      console.error('Error retrieving async item:', error)
+      console.error("Error retrieving async item:", error)
       return null
     }
   },
@@ -66,7 +67,7 @@ export const asyncStorage = {
     try {
       await AsyncStorage.removeItem(key)
     } catch (error) {
-      console.error('Error removing async item:', error)
+      console.error("Error removing async item:", error)
       throw error
     }
   },
@@ -75,7 +76,7 @@ export const asyncStorage = {
     try {
       await AsyncStorage.clear()
     } catch (error) {
-      console.error('Error clearing async storage:', error)
+      console.error("Error clearing async storage:", error)
       throw error
     }
   },
@@ -84,14 +85,17 @@ export const asyncStorage = {
 // Token management functions
 export const tokenStorage = {
   async setAccessToken(token: string): Promise<void> {
-    console.log('💾 TokenStorage: Setting access token:', token ? 'Token provided' : 'No token')
+    console.log("💾 TokenStorage: Setting access token:", token ? "Token provided" : "No token")
     await secureStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
-    console.log('✅ TokenStorage: Access token stored successfully')
+    console.log("✅ TokenStorage: Access token stored successfully")
   },
 
   async getAccessToken(): Promise<string | null> {
     const token = await secureStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
-    console.log('🔍 TokenStorage: Retrieved access token:', token ? 'Token exists' : 'No token found')
+    console.log(
+      "🔍 TokenStorage: Retrieved access token:",
+      token ? "Token exists" : "No token found",
+    )
     return token
   },
 
@@ -104,10 +108,7 @@ export const tokenStorage = {
   },
 
   async setTokens(accessToken: string, refreshToken: string): Promise<void> {
-    await Promise.all([
-      this.setAccessToken(accessToken),
-      this.setRefreshToken(refreshToken),
-    ])
+    await Promise.all([this.setAccessToken(accessToken), this.setRefreshToken(refreshToken)])
   },
 
   async getTokens(): Promise<{ accessToken: string | null; refreshToken: string | null }> {
@@ -143,13 +144,13 @@ export const userStorage = {
 
 // App settings storage
 export const settingsStorage = {
-  async setThemeMode(mode: 'light' | 'dark' | 'auto'): Promise<void> {
+  async setThemeMode(mode: "light" | "dark" | "auto"): Promise<void> {
     await asyncStorage.setItem(STORAGE_KEYS.THEME_MODE, mode)
   },
 
-  async getThemeMode(): Promise<'light' | 'dark' | 'auto' | null> {
+  async getThemeMode(): Promise<"light" | "dark" | "auto" | null> {
     const mode = await asyncStorage.getItem(STORAGE_KEYS.THEME_MODE)
-    return mode as 'light' | 'dark' | 'auto' | null
+    return mode as "light" | "dark" | "auto" | null
   },
 
   async setLanguage(language: string): Promise<void> {
@@ -166,16 +167,16 @@ export const settingsStorage = {
 
   async getRememberMe(): Promise<boolean> {
     const value = await asyncStorage.getItem(STORAGE_KEYS.REMEMBER_ME)
-    return value === 'true'
+    return value === "true"
   },
 
   async setHasSeenPermissions(hasSeen: boolean): Promise<void> {
-    await asyncStorage.setItem('hasSeenPermissions', hasSeen ? 'true' : 'false')
+    await asyncStorage.setItem("hasSeenPermissions", hasSeen ? "true" : "false")
   },
 
   async getHasSeenPermissions(): Promise<boolean> {
-    const value = await asyncStorage.getItem('hasSeenPermissions')
-    return value === 'true'
+    const value = await asyncStorage.getItem("hasSeenPermissions")
+    return value === "true"
   },
 
   async setHasSeenWelcome(hasSeen: boolean): Promise<void> {
@@ -184,16 +185,16 @@ export const settingsStorage = {
 
   async getHasSeenWelcome(): Promise<boolean> {
     const value = await asyncStorage.getItem(STORAGE_KEYS.HAS_SEEN_WELCOME)
-    return value === 'true'
+    return value === "true"
   },
 
   async setPrivacyPolicyAccepted(userId: string): Promise<void> {
-    await asyncStorage.setItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`, 'true')
+    await asyncStorage.setItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`, "true")
   },
 
   async getPrivacyPolicyAccepted(userId: string): Promise<boolean> {
     const value = await asyncStorage.getItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`)
-    return value === 'true'
+    return value === "true"
   },
 }
 
@@ -204,16 +205,10 @@ export const getStoredToken = async (): Promise<string | null> => {
 
 // Helper function to remove stored tokens (for logout)
 export const removeStoredTokens = async (): Promise<void> => {
-  await Promise.all([
-    tokenStorage.removeTokens(),
-    userStorage.removeUserId(),
-  ])
+  await Promise.all([tokenStorage.removeTokens(), userStorage.removeUserId()])
 }
 
 // Clear all storage
 export const clearAllStorage = async (): Promise<void> => {
-  await Promise.all([
-    secureStorage.clear(),
-    asyncStorage.clear(),
-  ])
+  await Promise.all([secureStorage.clear(), asyncStorage.clear()])
 }

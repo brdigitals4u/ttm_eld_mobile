@@ -1,18 +1,20 @@
 /**
  * Driver Note Sheet Component
- * 
+ *
  * Allows drivers to attach free-text notes to historical records
  * Preserves original timestamp and adds note timestamp
  */
 
-import React, { useState, useRef, useMemo } from 'react'
-import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet'
-import { FileText, Send, X } from 'lucide-react-native'
-import { Text } from './Text'
-import { colors } from '@/theme/colors'
-import { EldHistoryRecord } from '@/contexts/obd-data-context'
-import { translate } from '@/i18n/translate'
+import React, { useState, useRef, useMemo } from "react"
+import { View, StyleSheet, TouchableOpacity, TextInput } from "react-native"
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
+import { FileText, Send, X } from "lucide-react-native"
+
+import { EldHistoryRecord } from "@/contexts/obd-data-context"
+import { translate } from "@/i18n/translate"
+import { colors } from "@/theme/colors"
+
+import { Text } from "./Text"
 
 export interface DriverNoteSheetProps {
   visible: boolean
@@ -28,15 +30,15 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
   onSave,
 }) => {
   const bottomSheetRef = useRef<BottomSheetModal>(null)
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
-  const snapPoints = useMemo(() => ['60%'], [])
+  const snapPoints = useMemo(() => ["60%"], [])
 
   React.useEffect(() => {
     if (visible) {
       bottomSheetRef.current?.present()
-      setNote('') // Reset note when opening
+      setNote("") // Reset note when opening
     } else {
       bottomSheetRef.current?.dismiss()
     }
@@ -44,7 +46,7 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
 
   React.useEffect(() => {
     if (!visible) {
-      setNote('')
+      setNote("")
       setIsSaving(false)
     }
   }, [visible])
@@ -55,27 +57,22 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
     setIsSaving(true)
     try {
       await onSave(record.id, note.trim())
-      setNote('')
+      setNote("")
       onDismiss()
     } catch (error) {
-      console.error('Failed to save note:', error)
+      console.error("Failed to save note:", error)
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleCancel = () => {
-    setNote('')
+    setNote("")
     onDismiss()
   }
 
   const renderBackdrop = (props: any) => (
-    <BottomSheetBackdrop
-      {...props}
-      appearsOnIndex={0}
-      disappearsOnIndex={-1}
-      opacity={0.5}
-    />
+    <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} />
   )
 
   if (!record) {
@@ -101,16 +98,20 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <FileText size={24} color={colors.tint} />
-          <Text style={styles.title}>{translate('eld.driverNote.title' as any)}</Text>
+          <Text style={styles.title}>{translate("eld.driverNote.title" as any)}</Text>
         </View>
 
         {/* Record Info */}
         <View style={styles.recordInfo}>
-          <Text style={styles.recordInfoLabel}>{translate('eld.driverNote.recordTime' as any)}</Text>
+          <Text style={styles.recordInfoLabel}>
+            {translate("eld.driverNote.recordTime" as any)}
+          </Text>
           <Text style={styles.recordInfoValue}>{recordTime}</Text>
           {record.latitude && record.longitude && (
             <>
-              <Text style={styles.recordInfoLabel}>{translate('eld.driverNote.location' as any)}</Text>
+              <Text style={styles.recordInfoLabel}>
+                {translate("eld.driverNote.location" as any)}
+              </Text>
               <Text style={styles.recordInfoValue}>
                 {record.latitude.toFixed(6)}, {record.longitude.toFixed(6)}
               </Text>
@@ -120,27 +121,25 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
 
         {/* Note Input */}
         <View style={styles.noteSection}>
-          <Text style={styles.noteLabel}>{translate('eld.driverNote.note' as any)}</Text>
+          <Text style={styles.noteLabel}>{translate("eld.driverNote.note" as any)}</Text>
           <TextInput
             style={styles.noteInput}
             multiline
             value={note}
             onChangeText={setNote}
-            placeholder={translate('eld.driverNote.notePlaceholder' as any)}
+            placeholder={translate("eld.driverNote.notePlaceholder" as any)}
             placeholderTextColor={colors.light?.textSecondary || colors.text}
             maxLength={500}
             editable={!isSaving}
           />
           <Text style={styles.charCount}>
-            {translate('eld.driverNote.charCount' as any, { count: note.length })}
+            {translate("eld.driverNote.charCount" as any, { count: note.length })}
           </Text>
         </View>
 
         {/* Info Text */}
         <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            {translate('eld.driverNote.info' as any)}
-          </Text>
+          <Text style={styles.infoText}>{translate("eld.driverNote.info" as any)}</Text>
         </View>
 
         {/* Action Buttons */}
@@ -151,16 +150,22 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
             disabled={isSaving}
           >
             <X size={20} color={colors.text} />
-            <Text style={styles.cancelButtonText}>{translate('common.cancel' as any)}</Text>
+            <Text style={styles.cancelButtonText}>{translate("common.cancel" as any)}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.button, styles.saveButton, (!note.trim() || isSaving) && styles.saveButtonDisabled]}
+            style={[
+              styles.button,
+              styles.saveButton,
+              (!note.trim() || isSaving) && styles.saveButtonDisabled,
+            ]}
             onPress={handleSave}
             disabled={!note.trim() || isSaving}
           >
             <Send size={20} color="#FFFFFF" />
             <Text style={styles.saveButtonText}>
-              {isSaving ? translate('eld.driverNote.saving' as any) : translate('eld.driverNote.saveNote' as any)}
+              {isSaving
+                ? translate("eld.driverNote.saving" as any)
+                : translate("eld.driverNote.saveNote" as any)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -170,105 +175,100 @@ export const DriverNoteSheet: React.FC<DriverNoteSheetProps> = ({
 }
 
 const styles = StyleSheet.create({
-  modalBackground: {
-    backgroundColor: colors.cardBackground,
+  button: {
+    alignItems: "center",
+    borderRadius: 8,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    padding: 16,
   },
-  handleIndicator: {
-    backgroundColor: colors.border,
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: "auto",
+  },
+  cancelButton: {
+    backgroundColor: colors.cardBackground,
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  charCount: {
+    color: colors.light?.textSecondary || colors.text,
+    fontSize: 12,
+    textAlign: "right",
   },
   content: {
     flex: 1,
     padding: 24,
   },
+  handleIndicator: {
+    backgroundColor: colors.border,
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 12,
     marginBottom: 24,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
+  infoBox: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    marginBottom: 24,
+    padding: 12,
   },
-  recordInfo: {
+  infoText: {
+    color: colors.light?.textSecondary || colors.text,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  modalBackground: {
     backgroundColor: colors.cardBackground,
-    padding: 16,
+  },
+  noteInput: {
+    backgroundColor: colors.cardBackground,
+    borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 24,
-  },
-  recordInfoLabel: {
-    fontSize: 12,
-    color: colors.light?.textSecondary || colors.text,
-    marginBottom: 4,
-  },
-  recordInfoValue: {
-    fontSize: 14,
     color: colors.text,
-    marginBottom: 12,
+    fontSize: 16,
+    marginBottom: 4,
+    minHeight: 120,
+    padding: 12,
+    textAlignVertical: "top",
+  },
+  noteLabel: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
   },
   noteSection: {
     marginBottom: 24,
   },
-  noteLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  noteInput: {
+  recordInfo: {
     backgroundColor: colors.cardBackground,
-    borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-    minHeight: 120,
-    textAlignVertical: 'top',
+    borderWidth: 1,
+    marginBottom: 24,
+    padding: 16,
+  },
+  recordInfoLabel: {
+    color: colors.light?.textSecondary || colors.text,
+    fontSize: 12,
     marginBottom: 4,
   },
-  charCount: {
-    fontSize: 12,
-    color: colors.light?.textSecondary || colors.text,
-    textAlign: 'right',
-  },
-  infoBox: {
-    backgroundColor: '#F3F4F6',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 24,
-  },
-  infoText: {
-    fontSize: 12,
-    color: colors.light?.textSecondary || colors.text,
-    lineHeight: 18,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 'auto',
-  },
-  button: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  cancelButton: {
-    backgroundColor: colors.cardBackground,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  recordInfoValue: {
     color: colors.text,
+    fontSize: 14,
+    marginBottom: 12,
   },
   saveButton: {
     backgroundColor: colors.tint,
@@ -278,9 +278,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+  },
+  title: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: "bold",
   },
 })
-

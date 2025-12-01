@@ -1,10 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, ApiError } from './client'
-import { API_CONFIG, API_ENDPOINTS, QUERY_KEYS } from './constants'
-import { tokenStorage, userStorage } from '@/utils/storage'
-import { RealmService } from '@/database/realm'
-import { BSON } from 'realm'
-import { tokenRefreshService } from '@/services/token-refresh-service'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { BSON } from "realm"
+
+import { RealmService } from "@/database/realm"
+import { tokenRefreshService } from "@/services/token-refresh-service"
+import { tokenStorage, userStorage } from "@/utils/storage"
+
+import { apiClient, ApiError } from "./client"
+import { API_CONFIG, API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
 // Organization Driver types
 export interface OrganizationDriverLoginCredentials {
@@ -122,42 +124,47 @@ export const organizationApi = {
   // Test API connection
   async testConnection(): Promise<boolean> {
     try {
-      console.log('Testing API connection to:', API_CONFIG.BASE_URL)
-      const response = await apiClient.get('/test')
+      console.log("Testing API connection to:", API_CONFIG.BASE_URL)
+      const response = await apiClient.get("/test")
       return response.success
     } catch (error) {
-      console.error('API connection test failed:', error)
+      console.error("API connection test failed:", error)
       return false
     }
   },
 
   // Login driver
-  async loginDriver(credentials: OrganizationDriverLoginCredentials): Promise<OrganizationDriverAuthResponse> {
-    console.log('Attempting login to:', API_CONFIG.BASE_URL + API_ENDPOINTS.ORGANIZATION.DRIVER_LOGIN)
-    const response = await apiClient.post<OrganizationDriverAuthResponse>(
-      API_ENDPOINTS.ORGANIZATION.DRIVER_LOGIN, 
-      credentials
+  async loginDriver(
+    credentials: OrganizationDriverLoginCredentials,
+  ): Promise<OrganizationDriverAuthResponse> {
+    console.log(
+      "Attempting login to:",
+      API_CONFIG.BASE_URL + API_ENDPOINTS.ORGANIZATION.DRIVER_LOGIN,
     )
-    
+    const response = await apiClient.post<OrganizationDriverAuthResponse>(
+      API_ENDPOINTS.ORGANIZATION.DRIVER_LOGIN,
+      credentials,
+    )
+
     if (response.success && response.data) {
       // Store token securely
       await tokenStorage.setAccessToken(response.data.token)
-      
+
       // Store refresh token if provided
       if ((response.data as any).refresh_token) {
         await tokenStorage.setRefreshToken((response.data as any).refresh_token)
       }
-      
+
       // Store token expiry (10 minutes default, or from response)
       const expiresIn = (response.data as any).expires_in || 600 // Default to 10 minutes (600 seconds)
       await tokenRefreshService.setTokenExpiry(expiresIn)
-      
+
       // Store driver ID
       await userStorage.setUserId(response.data.user.id)
-      
+
       // Store complete driver data in Realm
       await RealmService.createDriverData(response.data)
-      
+
       // Store basic user data in Realm (for compatibility)
       await RealmService.createUser({
         _id: new BSON.ObjectId(),
@@ -171,26 +178,26 @@ export const organizationApi = {
         createdAt: new Date(response.data.user.driver_profile.created_at),
         updatedAt: new Date(response.data.user.driver_profile.updated_at),
       } as any)
-      
+
       // Store auth session in Realm
       await RealmService.createAuthSession({
         accessToken: response.data.token,
-        refreshToken: (response.data as any).refresh_token || '', // Store refresh token if provided
+        refreshToken: (response.data as any).refresh_token || "", // Store refresh token if provided
         userId: response.data.user.id,
         expiresAt: new Date(Date.now() + expiresIn * 1000), // Use actual expiry time
         createdAt: new Date(),
       })
     }
-    
+
     return response.data!
   },
 
   // Get driver profile
   async getDriverProfile(): Promise<OrganizationDriverProfile> {
     const response = await apiClient.get<OrganizationDriverProfile>(
-      API_ENDPOINTS.ORGANIZATION.DRIVER_PROFILE
+      API_ENDPOINTS.ORGANIZATION.DRIVER_PROFILE,
     )
-    
+
     if (response.success && response.data) {
       // Update driver data in Realm
       await RealmService.updateUser(response.data.id, {
@@ -206,28 +213,28 @@ export const organizationApi = {
         updatedAt: new Date(response.data.driver_profile.updated_at),
       } as any)
     }
-    
+
     return response.data!
   },
 
   // Logout driver
   async logoutDriver(): Promise<void> {
     // Note: Logout API endpoint may not exist, so we'll just clear local data
-    console.log('Logging out driver - clearing local data only')
-    
+    console.log("Logging out driver - clearing local data only")
+
     try {
       // Clear stored tokens and user data
       await tokenStorage.removeTokens()
       await userStorage.removeUserId()
-      
+
       // Clear all Realm data
       await RealmService.deleteAuthSession()
       await RealmService.deleteAllUsers()
       await RealmService.clearDriverData()
-      
-      console.log('Driver logout completed - all local data cleared')
+
+      console.log("Driver logout completed - all local data cleared")
     } catch (error) {
-      console.error('Error clearing local data during logout:', error)
+      console.error("Error clearing local data during logout:", error)
       // Continue anyway - we want to logout even if cleanup fails
     }
   },
@@ -236,7 +243,7 @@ export const organizationApi = {
 // React Query hooks for organization driver
 export const useDriverLogin = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: organizationApi.loginDriver,
     onSuccess: (data) => {
@@ -245,7 +252,7 @@ export const useDriverLogin = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.AUTH })
     },
     onError: (error: ApiError) => {
-      console.error('Driver login error:', error)
+      console.error("Driver login error:", error)
     },
   })
 }
@@ -267,16 +274,16 @@ export const useDriverProfile = () => {
 
 export const useDriverLogout = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: organizationApi.logoutDriver,
     onSuccess: () => {
-      console.log('Logout mutation successful')
+      console.log("Logout mutation successful")
       // Clear all queries
       queryClient.clear()
     },
     onError: (error: ApiError) => {
-      console.error('Driver logout error:', error)
+      console.error("Driver logout error:", error)
       // Still clear queries even if API call fails
       queryClient.clear()
     },

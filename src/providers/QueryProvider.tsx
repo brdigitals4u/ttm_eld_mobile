@@ -1,5 +1,5 @@
-import React from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import React from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 // Create query client with optimized settings
 export const queryClient = new QueryClient({
@@ -18,13 +18,13 @@ export const queryClient = new QueryClient({
       // Refetch on reconnect
       refetchOnReconnect: true,
       // Network mode
-      networkMode: 'online',
+      networkMode: "online",
     },
     mutations: {
       // Retry mutations once
       retry: 1,
       // Network mode for mutations
-      networkMode: 'online',
+      networkMode: "online",
     },
   },
 })
@@ -34,9 +34,5 @@ interface QueryProviderProps {
 }
 
 export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  )
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }

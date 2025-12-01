@@ -1,10 +1,10 @@
 /**
  * Inactivity Monitor Service
- * 
+ *
  * Monitors vehicle inactivity when driver is in "On-Duty Driving" status.
  * Triggers prompt after 5 minutes of inactivity (speed < 5 mph).
  * Auto-switches to "On-Duty Not Driving" after 1 additional minute if no response.
- * 
+ *
  * Timing is not configurable per ELD requirements.
  */
 
@@ -12,7 +12,13 @@ const INACTIVITY_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes - not configurable
 const AUTO_SWITCH_DELAY_MS = 60 * 1000 // 1 minute - not configurable
 const SPEED_THRESHOLD_MPH = 5 // mph - matches SPEED_THRESHOLD_DRIVING
 
-type DutyStatus = 'driving' | 'onDuty' | 'offDuty' | 'sleeperBerth' | 'personalConveyance' | 'yardMove'
+type DutyStatus =
+  | "driving"
+  | "onDuty"
+  | "offDuty"
+  | "sleeperBerth"
+  | "personalConveyance"
+  | "yardMove"
 
 interface InactivityState {
   isMonitoring: boolean
@@ -67,7 +73,7 @@ class InactivityMonitorService {
     this.currentStatus = dutyStatus
 
     // Only monitor when in "driving" status
-    const shouldMonitor = dutyStatus === 'driving'
+    const shouldMonitor = dutyStatus === "driving"
 
     if (!shouldMonitor) {
       // Not in driving status - stop monitoring
@@ -106,7 +112,7 @@ class InactivityMonitorService {
     this.state.promptTriggered = false
     this.state.autoSwitchTriggered = false
 
-    console.log('🛑 InactivityMonitor: Started monitoring for driving status')
+    console.log("🛑 InactivityMonitor: Started monitoring for driving status")
   }
 
   /**
@@ -124,7 +130,7 @@ class InactivityMonitorService {
     this.state.promptTriggered = false
     this.state.autoSwitchTriggered = false
 
-    console.log('🛑 InactivityMonitor: Stopped monitoring')
+    console.log("🛑 InactivityMonitor: Stopped monitoring")
   }
 
   /**
@@ -148,7 +154,7 @@ class InactivityMonitorService {
       this.triggerPrompt()
     }, INACTIVITY_THRESHOLD_MS)
 
-    console.log('🛑 InactivityMonitor: Vehicle stopped, 5-minute timer started', {
+    console.log("🛑 InactivityMonitor: Vehicle stopped, 5-minute timer started", {
       stoppedAt: new Date(this.state.stoppedAt).toISOString(),
       willTriggerAt: new Date(this.state.stoppedAt + INACTIVITY_THRESHOLD_MS).toISOString(),
     })
@@ -172,9 +178,9 @@ class InactivityMonitorService {
     // Clear timers
     this.clearTimers()
 
-    console.log('🚗 InactivityMonitor: Vehicle moving, timer reset', {
+    console.log("🚗 InactivityMonitor: Vehicle moving, timer reset", {
       wasStoppedForMs: wasStoppedFor,
-      wasStoppedForMinutes: Math.round(wasStoppedFor / 60000 * 10) / 10,
+      wasStoppedForMinutes: Math.round((wasStoppedFor / 60000) * 10) / 10,
     })
   }
 
@@ -188,7 +194,7 @@ class InactivityMonitorService {
 
     this.state.promptTriggered = true
 
-    console.log('⏰ InactivityMonitor: 5-minute threshold reached, triggering prompt')
+    console.log("⏰ InactivityMonitor: 5-minute threshold reached, triggering prompt")
 
     // Trigger prompt callback
     if (this.promptTriggerCallback) {
@@ -200,7 +206,7 @@ class InactivityMonitorService {
       this.triggerAutoSwitch()
     }, AUTO_SWITCH_DELAY_MS)
 
-    console.log('⏰ InactivityMonitor: 1-minute auto-switch timer started', {
+    console.log("⏰ InactivityMonitor: 1-minute auto-switch timer started", {
       willAutoSwitchAt: new Date(Date.now() + AUTO_SWITCH_DELAY_MS).toISOString(),
     })
   }
@@ -215,7 +221,7 @@ class InactivityMonitorService {
 
     this.state.autoSwitchTriggered = true
 
-    console.log('🔄 InactivityMonitor: 1-minute threshold reached, triggering auto-switch')
+    console.log("🔄 InactivityMonitor: 1-minute threshold reached, triggering auto-switch")
 
     // Trigger auto-switch callback
     if (this.autoSwitchCallback) {
@@ -246,7 +252,7 @@ class InactivityMonitorService {
       this.autoSwitchTimer = null
       this.state.autoSwitchTriggered = false
 
-      console.log('✅ InactivityMonitor: User responded, auto-switch cancelled')
+      console.log("✅ InactivityMonitor: User responded, auto-switch cancelled")
     }
 
     // Reset state but keep monitoring
@@ -274,4 +280,3 @@ class InactivityMonitorService {
 
 // Export singleton instance
 export const inactivityMonitor = new InactivityMonitorService()
-

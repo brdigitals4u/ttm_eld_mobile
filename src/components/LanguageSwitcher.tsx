@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react'
-import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native'
-import { Check, Globe } from 'lucide-react-native'
-import { useAppTheme } from '@/theme/context'
-import { Text } from '@/components/Text'
-import { translate } from '@/i18n/translate'
-import { changeLanguage, getCurrentLanguage } from '@/i18n'
-import { toast } from '@/components/Toast'
-import ElevatedCard from '@/components/EvevatedCard'
-import { useLanguage } from '@/hooks/useLanguage'
+import React, { useState, useEffect } from "react"
+import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native"
+import { Check, Globe } from "lucide-react-native"
+
+import ElevatedCard from "@/components/EvevatedCard"
+import { Text } from "@/components/Text"
+import { toast } from "@/components/Toast"
+import { useLanguage } from "@/hooks/useLanguage"
+import { changeLanguage, getCurrentLanguage } from "@/i18n"
+import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
 
 // Only include languages that are actually imported and supported
 const languages = [
-  { code: 'en', name: 'English', nativeName: 'English' },
-  { code: 'es', name: 'Spanish', nativeName: 'Español' },
+  { code: "en", name: "English", nativeName: "English" },
+  { code: "es", name: "Spanish", nativeName: "Español" },
 ]
 
 interface LanguageSwitcherProps {
@@ -53,10 +54,11 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose }) =
     }
   }
 
-  const currentLanguage = languages.find(lang => {
-    const langPrimary = currentLang.split("-")[0]
-    return langPrimary === lang.code
-  }) || languages[0]
+  const currentLanguage =
+    languages.find((lang) => {
+      const langPrimary = currentLang.split("-")[0]
+      return langPrimary === lang.code
+    }) || languages[0]
 
   return (
     <>
@@ -86,16 +88,13 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose }) =
         animationType="slide"
         onRequestClose={() => setIsOpen(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: "rgba(0,0,0,0.5)" }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {translate("settings.selectLanguage" as any)}
               </Text>
-              <TouchableOpacity
-                onPress={() => setIsOpen(false)}
-                style={styles.closeButton}
-              >
+              <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
                 <Text style={[styles.closeButtonText, { color: colors.tint }]}>
                   {translate("common.close" as any)}
                 </Text>
@@ -110,10 +109,10 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose }) =
                     key={language.code}
                     style={[
                       styles.languageItem,
-                      { 
+                      {
                         backgroundColor: isSelected ? `${colors.tint}10` : colors.surface,
                         borderColor: isSelected ? colors.tint : colors.border,
-                      }
+                      },
                     ]}
                     onPress={() => handleLanguageChange(language.code)}
                   >
@@ -125,9 +124,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose }) =
                         {language.name}
                       </Text>
                     </View>
-                    {isSelected && (
-                      <Check size={20} color={colors.tint} />
-                    )}
+                    {isSelected && <Check size={20} color={colors.tint} />}
                   </TouchableOpacity>
                 )
               })}
@@ -140,93 +137,92 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose }) =
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    marginVertical: 4,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  value: {
-    fontSize: 14,
-  },
   chevron: {
     fontSize: 24,
-    fontWeight: '300',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "300",
   },
   closeButton: {
     padding: 4,
   },
   closeButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-  languageList: {
-    padding: 16,
-  },
-  languageItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
+  container: {
+    alignItems: "center",
     borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 4,
+    padding: 16,
   },
-  languageContent: {
+  content: {
+    alignItems: "center",
+    flexDirection: "row",
     flex: 1,
   },
-  languageName: {
+  iconContainer: {
+    alignItems: "center",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    marginRight: 12,
+    width: 40,
+  },
+  label: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: "600",
+    marginBottom: 2,
   },
   languageCode: {
     fontSize: 14,
   },
+  languageContent: {
+    flex: 1,
+  },
+  languageItem: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    padding: 16,
+  },
+  languageList: {
+    padding: 16,
+  },
+  languageName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    alignItems: "center",
+    borderBottomColor: "rgba(0,0,0,0.1)",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  textContainer: {
+    flex: 1,
+  },
+  value: {
+    fontSize: 14,
+  },
 })
-

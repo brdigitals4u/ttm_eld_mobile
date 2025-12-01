@@ -1,24 +1,27 @@
 /**
  * Violation Modal Component
- * 
+ *
  * Full-screen bottom sheet for critical violations.
  * Cannot be dismissed - driver must acknowledge.
  */
 
-import React, { useMemo, useRef, useEffect } from 'react'
-import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native'
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet'
-import { AlertTriangle } from 'lucide-react-native'
-import { router } from 'expo-router'
-import * as Haptics from 'expo-haptics'
-import { useViolationNotifications, ActiveViolation } from '@/contexts/ViolationNotificationContext'
-import { colors } from '@/theme/colors'
+import React, { useMemo, useRef, useEffect } from "react"
+import { View, StyleSheet, TouchableOpacity, Text, Platform } from "react-native"
+import * as Haptics from "expo-haptics"
+import { router } from "expo-router"
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
+import { AlertTriangle } from "lucide-react-native"
+
+import { useViolationNotifications, ActiveViolation } from "@/contexts/ViolationNotificationContext"
+import { useAppTheme } from "@/theme/context"
 
 interface ViolationModalProps {
   violation: ActiveViolation
 }
 
 export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const bottomSheetRef = useRef<BottomSheetModal>(null)
   const { removeViolation } = useViolationNotifications()
 
@@ -26,7 +29,7 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
   useEffect(() => {
     if (violation) {
       // Trigger haptic feedback
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         // Also trigger impact for stronger feedback
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
@@ -39,11 +42,113 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
     }
   }, [violation])
 
-  const snapPoints = useMemo(() => ['90%'], [])
+  const snapPoints = useMemo(() => ["90%"], [])
+
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        button: {
+          alignItems: "center",
+          borderRadius: 16,
+          justifyContent: "center",
+          minHeight: 56,
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+        },
+        buttonContainer: {
+          gap: 12,
+          width: "100%",
+        },
+        content: {
+          alignItems: "center",
+          flex: 1,
+          justifyContent: "center",
+          padding: 24,
+        },
+        handleIndicator: {
+          backgroundColor: "rgba(255, 255, 255, 0.3)",
+          width: 40,
+        },
+        iconContainer: {
+          alignItems: "center",
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          borderRadius: 60,
+          height: 120,
+          justifyContent: "center",
+          marginBottom: 24,
+          width: 120,
+        },
+        message: {
+          color: "rgba(255, 255, 255, 0.95)",
+          fontSize: 18,
+          fontWeight: "600",
+          lineHeight: 26,
+          marginBottom: 32,
+          paddingHorizontal: 16,
+          textAlign: "center",
+        },
+        metadataContainer: {
+          backgroundColor: "rgba(255, 255, 255, 0.15)",
+          borderRadius: 16,
+          marginBottom: 32,
+          padding: 20,
+          width: "100%",
+        },
+        metadataLabel: {
+          color: "rgba(255, 255, 255, 0.9)",
+          fontSize: 16,
+          fontWeight: "600",
+        },
+        metadataRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        },
+        metadataValue: {
+          color: colors.cardBackground,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+        modalBackground: {
+          backgroundColor: colors.error, // Red background for critical violations
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+        },
+        okayButton: {
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          borderColor: colors.cardBackground,
+          borderWidth: 2,
+        },
+        okayButtonText: {
+          color: colors.cardBackground,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+        title: {
+          color: colors.cardBackground,
+          fontSize: 28,
+          fontWeight: "900",
+          lineHeight: 36,
+          marginBottom: 16,
+          textAlign: "center",
+        },
+        viewDetailsButton: {
+          backgroundColor: colors.cardBackground,
+        },
+        viewDetailsButtonText: {
+          color: colors.error,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+      }),
+    [colors],
+  )
 
   const handleViewDetails = () => {
     bottomSheetRef.current?.dismiss()
-    router.push('/violations' as any)
+    router.push("/violations" as any)
   }
 
   const handleOkay = () => {
@@ -80,7 +185,7 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
       <BottomSheetView style={styles.content}>
         {/* Alert Icon */}
         <View style={styles.iconContainer}>
-          <AlertTriangle size={64} color="#FFFFFF" strokeWidth={2.5} />
+          <AlertTriangle size={64} color={colors.cardBackground} strokeWidth={2.5} />
         </View>
 
         {/* Title */}
@@ -104,7 +209,8 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
               <View style={styles.metadataRow}>
                 <Text style={styles.metadataLabel}>Time Used:</Text>
                 <Text style={styles.metadataValue}>
-                  {Math.floor(violation.metadata.used_minutes / 60)}h {violation.metadata.used_minutes % 60}m
+                  {Math.floor(violation.metadata.used_minutes / 60)}h{" "}
+                  {violation.metadata.used_minutes % 60}m
                 </Text>
               </View>
             )}
@@ -112,7 +218,8 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
               <View style={styles.metadataRow}>
                 <Text style={styles.metadataLabel}>Limit:</Text>
                 <Text style={styles.metadataValue}>
-                  {Math.floor(violation.metadata.limit_minutes / 60)}h {violation.metadata.limit_minutes % 60}m
+                  {Math.floor(violation.metadata.limit_minutes / 60)}h{" "}
+                  {violation.metadata.limit_minutes % 60}m
                 </Text>
               </View>
             )}
@@ -128,10 +235,7 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
             <Text style={styles.viewDetailsButtonText}>View Details</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.button, styles.okayButton]}
-            onPress={handleOkay}
-          >
+          <TouchableOpacity style={[styles.button, styles.okayButton]} onPress={handleOkay}>
             <Text style={styles.okayButtonText}>Okay</Text>
           </TouchableOpacity>
         </View>
@@ -139,101 +243,3 @@ export const ViolationModal: React.FC<ViolationModalProps> = ({ violation }) => 
     </BottomSheetModal>
   )
 }
-
-const styles = StyleSheet.create({
-  modalBackground: {
-    backgroundColor: '#DC2626', // Red background
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  handleIndicator: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 36,
-  },
-  message: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 26,
-    paddingHorizontal: 16,
-  },
-  metadataContainer: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
-  },
-  metadataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  metadataLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  metadataValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  button: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 56,
-  },
-  viewDetailsButton: {
-    backgroundColor: '#FFFFFF',
-  },
-  viewDetailsButtonText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  okayButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  okayButtonText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-})
-

@@ -1,15 +1,16 @@
 /**
  * ELD Trip Verification Hook
- * 
+ *
  * Detects if last live event is recent (<30 seconds)
  * Auto-queries 5-minute history if needed
  * Shows non-blocking warnings for missing engine data
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useObdData } from '@/contexts/obd-data-context'
-import { eldHistoryService } from '@/services/eld-history-service'
-import { parseEldDataTimestamp } from '@/utils/eld-timestamp-parser'
+import { useEffect, useState, useCallback, useRef } from "react"
+
+import { useObdData } from "@/contexts/obd-data-context"
+import { eldHistoryService } from "@/services/eld-history-service"
+import { parseEldDataTimestamp } from "@/utils/eld-timestamp-parser"
 
 export interface TripVerificationStatus {
   isVerified: boolean
@@ -26,7 +27,7 @@ export interface UseEldTripVerificationOptions {
 }
 
 export function useEldTripVerification(
-  options: UseEldTripVerificationOptions = {}
+  options: UseEldTripVerificationOptions = {},
 ): TripVerificationStatus & {
   verify: () => Promise<void>
   deferSync: () => void
@@ -57,12 +58,12 @@ export function useEldTripVerification(
       return
     }
 
-    setStatus(prev => ({ ...prev, isChecking: true }))
+    setStatus((prev) => ({ ...prev, isChecking: true }))
 
     try {
       // Find most recent live event from history
       const liveEvents = eldHistoryRecords.filter(
-        r => r.raw?.isLiveEvent === 1 || r.raw?.isLiveEvent === true
+        (r) => r.raw?.isLiveEvent === 1 || r.raw?.isLiveEvent === true,
       )
 
       let lastLiveEvent: any = null
@@ -119,14 +120,14 @@ export function useEldTripVerification(
           // Re-check after fetch
           setTimeout(() => verify(), 2000)
         } catch (error) {
-          console.warn('⚠️ Failed to auto-fetch history for verification:', error)
+          console.warn("⚠️ Failed to auto-fetch history for verification:", error)
         }
       }
 
       // Check for warning condition (no engine data >60s)
       let warning: string | null = null
       if (lastLiveEventAge !== null && lastLiveEventAge > warningThreshold / 1000) {
-        warning = 'No engine data — check connection'
+        warning = "No engine data — check connection"
       }
 
       setStatus({
@@ -137,11 +138,11 @@ export function useEldTripVerification(
         warning,
       })
     } catch (error) {
-      console.error('❌ Trip verification failed:', error)
-      setStatus(prev => ({
+      console.error("❌ Trip verification failed:", error)
+      setStatus((prev) => ({
         ...prev,
         isChecking: false,
-        warning: 'Verification failed',
+        warning: "Verification failed",
       }))
     }
   }, [isConnected, eldHistoryRecords, autoFetchHistory, warningThreshold])
@@ -151,16 +152,19 @@ export function useEldTripVerification(
    */
   const deferSync = useCallback(() => {
     deferSyncRef.current = true
-    setStatus(prev => ({
+    setStatus((prev) => ({
       ...prev,
-      warning: 'Sync deferred — check network connection',
+      warning: "Sync deferred — check network connection",
     }))
 
     // Auto-resume after 5 minutes
-    setTimeout(() => {
-      deferSyncRef.current = false
-      verify()
-    }, 5 * 60 * 1000)
+    setTimeout(
+      () => {
+        deferSyncRef.current = false
+        verify()
+      },
+      5 * 60 * 1000,
+    )
   }, [verify])
 
   // Periodic check
@@ -197,4 +201,3 @@ export function useEldTripVerification(
     deferSync,
   }
 }
-

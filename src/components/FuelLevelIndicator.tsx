@@ -1,23 +1,21 @@
-import React from 'react'
-import { View, StyleSheet, Text } from 'react-native'
-import { Fuel } from 'lucide-react-native'
-import * as Progress from 'react-native-progress'
+import React from "react"
+import { View, StyleSheet, Text } from "react-native"
+import { Fuel } from "lucide-react-native"
+import * as Progress from "react-native-progress"
 
 interface FuelLevelIndicatorProps {
   fuelLevel: number // Fuel level in percentage (0-100)
 }
 
-export const FuelLevelIndicator: React.FC<FuelLevelIndicatorProps> = ({
-  fuelLevel,
-}) => {
+export const FuelLevelIndicator: React.FC<FuelLevelIndicatorProps> = ({ fuelLevel }) => {
   const progress = Math.min(Math.max(fuelLevel / 100, 0), 1)
   const displayFuel = Math.round(fuelLevel)
 
   // Get color based on fuel level
   const getFuelColor = () => {
-    if (fuelLevel > 50) return '#0071ce' // Primary blue (full)
-    if (fuelLevel > 25) return '#F59E0B' // Orange (medium)
-    return '#EF4444' // Red (low)
+    if (fuelLevel > 50) return "#0071ce" // Primary blue (full)
+    if (fuelLevel > 25) return "#F59E0B" // Orange (medium)
+    return "#EF4444" // Red (low)
   }
 
   return (
@@ -37,9 +35,7 @@ export const FuelLevelIndicator: React.FC<FuelLevelIndicatorProps> = ({
           <View style={styles.iconContainer}>
             <Fuel size={24} color={getFuelColor()} strokeWidth={2.5} />
           </View>
-          <Text style={[styles.fuelValue, { color: getFuelColor() }]}>
-            {displayFuel}
-          </Text>
+          <Text style={[styles.fuelValue, { color: getFuelColor() }]}>{displayFuel}</Text>
           <Text style={styles.fuelUnit}>%</Text>
         </View>
       </View>
@@ -50,38 +46,38 @@ export const FuelLevelIndicator: React.FC<FuelLevelIndicatorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
   },
-  gaugeContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   fuelContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+  },
+  fuelUnit: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  fuelValue: {
+    fontSize: 36,
+    fontWeight: "900",
+    lineHeight: 40,
+  },
+  gaugeContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   iconContainer: {
     marginBottom: 4,
   },
-  fuelValue: {
-    fontSize: 36,
-    fontWeight: '900',
-    lineHeight: 40,
-  },
-  fuelUnit: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginTop: 2,
-  },
   label: {
-    marginTop: 12,
+    color: "#6B7280",
     fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    marginTop: 12,
   },
 })

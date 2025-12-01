@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react"
+import { Platform } from "react-native"
 import { useFonts } from "expo-font"
 import { Slot } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
-import { Platform } from "react-native"
 
+import { notificationsApi } from "@/api/notifications"
+import { BackgroundServices } from "@/components/BackgroundServices"
 import { AllContextsProvider } from "@/contexts"
 import { initI18n } from "@/i18n"
 import { QueryProvider } from "@/providers/QueryProvider"
 import { ToastProvider } from "@/providers/ToastProvider"
+import { analyticsService } from "@/services/AnalyticsService"
+import { initFreshchat } from "@/services/freshchat"
+import { NotificationService } from "@/services/NotificationService"
 import { ThemeProvider } from "@/theme/context"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
-import { NotificationService } from "@/services/NotificationService"
-import { notificationsApi } from "@/api/notifications"
-import { BackgroundServices } from "@/components/BackgroundServices"
-import { analyticsService } from "@/services/AnalyticsService"
-import { initFreshchat } from "@/services/freshchat"
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync()
@@ -50,16 +52,16 @@ export default function Root() {
 
   useEffect(() => {
     initFreshchat()
-    
+
     // Initialize security services
-    import('../services/SecurityService').then(({ securityService }) => {
+    import("../services/SecurityService").then(({ securityService }) => {
       securityService.performSecurityCheck().catch(console.error)
       // Optionally start periodic checks
       // securityService.startPeriodicChecks(60000) // Check every minute
     })
-    
+
     // Initialize secure config
-    import('../services/SecureConfigService').then(({ secureConfigService }) => {
+    import("../services/SecureConfigService").then(({ secureConfigService }) => {
       secureConfigService.initialize().catch(console.error)
     })
   }, [])
@@ -69,9 +71,9 @@ export default function Root() {
     const setupNotifications = async () => {
       try {
         await NotificationService.initialize()
-        console.log('✅ Notification service initialized')
+        console.log("✅ Notification service initialized")
       } catch (error) {
-        console.error('❌ Failed to setup notifications:', error)
+        console.error("❌ Failed to setup notifications:", error)
       }
     }
 
@@ -89,7 +91,7 @@ export default function Root() {
       try {
         await analyticsService.initialize()
       } catch (error) {
-        console.error('❌ Failed to initialize analytics:', error)
+        console.error("❌ Failed to initialize analytics:", error)
       }
     }
 
@@ -107,7 +109,6 @@ export default function Root() {
       SplashScreen.hideAsync()
     }
   }, [loaded])
-
 
   // Safety: ensure splash hides even if something hangs in dev
   useEffect(() => {
@@ -127,18 +128,22 @@ export default function Root() {
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <QueryProvider>
-        <AllContextsProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <BackgroundServices />
-              <KeyboardProvider>
-                <Slot />
-              </KeyboardProvider>
-            </ToastProvider>
-          </ThemeProvider>
-        </AllContextsProvider>
-      </QueryProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
+          <QueryProvider>
+            <AllContextsProvider>
+              <ThemeProvider initialContext="dark">
+                <ToastProvider>
+                  <BackgroundServices />
+                  <KeyboardProvider>
+                    <Slot />
+                  </KeyboardProvider>
+                </ToastProvider>
+              </ThemeProvider>
+            </AllContextsProvider>
+          </QueryProvider>
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   )
 }

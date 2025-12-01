@@ -1,9 +1,9 @@
 /**
  * Location Queue Service
- * 
+ *
  * Manages a write-ahead log of GPS locations for batch upload.
  * Implements sequence numbers, offline persistence, and automatic flushing.
- * 
+ *
  * Features:
  * - Auto-incrementing sequence numbers
  * - AsyncStorage persistence for offline resilience
@@ -11,19 +11,19 @@
  * - Handles server response to drop processed entries
  */
 
-import { asyncStorage } from '@/utils/storage'
-import { driverApi, LocationBatchItem, LocationBatchResponse } from '@/api/driver'
-import { mapDriverStatusToAppStatus } from '@/utils/hos-status-mapper'
+import { driverApi, LocationBatchItem, LocationBatchResponse } from "@/api/driver"
+import { mapDriverStatusToAppStatus } from "@/utils/hos-status-mapper"
+import { asyncStorage } from "@/utils/storage"
 
-const LOCATION_QUEUE_KEY = '@ttm_eld_location_queue'
-const LAST_SEQ_KEY = '@ttm_eld_last_seq'
-const LAST_APPLIED_SEQ_KEY = '@ttm_eld_last_applied_seq'
+const LOCATION_QUEUE_KEY = "@ttm_eld_location_queue"
+const LAST_SEQ_KEY = "@ttm_eld_last_seq"
+const LAST_APPLIED_SEQ_KEY = "@ttm_eld_last_applied_seq"
 
 export interface QueuedLocation extends LocationBatchItem {
   queuedAt: number // Timestamp when queued
 }
 
-type AutoDutyChangeHandler = (changes: LocationBatchResponse['auto_duty_changes']) => void
+type AutoDutyChangeHandler = (changes: LocationBatchResponse["auto_duty_changes"]) => void
 
 class LocationQueueService {
   private queue: QueuedLocation[] = []
@@ -55,38 +55,38 @@ class LocationQueueService {
     }
 
     this.initializingPromise = (async () => {
-    try {
-      // Load queue from storage
-      const queueData = await asyncStorage.getItem(LOCATION_QUEUE_KEY)
-      if (queueData) {
-        this.queue = JSON.parse(queueData)
-      }
+      try {
+        // Load queue from storage
+        const queueData = await asyncStorage.getItem(LOCATION_QUEUE_KEY)
+        if (queueData) {
+          this.queue = JSON.parse(queueData)
+        }
 
-      // Load last sequence number
-      const lastSeqData = await asyncStorage.getItem(LAST_SEQ_KEY)
-      if (lastSeqData) {
-        this.lastSeq = parseInt(lastSeqData, 10)
-      }
+        // Load last sequence number
+        const lastSeqData = await asyncStorage.getItem(LAST_SEQ_KEY)
+        if (lastSeqData) {
+          this.lastSeq = parseInt(lastSeqData, 10)
+        }
 
-      // Load last applied sequence
-      const lastAppliedSeqData = await asyncStorage.getItem(LAST_APPLIED_SEQ_KEY)
-      if (lastAppliedSeqData) {
-        this.lastAppliedSeq = parseInt(lastAppliedSeqData, 10)
-      }
+        // Load last applied sequence
+        const lastAppliedSeqData = await asyncStorage.getItem(LAST_APPLIED_SEQ_KEY)
+        if (lastAppliedSeqData) {
+          this.lastAppliedSeq = parseInt(lastAppliedSeqData, 10)
+        }
 
-      // Remove any entries that were already processed
-      this.queue = this.queue.filter(loc => loc.seq > this.lastAppliedSeq)
+        // Remove any entries that were already processed
+        this.queue = this.queue.filter((loc) => loc.seq > this.lastAppliedSeq)
 
-      console.log('📍 LocationQueue: Initialized', {
-        queueSize: this.queue.length,
-        lastSeq: this.lastSeq,
-        lastAppliedSeq: this.lastAppliedSeq,
-      })
-    } catch (error) {
-      console.error('❌ LocationQueue: Failed to initialize', error)
-      this.queue = []
-      this.lastSeq = 0
-      this.lastAppliedSeq = 0
+        console.log("📍 LocationQueue: Initialized", {
+          queueSize: this.queue.length,
+          lastSeq: this.lastSeq,
+          lastAppliedSeq: this.lastAppliedSeq,
+        })
+      } catch (error) {
+        console.error("❌ LocationQueue: Failed to initialize", error)
+        this.queue = []
+        this.lastSeq = 0
+        this.lastAppliedSeq = 0
       } finally {
         this.initialized = true
         this.initializingPromise = null
@@ -141,7 +141,7 @@ class LocationQueueService {
     await this.persistQueue()
     await this.persistLastSeq()
 
-    console.log('📍 LocationQueue: Added location', {
+    console.log("📍 LocationQueue: Added location", {
       seq: queuedLocation.seq,
       queueSize: this.queue.length,
     })
@@ -159,12 +159,12 @@ class LocationQueueService {
     await this.ensureInitialized()
 
     if (this.isFlushing) {
-      console.log('📍 LocationQueue: Already flushing, skipping')
+      console.log("📍 LocationQueue: Already flushing, skipping")
       return null
     }
 
     if (this.queue.length === 0) {
-      console.log('📍 LocationQueue: Queue is empty, nothing to flush')
+      console.log("📍 LocationQueue: Queue is empty, nothing to flush")
       return null
     }
 
@@ -174,7 +174,7 @@ class LocationQueueService {
       // Get locations to send (remove queuedAt before sending)
       const locationsToSend: LocationBatchItem[] = this.queue.map(({ queuedAt, ...loc }) => loc)
 
-      console.log('📍 LocationQueue: Flushing', {
+      console.log("📍 LocationQueue: Flushing", {
         count: locationsToSend.length,
         firstSeq: locationsToSend[0]?.seq,
         lastSeq: locationsToSend[locationsToSend.length - 1]?.seq,
@@ -186,11 +186,11 @@ class LocationQueueService {
       // Remove processed entries
       if (response.applied_up_to_seq !== undefined) {
         this.lastAppliedSeq = response.applied_up_to_seq
-        this.queue = this.queue.filter(loc => loc.seq > response.applied_up_to_seq)
+        this.queue = this.queue.filter((loc) => loc.seq > response.applied_up_to_seq)
         await this.persistLastAppliedSeq()
         await this.persistQueue()
 
-        console.log('✅ LocationQueue: Flush successful', {
+        console.log("✅ LocationQueue: Flush successful", {
           appliedUpToSeq: response.applied_up_to_seq,
           processedCount: response.processed_count,
           remainingInQueue: this.queue.length,
@@ -199,7 +199,7 @@ class LocationQueueService {
 
         // Handle auto-duty changes if any
         if (response.auto_duty_changes && response.auto_duty_changes.length > 0) {
-          console.log('🔄 LocationQueue: Auto-duty changes detected', response.auto_duty_changes)
+          console.log("🔄 LocationQueue: Auto-duty changes detected", response.auto_duty_changes)
           if (this.autoDutyChangeHandler) {
             this.autoDutyChangeHandler(response.auto_duty_changes)
           }
@@ -215,7 +215,7 @@ class LocationQueueService {
 
       return response
     } catch (error) {
-      console.error('❌ LocationQueue: Flush failed', error)
+      console.error("❌ LocationQueue: Flush failed", error)
       // Keep entries in queue for retry
       return null
     } finally {
@@ -228,7 +228,7 @@ class LocationQueueService {
    */
   startAutoFlush(intervalMs: number = 30000): void {
     this.ensureInitialized().catch((error) => {
-      console.error('❌ LocationQueue: Failed to ensure initialization before auto-flush', error)
+      console.error("❌ LocationQueue: Failed to ensure initialization before auto-flush", error)
     })
 
     if (this.flushInterval) {
@@ -236,12 +236,12 @@ class LocationQueueService {
     }
 
     this.flushInterval = setInterval(() => {
-      this.flush().catch(error => {
-        console.error('❌ LocationQueue: Auto-flush error', error)
+      this.flush().catch((error) => {
+        console.error("❌ LocationQueue: Auto-flush error", error)
       })
     }, intervalMs)
 
-    console.log('📍 LocationQueue: Auto-flush started', { intervalMs })
+    console.log("📍 LocationQueue: Auto-flush started", { intervalMs })
   }
 
   /**
@@ -251,7 +251,7 @@ class LocationQueueService {
     if (this.flushInterval) {
       clearInterval(this.flushInterval)
       this.flushInterval = null
-      console.log('📍 LocationQueue: Auto-flush stopped')
+      console.log("📍 LocationQueue: Auto-flush stopped")
     }
   }
 
@@ -279,7 +279,7 @@ class LocationQueueService {
     await asyncStorage.removeItem(LOCATION_QUEUE_KEY)
     await asyncStorage.removeItem(LAST_SEQ_KEY)
     await asyncStorage.removeItem(LAST_APPLIED_SEQ_KEY)
-    console.log('📍 LocationQueue: Cleared')
+    console.log("📍 LocationQueue: Cleared")
   }
 
   // Private persistence methods
@@ -287,7 +287,7 @@ class LocationQueueService {
     try {
       await asyncStorage.setItem(LOCATION_QUEUE_KEY, JSON.stringify(this.queue))
     } catch (error) {
-      console.error('❌ LocationQueue: Failed to persist queue', error)
+      console.error("❌ LocationQueue: Failed to persist queue", error)
     }
   }
 
@@ -295,7 +295,7 @@ class LocationQueueService {
     try {
       await asyncStorage.setItem(LAST_SEQ_KEY, this.lastSeq.toString())
     } catch (error) {
-      console.error('❌ LocationQueue: Failed to persist lastSeq', error)
+      console.error("❌ LocationQueue: Failed to persist lastSeq", error)
     }
   }
 
@@ -303,11 +303,10 @@ class LocationQueueService {
     try {
       await asyncStorage.setItem(LAST_APPLIED_SEQ_KEY, this.lastAppliedSeq.toString())
     } catch (error) {
-      console.error('❌ LocationQueue: Failed to persist lastAppliedSeq', error)
+      console.error("❌ LocationQueue: Failed to persist lastAppliedSeq", error)
     }
   }
 }
 
 // Export singleton instance
 export const locationQueueService = new LocationQueueService()
-

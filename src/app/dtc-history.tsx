@@ -3,7 +3,6 @@
  * Full screen for viewing diagnostic trouble codes
  */
 
-import { DtcHistoryScreen } from '@/screens/DtcHistoryScreen'
+import { DtcHistoryScreen } from "@/screens/DtcHistoryScreen"
 
 export default DtcHistoryScreen
-

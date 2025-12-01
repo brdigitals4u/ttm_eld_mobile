@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
 import { apiClient, ApiError } from "./client"
 import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
@@ -12,13 +13,13 @@ export interface DVIR {
   driver_name?: string
   vehicle: number
   vehicle_unit?: string
-  inspection_date: string  // ISO 8601
-  inspection_type: 'pre_trip' | 'post_trip' | 'en_route'
-  status: 'pass' | 'pass_with_defects' | 'fail'
+  inspection_date: string // ISO 8601
+  inspection_type: "pre_trip" | "post_trip" | "en_route"
+  status: "pass" | "pass_with_defects" | "fail"
   odometer_reading?: number
   defects_found: boolean
   notes?: string
-  signature?: string  // base64-encoded image
+  signature?: string // base64-encoded image
   location?: string
   latitude?: number
   longitude?: number
@@ -26,15 +27,15 @@ export interface DVIR {
 }
 
 export interface CreateDVIRRequest {
-  driver: string  // UUID, required
-  vehicle: number  // Required
-  inspection_date: string  // ISO 8601 datetime, required
-  inspection_type: 'pre_trip' | 'post_trip' | 'en_route'  // Required
-  status: 'pass' | 'pass_with_defects' | 'fail'  // Required
+  driver: string // UUID, required
+  vehicle: number // Required
+  inspection_date: string // ISO 8601 datetime, required
+  inspection_type: "pre_trip" | "post_trip" | "en_route" // Required
+  status: "pass" | "pass_with_defects" | "fail" // Required
   odometer_reading?: number
   defects_found?: boolean
   notes?: string
-  signature?: string  // base64-encoded signature image
+  signature?: string // base64-encoded signature image
   location?: string
   latitude?: number
   longitude?: number
@@ -42,22 +43,22 @@ export interface CreateDVIRRequest {
 
 export interface DVIRDefect {
   id: string
-  dvir: string  // DVIR UUID
-  defect_type: string  // brakes/tires/lights/etc.
-  severity: 'critical' | 'major' | 'minor'
+  dvir: string // DVIR UUID
+  defect_type: string // brakes/tires/lights/etc.
+  severity: "critical" | "major" | "minor"
   description: string
-  location?: string  // front_left/etc.
+  location?: string // front_left/etc.
   repair_required?: boolean
   repair_notes?: string
-  status?: string  // pending/repaired/etc.
+  status?: string // pending/repaired/etc.
   created_at?: string
 }
 
 export interface CreateDVIRDefectRequest {
-  dvir: string  // DVIR UUID, required
-  defect_type: string  // Required
-  severity: 'critical' | 'major' | 'minor'  // Required
-  description: string  // Required
+  dvir: string // DVIR UUID, required
+  defect_type: string // Required
+  severity: "critical" | "major" | "minor" // Required
+  description: string // Required
   location?: string
   repair_required?: boolean
   repair_notes?: string
@@ -67,8 +68,8 @@ export interface CreateDVIRDefectRequest {
 export interface DVIRQueryParams {
   driver?: string
   vehicle?: number
-  start_date?: string  // ISO 8601
-  end_date?: string  // ISO 8601
+  start_date?: string // ISO 8601
+  end_date?: string // ISO 8601
   inspection_type?: string
   status?: string
 }
@@ -87,7 +88,7 @@ export const dvirsApi = {
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to create DVIR', status: 400 })
+    throw new ApiError({ message: "Failed to create DVIR", status: 400 })
   },
 
   /**
@@ -96,22 +97,22 @@ export const dvirsApi = {
    */
   async getDVIRs(params?: DVIRQueryParams): Promise<DVIR[]> {
     let endpoint = API_ENDPOINTS.DVIR.GET_ALL
-    
+
     if (params) {
       const queryParams = new URLSearchParams()
-      if (params.driver) queryParams.append('driver', params.driver)
-      if (params.vehicle) queryParams.append('vehicle', params.vehicle.toString())
-      if (params.start_date) queryParams.append('start_date', params.start_date)
-      if (params.end_date) queryParams.append('end_date', params.end_date)
-      if (params.inspection_type) queryParams.append('inspection_type', params.inspection_type)
-      if (params.status) queryParams.append('status', params.status)
-      
+      if (params.driver) queryParams.append("driver", params.driver)
+      if (params.vehicle) queryParams.append("vehicle", params.vehicle.toString())
+      if (params.start_date) queryParams.append("start_date", params.start_date)
+      if (params.end_date) queryParams.append("end_date", params.end_date)
+      if (params.inspection_type) queryParams.append("inspection_type", params.inspection_type)
+      if (params.status) queryParams.append("status", params.status)
+
       const queryString = queryParams.toString()
       if (queryString) {
         endpoint += `?${queryString}`
       }
     }
-    
+
     const response = await apiClient.get<DVIR[]>(endpoint)
     if (response.success && response.data) {
       if (Array.isArray(response.data)) {
@@ -122,7 +123,7 @@ export const dvirsApi = {
       }
       return []
     }
-    throw new ApiError({ message: 'Failed to get DVIRs', status: 400 })
+    throw new ApiError({ message: "Failed to get DVIRs", status: 400 })
   },
 
   /**
@@ -134,7 +135,7 @@ export const dvirsApi = {
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to add DVIR defect', status: 400 })
+    throw new ApiError({ message: "Failed to add DVIR defect", status: 400 })
   },
 
   /**
@@ -143,18 +144,18 @@ export const dvirsApi = {
    */
   async getDVIRDefects(params?: { dvir?: string; status?: string }): Promise<DVIRDefect[]> {
     let endpoint = API_ENDPOINTS.DVIR.GET_DEFECTS
-    
+
     if (params) {
       const queryParams = new URLSearchParams()
-      if (params.dvir) queryParams.append('dvir', params.dvir)
-      if (params.status) queryParams.append('status', params.status)
-      
+      if (params.dvir) queryParams.append("dvir", params.dvir)
+      if (params.status) queryParams.append("status", params.status)
+
       const queryString = queryParams.toString()
       if (queryString) {
         endpoint += `?${queryString}`
       }
     }
-    
+
     const response = await apiClient.get<DVIRDefect[]>(endpoint)
     if (response.success && response.data) {
       if (Array.isArray(response.data)) {
@@ -165,7 +166,7 @@ export const dvirsApi = {
       }
       return []
     }
-    throw new ApiError({ message: 'Failed to get DVIR defects', status: 400 })
+    throw new ApiError({ message: "Failed to get DVIR defects", status: 400 })
   },
 }
 
@@ -185,7 +186,7 @@ export const useCreateDVIR = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.DVIRS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to create DVIR:', error)
+      console.error("Failed to create DVIR:", error)
     },
   })
 }
@@ -198,7 +199,7 @@ export const useDVIRs = (params?: DVIRQueryParams, options?: { enabled?: boolean
     queryKey: [...QUERY_KEYS.DVIRS, params],
     queryFn: () => dvirsApi.getDVIRs(params),
     enabled: options?.enabled !== false,
-    staleTime: 30 * 1000,  // 30 seconds
+    staleTime: 30 * 1000, // 30 seconds
   })
 }
 
@@ -215,7 +216,7 @@ export const useAddDVIRDefect = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.DVIRS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to add DVIR defect:', error)
+      console.error("Failed to add DVIR defect:", error)
     },
   })
 }
@@ -223,7 +224,10 @@ export const useAddDVIRDefect = () => {
 /**
  * Hook: Get DVIR Defects
  */
-export const useDVIRDefects = (params?: { dvir?: string; status?: string }, options?: { enabled?: boolean }) => {
+export const useDVIRDefects = (
+  params?: { dvir?: string; status?: string },
+  options?: { enabled?: boolean },
+) => {
   return useQuery({
     queryKey: [...QUERY_KEYS.DVIR_DEFECTS, params],
     queryFn: () => dvirsApi.getDVIRDefects(params),

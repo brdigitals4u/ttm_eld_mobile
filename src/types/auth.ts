@@ -1,25 +1,25 @@
 export interface User {
-  id: string;
-  name: string;
-  email: string;
-  licenseNumber?: string;
-  organizationId: string;
-  organizationName: string;
+  id: string
+  name: string
+  email: string
+  licenseNumber?: string
+  organizationId: string
+  organizationName: string
 }
 
 export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  isLoading: boolean;
-  error: string | null;
+  isAuthenticated: boolean
+  user: User | null
+  isLoading: boolean
+  error: string | null
 }
 
 export interface VehicleInfo {
-  vehicleNumber: string;
-  eldConnected: boolean;
-  eldId?: string;
-  make?: string;
-  model?: string;
-  year?: string;
+  vehicleNumber: string
+  eldConnected: boolean
+  eldId?: string
+  make?: string
+  model?: string
+  year?: string
   vehicle_unit?: any
 }

@@ -2,7 +2,7 @@ import { useLayoutEffect, useState, useMemo } from "react"
 import { Platform, PixelRatio } from "react-native"
 import { Image, ImageProps, ImageSource } from "expo-image"
 
-export interface AutoImageProps extends Omit<ImageProps, 'source'> {
+export interface AutoImageProps extends Omit<ImageProps, "source"> {
   /**
    * How wide should the image be?
    */
@@ -48,11 +48,13 @@ export function useAutoImage(
 
     // expo-image uses a different API - we'll use Image.getSize for compatibility
     // but expo-image handles sizing better automatically
-    const RNImage = require('react-native').Image
+    const RNImage = require("react-native").Image
     if (!headers) {
       RNImage.getSize(remoteUri, (w: number, h: number) => setRemoteImageDimensions([w, h]))
     } else {
-      RNImage.getSizeWithHeaders(remoteUri, headers, (w: number, h: number) => setRemoteImageDimensions([w, h]))
+      RNImage.getSizeWithHeaders(remoteUri, headers, (w: number, h: number) =>
+        setRemoteImageDimensions([w, h]),
+      )
     }
   }, [remoteUri, headers])
 
@@ -81,20 +83,20 @@ export function useAutoImage(
  */
 export function AutoImage(props: AutoImageProps) {
   const { maxWidth, maxHeight, source, headers, ...ImageProps } = props
-  
+
   // Handle different source formats (expo-image, react-native Image, or number for local assets)
   const imageSource = useMemo(() => {
-    if (typeof source === 'number') {
+    if (typeof source === "number") {
       // Local asset (require())
       return source
     }
-    if (typeof source === 'string') {
+    if (typeof source === "string") {
       // String URI
       return { uri: source, headers }
     }
-    if (source && typeof source === 'object') {
+    if (source && typeof source === "object") {
       // Object with uri or ImageSource
-      if ('uri' in source) {
+      if ("uri" in source) {
         return { uri: source.uri, headers: source.headers || headers }
       }
       return source
@@ -102,22 +104,26 @@ export function AutoImage(props: AutoImageProps) {
     return source
   }, [source, headers])
 
-  const remoteUri = typeof imageSource === 'object' && 'uri' in imageSource 
-    ? imageSource.uri 
-    : typeof source === 'string' 
-      ? source 
-      : ''
+  const remoteUri =
+    typeof imageSource === "object" && "uri" in imageSource
+      ? imageSource.uri
+      : typeof source === "string"
+        ? source
+        : ""
 
   const [width, height] = useAutoImage(
-    remoteUri || '',
-    headers || (typeof imageSource === 'object' && 'headers' in imageSource ? imageSource.headers : undefined),
+    remoteUri || "",
+    headers ||
+      (typeof imageSource === "object" && "headers" in imageSource
+        ? imageSource.headers
+        : undefined),
     [maxWidth, maxHeight],
   )
 
   // Use expo-image with optimized props
   return (
-    <Image 
-      {...ImageProps} 
+    <Image
+      {...ImageProps}
       source={imageSource}
       style={[{ width, height }, props.style]}
       contentFit="contain"

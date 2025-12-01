@@ -116,74 +116,86 @@ class EldHistoryService {
         let connectionStatus
         try {
           connectionStatus = await JMBluetoothService.getConnectionStatus()
-          console.log('🔍 EldHistoryService: Checking connection for chunk fetch', {
+          console.log("🔍 EldHistoryService: Checking connection for chunk fetch", {
             isConnected: connectionStatus.isConnected,
             currentDevice: connectionStatus.currentDevice,
             isBluetoothEnabled: connectionStatus.isBluetoothEnabled,
           })
         } catch (error) {
-          console.error('❌ EldHistoryService: Failed to check connection status', error)
+          console.error("❌ EldHistoryService: Failed to check connection status", error)
           // Don't throw immediately - might be temporary, allow retry
           if (attempt < maxRetries - 1) {
-            console.log('🔄 EldHistoryService: Connection check failed, will retry...')
+            console.log("🔄 EldHistoryService: Connection check failed, will retry...")
             lastError = error instanceof Error ? error : new Error(String(error))
             chunk.error = lastError
             const delay = this.getBackoffDelay(attempt)
             await this.sleep(delay)
             continue
           }
-          throw new Error('Unable to verify ELD device connection status')
+          throw new Error("Unable to verify ELD device connection status")
         }
-        
+
         if (!connectionStatus.isConnected) {
           // Check if it's a temporary disconnection - don't fail immediately
-          if (attempt < maxRetries - 1 && connectionStatus.isBluetoothEnabled && connectionStatus.isBLESupported) {
-            console.warn('⚠️ EldHistoryService: Device not connected, will retry...', {
+          if (
+            attempt < maxRetries - 1 &&
+            connectionStatus.isBluetoothEnabled &&
+            connectionStatus.isBLESupported
+          ) {
+            console.warn("⚠️ EldHistoryService: Device not connected, will retry...", {
               isConnected: connectionStatus.isConnected,
               currentDevice: connectionStatus.currentDevice,
               isBluetoothEnabled: connectionStatus.isBluetoothEnabled,
               attempt: attempt + 1,
               maxRetries,
             })
-            lastError = new Error(`ELD device temporarily disconnected. Device: ${connectionStatus.currentDevice || 'none'}`)
+            lastError = new Error(
+              `ELD device temporarily disconnected. Device: ${connectionStatus.currentDevice || "none"}`,
+            )
             chunk.error = lastError
             const delay = this.getBackoffDelay(attempt)
             await this.sleep(delay)
             continue
           }
-          
-          const errorMsg = `ELD device is not connected. Device: ${connectionStatus.currentDevice || 'none'}, Bluetooth: ${connectionStatus.isBluetoothEnabled ? 'enabled' : 'disabled'}`
-          console.warn('⚠️ EldHistoryService: Device not connected after retries', {
+
+          const errorMsg = `ELD device is not connected. Device: ${connectionStatus.currentDevice || "none"}, Bluetooth: ${connectionStatus.isBluetoothEnabled ? "enabled" : "disabled"}`
+          console.warn("⚠️ EldHistoryService: Device not connected after retries", {
             isConnected: connectionStatus.isConnected,
             currentDevice: connectionStatus.currentDevice,
             isBluetoothEnabled: connectionStatus.isBluetoothEnabled,
           })
           throw new Error(errorMsg)
         }
-        
-        console.log('✅ EldHistoryService: Device connected, querying history data')
+
+        console.log("✅ EldHistoryService: Device connected, querying history data")
         // Query history data
         await JMBluetoothService.queryHistoryData(type, chunk.startTime, chunk.endTime)
-        
+
         // Verify connection is still active after query
         try {
           const postQueryStatus = await JMBluetoothService.getConnectionStatus()
           if (!postQueryStatus.isConnected) {
-            console.warn('⚠️ EldHistoryService: Connection lost after query, will retry if attempts remain', {
-              attempt: attempt + 1,
-              maxRetries,
-            })
+            console.warn(
+              "⚠️ EldHistoryService: Connection lost after query, will retry if attempts remain",
+              {
+                attempt: attempt + 1,
+                maxRetries,
+              },
+            )
             if (attempt < maxRetries - 1) {
-              lastError = new Error('Connection lost after history query')
+              lastError = new Error("Connection lost after history query")
               chunk.error = lastError
               const delay = this.getBackoffDelay(attempt)
               await this.sleep(delay)
               continue
             }
-            throw new Error('Connection lost during history query')
+            throw new Error("Connection lost during history query")
           }
         } catch (postQueryError) {
-          console.warn('⚠️ EldHistoryService: Failed to verify connection after query', postQueryError)
+          console.warn(
+            "⚠️ EldHistoryService: Failed to verify connection after query",
+            postQueryError,
+          )
           // Don't fail if we can't verify - data might still arrive
         }
 

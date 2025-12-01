@@ -1,27 +1,29 @@
 /**
  * Exempt Driver Badge Component
- * 
+ *
  * Small indicator on dashboard showing exempt driver status
  * Opens bottom sheet with exempt driver details when clicked
  */
 
-import React, { useRef, useMemo } from 'react'
-import { View, StyleSheet, TouchableOpacity } from 'react-native'
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet'
-import { Shield, Info, X } from 'lucide-react-native'
-import { Text } from './Text'
-import { colors } from '@/theme/colors'
-import { useAuth } from '@/stores/authStore'
-import { translate } from '@/i18n/translate'
+import React, { useRef, useMemo } from "react"
+import { View, StyleSheet, TouchableOpacity } from "react-native"
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
+import { Shield, Info, X } from "lucide-react-native"
+
+import { translate } from "@/i18n/translate"
+import { useAuth } from "@/stores/authStore"
+import { colors } from "@/theme/colors"
+
+import { Text } from "./Text"
 
 export const ExemptDriverBadge: React.FC = () => {
   const bottomSheetRef = useRef<BottomSheetModal>(null)
   const { driverProfile } = useAuth()
 
-  const snapPoints = useMemo(() => ['50%'], [])
+  const snapPoints = useMemo(() => ["50%"], [])
 
   const isExempt = driverProfile?.eld_exempt === true
-  const exemptReason = driverProfile?.eld_exempt_reason || 'No reason provided'
+  const exemptReason = driverProfile?.eld_exempt_reason || "No reason provided"
 
   if (!isExempt) {
     return null // Don't show badge if driver is not exempt
@@ -32,24 +34,15 @@ export const ExemptDriverBadge: React.FC = () => {
   }
 
   const renderBackdrop = (props: any) => (
-    <BottomSheetBackdrop
-      {...props}
-      appearsOnIndex={0}
-      disappearsOnIndex={-1}
-      opacity={0.5}
-    />
+    <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} />
   )
 
   return (
     <>
       {/* Badge Indicator */}
-      <TouchableOpacity
-        style={styles.badge}
-        onPress={handlePress}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity style={styles.badge} onPress={handlePress} activeOpacity={0.7}>
         <Shield size={16} color="#F59E0B" />
-        <Text style={styles.badgeText}>{translate('eld.exempt.badge' as any)}</Text>
+        <Text style={styles.badgeText}>{translate("eld.exempt.badge" as any)}</Text>
       </TouchableOpacity>
 
       {/* Details Bottom Sheet */}
@@ -68,7 +61,7 @@ export const ExemptDriverBadge: React.FC = () => {
             <View style={styles.iconContainer}>
               <Shield size={32} color="#F59E0B" />
             </View>
-            <Text style={styles.title}>{translate('eld.exempt.title' as any)}</Text>
+            <Text style={styles.title}>{translate("eld.exempt.title" as any)}</Text>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => bottomSheetRef.current?.dismiss()}
@@ -80,15 +73,15 @@ export const ExemptDriverBadge: React.FC = () => {
           {/* Info Box */}
           <View style={styles.infoBox}>
             <Info size={20} color={colors.tint} />
-            <Text style={styles.infoText}>
-              {translate('eld.exempt.info' as any)}
-            </Text>
+            <Text style={styles.infoText}>{translate("eld.exempt.info" as any)}</Text>
           </View>
 
           {/* Exempt Reason */}
           {exemptReason && (
             <View style={styles.reasonContainer}>
-              <Text style={styles.reasonLabel}>{translate('eld.exempt.exemptionReason' as any)}</Text>
+              <Text style={styles.reasonLabel}>
+                {translate("eld.exempt.exemptionReason" as any)}
+              </Text>
               <Text style={styles.reasonText}>{exemptReason}</Text>
             </View>
           )}
@@ -96,28 +89,26 @@ export const ExemptDriverBadge: React.FC = () => {
           {/* Exempt Status Details */}
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{translate('eld.exempt.exemptStatus' as any)}</Text>
+              <Text style={styles.detailLabel}>{translate("eld.exempt.exemptStatus" as any)}</Text>
               <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{translate('eld.exempt.active' as any)}</Text>
+                <Text style={styles.statusText}>{translate("eld.exempt.active" as any)}</Text>
               </View>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{translate('eld.exempt.eldRecording' as any)}</Text>
-              <Text style={styles.detailValue}>{translate('eld.exempt.stillActive' as any)}</Text>
+              <Text style={styles.detailLabel}>{translate("eld.exempt.eldRecording" as any)}</Text>
+              <Text style={styles.detailValue}>{translate("eld.exempt.stillActive" as any)}</Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{translate('eld.exempt.diagnostics' as any)}</Text>
-              <Text style={styles.detailValue}>{translate('eld.exempt.suspended' as any)}</Text>
+              <Text style={styles.detailLabel}>{translate("eld.exempt.diagnostics" as any)}</Text>
+              <Text style={styles.detailValue}>{translate("eld.exempt.suspended" as any)}</Text>
             </View>
           </View>
 
           {/* Note */}
           <View style={styles.noteContainer}>
-            <Text style={styles.noteText}>
-              {translate('eld.exempt.note' as any)}
-            </Text>
+            <Text style={styles.noteText}>{translate("eld.exempt.note" as any)}</Text>
           </View>
         </BottomSheetView>
       </BottomSheetModal>
@@ -127,133 +118,132 @@ export const ExemptDriverBadge: React.FC = () => {
 
 const styles = StyleSheet.create({
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    flexDirection: "row",
     gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   badgeText: {
+    color: "#92400E",
     fontSize: 12,
-    fontWeight: '600',
-    color: '#92400E',
+    fontWeight: "600",
   },
-  modalBackground: {
-    backgroundColor: colors.cardBackground,
-  },
-  handleIndicator: {
-    backgroundColor: colors.border,
+  closeButton: {
+    padding: 4,
   },
   content: {
     flex: 1,
     padding: 24,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    position: 'relative',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  title: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F0F4FF',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
-    gap: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  reasonContainer: {
-    backgroundColor: colors.cardBackground,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 24,
-  },
-  reasonLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+  detailLabel: {
     color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    fontSize: 14,
   },
-  reasonText: {
-    fontSize: 16,
+  detailRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  detailValue: {
     color: colors.text,
-    lineHeight: 24,
+    fontSize: 14,
+    fontWeight: "600",
   },
   detailsContainer: {
     backgroundColor: colors.cardBackground,
-    padding: 16,
+    borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 24,
+    padding: 16,
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  handleIndicator: {
+    backgroundColor: colors.border,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginBottom: 24,
+    position: "relative",
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
+  iconContainer: {
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 24,
+    height: 48,
+    justifyContent: "center",
+    marginRight: 12,
+    width: 48,
+  },
+  infoBox: {
+    alignItems: "flex-start",
+    backgroundColor: "#F0F4FF",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+    padding: 16,
+  },
+  infoText: {
     color: colors.text,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  statusBadge: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  modalBackground: {
+    backgroundColor: colors.cardBackground,
   },
   noteContainer: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
+    backgroundColor: "#F9FAFB",
     borderRadius: 8,
+    padding: 12,
   },
   noteText: {
-    fontSize: 12,
     color: colors.textSecondary,
+    fontSize: 12,
     lineHeight: 18,
   },
+  reasonContainer: {
+    backgroundColor: colors.cardBackground,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 24,
+    padding: 16,
+  },
+  reasonLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  reasonText: {
+    color: colors.text,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  statusBadge: {
+    backgroundColor: "#10B981",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  statusText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  title: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 24,
+    fontWeight: "bold",
+  },
 })
-

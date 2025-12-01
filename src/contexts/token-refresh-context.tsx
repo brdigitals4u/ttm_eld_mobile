@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useRef, useCallback, useState } from 'react'
-import { AppState, AppStateStatus } from 'react-native'
-import { tokenRefreshService } from '@/services/token-refresh-service'
+import React, { createContext, useContext, useEffect, useRef, useCallback, useState } from "react"
+import { AppState, AppStateStatus } from "react-native"
+
+import { tokenRefreshService } from "@/services/token-refresh-service"
 
 interface TokenRefreshContextType {
   isRefreshing: boolean
@@ -37,7 +38,7 @@ export const TokenRefreshProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         await checkAndRefreshToken()
       } catch (error) {
-        console.error('❌ TokenRefresh: Error in periodic check:', error)
+        console.error("❌ TokenRefresh: Error in periodic check:", error)
       }
     }
 
@@ -56,12 +57,15 @@ export const TokenRefreshProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Handle app state changes (refresh when app comes to foreground)
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
-        console.log('📱 TokenRefresh: App became active, checking token...')
-        await checkAndRefreshToken()
-      }
-    })
+    const subscription = AppState.addEventListener(
+      "change",
+      async (nextAppState: AppStateStatus) => {
+        if (nextAppState === "active") {
+          console.log("📱 TokenRefresh: App became active, checking token...")
+          await checkAndRefreshToken()
+        }
+      },
+    )
 
     return () => {
       subscription.remove()
@@ -74,18 +78,13 @@ export const TokenRefreshProvider: React.FC<{ children: React.ReactNode }> = ({ 
     checkAndRefreshToken,
   }
 
-  return (
-    <TokenRefreshContext.Provider value={value}>
-      {children}
-    </TokenRefreshContext.Provider>
-  )
+  return <TokenRefreshContext.Provider value={value}>{children}</TokenRefreshContext.Provider>
 }
 
 export const useTokenRefresh = (): TokenRefreshContextType => {
   const context = useContext(TokenRefreshContext)
   if (!context) {
-    throw new Error('useTokenRefresh must be used within TokenRefreshProvider')
+    throw new Error("useTokenRefresh must be used within TokenRefreshProvider")
   }
   return context
 }
-

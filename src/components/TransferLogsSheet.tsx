@@ -1,9 +1,11 @@
 import React, { useMemo } from "react"
 import { ScrollView, View, Text, StyleSheet, Image } from "react-native"
+
 import HOSChart from "@/components/VictoryHOS"
 import { mapDriverStatusToAppStatus } from "@/utils/hos-status-mapper"
 
 const LOCAL_LOGO = require("assets/images/trident_logo.png")
+
 const LOCAL_LOGO_URI = Image.resolveAssetSource(LOCAL_LOGO).uri
 
 export interface TransferLogEvent {
@@ -106,7 +108,9 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
 
     // Get the date from the first event or use today
     const firstEventDate = data.events[0]?.dateTime
-    const logDate = firstEventDate ? new Date(firstEventDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]
+    const logDate = firstEventDate
+      ? new Date(firstEventDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0]
     const dayStart = new Date(`${logDate}T00:00:00Z`)
 
     // Group events by status and calculate durations
@@ -123,7 +127,9 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
       const nextEvent = sortedEvents[i + 1]
 
       const startTime = new Date(currentEvent.dateTime)
-      const endTime = nextEvent ? new Date(nextEvent.dateTime) : new Date(startTime.getTime() + 24 * 60 * 60 * 1000)
+      const endTime = nextEvent
+        ? new Date(nextEvent.dateTime)
+        : new Date(startTime.getTime() + 24 * 60 * 60 * 1000)
 
       // Map event code to status
       // Event codes: 1 = Off-Duty, 2 = Sleeper, 3 = Driving, 4 = On-Duty
@@ -168,14 +174,26 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
   const logoSource = data.metadata.logoUrl ? { uri: data.metadata.logoUrl } : LOCAL_LOGO
 
   return (
-    <ScrollView style={[styles.container, theme?.backgroundColor ? { backgroundColor: theme.backgroundColor } : null]}>
+    <ScrollView
+      style={[
+        styles.container,
+        theme?.backgroundColor ? { backgroundColor: theme.backgroundColor } : null,
+      ]}
+    >
       <View style={styles.headerContainer}>
         <Image source={logoSource} style={styles.logo} resizeMode="contain" />
         <View style={styles.headerText}>
-          <Text style={[styles.heading, theme?.headingColor ? { color: theme.headingColor } : null]}>
+          <Text
+            style={[styles.heading, theme?.headingColor ? { color: theme.headingColor } : null]}
+          >
             TTM Konnect ELD Transfer Report
           </Text>
-          <Text style={[styles.subheading, theme?.mutedTextColor ? { color: theme.mutedTextColor } : null]}>
+          <Text
+            style={[
+              styles.subheading,
+              theme?.mutedTextColor ? { color: theme.mutedTextColor } : null,
+            ]}
+          >
             Driver Daily Log Summary
           </Text>
         </View>
@@ -218,14 +236,27 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
         {labelValue("Odometer End", data.vehicle.odometerEnd, theme?.textColor)}
         {labelValue("Total Miles Driven Today", data.vehicle.totalMiles, theme?.textColor)}
         {labelValue("Malfunction Indicator", data.vehicle.malfunctionIndicator, theme?.textColor)}
-        {labelValue("Data Diagnostic Indicator", data.vehicle.dataDiagnosticIndicator, theme?.textColor)}
-        {labelValue("Unidentified Driver Records", data.vehicle.unidentifiedDriverRecords, theme?.textColor)}
+        {labelValue(
+          "Data Diagnostic Indicator",
+          data.vehicle.dataDiagnosticIndicator,
+          theme?.textColor,
+        )}
+        {labelValue(
+          "Unidentified Driver Records",
+          data.vehicle.unidentifiedDriverRecords,
+          theme?.textColor,
+        )}
         {labelValue("Exempt Driver Status", data.vehicle.exemptDriverStatus, theme?.textColor)}
       </Section>
 
       <Section title="Driver's Duty Status Chart">
         {chartLogs.length === 0 ? (
-          <Text style={[styles.emptyText, theme?.mutedTextColor ? { color: theme.mutedTextColor } : null]}>
+          <Text
+            style={[
+              styles.emptyText,
+              theme?.mutedTextColor ? { color: theme.mutedTextColor } : null,
+            ]}
+          >
             No duty status data available for chart display.
           </Text>
         ) : (
@@ -237,23 +268,45 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
 
       <Section title="Driver Duty Status Events">
         {data.events.length === 0 ? (
-          <Text style={[styles.emptyText, theme?.mutedTextColor ? { color: theme.mutedTextColor } : null]}>
+          <Text
+            style={[
+              styles.emptyText,
+              theme?.mutedTextColor ? { color: theme.mutedTextColor } : null,
+            ]}
+          >
             No duty status events recorded for the selected range.
           </Text>
         ) : (
           data.events.map((event) => (
-            <View style={[styles.eventCard, theme?.borderColor ? { borderColor: theme.borderColor } : null]} key={event.sequenceId}>
+            <View
+              style={[
+                styles.eventCard,
+                theme?.borderColor ? { borderColor: theme.borderColor } : null,
+              ]}
+              key={event.sequenceId}
+            >
               <View style={styles.eventHeader}>
-                <Text style={[styles.eventTitle, theme?.textColor ? { color: theme.textColor } : null]}>
+                <Text
+                  style={[styles.eventTitle, theme?.textColor ? { color: theme.textColor } : null]}
+                >
                   Event #{event.sequenceId} — {event.eventType}
                 </Text>
-                <Text style={[styles.eventCode, theme?.mutedTextColor ? { color: theme.mutedTextColor } : null]}>
+                <Text
+                  style={[
+                    styles.eventCode,
+                    theme?.mutedTextColor ? { color: theme.mutedTextColor } : null,
+                  ]}
+                >
                   Code {event.eventCode}
                 </Text>
               </View>
               {labelValue("Timestamp (UTC)", event.dateTime, theme?.textColor)}
               {labelValue("Location", event.location, theme?.textColor)}
-              {labelValue("Latitude / Longitude", formatCoordinates(event.latitude, event.longitude), theme?.textColor)}
+              {labelValue(
+                "Latitude / Longitude",
+                formatCoordinates(event.latitude, event.longitude),
+                theme?.textColor,
+              )}
               {labelValue("Vehicle Miles", stringifyValue(event.vehicleMiles), theme?.textColor)}
               {labelValue("Engine Hours", stringifyValue(event.engineHours), theme?.textColor)}
               {labelValue("Origin", event.origin, theme?.textColor)}
@@ -268,18 +321,35 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
         {data.supportingEvents && data.supportingEvents.length > 0 ? (
           data.supportingEvents.map((support, index) => (
             <View
-              style={[styles.eventCard, theme?.borderColor ? { borderColor: theme.borderColor } : null]}
+              style={[
+                styles.eventCard,
+                theme?.borderColor ? { borderColor: theme.borderColor } : null,
+              ]}
               key={`${support.label}-${index}`}
             >
-              <Text style={[styles.eventTitle, theme?.textColor ? { color: theme.textColor } : null]}>{support.label}</Text>
+              <Text
+                style={[styles.eventTitle, theme?.textColor ? { color: theme.textColor } : null]}
+              >
+                {support.label}
+              </Text>
               {labelValue("Timestamp", support.timestamp, theme?.textColor)}
-              <Text style={[styles.supportDescription, theme?.mutedTextColor ? { color: theme.mutedTextColor } : null]}>
+              <Text
+                style={[
+                  styles.supportDescription,
+                  theme?.mutedTextColor ? { color: theme.mutedTextColor } : null,
+                ]}
+              >
                 {support.description}
               </Text>
             </View>
           ))
         ) : (
-          <Text style={[styles.emptyText, theme?.mutedTextColor ? { color: theme.mutedTextColor } : null]}>
+          <Text
+            style={[
+              styles.emptyText,
+              theme?.mutedTextColor ? { color: theme.mutedTextColor } : null,
+            ]}
+          >
             No supporting events recorded.
           </Text>
         )}
@@ -287,10 +357,18 @@ export const TransferLogsSheet: React.FC<TransferLogsSheetProps> = ({ data, them
 
       <Section title="Certification">
         {labelValue("Certified", data.certification.certified ? "Yes" : "No", theme?.textColor)}
-        {labelValue("Certification Date/Time", data.certification.certificationDate, theme?.textColor)}
+        {labelValue(
+          "Certification Date/Time",
+          data.certification.certificationDate,
+          theme?.textColor,
+        )}
         {labelValue("Certified By", data.certification.certifiedBy, theme?.textColor)}
         {labelValue("Driver Signature", data.certification.driverSignature, theme?.textColor)}
-        {labelValue("Officer / Inspector Name", data.certification.officerName || "__________________", theme?.mutedTextColor)}
+        {labelValue(
+          "Officer / Inspector Name",
+          data.certification.officerName || "__________________",
+          theme?.mutedTextColor,
+        )}
       </Section>
     </ScrollView>
   )
@@ -498,7 +576,10 @@ export const renderTransferLogsHtml = (data: TransferLogsSheetData): string => {
             { label: "Certification Date/Time", value: data.certification.certificationDate },
             { label: "Certified By", value: data.certification.certifiedBy },
             { label: "Driver Signature", value: data.certification.driverSignature },
-            { label: "Officer / Inspector Name", value: data.certification.officerName || "__________________" },
+            {
+              label: "Officer / Inspector Name",
+              value: data.certification.officerName || "__________________",
+            },
           ])}
         </table>
       </body>
@@ -507,19 +588,48 @@ export const renderTransferLogsHtml = (data: TransferLogsSheetData): string => {
 }
 
 const styles = StyleSheet.create({
+  chartContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    marginVertical: 12,
+    overflow: "hidden",
+  },
   container: {
     flex: 1,
     padding: 16,
   },
-  headerContainer: {
-    flexDirection: "row",
+  emptyText: {
+    color: "#6B7280",
+    fontSize: 13,
+    fontStyle: "italic",
+  },
+  eventCard: {
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  eventCode: {
+    color: "#6B7280",
+    fontSize: 12,
+  },
+  eventHeader: {
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  headerContainer: {
+    alignItems: "center",
+    flexDirection: "row",
     gap: 16,
     marginBottom: 16,
-  },
-  logo: {
-    width: 64,
-    height: 64,
   },
   headerText: {
     flex: 1,
@@ -528,84 +638,54 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
   },
-  subheading: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#6B7280",
-    marginTop: 4,
+  label: {
+    color: "#111827",
+    flex: 0.45,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  logo: {
+    height: 64,
+    width: 64,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
   },
   section: {
     marginBottom: 20,
+  },
+  sectionContent: {
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 8,
   },
-  sectionContent: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 6,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
-    flex: 0.45,
-  },
-  value: {
-    fontSize: 13,
-    color: "#1F2937",
-    flex: 0.55,
-    textAlign: "right",
-  },
-  emptyText: {
-    fontSize: 13,
+  subheading: {
     color: "#6B7280",
-    fontStyle: "italic",
-  },
-  eventCard: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 12,
-    gap: 6,
-  },
-  eventHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  eventTitle: {
     fontSize: 14,
-    fontWeight: "600",
-  },
-  eventCode: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  supportDescription: {
-    fontSize: 12,
-    color: "#4B5563",
+    fontWeight: "500",
     marginTop: 4,
   },
-  chartContainer: {
-    marginVertical: 12,
-    borderRadius: 8,
-    overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+  supportDescription: {
+    color: "#4B5563",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  value: {
+    color: "#1F2937",
+    flex: 0.55,
+    fontSize: 13,
+    textAlign: "right",
   },
 })
 
 export default TransferLogsSheet
-

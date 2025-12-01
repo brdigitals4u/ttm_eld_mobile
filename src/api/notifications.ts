@@ -1,21 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, ApiError } from './client'
-import { API_ENDPOINTS, QUERY_KEYS } from './constants'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
+import { apiClient, ApiError } from "./client"
+import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
 // ============================================================================
 // Notification Types
 // ============================================================================
 
-export type NotificationType = 
-  | 'pending_edit' 
-  | 'certification_reminder' 
-  | 'malfunction_alert' 
-  | 'violation_warning'
-  | 'profile_change_approved'
-  | 'profile_change_rejected'
-  | 'general'
+export type NotificationType =
+  | "pending_edit"
+  | "certification_reminder"
+  | "malfunction_alert"
+  | "violation_warning"
+  | "profile_change_approved"
+  | "profile_change_rejected"
+  | "general"
 
-export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical'
+export type NotificationPriority = "low" | "medium" | "high" | "critical"
 
 export interface Notification {
   id: string
@@ -38,19 +39,19 @@ export interface NotificationsResponse {
 // Malfunction Types
 // ============================================================================
 
-export type MalfunctionType = 
-  | 'power_compliance'    // M1
-  | 'engine_sync'         // M2
-  | 'missing_data'        // M3
-  | 'data_transfer'       // M4
-  | 'unidentified_driver' // M5
-  | 'other'               // M6
+export type MalfunctionType =
+  | "power_compliance" // M1
+  | "engine_sync" // M2
+  | "missing_data" // M3
+  | "data_transfer" // M4
+  | "unidentified_driver" // M5
+  | "other" // M6
 
 export interface Malfunction {
   id: string
   type: MalfunctionType
   diagnostic_code: string
-  status: 'active' | 'resolved' | 'pending'
+  status: "active" | "resolved" | "pending"
   description: string
   symptoms?: string
   reported_at: string
@@ -91,7 +92,7 @@ export interface MalfunctionStatusResponse {
 
 export interface RegisterPushTokenRequest {
   push_token: string
-  device_type: 'ios' | 'android'
+  device_type: "ios" | "android"
   device_id?: string
 }
 
@@ -110,11 +111,11 @@ export const notificationsApi = {
    * GET /driver/notifications/
    */
   async getNotifications(): Promise<NotificationsResponse> {
-    const response = await apiClient.get<NotificationsResponse>('/driver/notifications/')
+    const response = await apiClient.get<NotificationsResponse>("/driver/notifications/")
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to get notifications', status: 400 })
+    throw new ApiError({ message: "Failed to get notifications", status: 400 })
   },
 
   /**
@@ -138,14 +139,11 @@ export const notificationsApi = {
         read: boolean
         read_at: string
       }
-    }>(
-      `/driver/notifications/${notificationId}/mark-read/`,
-      {}
-    )
+    }>(`/driver/notifications/${notificationId}/mark-read/`, {})
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to mark notification as read', status: 400 })
+    throw new ApiError({ message: "Failed to mark notification as read", status: 400 })
   },
 
   /**
@@ -154,13 +152,13 @@ export const notificationsApi = {
    */
   async markAllAsRead(): Promise<{ success: boolean }> {
     const response = await apiClient.post<{ success: boolean }>(
-      '/driver/notifications/mark-all-read/',
-      {}
+      "/driver/notifications/mark-all-read/",
+      {},
     )
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to mark all notifications as read', status: 400 })
+    throw new ApiError({ message: "Failed to mark all notifications as read", status: 400 })
   },
 
   /**
@@ -169,13 +167,13 @@ export const notificationsApi = {
    */
   async reportMalfunction(data: ReportMalfunctionRequest): Promise<ReportMalfunctionResponse> {
     const response = await apiClient.post<ReportMalfunctionResponse>(
-      '/driver/report-malfunction/',
-      data
+      "/driver/report-malfunction/",
+      data,
     )
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to report malfunction', status: 400 })
+    throw new ApiError({ message: "Failed to report malfunction", status: 400 })
   },
 
   /**
@@ -183,13 +181,11 @@ export const notificationsApi = {
    * GET /driver/malfunction-status/
    */
   async getMalfunctionStatus(): Promise<MalfunctionStatusResponse> {
-    const response = await apiClient.get<MalfunctionStatusResponse>(
-      '/driver/malfunction-status/'
-    )
+    const response = await apiClient.get<MalfunctionStatusResponse>("/driver/malfunction-status/")
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to get malfunction status', status: 400 })
+    throw new ApiError({ message: "Failed to get malfunction status", status: 400 })
   },
 
   /**
@@ -198,13 +194,13 @@ export const notificationsApi = {
    */
   async registerPushToken(data: RegisterPushTokenRequest): Promise<RegisterPushTokenResponse> {
     const response = await apiClient.post<RegisterPushTokenResponse>(
-      '/driver/register-push-token/',
-      data
+      "/driver/register-push-token/",
+      data,
     )
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to register push token', status: 400 })
+    throw new ApiError({ message: "Failed to register push token", status: 400 })
   },
 }
 
@@ -240,16 +236,16 @@ export const useMarkAsRead = () => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS })
 
       // Snapshot the previous value
-      const previousNotifications = queryClient.getQueryData<NotificationsResponse>(QUERY_KEYS.NOTIFICATIONS)
+      const previousNotifications = queryClient.getQueryData<NotificationsResponse>(
+        QUERY_KEYS.NOTIFICATIONS,
+      )
 
       // Optimistically update the notification to read
       if (previousNotifications) {
         queryClient.setQueryData<NotificationsResponse>(QUERY_KEYS.NOTIFICATIONS, {
           ...previousNotifications,
           notifications: previousNotifications.notifications.map((notif) =>
-            notif.id === notificationId
-              ? { ...notif, is_read: true }
-              : notif
+            notif.id === notificationId ? { ...notif, is_read: true } : notif,
           ),
           unread_count: Math.max(0, (previousNotifications.unread_count || 0) - 1),
         })
@@ -266,9 +262,7 @@ export const useMarkAsRead = () => {
         return {
           ...old,
           notifications: old.notifications.map((notif) =>
-            notif.id === notificationId
-              ? { ...notif, is_read: true }
-              : notif
+            notif.id === notificationId ? { ...notif, is_read: true } : notif,
           ),
           unread_count: Math.max(0, (old.unread_count || 0) - 1),
         }
@@ -279,7 +273,7 @@ export const useMarkAsRead = () => {
       if (context?.previousNotifications) {
         queryClient.setQueryData(QUERY_KEYS.NOTIFICATIONS, context.previousNotifications)
       }
-      console.error('Failed to mark notification as read:', error)
+      console.error("Failed to mark notification as read:", error)
     },
     onSettled: () => {
       // Refetch to ensure consistency
@@ -300,7 +294,7 @@ export const useMarkAllAsRead = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to mark all notifications as read:', error)
+      console.error("Failed to mark all notifications as read:", error)
     },
   })
 }
@@ -316,10 +310,10 @@ export const useReportMalfunction = () => {
     onSuccess: () => {
       // Invalidate both notifications and malfunction status
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS })
-      queryClient.invalidateQueries({ queryKey: ['malfunction_status'] })
+      queryClient.invalidateQueries({ queryKey: ["malfunction_status"] })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to report malfunction:', error)
+      console.error("Failed to report malfunction:", error)
     },
   })
 }
@@ -329,7 +323,7 @@ export const useReportMalfunction = () => {
  */
 export const useMalfunctionStatus = (options?: { enabled?: boolean }) => {
   return useQuery({
-    queryKey: ['malfunction_status'],
+    queryKey: ["malfunction_status"],
     queryFn: notificationsApi.getMalfunctionStatus,
     enabled: options?.enabled !== false,
     staleTime: 60 * 1000, // 1 minute

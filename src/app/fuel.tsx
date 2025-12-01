@@ -12,38 +12,40 @@ import {
   View,
   ActivityIndicator,
 } from "react-native"
-import * as ImagePicker from "expo-image-picker"
+import { Dimensions } from "react-native"
 import * as ImageManipulator from "expo-image-manipulator"
-import * as Location from "expo-location"
+import * as ImagePicker from "expo-image-picker"
 import { LinearGradient } from "expo-linear-gradient"
+import * as Location from "expo-location"
 import { router } from "expo-router"
 import { Camera, ChevronDown, Edit, Fuel, MapPin, Gauge, DollarSign } from "lucide-react-native"
+import { Filter, List, Plus } from "lucide-react-native"
 
-import { useCreateFuelPurchase, fuelPurchaseApi, CreateFuelPurchaseRequest } from "@/api/fuel-purchase"
-import ElevatedCard from "@/components/EvevatedCard"
-import { Header } from "@/components/Header"
-import { FuelPurchasesList } from "@/components/FuelPurchasesList"
-import { useLocation } from "@/contexts/location-context"
-
-import { toast } from "@/components/Toast"
-import { useToast } from "@/providers/ToastProvider"
-import { useFuel, useAuth, usePermissions } from "@/contexts"
-import { useLocationData } from "@/hooks/useLocationData"
-import { useEldVehicleData } from "@/hooks/useEldVehicleData"
-import { useAppTheme } from "@/theme/context"
-import { FuelReceipt } from "@/types/fuel"
-import { translate } from "@/i18n/translate"
 import { useHOSCurrentStatus, useChangeDutyStatus } from "@/api/driver-hooks"
+import {
+  useCreateFuelPurchase,
+  fuelPurchaseApi,
+  CreateFuelPurchaseRequest,
+} from "@/api/fuel-purchase"
+import ElevatedCard from "@/components/EvevatedCard"
+import { FuelPurchasesList } from "@/components/FuelPurchasesList"
+import { Header } from "@/components/Header"
+import { SafeAreaContainer } from "@/components/SafeAreaContainer"
+import { toast } from "@/components/Toast"
+import { useFuel, useAuth, usePermissions } from "@/contexts"
+import { useLocation } from "@/contexts/location-context"
+import { useEldVehicleData } from "@/hooks/useEldVehicleData"
+import { useLocationData } from "@/hooks/useLocationData"
+import { translate } from "@/i18n/translate"
+import { useToast } from "@/providers/ToastProvider"
+import { useAppTheme } from "@/theme/context"
+import { shadows, applyShadow } from "@/theme/shadows"
+import { FuelReceipt } from "@/types/fuel"
 import { mapAppStatusToDriverStatus } from "@/utils/hos-status-mapper"
 
-import { Filter, List, Plus } from 'lucide-react-native'
-import { Dimensions } from 'react-native'
-import { SafeAreaContainer } from '@/components/SafeAreaContainer'
-import { shadows, applyShadow } from '@/theme/shadows'
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window')
-
 import statesHash from "./states_hash.json"
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window")
 
 interface FuelFormData {
   location: string
@@ -76,7 +78,7 @@ export default function EnhancedFuelScreen() {
   const { requestLocation, hasPermission } = useLocation()
   const createFuelPurchaseMutation = useCreateFuelPurchase()
   const { toast: toastHook } = useToast()
-  
+
   // HOS status for auto-switch functionality
   const { data: hosStatus } = useHOSCurrentStatus(user?.id ? true : false)
   const changeDutyStatusMutation = useChangeDutyStatus()
@@ -98,7 +100,7 @@ export default function EnhancedFuelScreen() {
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [isProcessingImage, setIsProcessingImage] = useState(false)
 
-  const [activeTab, setActiveTab] = useState<'list' | 'add'>('list') // 'list' or 'add' - default is 'list'
+  const [activeTab, setActiveTab] = useState<"list" | "add">("list") // 'list' or 'add' - default is 'list'
   const [showFilters, setShowFilters] = useState(false)
 
   // Request location permission when form is shown
@@ -122,19 +124,21 @@ export default function EnhancedFuelScreen() {
   useEffect(() => {
     const autoSwitchToNonDriving = async () => {
       // Only switch if currently in driving status
-      if (hosStatus?.current_duty_status === 'driving' && driverProfile?.driver_id) {
+      if (hosStatus?.current_duty_status === "driving" && driverProfile?.driver_id) {
         try {
-          const driverStatus = mapAppStatusToDriverStatus('on_duty')
+          const driverStatus = mapAppStatusToDriverStatus("on_duty")
           await changeDutyStatusMutation.mutateAsync({
             duty_status: driverStatus,
             location: locationData.address || undefined,
             latitude: locationData.latitude !== 0 ? locationData.latitude : undefined,
             longitude: locationData.longitude !== 0 ? locationData.longitude : undefined,
-            notes: 'Auto-switched for fuel entry',
+            notes: "Auto-switched for fuel entry",
           })
-          toast.info(translate("fuel.autoSwitched" as any) || 'Switched to non-driving mode for fuel entry')
+          toast.info(
+            translate("fuel.autoSwitched" as any) || "Switched to non-driving mode for fuel entry",
+          )
         } catch (error) {
-          console.error('Failed to auto-switch to non-driving mode:', error)
+          console.error("Failed to auto-switch to non-driving mode:", error)
           // Don't show error to user - this is a background operation
         }
       }
@@ -147,18 +151,28 @@ export default function EnhancedFuelScreen() {
   // Auto-populate odometer and location from ELD device (priority) or fallback sources
   useEffect(() => {
     // Priority 1: Get odometer from ELD device using the hook
-    if (eldOdometer.source === 'eld' && eldOdometer.value !== null && !formData.odometer && eldConnected) {
+    if (
+      eldOdometer.source === "eld" &&
+      eldOdometer.value !== null &&
+      !formData.odometer &&
+      eldConnected
+    ) {
       setFormData((prev) => ({ ...prev, odometer: eldOdometer.value!.toString() }))
     }
-    
+
     // Priority 2: Fallback to vehicle assignment odometer if ELD not available
     // Skip if value looks like a placeholder/default (e.g., 50000, 0, etc.)
-    if (eldOdometer.source !== 'eld' && !formData.odometer && vehicleAssignment?.vehicle_info?.current_odometer) {
+    if (
+      eldOdometer.source !== "eld" &&
+      !formData.odometer &&
+      vehicleAssignment?.vehicle_info?.current_odometer
+    ) {
       const odometerValue = vehicleAssignment.vehicle_info.current_odometer
-      const odometerNum = typeof odometerValue === 'object' && odometerValue?.value
-        ? Number(odometerValue.value)
-        : Number(odometerValue)
-      
+      const odometerNum =
+        typeof odometerValue === "object" && odometerValue?.value
+          ? Number(odometerValue.value)
+          : Number(odometerValue)
+
       // Only auto-populate if it's a reasonable value (not 0, 50000, or other common placeholders)
       // Allow values between 1 and 999999 (reasonable odometer range)
       if (!isNaN(odometerNum) && odometerNum > 0 && odometerNum < 999999 && odometerNum !== 50000) {
@@ -171,18 +185,18 @@ export default function EnhancedFuelScreen() {
     // Priority 2: Fallback to vehicle assignment location
     if (!formData.location) {
       // locationData already prioritizes ELD -> Expo GPS -> fallback
-      const locationAddress = locationData.address 
-        || vehicleAssignment?.vehicle_info?.current_location?.address
-        || (locationData.latitude !== 0 && locationData.longitude !== 0 
+      const locationAddress =
+        locationData.address ||
+        vehicleAssignment?.vehicle_info?.current_location?.address ||
+        (locationData.latitude !== 0 && locationData.longitude !== 0
           ? `${locationData.latitude.toFixed(4)}, ${locationData.longitude.toFixed(4)}`
-          : '')
-      
+          : "")
+
       if (locationAddress) {
         setFormData((prev) => ({ ...prev, location: locationAddress }))
       }
     }
   }, [eldOdometer, vehicleAssignment, locationData, formData.odometer, formData.location])
-
 
   // Fuel grade options
   const fuelGradeOptions = ["Unknown", "Regular", "Premium", "Mid-Grade", "Diesel"]
@@ -211,9 +225,9 @@ export default function EnhancedFuelScreen() {
   // US States - Get from states_hash.json
   const usStates = Object.keys(statesHash).sort() // Sort alphabetically by state code
 
-  const handleTabChange = (tab: 'list' | 'add') => {
+  const handleTabChange = (tab: "list" | "add") => {
     setActiveTab(tab)
-    if (tab === 'add') {
+    if (tab === "add") {
       setShowAddForm(true)
     } else {
       setShowAddForm(false)
@@ -234,7 +248,6 @@ export default function EnhancedFuelScreen() {
     setFormErrors({})
   }
 
-
   const handleTakePhoto = async () => {
     if (Platform.OS === "web") {
       toast.warning("Camera functionality is not available on web.")
@@ -247,15 +260,17 @@ export default function EnhancedFuelScreen() {
 
     try {
       setIsProcessingImage(true)
-      
+
       // Check current permission status
       let { status } = await ImagePicker.getCameraPermissionsAsync()
-      
+
       // Request permission if not granted
       if (status !== "granted") {
         const { status: newStatus } = await ImagePicker.requestCameraPermissionsAsync()
         if (newStatus !== "granted") {
-          toast.error("Camera permission is required to take receipt photos. Please enable it in settings.")
+          toast.error(
+            "Camera permission is required to take receipt photos. Please enable it in settings.",
+          )
           setIsProcessingImage(false)
           return
         }
@@ -278,7 +293,7 @@ export default function EnhancedFuelScreen() {
             const optimizedImage = await ImageManipulator.manipulateAsync(
               result.assets[0].uri,
               [{ resize: { width: 1200 } }], // Resize to max width 1200px
-              { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+              { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
             )
             setFormData((prev: FuelFormData) => ({
               ...prev,
@@ -322,20 +337,22 @@ export default function EnhancedFuelScreen() {
 
     try {
       setIsProcessingImage(true)
-      
+
       // Check and request media library permission
       let { status } = await ImagePicker.getMediaLibraryPermissionsAsync()
-      
+
       if (status !== "granted") {
         const { status: newStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync()
         if (newStatus !== "granted") {
-          toast.error("Photo library permission is required to select images. Please enable it in settings.")
+          toast.error(
+            "Photo library permission is required to select images. Please enable it in settings.",
+          )
           setIsProcessingImage(false)
           return
         }
         status = newStatus
       }
-      
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -343,7 +360,7 @@ export default function EnhancedFuelScreen() {
         quality: 0.7, // Lower quality for smaller file size
         exif: false, // Don't include EXIF data for privacy
       })
-      
+
       if (!result.canceled && result.assets[0]) {
         // Try to optimize image before storing, fallback to original if manipulation fails
         try {
@@ -351,7 +368,7 @@ export default function EnhancedFuelScreen() {
             const optimizedImage = await ImageManipulator.manipulateAsync(
               result.assets[0].uri,
               [{ resize: { width: 1200 } }], // Resize to max width 1200px
-              { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+              { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
             )
             setFormData((prev: FuelFormData) => ({
               ...prev,
@@ -469,7 +486,7 @@ export default function EnhancedFuelScreen() {
       let latitude: number | null = null
       let longitude: number | null = null
       let state: string | null = null
-      
+
       // Request location permission if not granted and try to get location
       if (!hasPermission) {
         try {
@@ -479,11 +496,15 @@ export default function EnhancedFuelScreen() {
           // Continue - user can enter location manually
         }
       }
-      
+
       // If location is empty or fallback, try to get from locationData hook
-      if (!transactionLocation || transactionLocation === 'fallback location' || transactionLocation.includes('fallback')) {
+      if (
+        !transactionLocation ||
+        transactionLocation === "fallback location" ||
+        transactionLocation.includes("fallback")
+      ) {
         // Priority 1: Use locationData hook (ELD or GPS)
-        if (locationData.address && locationData.address !== 'fallback location') {
+        if (locationData.address && locationData.address !== "fallback location") {
           transactionLocation = locationData.address
           latitude = locationData.latitude !== 0 ? locationData.latitude : null
           longitude = locationData.longitude !== 0 ? locationData.longitude : null
@@ -507,7 +528,7 @@ export default function EnhancedFuelScreen() {
         } else {
           // Location is required - but allow user to enter manually
           // If still empty after all attempts, show warning but allow submission
-          if (!transactionLocation || transactionLocation.trim() === '') {
+          if (!transactionLocation || transactionLocation.trim() === "") {
             toast.warning("Location not available. Please enter location manually.")
             // Don't block submission - location field is mandatory in form validation
             // The form validation will catch if it's still empty
@@ -520,9 +541,9 @@ export default function EnhancedFuelScreen() {
           longitude = locationData.longitude
         }
       }
-      
+
       // Final check: if location is still empty, don't proceed
-      if (!transactionLocation || transactionLocation.trim() === '') {
+      if (!transactionLocation || transactionLocation.trim() === "") {
         toast.error("Location is required. Please enter a location.")
         setIsSubmitting(false)
         return
@@ -545,7 +566,7 @@ export default function EnhancedFuelScreen() {
               } else {
                 // Try to find state code from states_hash.json
                 const stateCode = Object.keys(statesHash).find(
-                  (code) => statesHash[code as keyof typeof statesHash] === addr.region
+                  (code) => statesHash[code as keyof typeof statesHash] === addr.region,
                 )
                 state = stateCode || addr.region
               }
@@ -576,7 +597,7 @@ export default function EnhancedFuelScreen() {
       if (vehicleAssignment?.vehicle_info) {
         // Try to find a numeric ID field (some APIs have both UUID and numeric ID)
         const vehicleInfo = vehicleAssignment.vehicle_info as any
-        if (vehicleInfo.vehicle_id && typeof vehicleInfo.vehicle_id === 'number') {
+        if (vehicleInfo.vehicle_id && typeof vehicleInfo.vehicle_id === "number") {
           vehicleId = vehicleInfo.vehicle_id
         } else if (vehicleInfo.id) {
           // If ID is numeric string, parse it
@@ -630,11 +651,11 @@ export default function EnhancedFuelScreen() {
 
       const createResponse = await createFuelPurchaseMutation.mutateAsync(createPayload)
       console.log("📦 Create fuel purchase response:", JSON.stringify(createResponse, null, 2))
-      
+
       // Handle response structure - API client returns response.data which is the fuel purchase object
       // The fuel purchase object has an 'id' field directly
       const fuelPurchaseId = createResponse?.id
-      
+
       if (!fuelPurchaseId) {
         console.error("❌ Failed to get fuel purchase ID from response:", createResponse)
         toast.error("Failed to create fuel purchase. Please try again.")
@@ -648,24 +669,24 @@ export default function EnhancedFuelScreen() {
       // Only upload after purchase is created successfully
       console.log("📸 Checking for receipt image...", {
         hasImage: !!formData.receiptImage,
-        imageUri: formData.receiptImage ? formData.receiptImage.substring(0, 50) + '...' : 'none'
+        imageUri: formData.receiptImage ? formData.receiptImage.substring(0, 50) + "..." : "none",
       })
-      
-      if (formData.receiptImage && formData.receiptImage.trim() !== '') {
+
+      if (formData.receiptImage && formData.receiptImage.trim() !== "") {
         console.log("📸 Starting receipt image upload for purchase ID:", fuelPurchaseId)
         try {
           let imageUri = formData.receiptImage
-          console.log("📸 Image URI:", imageUri.substring(0, 100) + '...')
-          
+          console.log("📸 Image URI:", imageUri.substring(0, 100) + "...")
+
           // Try to further optimize image before upload (ensure it's under 2MB)
           // If ImageManipulator is not available, continue with original image
           try {
-            if (ImageManipulator && typeof ImageManipulator.manipulateAsync === 'function') {
+            if (ImageManipulator && typeof ImageManipulator.manipulateAsync === "function") {
               console.log("📸 Attempting to optimize image...")
               const optimizedImage = await ImageManipulator.manipulateAsync(
                 formData.receiptImage,
                 [{ resize: { width: 1200 } }], // Max width 1200px
-                { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG } // Further compression for upload
+                { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }, // Further compression for upload
               )
               imageUri = optimizedImage.uri
               console.log("✅ Image optimized successfully")
@@ -679,20 +700,20 @@ export default function EnhancedFuelScreen() {
 
           const dateStr = now.toISOString().split("T")[0].replace(/-/g, "")
           const filename = `receipt_${dateStr}_${Date.now()}.jpg`
-          
+
           console.log("📸 Uploading image with params:", {
             fuelPurchaseId,
             filename,
-            contentType: "image/jpeg"
+            contentType: "image/jpeg",
           })
 
           const uploadResponse = await fuelPurchaseApi.uploadReceiptImage(
             fuelPurchaseId,
             imageUri,
             filename,
-            "image/jpeg"
+            "image/jpeg",
           )
-          
+
           console.log("📸 Upload response:", uploadResponse)
 
           // Update fuel purchase with receipt URL after successful upload
@@ -808,18 +829,22 @@ export default function EnhancedFuelScreen() {
         leftIcon="back"
         leftIconColor={colors.tint}
         onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
-        containerStyle={applyShadow({
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-        }, 'medium', colors.tint)}
+        containerStyle={applyShadow(
+          {
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          },
+          "medium",
+          colors.tint,
+        )}
         style={{
           paddingHorizontal: 16,
         }}
         RightActionComponent={
-          activeTab === 'list' ? (
+          activeTab === "list" ? (
             <TouchableOpacity
               onPress={() => setShowFilters(true)}
-              style={[styles.filterButton, { backgroundColor: colors.PRIMARY + '20' }]}
+              style={[styles.filterButton, { backgroundColor: colors.PRIMARY + "20" }]}
             >
               <Filter size={20} color={colors.PRIMARY} />
             </TouchableOpacity>
@@ -833,40 +858,44 @@ export default function EnhancedFuelScreen() {
         <TouchableOpacity
           style={[
             styles.tabButton,
-            activeTab === 'list' && [styles.tabButtonActive, { backgroundColor: colors.PRIMARY }],
+            activeTab === "list" && [styles.tabButtonActive, { backgroundColor: colors.PRIMARY }],
           ]}
-          onPress={() => handleTabChange('list')}
+          onPress={() => handleTabChange("list")}
         >
-          <List size={20} color={activeTab === 'list' ? '#FFFFFF' : colors.textDim} />
-          <Text style={[
-            styles.tabButtonText,
-            { color: activeTab === 'list' ? '#FFFFFF' : colors.textDim },
-            activeTab === 'list' && styles.tabButtonTextActive
-          ]}>
+          <List size={20} color={activeTab === "list" ? "#FFFFFF" : colors.textDim} />
+          <Text
+            style={[
+              styles.tabButtonText,
+              { color: activeTab === "list" ? "#FFFFFF" : colors.textDim },
+              activeTab === "list" && styles.tabButtonTextActive,
+            ]}
+          >
             List
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.tabButton,
-            activeTab === 'add' && [styles.tabButtonActive, { backgroundColor: colors.PRIMARY }],
+            activeTab === "add" && [styles.tabButtonActive, { backgroundColor: colors.PRIMARY }],
           ]}
-          onPress={() => handleTabChange('add')}
+          onPress={() => handleTabChange("add")}
         >
-          <Plus size={20} color={activeTab === 'add' ? '#FFFFFF' : colors.textDim} />
-          <Text style={[
-            styles.tabButtonText,
-            { color: activeTab === 'add' ? '#FFFFFF' : colors.textDim },
-            activeTab === 'add' && styles.tabButtonTextActive
-          ]}>
+          <Plus size={20} color={activeTab === "add" ? "#FFFFFF" : colors.textDim} />
+          <Text
+            style={[
+              styles.tabButtonText,
+              { color: activeTab === "add" ? "#FFFFFF" : colors.textDim },
+              activeTab === "add" && styles.tabButtonTextActive,
+            ]}
+          >
             Add
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Show Add Form View */}
-      {activeTab === 'add' && (
-        <ScrollView 
+      {activeTab === "add" && (
+        <ScrollView
           style={styles.form}
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
@@ -885,7 +914,7 @@ export default function EnhancedFuelScreen() {
               <View style={styles.headerTextContainer}>
                 <Text style={styles.headerTitle}>{translate("fuel.addPurchase" as any)}</Text>
                 <Text style={styles.headerSubtitle}>
-                  {vehicleAssignment?.vehicle_info?.vehicle_unit || 'Vehicle'} • IFTA Compliant
+                  {vehicleAssignment?.vehicle_info?.vehicle_unit || "Vehicle"} • IFTA Compliant
                 </Text>
               </View>
             </View>
@@ -904,9 +933,13 @@ export default function EnhancedFuelScreen() {
                 {
                   backgroundColor: isDark ? colors.surface : "#FFFFFF",
                   color: colors.text,
-                  borderColor: formErrors.location 
-                    ? colors.error 
-                    : (formData.location ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")),
+                  borderColor: formErrors.location
+                    ? colors.error
+                    : formData.location
+                      ? colors.PRIMARY
+                      : isDark
+                        ? "rgba(255,255,255,0.1)"
+                        : "#E5E7EB",
                   opacity: isSubmitting ? 0.6 : 1,
                 },
               ]}
@@ -924,12 +957,12 @@ export default function EnhancedFuelScreen() {
             {formErrors.location && (
               <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.location}</Text>
             )}
-            {locationData.source === 'eld' && (
+            {locationData.source === "eld" && (
               <Text style={[styles.helperText, { color: colors.PRIMARY }]}>
                 📍 Auto-filled from ELD device location
               </Text>
             )}
-            {locationData.source === 'expo' && locationData.address && (
+            {locationData.source === "expo" && locationData.address && (
               <Text style={[styles.helperText, { color: colors.textDim }]}>
                 📍 Auto-filled from device GPS
               </Text>
@@ -941,7 +974,9 @@ export default function EnhancedFuelScreen() {
             <ElevatedCard style={[styles.inputCard, { flex: 1, marginRight: 8 }]}>
               <View style={styles.inputHeader}>
                 <Fuel size={18} color={colors.PRIMARY} />
-                <Text style={[styles.label, { color: colors.text }]}>{translate("fuel.gallons" as any)} *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  {translate("fuel.gallons" as any)} *
+                </Text>
               </View>
               <TextInput
                 editable={!isSubmitting}
@@ -950,9 +985,13 @@ export default function EnhancedFuelScreen() {
                   {
                     backgroundColor: isDark ? colors.surface : "#FFFFFF",
                     color: colors.text,
-                    borderColor: formErrors.gallons 
-                      ? colors.error 
-                      : (formData.gallons ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")),
+                    borderColor: formErrors.gallons
+                      ? colors.error
+                      : formData.gallons
+                        ? colors.PRIMARY
+                        : isDark
+                          ? "rgba(255,255,255,0.1)"
+                          : "#E5E7EB",
                     opacity: isSubmitting ? 0.6 : 1,
                   },
                 ]}
@@ -968,14 +1007,18 @@ export default function EnhancedFuelScreen() {
                 keyboardType="decimal-pad"
               />
               {formErrors.gallons && (
-                <Text style={[styles.errorText, { color: colors.error, marginTop: 4 }]}>{formErrors.gallons}</Text>
+                <Text style={[styles.errorText, { color: colors.error, marginTop: 4 }]}>
+                  {formErrors.gallons}
+                </Text>
               )}
             </ElevatedCard>
 
             <ElevatedCard style={[styles.inputCard, { flex: 1, marginLeft: 8 }]}>
               <View style={styles.inputHeader}>
                 <DollarSign size={18} color={colors.PRIMARY} />
-                <Text style={[styles.label, { color: colors.text }]}>{translate("fuel.pricePerGallon" as any)} *</Text>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  {translate("fuel.pricePerGallon" as any)} *
+                </Text>
               </View>
               <TextInput
                 editable={!isSubmitting}
@@ -984,9 +1027,13 @@ export default function EnhancedFuelScreen() {
                   {
                     backgroundColor: isDark ? colors.surface : "#FFFFFF",
                     color: colors.text,
-                    borderColor: formErrors.pricePerGallon 
-                      ? colors.error 
-                      : (formData.pricePerGallon ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")),
+                    borderColor: formErrors.pricePerGallon
+                      ? colors.error
+                      : formData.pricePerGallon
+                        ? colors.PRIMARY
+                        : isDark
+                          ? "rgba(255,255,255,0.1)"
+                          : "#E5E7EB",
                     opacity: isSubmitting ? 0.6 : 1,
                   },
                 ]}
@@ -1002,21 +1049,27 @@ export default function EnhancedFuelScreen() {
                 keyboardType="decimal-pad"
               />
               {formErrors.pricePerGallon && (
-                <Text style={[styles.errorText, { color: colors.error, marginTop: 4 }]}>{formErrors.pricePerGallon}</Text>
+                <Text style={[styles.errorText, { color: colors.error, marginTop: 4 }]}>
+                  {formErrors.pricePerGallon}
+                </Text>
               )}
             </ElevatedCard>
           </View>
 
           {/* Total Amount Display */}
-          {formData.gallons && formData.pricePerGallon && 
-           !isNaN(parseFloat(formData.gallons)) && !isNaN(parseFloat(formData.pricePerGallon)) && (
-            <ElevatedCard style={[styles.totalCard, { backgroundColor: `${colors.PRIMARY}15` }]}>
-              <Text style={[styles.totalLabel, { color: colors.textDim }]}>{translate("fuel.total" as any)}</Text>
-              <Text style={[styles.totalValue, { color: colors.PRIMARY }]}>
-                ${(parseFloat(formData.gallons) * parseFloat(formData.pricePerGallon)).toFixed(2)}
-              </Text>
-            </ElevatedCard>
-          )}
+          {formData.gallons &&
+            formData.pricePerGallon &&
+            !isNaN(parseFloat(formData.gallons)) &&
+            !isNaN(parseFloat(formData.pricePerGallon)) && (
+              <ElevatedCard style={[styles.totalCard, { backgroundColor: `${colors.PRIMARY}15` }]}>
+                <Text style={[styles.totalLabel, { color: colors.textDim }]}>
+                  {translate("fuel.total" as any)}
+                </Text>
+                <Text style={[styles.totalValue, { color: colors.PRIMARY }]}>
+                  ${(parseFloat(formData.gallons) * parseFloat(formData.pricePerGallon)).toFixed(2)}
+                </Text>
+              </ElevatedCard>
+            )}
 
           {/* Odometer Input with Icon */}
           <ElevatedCard style={styles.inputCard}>
@@ -1031,22 +1084,29 @@ export default function EnhancedFuelScreen() {
                 {
                   backgroundColor: isDark ? colors.surface : "#FFFFFF",
                   color: colors.text,
-                  borderColor: formData.odometer ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB"),
+                  borderColor: formData.odometer
+                    ? colors.PRIMARY
+                    : isDark
+                      ? "rgba(255,255,255,0.1)"
+                      : "#E5E7EB",
                   opacity: isSubmitting ? 0.6 : 1,
                 },
               ]}
               placeholder="Current mileage"
               placeholderTextColor={colors.textDim}
               value={formData.odometer}
-              onChangeText={(text: string) => setFormData((prev: FuelFormData) => ({ ...prev, odometer: text }))}
+              onChangeText={(text: string) =>
+                setFormData((prev: FuelFormData) => ({ ...prev, odometer: text }))
+              }
               keyboardType="numeric"
             />
-            {eldOdometer.source === 'eld' && eldOdometer.value !== null && (
+            {eldOdometer.source === "eld" && eldOdometer.value !== null && (
               <Text style={[styles.helperText, { color: colors.PRIMARY }]}>
-                📊 Auto-filled from ELD device ({eldOdometer.value.toLocaleString()} {eldOdometer.unit})
+                📊 Auto-filled from ELD device ({eldOdometer.value.toLocaleString()}{" "}
+                {eldOdometer.unit})
               </Text>
             )}
-            {eldOdometer.source !== 'eld' && vehicleAssignment?.vehicle_info?.current_odometer && (
+            {eldOdometer.source !== "eld" && vehicleAssignment?.vehicle_info?.current_odometer && (
               <Text style={[styles.helperText, { color: colors.textDim }]}>
                 📊 Auto-filled from vehicle assignment
               </Text>
@@ -1058,7 +1118,9 @@ export default function EnhancedFuelScreen() {
             <View style={styles.inputHeader}>
               <Text style={[styles.label, { color: colors.text }]}>Fuel Grade *</Text>
               {formErrors.fuelGrade && (
-                <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.fuelGrade}</Text>
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  {formErrors.fuelGrade}
+                </Text>
               )}
             </View>
             <TouchableOpacity
@@ -1067,9 +1129,13 @@ export default function EnhancedFuelScreen() {
                 styles.premiumSelector,
                 {
                   backgroundColor: isDark ? colors.surface : "#FFFFFF",
-                  borderColor: formErrors.fuelGrade 
-                    ? colors.error 
-                    : (formData.fuelGrade ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")),
+                  borderColor: formErrors.fuelGrade
+                    ? colors.error
+                    : formData.fuelGrade
+                      ? colors.PRIMARY
+                      : isDark
+                        ? "rgba(255,255,255,0.1)"
+                        : "#E5E7EB",
                   opacity: isSubmitting ? 0.6 : 1,
                 },
               ]}
@@ -1080,7 +1146,7 @@ export default function EnhancedFuelScreen() {
                   styles.selectorText,
                   {
                     color: formData.fuelGrade ? colors.text : colors.textDim,
-                    fontWeight: formData.fuelGrade ? '600' : '400',
+                    fontWeight: formData.fuelGrade ? "600" : "400",
                   },
                 ]}
               >
@@ -1095,7 +1161,9 @@ export default function EnhancedFuelScreen() {
             <View style={styles.inputHeader}>
               <Text style={[styles.label, { color: colors.text }]}>IFTA Fuel Type *</Text>
               {formErrors.iftaFuelType && (
-                <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.iftaFuelType}</Text>
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  {formErrors.iftaFuelType}
+                </Text>
               )}
             </View>
             <TouchableOpacity
@@ -1104,9 +1172,13 @@ export default function EnhancedFuelScreen() {
                 styles.premiumSelector,
                 {
                   backgroundColor: isDark ? colors.surface : "#FFFFFF",
-                  borderColor: formErrors.iftaFuelType 
-                    ? colors.error 
-                    : (formData.iftaFuelType ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")),
+                  borderColor: formErrors.iftaFuelType
+                    ? colors.error
+                    : formData.iftaFuelType
+                      ? Y
+                      : isDark
+                        ? "rgba(255,255,255,0.1)"
+                        : "#E5E7EB",
                   opacity: isSubmitting ? 0.6 : 1,
                 },
               ]}
@@ -1117,15 +1189,19 @@ export default function EnhancedFuelScreen() {
                   styles.selectorText,
                   {
                     color: formData.iftaFuelType ? colors.text : colors.textDim,
-                    fontWeight: formData.iftaFuelType ? '600' : '400',
+                    fontWeight: formData.iftaFuelType ? "600" : "400",
                   },
                 ]}
               >
-                {formData.iftaFuelType 
-                  ? iftaFuelTypeOptions.find(opt => opt.value === formData.iftaFuelType)?.label || formData.iftaFuelType
+                {formData.iftaFuelType
+                  ? iftaFuelTypeOptions.find((opt) => opt.value === formData.iftaFuelType)?.label ||
+                    formData.iftaFuelType
                   : "Select fuel type"}
               </Text>
-              <ChevronDown size={20} color={formData.iftaFuelType ? colors.PRIMARY : colors.textDim} />
+              <ChevronDown
+                size={20}
+                color={formData.iftaFuelType ? colors.PRIMARY : colors.textDim}
+              />
             </TouchableOpacity>
           </ElevatedCard>
 
@@ -1134,7 +1210,9 @@ export default function EnhancedFuelScreen() {
             <View style={styles.inputHeader}>
               <Text style={[styles.label, { color: colors.text }]}>Purchase State *</Text>
               {formErrors.purchaseState && (
-                <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.purchaseState}</Text>
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  {formErrors.purchaseState}
+                </Text>
               )}
             </View>
             <TouchableOpacity
@@ -1143,9 +1221,13 @@ export default function EnhancedFuelScreen() {
                 styles.premiumSelector,
                 {
                   backgroundColor: isDark ? colors.surface : "#FFFFFF",
-                  borderColor: formErrors.purchaseState 
-                    ? colors.error 
-                    : (formData.purchaseState ? colors.PRIMARY : (isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB")),
+                  borderColor: formErrors.purchaseState
+                    ? colors.error
+                    : formData.purchaseState
+                      ? colors.PRIMARY
+                      : isDark
+                        ? "rgba(255,255,255,0.1)"
+                        : "#E5E7EB",
                   opacity: isSubmitting ? 0.6 : 1,
                 },
               ]}
@@ -1156,7 +1238,7 @@ export default function EnhancedFuelScreen() {
                   styles.selectorText,
                   {
                     color: formData.purchaseState ? colors.text : colors.textDim,
-                    fontWeight: formData.purchaseState ? '600' : '400',
+                    fontWeight: formData.purchaseState ? "600" : "400",
                   },
                 ]}
               >
@@ -1164,7 +1246,10 @@ export default function EnhancedFuelScreen() {
                   ? statesHash[formData.purchaseState as keyof typeof statesHash]
                   : "Select state"}
               </Text>
-              <ChevronDown size={20} color={formData.purchaseState ? colors.PRIMARY : colors.textDim} />
+              <ChevronDown
+                size={20}
+                color={formData.purchaseState ? colors.PRIMARY : colors.textDim}
+              />
             </TouchableOpacity>
           </ElevatedCard>
 
@@ -1180,7 +1265,9 @@ export default function EnhancedFuelScreen() {
                 <View style={styles.imageContainer}>
                   <Image source={{ uri: formData.receiptImage }} style={styles.previewImage} />
                   <Pressable
-                    onPress={() => setFormData((prev: FuelFormData) => ({ ...prev, receiptImage: "" }))}
+                    onPress={() =>
+                      setFormData((prev: FuelFormData) => ({ ...prev, receiptImage: "" }))
+                    }
                     style={[styles.removeImageButton, { backgroundColor: colors.error }]}
                   >
                     <Text style={styles.removeImageText}>Remove</Text>
@@ -1197,7 +1284,7 @@ export default function EnhancedFuelScreen() {
                     {
                       backgroundColor: `${colors.PRIMARY}15`,
                       borderColor: colors.PRIMARY,
-                      opacity: (isSubmitting || isProcessingImage) ? 0.6 : 1,
+                      opacity: isSubmitting || isProcessingImage ? 0.6 : 1,
                     },
                   ]}
                 >
@@ -1218,7 +1305,7 @@ export default function EnhancedFuelScreen() {
                     {
                       backgroundColor: isDark ? colors.surface : "#F9FAFB",
                       borderColor: colors.PRIMARY,
-                      opacity: (isSubmitting || isProcessingImage) ? 0.6 : 1,
+                      opacity: isSubmitting || isProcessingImage ? 0.6 : 1,
                     },
                   ]}
                 >
@@ -1236,7 +1323,7 @@ export default function EnhancedFuelScreen() {
           </ElevatedCard>
 
           {/* Action Buttons */}
-          <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
+          <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
             <View style={styles.formButtons}>
               <TouchableOpacity
                 onPress={handleCancelAdd}
@@ -1264,7 +1351,7 @@ export default function EnhancedFuelScreen() {
                 ]}
               >
                 {isSubmitting ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     <ActivityIndicator size="small" color="#FFFFFF" />
                     <Text style={styles.submitButtonText}>Submitting...</Text>
                   </View>
@@ -1278,225 +1365,266 @@ export default function EnhancedFuelScreen() {
       )}
 
       {/* Show Listing View */}
-      {activeTab === 'list' && (
-        <FuelPurchasesList
-          showFilters={showFilters}
-          onFilterPress={() => setShowFilters(false)}
-        />
+      {activeTab === "list" && (
+        <FuelPurchasesList showFilters={showFilters} onFilterPress={() => setShowFilters(false)} />
       )}
 
       {/* Modals - Always rendered when form is shown */}
-        {/* Fuel Grade Selection Modal */}
-        <Modal
-          visible={showFuelGradeModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowFuelGradeModal(false)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowFuelGradeModal(false)}>
-            <View 
-              style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
-              onStartShouldSetResponder={() => true}
-            >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Select Fuel Grade</Text>
-              <ScrollView style={{ maxHeight: 300 }}>
-                {fuelGradeOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option}
+      {/* Fuel Grade Selection Modal */}
+      <Modal
+        visible={showFuelGradeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFuelGradeModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowFuelGradeModal(false)}>
+          <View
+            style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Fuel Grade</Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {fuelGradeOptions.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.modalOption,
+                    {
+                      backgroundColor:
+                        formData.fuelGrade === option ? colors.palette.primary500 : "transparent",
+                    },
+                  ]}
+                  onPress={() => {
+                    setFormData((prev: FuelFormData) => ({ ...prev, fuelGrade: option }))
+                    setShowFuelGradeModal(false)
+                  }}
+                >
+                  <Text
                     style={[
-                      styles.modalOption,
+                      styles.modalOptionText,
                       {
-                        backgroundColor:
-                          formData.fuelGrade === option ? colors.palette.primary500 : "transparent",
+                        color: formData.fuelGrade === option ? "#fff" : colors.text,
                       },
                     ]}
-                    onPress={() => {
-                      setFormData((prev: FuelFormData) => ({ ...prev, fuelGrade: option }))
-                      setShowFuelGradeModal(false)
-                    }}
                   >
-                    <Text
-                      style={[
-                        styles.modalOptionText,
-                        {
-                          color: formData.fuelGrade === option ? "#fff" : colors.text,
-                        },
-                      ]}
-                    >
-                      {option}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
-                onPress={() => setShowFuelGradeModal(false)}
-              >
-                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
-
-        {/* IFTA Fuel Type Selection Modal */}
-        <Modal
-          visible={showIftaFuelTypeModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowIftaFuelTypeModal(false)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowIftaFuelTypeModal(false)}>
-            <View 
-              style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
-              onStartShouldSetResponder={() => true}
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
+              onPress={() => setShowFuelGradeModal(false)}
             >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Select IFTA Fuel Type</Text>
-              <ScrollView style={{ maxHeight: 300 }}>
-                {iftaFuelTypeOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
+              <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* IFTA Fuel Type Selection Modal */}
+      <Modal
+        visible={showIftaFuelTypeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowIftaFuelTypeModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowIftaFuelTypeModal(false)}>
+          <View
+            style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select IFTA Fuel Type</Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {iftaFuelTypeOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.modalOption,
+                    {
+                      backgroundColor:
+                        formData.iftaFuelType === option.value
+                          ? colors.palette.primary500
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() => {
+                    setFormData((prev: FuelFormData) => ({ ...prev, iftaFuelType: option.value }))
+                    setShowIftaFuelTypeModal(false)
+                  }}
+                >
+                  <Text
                     style={[
-                      styles.modalOption,
+                      styles.modalOptionText,
                       {
-                        backgroundColor:
-                          formData.iftaFuelType === option.value
-                            ? colors.palette.primary500
-                            : "transparent",
+                        color: formData.iftaFuelType === option.value ? "#fff" : colors.text,
                       },
                     ]}
-                    onPress={() => {
-                      setFormData((prev: FuelFormData) => ({ ...prev, iftaFuelType: option.value }))
-                      setShowIftaFuelTypeModal(false)
-                    }}
                   >
-                    <Text
-                      style={[
-                        styles.modalOptionText,
-                        {
-                          color: formData.iftaFuelType === option.value ? "#fff" : colors.text,
-                        },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
-                onPress={() => setShowIftaFuelTypeModal(false)}
-              >
-                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
-
-        {/* Purchase State Selection Modal */}
-        <Modal
-          visible={showStateModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowStateModal(false)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowStateModal(false)}>
-            <View 
-              style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
-              onStartShouldSetResponder={() => true}
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
+              onPress={() => setShowIftaFuelTypeModal(false)}
             >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Select Purchase State</Text>
-              <ScrollView style={{ maxHeight: 400 }}>
-                {usStates.map((state) => (
-                  <TouchableOpacity
-                    key={state}
+              <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Purchase State Selection Modal */}
+      <Modal
+        visible={showStateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowStateModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowStateModal(false)}>
+          <View
+            style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Purchase State</Text>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {usStates.map((state) => (
+                <TouchableOpacity
+                  key={state}
+                  style={[
+                    styles.modalOption,
+                    {
+                      backgroundColor:
+                        formData.purchaseState === state
+                          ? colors.palette.primary500
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() => {
+                    setFormData((prev: FuelFormData) => ({ ...prev, purchaseState: state }))
+                    setShowStateModal(false)
+                  }}
+                >
+                  <Text
                     style={[
-                      styles.modalOption,
+                      styles.modalOptionText,
                       {
-                        backgroundColor:
-                          formData.purchaseState === state
-                            ? colors.palette.primary500
-                            : "transparent",
+                        color: formData.purchaseState === state ? "#fff" : colors.text,
                       },
                     ]}
-                    onPress={() => {
-                      setFormData((prev: FuelFormData) => ({ ...prev, purchaseState: state }))
-                      setShowStateModal(false)
-                    }}
                   >
-                    <Text
-                      style={[
-                        styles.modalOptionText,
-                        {
-                          color: formData.purchaseState === state ? "#fff" : colors.text,
-                        },
-                      ]}
-                    >
-                      {statesHash[state as keyof typeof statesHash]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
-                onPress={() => setShowStateModal(false)}
-              >
-                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
-      </View>
-    )
-  }
-
+                    {statesHash[state as keyof typeof statesHash]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalCloseButton, { backgroundColor: colors.surface }]}
+              onPress={() => setShowStateModal(false)}
+            >
+              <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  )
+}
 
 const styles = StyleSheet.create({
+  applyButton: {
+    // backgroundColor set inline
+  },
+  applyButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   backButton: {
     padding: 8,
+  },
+  cancelButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 2,
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
+  clearButton: {
+    borderWidth: 1,
   },
   container: {
     flex: 1,
   },
+  dateInput: {
+    borderColor: "#E0E0E0",
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 14,
+    padding: 12,
+  },
   deleteButton: {
     alignSelf: "flex-end",
     borderRadius: 8,
+    marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginTop: 12,
   },
   deleteButtonText: {
     color: "#fff",
     fontSize: 13,
     fontWeight: "600" as const,
   },
-  emptyContainer: {
-    flex: 1,
+  emptyActionButton: {
     alignItems: "center",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 8,
     justifyContent: "center",
-    padding: 20,
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+  },
+  emptyActionText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700" as const,
   },
   emptyCard: {
     alignItems: "center",
-    padding: 40,
     borderRadius: 24,
-    width: "100%",
     maxWidth: 400,
+    padding: 40,
+    width: "100%",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
   },
   emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(0, 113, 206, 0.1)",
     alignItems: "center",
+    backgroundColor: "rgba(0, 113, 206, 0.1)",
+    borderRadius: 60,
+    height: 120,
     justifyContent: "center",
     marginBottom: 24,
+    width: 120,
   },
   emptySubtext: {
     fontSize: 15,
-    marginTop: 12,
-    textAlign: "center",
     lineHeight: 22,
     marginBottom: 24,
+    marginTop: 12,
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 22,
@@ -1504,32 +1632,48 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: "center",
   },
-  emptyActionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 8,
+  errorText: {
+    fontSize: 12,
+    fontWeight: "500" as const,
+    marginTop: 4,
   },
-  emptyActionText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700" as const,
+  filterButton: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  footerLoader: {
+    alignItems: "center",
+    paddingVertical: 20,
   },
   form: {
     flex: 1,
+  },
+  formButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
   },
   formContent: {
     padding: 20,
     paddingBottom: 40,
   },
-  formButtons: {
+  header: {
+    alignItems: "center",
     flexDirection: "row",
-    marginTop: 24,
-    gap: 12,
+    justifyContent: "space-between",
+    padding: 20,
+    paddingBottom: 0,
   },
   headerCard: {
     borderRadius: 20,
@@ -1539,100 +1683,59 @@ const styles = StyleSheet.create({
     shadowColor: "#0071ce",
   },
   headerCardContent: {
-    flexDirection: "row",
     alignItems: "center",
-    padding: 24,
+    flexDirection: "row",
     gap: 16,
+    padding: 24,
   },
   headerIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 16,
+    height: 56,
     justifyContent: "center",
+    width: 56,
+  },
+  headerSubtitle: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 14,
+    fontWeight: "500" as const,
   },
   headerTextContainer: {
     flex: 1,
   },
   headerTitle: {
+    color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "800" as const,
-    color: "#FFFFFF",
     marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    fontWeight: "500" as const,
-    color: "rgba(255, 255, 255, 0.9)",
-  },
-  inputCard: {
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
-  },
-  inputHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: "500" as const,
   },
   helperText: {
     fontSize: 12,
-    marginTop: 6,
     fontWeight: "500" as const,
+    marginTop: 6,
   },
-  totalCard: {
-    marginBottom: 16,
-    padding: 20,
+  imageButton: {
+    alignItems: "center",
     borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     borderWidth: 2,
-    borderColor: "rgba(0, 113, 206, 0.2)",
+    flex: 1,
+    gap: 8,
+    justifyContent: "center",
+    paddingVertical: 20,
   },
-  totalLabel: {
+  imageButtonText: {
     fontSize: 15,
-    fontWeight: "600" as const,
-  },
-  totalValue: {
-    fontSize: 24,
-    fontWeight: "800" as const,
-  },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 20,
-    paddingBottom: 0,
+    fontWeight: "700" as const,
   },
   imageButtons: {
     flexDirection: "row",
     gap: 12,
     marginTop: 8,
   },
-  imageButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-    borderRadius: 16,
-    borderWidth: 2,
-    gap: 8,
-  },
-  imageButtonText: {
-    fontSize: 15,
-    fontWeight: "700" as const,
-  },
   imageContainer: {
-    width: "100%",
     alignItems: "center",
+    width: "100%",
   },
   imagePreview: {
     alignItems: "center",
@@ -1648,16 +1751,19 @@ const styles = StyleSheet.create({
     height: 50,
     paddingHorizontal: 16,
   },
-  premiumInput: {
-    borderRadius: 12,
-    borderWidth: 2,
-    fontSize: 16,
-    height: 56,
-    paddingHorizontal: 16,
-    fontWeight: "500" as const,
+  inputCard: {
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
   },
   inputGroup: {
     marginBottom: 20,
+  },
+  inputHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
   },
   inputRow: {
     flexDirection: "row",
@@ -1667,6 +1773,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600" as const,
     marginBottom: 8,
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 14,
+    marginTop: 16,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalButton: {
+    alignItems: "center",
+    borderRadius: 8,
+    flex: 1,
+    paddingVertical: 12,
+  },
+  modalButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   modalCloseButton: {
     borderRadius: 8,
@@ -1683,6 +1818,21 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     padding: 20,
     width: "100%",
+  },
+  modalFooter: {
+    borderTopColor: "#E0E0E0",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 20,
+  },
+  modalHeader: {
+    alignItems: "center",
+    borderBottomColor: "#E0E0E0",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 20,
   },
   modalOption: {
     borderRadius: 8,
@@ -1705,22 +1855,39 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
   },
+  premiumInput: {
+    borderRadius: 12,
+    borderWidth: 2,
+    fontSize: 16,
+    fontWeight: "500" as const,
+    height: 56,
+    paddingHorizontal: 16,
+  },
+  premiumSelector: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 2,
+    flexDirection: "row",
+    height: 56,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
   previewImage: {
     borderRadius: 16,
     height: 200,
     marginBottom: 12,
-    width: "100%",
     maxWidth: 300,
+    width: "100%",
   },
   receiptAmount: {
     fontSize: 18,
     fontWeight: "700" as const,
   },
   receiptCard: {
-    marginBottom: 16,
     borderRadius: 20,
-    padding: 20,
+    marginBottom: 16,
     overflow: "hidden",
+    padding: 20,
   },
   receiptDate: {
     fontSize: 14,
@@ -1778,6 +1945,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600" as const,
   },
+  selectButton: {
+    alignItems: "center",
+    borderColor: "#E0E0E0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 12,
+  },
+  selectButtonText: {
+    fontSize: 14,
+  },
   selector: {
     alignItems: "center",
     borderRadius: 12,
@@ -1787,136 +1966,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
   },
-  premiumSelector: {
-    alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 2,
-    flexDirection: "row",
-    height: 56,
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  viewToggleButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  listContentEmpty: {
-    flexGrow: 1,
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  modalBody: {
-    padding: 20,
-  },
-  filterSection: {
-    marginBottom: 20,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  dateInput: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-  },
-  selectButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
-  },
-  selectButtonText: {
-    fontSize: 14,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  clearButton: {
-    borderWidth: 1,
-  },
-  applyButton: {
-    // backgroundColor set inline
-  },
-  modalButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  applyButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   selectorText: {
     fontSize: 16,
   },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-  },
   submitButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
     alignItems: "center",
+    borderRadius: 12,
+    flex: 1,
     justifyContent: "center",
+    paddingVertical: 16,
     ...shadows.medium,
     shadowColor: "#0071ce",
   },
@@ -1925,35 +1983,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700" as const,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700" as const,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
   tabButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    alignItems: "center",
+    backgroundColor: "transparent",
     borderRadius: 12,
-    backgroundColor: 'transparent',
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   tabButtonActive: {
     // backgroundColor set inline
   },
   tabButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   tabButtonTextActive: {
-    fontWeight: '700',
+    fontWeight: "700",
+  },
+  tabContainer: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700" as const,
+  },
+  totalCard: {
+    alignItems: "center",
+    borderColor: "rgba(0, 113, 206, 0.2)",
+    borderRadius: 16,
+    borderWidth: 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    padding: 20,
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+  },
+  totalValue: {
+    fontSize: 24,
+    fontWeight: "800" as const,
+  },
+  viewToggleButton: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
   },
 })

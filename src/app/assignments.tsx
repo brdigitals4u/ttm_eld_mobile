@@ -12,42 +12,50 @@ import {
 import { router, Stack } from "expo-router"
 import { ArrowLeft, Plus, X } from "lucide-react-native"
 
+import { useTrailerAssignments, useAssignTrailer, useRemoveTrailer } from "@/api/trailers"
+import { useVehicles } from "@/api/vehicles"
 import ElevatedCard from "@/components/EvevatedCard"
 import LoadingButton from "@/components/LoadingButton"
 import { toast } from "@/components/Toast"
-import { useAppTheme } from "@/theme/context"
-import { useVehicles } from "@/api/vehicles"
-import { useTrailerAssignments, useAssignTrailer, useRemoveTrailer } from "@/api/trailers"
-import { useAuth } from "@/stores/authStore"
 import { useLocationData } from "@/hooks/useLocationData"
 import { translate } from "@/i18n/translate"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 export default function AssignmentsScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
   const { driverProfile, vehicleAssignment, isAuthenticated } = useAuth()
   const locationData = useLocationData()
-  
+
   // GET API: Get vehicles - show only vehicle assigned to driver (from vehicleAssignment)
   // Note: Vehicle assignment is managed by organization admin, driver can only view assigned vehicle
-  const assignedVehicleId = vehicleAssignment?.vehicle_info?.id ? parseInt(vehicleAssignment.vehicle_info.id) : null
-  const { data: allVehicles, isLoading: vehiclesLoading } = useVehicles({ enabled: isAuthenticated })
-  
+  const assignedVehicleId = vehicleAssignment?.vehicle_info?.id
+    ? parseInt(vehicleAssignment.vehicle_info.id)
+    : null
+  const { data: allVehicles, isLoading: vehiclesLoading } = useVehicles({
+    enabled: isAuthenticated,
+  })
+
   // Filter to show only assigned vehicle
   const vehicles = useMemo(() => {
     if (!allVehicles || !assignedVehicleId) return []
-    return allVehicles.filter(v => v.id === assignedVehicleId)
+    return allVehicles.filter((v) => v.id === assignedVehicleId)
   }, [allVehicles, assignedVehicleId])
-  
+
   // GET API: Get trailer assignments for this driver
-  const { data: trailerAssignments, isLoading: trailersLoading, refetch: refetchTrailers } = useTrailerAssignments(
-    { driver: driverProfile?.driver_id || undefined, status: 'active' },
-    { enabled: isAuthenticated && !!driverProfile?.driver_id }
+  const {
+    data: trailerAssignments,
+    isLoading: trailersLoading,
+    refetch: refetchTrailers,
+  } = useTrailerAssignments(
+    { driver: driverProfile?.driver_id || undefined, status: "active" },
+    { enabled: isAuthenticated && !!driverProfile?.driver_id },
   )
-  
+
   const assignTrailerMutation = useAssignTrailer()
   const removeTrailerMutation = useRemoveTrailer()
-  
+
   // Mock data for shipping IDs (not in API spec)
   const shippingIDs: any[] = []
   const shippingLoading = false
@@ -55,7 +63,7 @@ export default function AssignmentsScreen() {
   const removeShippingID = (id: string) => {}
 
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
-    vehicleAssignment?.vehicle_info?.vehicle_unit || null
+    vehicleAssignment?.vehicle_info?.vehicle_unit || null,
   )
   const [showTrailerModal, setShowTrailerModal] = useState(false)
   const [showShippingModal, setShowShippingModal] = useState(false)
@@ -78,16 +86,16 @@ export default function AssignmentsScreen() {
       // Note: This assumes trailer already exists and we're just assigning it
       // If we need to create trailer first, we'd need trailer ID/asset_id
       // For now, we'll assign by asset_id (assuming trailer number is asset_id)
-      
+
       await assignTrailerMutation.mutateAsync({
         driver: driverProfile.driver_id,
         trailer: newTrailerNumber.trim(), // Assuming this is trailer UUID or asset_id
         start_time: new Date().toISOString(),
-        status: 'active',
+        status: "active",
         is_primary: true,
         notes: `Assigned trailer ${newTrailerNumber.trim()}`,
       })
-      
+
       setNewTrailerNumber("")
       setShowTrailerModal(false)
       refetchTrailers()
@@ -154,10 +162,16 @@ export default function AssignmentsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>{translate("assignments.title" as any)}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {translate("assignments.title" as any)}
+        </Text>
         <LoadingButton
           loading={vehiclesLoading}
-          title={selectedVehicle ? `${translate("assignments.vehicle" as any)} ${selectedVehicle}` : translate("assignments.noAssignments" as any)}
+          title={
+            selectedVehicle
+              ? `${translate("assignments.vehicle" as any)} ${selectedVehicle}`
+              : translate("assignments.noAssignments" as any)
+          }
           onPress={() => toast.info("Vehicle assignment is managed by organization admin")}
           disabled={true}
           variant="secondary"
@@ -171,7 +185,9 @@ export default function AssignmentsScreen() {
         {/* Vehicle Section - Show assigned vehicle */}
         {vehicles.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{translate("assignments.vehicle" as any)}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {translate("assignments.vehicle" as any)}
+            </Text>
             {vehicles.map((vehicle) => (
               <ElevatedCard key={vehicle.id} style={styles.itemCard}>
                 <View style={styles.itemRow}>
@@ -191,7 +207,9 @@ export default function AssignmentsScreen() {
 
         {/* Trailers Section */}
         <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{translate("assignments.trailer" as any)}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {translate("assignments.trailer" as any)}
+          </Text>
 
           {trailerAssignments && trailerAssignments.length > 0 ? (
             trailerAssignments.map((assignment) => (
@@ -225,7 +243,9 @@ export default function AssignmentsScreen() {
             onPress={() => setShowTrailerModal(true)}
           >
             <Plus size={20} color={colors.tint} />
-            <Text style={[styles.addButtonText, { color: colors.tint }]}>{translate("assignments.addTrailer" as any)}</Text>
+            <Text style={[styles.addButtonText, { color: colors.tint }]}>
+              {translate("assignments.addTrailer" as any)}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -278,7 +298,9 @@ export default function AssignmentsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{translate("assignments.addTrailer" as any)}</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {translate("assignments.addTrailer" as any)}
+            </Text>
 
             <TextInput
               style={[
@@ -414,6 +436,11 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     marginTop: 24,
   },
+  emptyText: {
+    fontSize: 14,
+    padding: 16,
+    textAlign: "center",
+  },
   header: {
     alignItems: "center",
     flexDirection: "row",
@@ -447,11 +474,6 @@ const styles = StyleSheet.create({
   },
   itemType: {
     fontSize: 14,
-  },
-  emptyText: {
-    fontSize: 14,
-    padding: 16,
-    textAlign: "center",
   },
   loadingText: {
     fontSize: 16,

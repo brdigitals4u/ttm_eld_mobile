@@ -1,21 +1,24 @@
-import React, { useEffect } from 'react'
-import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
-import { Text } from '@/components/Text'
-import { AlertTriangle, FileEdit, FileCheck, XCircle, CheckCircle, Bell } from 'lucide-react-native'
-import { useNotifications, useMarkNotificationRead, Notification } from '@/api/driver-hooks'
-import { colors } from '@/theme/colors'
-import { router } from 'expo-router'
-import { NotificationService } from '@/services/NotificationService'
-import { useAuth } from '@/stores/authStore'
+import React, { useEffect } from "react"
+import { View, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native"
+import { router } from "expo-router"
+import { AlertTriangle, FileEdit, FileCheck, XCircle, CheckCircle, Bell } from "lucide-react-native"
+
+import { useNotifications, useMarkNotificationRead, Notification } from "@/api/driver-hooks"
+import { Text } from "@/components/Text"
+import { NotificationService } from "@/services/NotificationService"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 interface NotificationsPanelProps {
   onClose?: () => void
 }
 
 export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose }) => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const { isAuthenticated } = useAuth()
   const { data, isLoading, error, refetch } = useNotifications({
-    status: 'all',
+    status: "all",
     limit: 50,
     enabled: isAuthenticated,
     refetchInterval: 60000,
@@ -39,9 +42,12 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     }
 
     // Handle profile change notifications
-    if (notification.notification_type === 'profile_change_approved' || notification.notification_type === 'profile_change_rejected') {
+    if (
+      notification.notification_type === "profile_change_approved" ||
+      notification.notification_type === "profile_change_rejected"
+    ) {
       router.push({
-        pathname: '/profile-requests',
+        pathname: "/profile-requests",
         params: { notificationId: notification.id },
       } as any)
       if (onClose) onClose()
@@ -49,7 +55,10 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     }
 
     // Navigate to action if available (check data.action)
-    if (notification.data?.action && !notification.data.action.includes('/driver/profile/requests')) {
+    if (
+      notification.data?.action &&
+      !notification.data.action.includes("/driver/profile/requests")
+    ) {
       router.push(notification.data.action as any)
     }
 
@@ -64,17 +73,17 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     const iconColor = getPriorityColor(priority)
 
     switch (type) {
-      case 'malfunction_alert':
+      case "malfunction_alert":
         return <AlertTriangle size={iconSize} color={iconColor} strokeWidth={2.5} />
-      case 'pending_edit':
+      case "pending_edit":
         return <FileEdit size={iconSize} color={iconColor} strokeWidth={2.5} />
-      case 'certification_reminder':
+      case "certification_reminder":
         return <FileCheck size={iconSize} color={iconColor} strokeWidth={2.5} />
-      case 'violation_warning':
+      case "violation_warning":
         return <XCircle size={iconSize} color={iconColor} strokeWidth={2.5} />
-      case 'profile_change_approved':
+      case "profile_change_approved":
         return <CheckCircle size={iconSize} color={iconColor} strokeWidth={2.5} />
-      case 'profile_change_rejected':
+      case "profile_change_rejected":
         return <XCircle size={iconSize} color={iconColor} strokeWidth={2.5} />
       default:
         return <Bell size={iconSize} color={iconColor} strokeWidth={2.5} />
@@ -83,31 +92,31 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'critical':
-        return '#DC2626'
-      case 'high':
-        return '#F59E0B'
-      case 'medium':
-        return colors.PRIMARY
-      case 'low':
-        return '#6B7280'
+      case "critical":
+        return colors.error
+      case "high":
+        return colors.warning
+      case "medium":
+        return colors.tint
+      case "low":
+        return colors.textDim
       default:
-        return '#6B7280'
+        return colors.textDim
     }
   }
 
   const getPriorityBg = (priority: string) => {
     switch (priority) {
-      case 'critical':
-        return '#FEE2E2'
-      case 'high':
-        return '#FEF3C7'
-      case 'medium':
-        return '#EFF6FF'
-      case 'low':
-        return '#F3F4F6'
+      case "critical":
+        return colors.errorBackground
+      case "high":
+        return colors.warningBackground
+      case "medium":
+        return colors.infoBackground
+      case "low":
+        return colors.sectionBackground
       default:
-        return '#F3F4F6'
+        return colors.sectionBackground
     }
   }
 
@@ -119,12 +128,156 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
 
-    if (diffMins < 1) return 'Just now'
+    if (diffMins < 1) return "Just now"
     if (diffMins < 60) return `${diffMins}m ago`
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     return date.toLocaleDateString()
   }
+
+  // Dynamic styles based on theme
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        closeButton: {
+          padding: 8,
+        },
+        closeButtonText: {
+          color: colors.textDim,
+          fontSize: 24,
+          fontWeight: "300",
+        },
+        container: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 20,
+          maxHeight: 500,
+          overflow: "hidden",
+        },
+        emptyContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 40,
+        },
+        emptyText: {
+          color: colors.textDim,
+          fontSize: 14,
+          textAlign: "center",
+        },
+        emptyTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "700",
+          marginBottom: 8,
+          marginTop: 16,
+        },
+        header: {
+          alignItems: "center",
+          borderBottomColor: colors.border,
+          borderBottomWidth: 1,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+        },
+        headerLeft: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 8,
+        },
+        headerTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+        loadingContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 40,
+        },
+        loadingText: {
+          color: colors.textDim,
+          fontSize: 14,
+          marginTop: 12,
+        },
+        notificationContent: {
+          flex: 1,
+        },
+        notificationIcon: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 20,
+          height: 40,
+          justifyContent: "center",
+          marginRight: 12,
+          width: 40,
+        },
+        notificationItem: {
+          alignItems: "flex-start",
+          backgroundColor: colors.cardBackground,
+          borderBottomColor: colors.sectionBackground,
+          borderBottomWidth: 1,
+          flexDirection: "row",
+          padding: 16,
+        },
+        notificationItemUnread: {
+          backgroundColor: colors.background,
+        },
+        notificationMessage: {
+          color: colors.textDim,
+          fontSize: 14,
+          lineHeight: 20,
+          marginBottom: 6,
+        },
+        notificationTime: {
+          color: colors.textDim,
+          fontSize: 12,
+          fontWeight: "500",
+        },
+        notificationTitle: {
+          color: colors.text,
+          fontSize: 15,
+          fontWeight: "700",
+          marginBottom: 4,
+        },
+        notificationsList: {
+          maxHeight: 400,
+        },
+        retryButton: {
+          backgroundColor: colors.tint,
+          borderRadius: 12,
+          marginTop: 16,
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+        },
+        retryButtonText: {
+          color: colors.cardBackground,
+          fontSize: 14,
+          fontWeight: "700",
+        },
+        unreadBadge: {
+          alignItems: "center",
+          backgroundColor: colors.error,
+          borderRadius: 12,
+          minWidth: 24,
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+        },
+        unreadBadgeText: {
+          color: colors.cardBackground,
+          fontSize: 12,
+          fontWeight: "700",
+        },
+        unreadDot: {
+          backgroundColor: colors.tint,
+          borderRadius: 4,
+          height: 8,
+          marginLeft: 8,
+          marginTop: 6,
+          width: 8,
+        },
+      }),
+    [colors],
+  )
 
   if (isLoading) {
     return (
@@ -133,7 +286,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
           <Text style={styles.headerTitle}>Notifications</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.PRIMARY} />
+          <ActivityIndicator size="large" color={colors.tint} />
           <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
       </View>
@@ -190,7 +343,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
           <>
             {/* Critical/High Priority First */}
             {notifications
-              .filter((n) => n.priority === 'critical' || n.priority === 'high')
+              .filter((n) => n.priority === "critical" || n.priority === "high")
               .map((notification) => (
                 <TouchableOpacity
                   key={notification.id}
@@ -217,7 +370,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
 
             {/* Medium/Low Priority */}
             {notifications
-              .filter((n) => n.priority === 'medium' || n.priority === 'low')
+              .filter((n) => n.priority === "medium" || n.priority === "low")
               .map((notification) => (
                 <TouchableOpacity
                   key={notification.id}
@@ -246,142 +399,3 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    maxHeight: 500,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1F2937',
-  },
-  unreadBadge: {
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    minWidth: 24,
-    alignItems: 'center',
-  },
-  unreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#6B7280',
-    fontWeight: '300',
-  },
-  notificationsList: {
-    maxHeight: 400,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
-  },
-  notificationItemUnread: {
-    backgroundColor: '#F9FAFB',
-  },
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  notificationMessage: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 6,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.PRIMARY,
-    marginLeft: 8,
-    marginTop: 6,
-  },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: colors.PRIMARY,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-})

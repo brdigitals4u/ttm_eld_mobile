@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react"
 import { View, ActivityIndicator } from "react-native"
 import { Redirect } from "expo-router"
 
+import { BetaBanner } from "@/components/BetaBanner"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
 import { settingsStorage } from "@/utils/storage"
-import { BetaBanner } from "@/components/BetaBanner"
 
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -23,7 +23,16 @@ export default function Index() {
     checkScreens()
   }, [])
 
-  console.log("🏠 Index component - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "hasSeenPermissions:", hasSeenPermissions, "hasSeenWelcome:", hasSeenWelcome)
+  console.log(
+    "🏠 Index component - isAuthenticated:",
+    isAuthenticated,
+    "isLoading:",
+    isLoading,
+    "hasSeenPermissions:",
+    hasSeenPermissions,
+    "hasSeenWelcome:",
+    hasSeenWelcome,
+  )
 
   if (isLoading || hasSeenPermissions === null || hasSeenWelcome === null) {
     return (

@@ -3,9 +3,9 @@ import React, { ReactNode, forwardRef, ForwardedRef } from "react"
 import { StyleProp, Text as RNText, TextProps as RNTextProps, TextStyle } from "react-native"
 import { TOptions } from "i18next"
 
+import { useLanguage } from "@/hooks/useLanguage"
 import { isRTL, TxKeyPath } from "@/i18n"
 import { translate } from "@/i18n/translate"
-import { useLanguage } from "@/hooks/useLanguage"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle, ThemedStyleArray } from "@/theme/types"
 import { typography } from "@/theme/typography"
@@ -67,20 +67,20 @@ export const Text = forwardRef(function Text(props: TextProps, ref: ForwardedRef
   const content = i18nText || text || children
 
   const preset: Presets = props.preset ?? "default"
-  
+
   // Process styleOverride to map numeric fontWeights to font families
   const processedStyle = React.useMemo(() => {
     if (!$styleOverride) return $styleOverride
-    
+
     // Handle array of styles
     const flatStyles = Array.isArray($styleOverride) ? $styleOverride.flat(3) : [$styleOverride]
-    
+
     // Find and replace fontWeight with fontFamily
     return flatStyles.map((style) => {
-      if (!style || typeof style !== 'object') return style
-      
+      if (!style || typeof style !== "object") return style
+
       const processed = { ...style }
-      if ('fontWeight' in processed) {
+      if ("fontWeight" in processed) {
         const fw = String(processed.fontWeight)
         if (numericWeightToFontFamily[fw]) {
           processed.fontFamily = numericWeightToFontFamily[fw]
@@ -90,7 +90,7 @@ export const Text = forwardRef(function Text(props: TextProps, ref: ForwardedRef
       return processed
     })
   }, [$styleOverride])
-  
+
   const $styles: StyleProp<TextStyle> = [
     $rtlStyle,
     themed($presets[preset]),
@@ -122,17 +122,17 @@ const $fontWeightStyles = Object.entries(typography.primary).reduce((acc, [weigh
 
 // Map numeric fontWeights to AsenPro font families
 const numericWeightToFontFamily: Record<string, string> = {
-  '100': typography.primary.thin,
-  '200': typography.primary.extraLight,
-  '300': typography.primary.light,
-  '400': typography.primary.normal,
-  '500': typography.primary.medium,
-  '600': typography.primary.semiBold,
-  '700': typography.primary.bold,
-  '800': typography.primary.extraBold,
-  '900': typography.primary.black,
-  'normal': typography.primary.normal,
-  'bold': typography.primary.bold,
+  "100": typography.primary.thin,
+  "200": typography.primary.extraLight,
+  "300": typography.primary.light,
+  "400": typography.primary.normal,
+  "500": typography.primary.medium,
+  "600": typography.primary.semiBold,
+  "700": typography.primary.bold,
+  "800": typography.primary.extraBold,
+  "900": typography.primary.black,
+  "normal": typography.primary.normal,
+  "bold": typography.primary.bold,
 }
 
 const $baseStyle: ThemedStyle<TextStyle> = (theme) => ({

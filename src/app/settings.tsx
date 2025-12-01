@@ -1,47 +1,47 @@
-import { ArrowLeft, Bell, Moon, Smartphone, Sun, Clock } from 'lucide-react-native';
-import React, { useState, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View, TouchableOpacity } from 'react-native';
-import ElevatedCard from '@/components/EvevatedCard';
-import { useAppTheme } from '@/theme/context';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
-import { Text } from '@/components/Text';
-import { HistoryFetchSheet } from '@/components/HistoryFetchSheet';
-import { useObdData } from '@/contexts/obd-data-context';
+import React, { useState, useEffect } from "react"
+import { Pressable, ScrollView, StyleSheet, Switch, View, TouchableOpacity } from "react-native"
+import { router, useFocusEffect } from "expo-router"
+import { ArrowLeft, Bell, Moon, Smartphone, Sun, Clock } from "lucide-react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
+import ElevatedCard from "@/components/EvevatedCard"
+import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
+import { Text } from "@/components/Text"
+import { useObdData } from "@/contexts/obd-data-context"
+import { useAppTheme } from "@/theme/context"
 
 export default function SettingsScreen() {
-  const { theme, setThemeContextOverride } = useAppTheme();
-  const { colors, isDark } = theme;
-  const setThemeMode = setThemeContextOverride;
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [showHistoryFetchSheet, setShowHistoryFetchSheet] = useState(false);
-  const insets = useSafeAreaInsets();
-  const { refreshConnectionStatus } = useObdData();
+  const { theme, setThemeContextOverride } = useAppTheme()
+  const { colors, isDark } = theme
+  const setThemeMode = setThemeContextOverride
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const [showHistoryFetchSheet, setShowHistoryFetchSheet] = useState(false)
+  const insets = useSafeAreaInsets()
+  const { refreshConnectionStatus } = useObdData()
 
   // Refresh connection status when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      console.log('📱 Settings: Screen focused - refreshing ELD connection status...');
+      console.log("📱 Settings: Screen focused - refreshing ELD connection status...")
       refreshConnectionStatus().catch((error) => {
-        console.warn('⚠️ Settings: Failed to refresh connection status:', error);
-      });
-    }, [refreshConnectionStatus])
-  );
+        console.warn("⚠️ Settings: Failed to refresh connection status:", error)
+      })
+    }, [refreshConnectionStatus]),
+  )
 
   const handleThemeToggle = () => {
-    setThemeMode(isDark ? 'light' : 'dark');
-  };
+    setThemeMode(isDark ? "light" : "dark")
+  }
 
   const handleNotificationsToggle = () => {
-    setNotificationsEnabled(!notificationsEnabled);
-  };
+    setNotificationsEnabled(!notificationsEnabled)
+  }
 
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.contentContainer]}
     >
-
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.text} />
@@ -49,7 +49,7 @@ export default function SettingsScreen() {
         <Text style={[styles.title, { color: colors.text }]}>App Settings</Text>
       </View>
 
-      <ElevatedCard style={styles.section}>        
+      <ElevatedCard style={styles.section}>
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
             <View style={styles.settingIconContainer}>
@@ -60,9 +60,7 @@ export default function SettingsScreen() {
               )}
             </View>
             <View>
-              <Text style={[styles.settingLabel, { color: colors.text }]}>
-                Dark Theme
-              </Text>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Dark Theme</Text>
               <Text style={[styles.settingDescription, { color: colors.textDim }]}>
                 Switch between light and dark mode
               </Text>
@@ -71,17 +69,15 @@ export default function SettingsScreen() {
           <Switch
             value={isDark}
             onValueChange={handleThemeToggle}
-            trackColor={{ false: '#767577', true: colors.tint }}
+            trackColor={{ false: "#767577", true: colors.tint }}
             thumbColor="#f4f3f4"
           />
         </View>
       </ElevatedCard>
 
       <ElevatedCard style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Notifications
-        </Text>
-        
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
+
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
             <View style={styles.settingIconContainer}>
@@ -99,29 +95,22 @@ export default function SettingsScreen() {
           <Switch
             value={notificationsEnabled}
             onValueChange={handleNotificationsToggle}
-            trackColor={{ false: '#767577', true: colors.tint }}
+            trackColor={{ false: "#767577", true: colors.tint }}
             thumbColor="#f4f3f4"
           />
         </View>
       </ElevatedCard>
 
       <ElevatedCard style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          ELD History
-        </Text>
-        
-        <TouchableOpacity
-          style={styles.settingRow}
-          onPress={() => setShowHistoryFetchSheet(true)}
-        >
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>ELD History</Text>
+
+        <TouchableOpacity style={styles.settingRow} onPress={() => setShowHistoryFetchSheet(true)}>
           <View style={styles.settingInfo}>
             <View style={styles.settingIconContainer}>
               <Clock size={20} color={colors.tint} />
             </View>
             <View>
-              <Text style={[styles.settingLabel, { color: colors.text }]}>
-                Fetch History Data
-              </Text>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Fetch History Data</Text>
               <Text style={[styles.settingDescription, { color: colors.textDim }]}>
                 Download historical ELD records from device
               </Text>
@@ -131,29 +120,23 @@ export default function SettingsScreen() {
       </ElevatedCard>
 
       <ElevatedCard style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Device Information
-        </Text>
-        
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Device Information</Text>
+
         <View style={styles.infoRow}>
           <View style={styles.infoIcon}>
             <Smartphone size={20} color={colors.tint} />
           </View>
           <View style={styles.infoContent}>
-            <Text style={[styles.infoLabel, { color: colors.textDim }]}>
-              App Version
-            </Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>
-              1.0.1
-            </Text>
+            <Text style={[styles.infoLabel, { color: colors.textDim }]}>App Version</Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>1.0.1</Text>
           </View>
         </View>
       </ElevatedCard>
 
-      <Text style={[styles.footerText, { color: colors.textDim }]}>
-        TTM Konnect © 2025
-      </Text>
-      <Text style={[{ color: colors.textDim }, { marginTop: 2, textAlign: 'center', fontSize: 10 }]}>
+      <Text style={[styles.footerText, { color: colors.textDim }]}>TTM Konnect © 2025</Text>
+      <Text
+        style={[{ color: colors.textDim }, { marginTop: 2, textAlign: "center", fontSize: 10 }]}
+      >
         Powered by TTM247
       </Text>
 
@@ -166,10 +149,13 @@ export default function SettingsScreen() {
         }}
       />
     </ScrollView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    padding: 8,
+  },
   container: {
     flex: 1,
   },
@@ -177,69 +163,10 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    marginBottom: 24,
-    marginTop: 12,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    marginBottom: 16,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  settingIconContainer: {
-    width: 40,
-    alignItems: 'center',
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '500' as const,
-  },
-  settingDescription: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  infoIcon: {
-    width: 40,
-    alignItems: 'center',
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '500' as const,
-  },
   footerText: {
-    textAlign: 'center',
-    marginTop: 20,
     fontSize: 14,
-  },
-  backButton: {
-    padding: 8,
+    marginTop: 20,
+    textAlign: "center",
   },
   header: {
     alignItems: "center",
@@ -249,4 +176,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingTop: 40,
   },
-});
+  infoContent: {
+    flex: 1,
+  },
+  infoIcon: {
+    alignItems: "center",
+    width: 40,
+  },
+  infoLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  infoRow: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: "500" as const,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+    marginBottom: 16,
+  },
+  settingDescription: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  settingIconContainer: {
+    alignItems: "center",
+    width: 40,
+  },
+  settingInfo: {
+    alignItems: "center",
+    flexDirection: "row",
+    flex: 1,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: "500" as const,
+  },
+  settingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700" as const,
+    marginBottom: 24,
+    marginTop: 12,
+  },
+})

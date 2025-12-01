@@ -4,19 +4,21 @@
  * Uses react-native-reanimated for smooth infinite scrolling animation
  */
 
-import React, { useEffect, useRef } from 'react'
-import { View, StyleSheet, Dimensions } from 'react-native'
+import React, { useEffect, useRef } from "react"
+import { View, StyleSheet, Dimensions } from "react-native"
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
   Easing,
-} from 'react-native-reanimated'
-import { Text } from './Text'
-import { colors } from '@/theme/colors'
+} from "react-native-reanimated"
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window')
+import { useAppTheme } from "@/theme/context"
+
+import { Text } from "./Text"
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window")
 
 export interface MarqueeTextProps {
   messages: string[]
@@ -31,6 +33,8 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   style,
   textStyle,
 }) => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const translateX = useSharedValue(0)
   const containerWidth = useRef(0)
   const textWidth = useRef(0)
@@ -46,7 +50,7 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
           easing: Easing.linear,
         }),
         -1, // Infinite repeat
-        false // Don't reverse
+        false, // Don't reverse
       )
     }
   }, [messages, speed, translateX])
@@ -58,7 +62,28 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   })
 
   // Combine all messages into one long string
-  const combinedText = messages.join(' • ')
+  const combinedText = messages.join(" • ")
+
+  // Dynamic styles based on theme
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          height: 70,
+          justifyContent: "center",
+          overflow: "hidden",
+        },
+        text: {
+          color: colors.textDim,
+          fontSize: 13,
+        },
+        textContainer: {
+          alignItems: "center",
+          flexDirection: "row",
+        },
+      }),
+    [colors],
+  )
 
   return (
     <View
@@ -80,20 +105,3 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    height: 70,
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-  textContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  text: {
-    fontSize: 13,
-    color: colors.palette.neutral600 || '#4B5563',
-  },
-})
-

@@ -1,11 +1,11 @@
 /**
  * Memoization Utilities
- * 
+ *
  * Helper functions for consistent memoization patterns across the app.
  * These utilities help prevent unnecessary re-renders and improve performance.
  */
 
-import { useMemo, useCallback, memo, ComponentType } from 'react'
+import { useMemo, useCallback, memo, ComponentType } from "react"
 
 /**
  * Creates a memoized component with custom comparison function
@@ -13,7 +13,7 @@ import { useMemo, useCallback, memo, ComponentType } from 'react'
  */
 export function memoWithCustomCompare<T extends ComponentType<any>>(
   component: T,
-  areEqual?: (prevProps: any, nextProps: any) => boolean
+  areEqual?: (prevProps: any, nextProps: any) => boolean,
 ): T {
   return memo(component, areEqual) as T
 }
@@ -32,7 +32,7 @@ export function useDeepMemo<T>(factory: () => T, deps: React.DependencyList): T 
  */
 export function useStableCallback<T extends (...args: any[]) => any>(
   callback: T,
-  deps: React.DependencyList
+  deps: React.DependencyList,
 ): T {
   return useCallback(callback, deps) as T
 }
@@ -44,7 +44,7 @@ export function useStableCallback<T extends (...args: any[]) => any>(
 export function useConditionalMemo<T>(
   condition: boolean,
   factory: () => T,
-  deps: React.DependencyList
+  deps: React.DependencyList,
 ): T | undefined {
   return useMemo(() => {
     if (!condition) return undefined
@@ -59,7 +59,7 @@ export function useConditionalMemo<T>(
 export function shallowEqual(prevProps: any, nextProps: any): boolean {
   if (prevProps === nextProps) return true
   if (!prevProps || !nextProps) return false
-  if (typeof prevProps !== 'object' || typeof nextProps !== 'object') return false
+  if (typeof prevProps !== "object" || typeof nextProps !== "object") return false
 
   const prevKeys = Object.keys(prevProps)
   const nextKeys = Object.keys(nextProps)
@@ -97,7 +97,7 @@ export function memoShallow<T extends ComponentType<any>>(component: T): T {
 export function useMemoizedSelector<T, R>(
   value: T,
   selector: (value: T) => R,
-  deps?: React.DependencyList
+  deps?: React.DependencyList,
 ): R {
   return useMemo(() => selector(value), deps || [value])
 }
@@ -110,5 +110,3 @@ export function useJsonMemo<T>(value: T, deps?: React.DependencyList): T {
   const jsonString = JSON.stringify(value)
   return useMemo(() => value, deps || [jsonString])
 }
-
-

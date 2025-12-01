@@ -1,12 +1,39 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform, FlatList, Animated } from "react-native"
-import { router } from "expo-router"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { Calendar, Download, FileText, Lock, Share2, CheckCircle2, AlertCircle, Clock, Shield, ChevronRight } from "lucide-react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { BottomSheetModal, BottomSheetModalProvider, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
-import { GestureHandlerRootView } from "react-native-gesture-handler"
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Platform,
+  FlatList,
+  Animated,
+} from "react-native"
 import Constants from "expo-constants"
+import { router } from "expo-router"
+import {
+  BottomSheetModal,
+  BottomSheetModalProvider,
+  BottomSheetView,
+  BottomSheetBackdrop,
+} from "@gorhom/bottom-sheet"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import {
+  Calendar,
+  Download,
+  FileText,
+  Lock,
+  Share2,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Shield,
+  ChevronRight,
+} from "lucide-react-native"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
   hosApi,
@@ -24,9 +51,9 @@ import LoadingButton from "@/components/LoadingButton"
 import LogEntry from "@/components/LogEntry"
 import { toast } from "@/components/Toast"
 import { useStatus, useCarrier } from "@/contexts"
+import { translate } from "@/i18n/translate"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
-import { translate } from "@/i18n/translate"
 
 export const LogsScreen = () => {
   const { theme, themeContext } = useAppTheme()
@@ -35,24 +62,31 @@ export const LogsScreen = () => {
   const insets = useSafeAreaInsets()
   const { logEntries, certification, certifyLogs, uncertifyLogs } = useStatus()
   const { carrierInfo } = useCarrier()
-  const { user, driverProfile, vehicleAssignment, isAuthenticated, organizationSettings, hosStatus } = useAuth()
+  const {
+    user,
+    driverProfile,
+    vehicleAssignment,
+    isAuthenticated,
+    organizationSettings,
+    hosStatus,
+  } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [showCertificationModal, setShowCertificationModal] = useState(false)
   const [showCertifyAllModal, setShowCertifyAllModal] = useState(false)
   const [signature, setSignature] = useState("")
   const [isCertifiedInStorage, setIsCertifiedInStorage] = useState(false)
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
-  
+
   // Bottom sheet refs for certification flow
   const certifyBottomSheetRef = useRef<BottomSheetModal>(null)
   const certifySnapPoints = useMemo(() => ["50%", "75%"], [])
-  
+
   // Bottom nav height + safe area padding
   const BOTTOM_PADDING = useMemo(() => {
     const bottomNavHeight = Platform.OS === "ios" ? 88 : 64
     return bottomNavHeight + insets.bottom + 20
   }, [insets.bottom])
-  
+
   // Pulse animation for current status
   const pulseAnim = useRef(new Animated.Value(1)).current
 
@@ -66,10 +100,7 @@ export const LogsScreen = () => {
   // Get logs based on date:
   // - Current date (today) → Use /logs API (individual entries, available immediately)
   // - Past dates → Use /daily-logs API (certified summaries)
-  const selectedDateStr = useMemo(
-    () => selectedDate.toISOString().split("T")[0],
-    [selectedDate]
-  )
+  const selectedDateStr = useMemo(() => selectedDate.toISOString().split("T")[0], [selectedDate])
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], [])
   const isToday = selectedDateStr === todayStr
   const correctDriverId = hosClock?.driver || driverProfile?.driver_id
@@ -77,7 +108,7 @@ export const LogsScreen = () => {
   // Storage key for tracking certified all logs per date - memoized for stability
   const CERTIFIED_ALL_STORAGE_KEY = useMemo(
     () => `certified_all_logs_${selectedDateStr}`,
-    [selectedDateStr]
+    [selectedDateStr],
   )
 
   // For today: Use individual HOS logs (available immediately after status changes)
@@ -125,7 +156,7 @@ export const LogsScreen = () => {
     if (certification.isCertified) {
       // Show warning and allow uncertification
       toast.warning(
-        `Logs were certified by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}. Use the uncertify button to make changes.`
+        `Logs were certified by ${certification.certifiedBy} on ${new Date(certification.certifiedAt!).toLocaleString()}. Use the uncertify button to make changes.`,
       )
       return
     }
@@ -142,7 +173,6 @@ export const LogsScreen = () => {
     setShowCertificationModal(false)
     setSignature("")
   }
-
 
   const handleCertifyAllUncertifiedLogs = async () => {
     if (!signature.trim()) {
@@ -353,14 +383,29 @@ export const LogsScreen = () => {
   // Compliance status calculation
   const complianceStatus = useMemo(() => {
     if (allLogsCertified) {
-      return { type: "compliant", message: "Compliant • All logs certified", color: "#22C55E", icon: CheckCircle2 }
+      return {
+        type: "compliant",
+        message: "Compliant • All logs certified",
+        color: "#22C55E",
+        icon: CheckCircle2,
+      }
     }
     if (hasUncertifiedLogs) {
-      return { type: "attention", message: `Attention needed • ${uncertifiedLogsCount} uncertified logs`, color: "#F59E0B", icon: AlertCircle }
+      return {
+        type: "attention",
+        message: `Attention needed • ${uncertifiedLogsCount} uncertified logs`,
+        color: "#F59E0B",
+        icon: AlertCircle,
+      }
     }
     // Check for violations from hosStatus if available
     if (hosStatus?.active_violations && hosStatus.active_violations.length > 0) {
-      return { type: "violation", message: "Violation risk • Check HOS limits", color: "#EF4444", icon: AlertCircle }
+      return {
+        type: "violation",
+        message: "Violation risk • Check HOS limits",
+        color: "#EF4444",
+        icon: AlertCircle,
+      }
     }
     return { type: "compliant", message: "Compliant", color: "#22C55E", icon: CheckCircle2 }
   }, [allLogsCertified, hasUncertifiedLogs, uncertifiedLogsCount, hosStatus?.active_violations])
@@ -375,14 +420,20 @@ export const LogsScreen = () => {
       return `${hours}h ${mins}m`
     }
     // Use hosClock data if available
-    if (hosClock.driving_time_remaining !== undefined && hosClock.on_duty_time_remaining !== undefined) {
+    if (
+      hosClock.driving_time_remaining !== undefined &&
+      hosClock.on_duty_time_remaining !== undefined
+    ) {
       return {
         driveLeft: formatTime(hosClock.driving_time_remaining),
         shiftLeft: formatTime(hosClock.on_duty_time_remaining),
       }
     }
     // Fallback to hosStatus if available
-    if (hosStatus?.driving_time_remaining !== undefined && hosStatus?.on_duty_time_remaining !== undefined) {
+    if (
+      hosStatus?.driving_time_remaining !== undefined &&
+      hosStatus?.on_duty_time_remaining !== undefined
+    ) {
       return {
         driveLeft: formatTime(hosStatus.driving_time_remaining),
         shiftLeft: formatTime(hosStatus.on_duty_time_remaining),
@@ -404,42 +455,45 @@ export const LogsScreen = () => {
   }, [])
 
   // Handle certifying individual log entry
-  const handleCertifyIndividualLog = useCallback(async (logId: string, signature?: string) => {
-    try {
-      // Find the log entry to get the daily log ID
-      const logEntry = filteredLogs.find((log) => log.logId === logId || log.id === logId)
+  const handleCertifyIndividualLog = useCallback(
+    async (logId: string, signature?: string) => {
+      try {
+        // Find the log entry to get the daily log ID
+        const logEntry = filteredLogs.find((log) => log.logId === logId || log.id === logId)
 
-      if (!logEntry) {
-        throw new Error("Log not found")
+        if (!logEntry) {
+          throw new Error("Log not found")
+        }
+
+        // Use dailyLogId if available, otherwise fallback to logId
+        // Per spec: PATCH /api/hos/daily-logs/{id}/ to certify daily logs
+        const dailyLogId = (logEntry as any)?.dailyLogId || logEntry.logId || logEntry.id
+
+        if (!dailyLogId) {
+          throw new Error("No daily log ID available for certification")
+        }
+
+        // Call HOS API to certify the daily log (API expects just the ID string)
+        await certifyLogMutation.mutateAsync(dailyLogId)
+
+        // Refetch daily logs to update UI
+        if (isToday) {
+          refetchHOSLogs()
+        } else {
+          refetchDailyLogs()
+        }
+
+        toast.success("Log entry certified successfully")
+      } catch (error: any) {
+        if (__DEV__) {
+          console.error("Failed to certify individual log:", error)
+        }
+        toast.error(error?.message || "Failed to certify log entry")
+        throw error
       }
-
-      // Use dailyLogId if available, otherwise fallback to logId
-      // Per spec: PATCH /api/hos/daily-logs/{id}/ to certify daily logs
-      const dailyLogId = (logEntry as any)?.dailyLogId || logEntry.logId || logEntry.id
-
-      if (!dailyLogId) {
-        throw new Error("No daily log ID available for certification")
-      }
-
-      // Call HOS API to certify the daily log (API expects just the ID string)
-      await certifyLogMutation.mutateAsync(dailyLogId)
-
-      // Refetch daily logs to update UI
-      if (isToday) {
-        refetchHOSLogs()
-      } else {
-        refetchDailyLogs()
-      }
-
-      toast.success("Log entry certified successfully")
-    } catch (error: any) {
-      if (__DEV__) {
-        console.error("Failed to certify individual log:", error)
-      }
-      toast.error(error?.message || "Failed to certify log entry")
-      throw error
-    }
-  }, [filteredLogs, certifyLogMutation, isToday, refetchHOSLogs, refetchDailyLogs])
+    },
+    [filteredLogs, certifyLogMutation, isToday, refetchHOSLogs, refetchDailyLogs],
+  )
 
   // Format time for timeline
   const formatTime = useCallback((timestamp: number) => {
@@ -472,7 +526,9 @@ export const LogsScreen = () => {
           {/* Timeline Rail */}
           <View style={styles.timelineRail}>
             <View style={[styles.timelineLine, { backgroundColor: statusColor }]} />
-            {!isLast && <View style={[styles.timelineLineConnector, { backgroundColor: statusColor }]} />}
+            {!isLast && (
+              <View style={[styles.timelineLineConnector, { backgroundColor: statusColor }]} />
+            )}
           </View>
 
           {/* Timeline Dot */}
@@ -485,21 +541,26 @@ export const LogsScreen = () => {
               },
             ]}
           >
-            {item.isCertified && (
-              <Lock size={10} color="#fff" style={styles.timelineLock} />
-            )}
+            {item.isCertified && <Lock size={10} color="#fff" style={styles.timelineLock} />}
           </Animated.View>
 
           {/* Log Content */}
-          <View style={[styles.timelineContent, item.isCertified && styles.timelineContentCertified]}>
+          <View
+            style={[styles.timelineContent, item.isCertified && styles.timelineContentCertified]}
+          >
             <View style={styles.timelineHeader}>
               <View style={styles.timelineStatusRow}>
                 <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
                   <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-                    {item.status === "onDuty" ? "On Duty" : 
-                     item.status === "driving" ? "Driving" :
-                     item.status === "offDuty" ? "Off Duty" :
-                     item.status === "sleeperBerth" || item.status === "sleeping" ? "Sleeper" : item.status}
+                    {item.status === "onDuty"
+                      ? "On Duty"
+                      : item.status === "driving"
+                        ? "Driving"
+                        : item.status === "offDuty"
+                          ? "Off Duty"
+                          : item.status === "sleeperBerth" || item.status === "sleeping"
+                            ? "Sleeper"
+                            : item.status}
                   </Text>
                 </View>
                 {item.isCertified && (
@@ -527,13 +588,23 @@ export const LogsScreen = () => {
         </View>
       )
     },
-    [handleCertifyIndividualLog, getStatusColor, formatTime, formatDuration, isToday, filteredLogs.length, colors, pulseAnim]
+    [
+      handleCertifyIndividualLog,
+      getStatusColor,
+      formatTime,
+      formatDuration,
+      isToday,
+      filteredLogs.length,
+      colors,
+      pulseAnim,
+    ],
   )
 
   // Memoized key extractor
   const keyExtractor = useCallback(
-    (item: any) => item?.id?.toString() || item?.timestamp?.toString() || item?.logId || `log-${Math.random()}`,
-    []
+    (item: any) =>
+      item?.id?.toString() || item?.timestamp?.toString() || item?.logId || `log-${Math.random()}`,
+    [],
   )
 
   // Check local storage for certification status when date changes
@@ -575,7 +646,7 @@ export const LogsScreen = () => {
             duration: 1000,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       )
       pulse.start()
       return () => pulse.stop()
@@ -637,476 +708,566 @@ export const LogsScreen = () => {
             }}
             safeAreaEdges={["top"]}
           />
-          
+
           {/* Compliance Status Indicator */}
-          <View style={[styles.complianceBanner, { backgroundColor: `${complianceStatus.color}15` }]}>
+          <View
+            style={[styles.complianceBanner, { backgroundColor: `${complianceStatus.color}15` }]}
+          >
             <StatusIcon size={16} color={complianceStatus.color} />
             <Text style={[styles.complianceText, { color: complianceStatus.color }]}>
               {complianceStatus.message}
             </Text>
           </View>
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: BOTTOM_PADDING }]}
-        showsVerticalScrollIndicator={true}
-      >
-        <View style={styles.header}>
-          {/* Large Date Display */}
-          <View style={styles.dateSelector}>
-            <TouchableOpacity 
-              onPress={handlePreviousDay} 
-              style={[styles.dateButton, { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" }]}
-            >
-              <Text style={[styles.dateButtonText, { color: colors.tint }]}>◀</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleSelectToday}
-              style={[
-                styles.dateDisplay,
-                { 
-                  backgroundColor: isToday ? colors.tint : (isDark ? colors.cardBackground : "#F3F4F6"),
-                  borderWidth: isToday ? 0 : 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
-                },
-              ]}
-            >
-              <Calendar size={20} color={isToday ? "#fff" : colors.tint} style={styles.calendarIcon} />
-              <View>
-                <Text style={[styles.dateTextLarge, { color: isToday ? "#fff" : colors.text }]}>
-                  {selectedDate.toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </Text>
-                {isToday && (
-                  <Text style={styles.dateTextSecondary}>Today</Text>
-                )}
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={handleNextDay} 
-              style={[styles.dateButton, { 
-                backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                opacity: isToday ? 0.4 : 1,
-              }]} 
-              disabled={isToday}
-            >
-              <Text
-                style={[
-                  styles.dateButtonText,
-                  {
-                    color: isToday ? colors.textDim : colors.tint,
-                  },
-                ]}
-              >
-                ▶
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Mini Summary Strip */}
-          {(hosSummary || hasUncertifiedLogs) && (
-            <View style={[styles.summaryStrip, { backgroundColor: isDark ? colors.cardBackground : "#F9FAFB" }]}>
-              {allLogsCertified ? (
-                <View style={styles.summaryRow}>
-                  <CheckCircle2 size={14} color="#22C55E" />
-                  <Text style={[styles.summaryText, { color: colors.text }]}>
-                    Certified through: {selectedDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.summaryRow}>
-                  <AlertCircle size={14} color="#F59E0B" />
-                  <Text style={[styles.summaryText, { color: colors.text }]}>
-                    {uncertifiedLogsCount} uncertified logs
-                  </Text>
-                </View>
-              )}
-              {hosSummary && (
-                <>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryRow}>
-                    <Clock size={14} color={colors.tint} />
-                    <Text style={[styles.summaryText, { color: colors.text }]}>
-                      Drive: {hosSummary.driveLeft} • Shift: {hosSummary.shiftLeft}
-                    </Text>
-                  </View>
-                </>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Action Grid - Square Buttons */}
-        <View style={styles.actionGrid}>
-          <TouchableOpacity
-            style={[
-              styles.actionGridItem,
-              {
-                backgroundColor: selectedAction === "transfer" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
-                borderWidth: selectedAction === "transfer" ? 0 : 1,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
-              },
-            ]}
-            onPress={() => {
-              setSelectedAction("transfer")
-              handleTransferNavigate()
-            }}
-            activeOpacity={0.85}
+          <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: BOTTOM_PADDING }]}
+            showsVerticalScrollIndicator={true}
           >
-            <Share2 size={24} color={selectedAction === "transfer" ? "#fff" : colors.tint} />
-            <Text style={[styles.actionGridText, { color: selectedAction === "transfer" ? "#fff" : colors.text }]}>
-              Transfer
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.actionGridItem,
-              {
-                backgroundColor: selectedAction === "certify" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
-                borderWidth: selectedAction === "certify" ? 0 : 1,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
-                opacity: !hasUncertifiedLogs && selectedAction !== "certify" ? 0.6 : 1,
-              },
-            ]}
-            onPress={() => {
-              if (hasUncertifiedLogs) {
-                setSelectedAction("certify")
-                certifyBottomSheetRef.current?.present()
-              }
-            }}
-            activeOpacity={0.85}
-            disabled={!hasUncertifiedLogs || certifyAllUncertifiedMutation.isPending}
-          >
-            {hasUncertifiedLogs ? (
-              <>
-                <Lock size={24} color={selectedAction === "certify" ? "#fff" : colors.tint} />
-                <Text style={[styles.actionGridText, { color: selectedAction === "certify" ? "#fff" : colors.text }]}>
-                  Certify
-                </Text>
-                {uncertifiedLogsCount > 0 && (
-                  <Text style={[styles.actionGridSubtext, { color: selectedAction === "certify" ? "rgba(255,255,255,0.9)" : colors.textDim }]}>
-                    ({uncertifiedLogsCount})
-                  </Text>
-                )}
-              </>
-            ) : (
-              <>
-                <CheckCircle2 size={24} color={selectedAction === "certify" ? "#fff" : colors.textDim} />
-                <Text style={[styles.actionGridText, { color: selectedAction === "certify" ? "#fff" : colors.textDim }]}>
-                  Certified
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.actionGridItem,
-              {
-                backgroundColor: selectedAction === "inspector" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
-                borderWidth: selectedAction === "inspector" ? 0 : 1,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
-              },
-            ]}
-            onPress={() => {
-              setSelectedAction("inspector")
-              handleInspectorMode()
-            }}
-            activeOpacity={0.85}
-          >
-            <Shield size={24} color={selectedAction === "inspector" ? "#fff" : colors.tint} />
-            <Text style={[styles.actionGridText, { color: selectedAction === "inspector" ? "#fff" : colors.text }]}>
-              Inspector
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.actionGridItem,
-              {
-                backgroundColor: selectedAction === "manual" ? colors.tint : (isDark ? colors.cardBackground : "#FFFFFF"),
-                borderWidth: selectedAction === "manual" ? 0 : 1,
-                borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
-              },
-            ]}
-            onPress={() => {
-              setSelectedAction("manual")
-              router.push("/logs/manual")
-            }}
-            activeOpacity={0.85}
-          >
-            <FileText size={24} color={selectedAction === "manual" ? "#fff" : colors.tint} />
-            <Text style={[styles.actionGridText, { color: selectedAction === "manual" ? "#fff" : colors.text }]}>
-              Manual
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Certify All Uncertified Logs Modal */}
-        <Modal
-          visible={showCertifyAllModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() =>
-            !certifyAllUncertifiedMutation.isPending && setShowCertifyAllModal(false)
-          }
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Certify All Uncertified Logs
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                You are about to certify {uncertifiedLogsCount} uncertified log
-                {uncertifiedLogsCount !== 1 ? "s" : ""} for {selectedDate.toLocaleDateString()}.
-                Once certified, these logs cannot be edited.
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim, marginTop: 8 }]}>
-                Are you sure you want to continue?
-              </Text>
-
-              <View style={styles.modalButtons}>
-                <View style={styles.modalButton}>
-                  <LoadingButton
-                    title="Cancel"
-                    onPress={() => setShowCertifyAllModal(false)}
-                    variant="outline"
-                    fullWidth
-                    disabled={certifyAllUncertifiedMutation.isPending}
-                  />
-                </View>
-                <View style={styles.modalButton}>
-                  <LoadingButton
-                    title={
-                      certifyAllUncertifiedMutation.isPending ? "Certifying..." : "Certify All"
-                    }
-                    onPress={handleCertifyAllUncertifiedLogs}
-                    fullWidth
-                    loading={certifyAllUncertifiedMutation.isPending}
-                    disabled={certifyAllUncertifiedMutation.isPending}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Certification Modal */}
-        <Modal
-          visible={showCertificationModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowCertificationModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Certify Your Logs</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
-                By certifying these logs, you confirm their accuracy. Once certified, no changes can
-                be made.
-              </Text>
-
-              <TextInput
-                style={[
-                  styles.signatureInput,
-                  {
-                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                    color: colors.text,
-                    borderColor: isDark ? "transparent" : "#E5E7EB",
-                  },
-                ]}
-                placeholder="Enter your digital signature"
-                placeholderTextColor={colors.textDim}
-                value={signature}
-                onChangeText={setSignature}
-              />
-
-              <View style={styles.modalButtons}>
-                <View style={styles.modalButton}>
-                  <LoadingButton
-                    title="Cancel"
-                    onPress={() => {
-                      setShowCertificationModal(false)
-                      setSignature("")
-                    }}
-                    variant="outline"
-                    fullWidth
-                  />
-                </View>
-                <View style={styles.modalButton}>
-                  <LoadingButton title="Certify" onPress={handleSubmitCertification} fullWidth />
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-
-        {isLoadingLogs ? (
-          <>
-            <View style={styles.skeletonWrapper}>
-              <HOSChartSkeleton />
-            </View>
-            <View style={styles.logsContainer}>
-              {[1, 2, 3].map((item) => (
-                <View
-                  key={`log-skeleton-${item}`}
+            <View style={styles.header}>
+              {/* Large Date Display */}
+              <View style={styles.dateSelector}>
+                <TouchableOpacity
+                  onPress={handlePreviousDay}
                   style={[
-                    styles.logSkeleton,
+                    styles.dateButton,
+                    { backgroundColor: isDark ? colors.cardBackground : "#F3F4F6" },
+                  ]}
+                >
+                  <Text style={[styles.dateButtonText, { color: colors.tint }]}>◀</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleSelectToday}
+                  style={[
+                    styles.dateDisplay,
                     {
-                      backgroundColor: isDark ? "rgba(87, 80, 241, 0.08)" : "#F3F4F6",
-                      borderColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB",
+                      backgroundColor: isToday
+                        ? colors.tint
+                        : isDark
+                          ? colors.cardBackground
+                          : "#F3F4F6",
+                      borderWidth: isToday ? 0 : 1,
+                      borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.logSkeletonBar,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E5E7EB" },
-                    ]}
+                  <Calendar
+                    size={20}
+                    color={isToday ? "#fff" : colors.tint}
+                    style={styles.calendarIcon}
                   />
-                  <View
-                    style={[
-                      styles.logSkeletonBarSmall,
-                      { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB" },
-                    ]}
-                  />
-                  <View style={styles.logSkeletonMeta}>
-                    {[1, 2, 3].map((meta) => (
-                      <View
-                        key={`log-skeleton-meta-${item}-${meta}`}
-                        style={[
-                          styles.logSkeletonDot,
-                          { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E5E7EB" },
-                        ]}
-                      />
-                    ))}
+                  <View>
+                    <Text style={[styles.dateTextLarge, { color: isToday ? "#fff" : colors.text }]}>
+                      {selectedDate.toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </Text>
+                    {isToday && <Text style={styles.dateTextSecondary}>Today</Text>}
                   </View>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : filteredLogs.length === 0 ? (
-          <ElevatedCard style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <FileText size={48} color={colors.text} />
-            </View>
-            <Text style={[styles.emptyText, { color: colors.text }]}>
-              No logs recorded for this date
-            </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
-              Status changes will appear here
-            </Text>
-          </ElevatedCard>
-        ) : (
-          <>
-            {/* HOS Chart - Only show if not all logs are certified */}
-
-            {/* Log Entries - Using FlatList for performance */}
-            <View style={styles.logsContainer}>
-              <FlatList
-                data={filteredLogs}
-                keyExtractor={keyExtractor}
-                renderItem={renderLogEntry}
-                showsVerticalScrollIndicator={false}
-                scrollEnabled={false}
-                contentContainerStyle={{ paddingBottom: 0 }}
-                ListEmptyComponent={
-                  <ElevatedCard style={styles.emptyContainer}>
-                    <View style={styles.emptyIconContainer}>
-                      <FileText size={48} color={colors.text} />
-                    </View>
-                    <Text style={[styles.emptyText, { color: colors.text }]}>
-                      No logs recorded for this date
-                    </Text>
-                    <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
-                      Status changes will appear here
-                    </Text>
-                  </ElevatedCard>
-                }
-                // Performance optimizations
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={11}
-                removeClippedSubviews={true}
-                updateCellsBatchingPeriod={50}
-              />
-            </View>
-          </>
-        )}
-      </ScrollView>
-        </View>
-
-          {/* Certification Bottom Sheet */}
-          <BottomSheetModal
-            ref={certifyBottomSheetRef}
-            index={0}
-            snapPoints={certifySnapPoints}
-            enablePanDownToClose
-            backdropComponent={(props) => (
-              <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} />
-            )}
-          >
-            <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: colors.cardBackground }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Lock size={24} color={colors.tint} />
-                <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>Certify Your Logs</Text>
-              </View>
-              <Text style={[styles.bottomSheetSubtitle, { color: colors.textDim }]}>
-                You are certifying {uncertifiedLogsCount} logs for {selectedDate.toLocaleDateString(undefined, { month: "long", day: "numeric" })}.
-                By certifying, you confirm these logs are accurate and final.
-              </Text>
-              <Text style={[styles.bottomSheetLabel, { color: colors.text }]}>
-                Enter your signature:
-              </Text>
-              <TextInput
-                style={[
-                  styles.signatureInput,
-                  {
-                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                    color: colors.text,
-                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
-                  },
-                ]}
-                placeholder="Your digital signature"
-                placeholderTextColor={colors.textDim}
-                value={signature}
-                onChangeText={setSignature}
-              />
-              <View style={styles.bottomSheetActions}>
-                <TouchableOpacity
-                  style={[styles.bottomSheetButton, styles.bottomSheetButtonCancel]}
-                  onPress={() => {
-                    certifyBottomSheetRef.current?.dismiss()
-                    setSignature("")
-                  }}
-                >
-                  <Text style={[styles.bottomSheetButtonText, { color: colors.text }]}>Cancel</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
+                  onPress={handleNextDay}
                   style={[
-                    styles.bottomSheetButton,
-                    styles.bottomSheetButtonPrimary,
-                    { backgroundColor: colors.tint },
-                    (!signature.trim() || certifyAllUncertifiedMutation.isPending) && styles.bottomSheetButtonDisabled,
+                    styles.dateButton,
+                    {
+                      backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                      opacity: isToday ? 0.4 : 1,
+                    },
                   ]}
-                  onPress={handleCertifyAllUncertifiedLogs}
-                  disabled={!signature.trim() || certifyAllUncertifiedMutation.isPending}
+                  disabled={isToday}
                 >
-                  <Text style={styles.bottomSheetButtonTextPrimary}>
-                    {certifyAllUncertifiedMutation.isPending ? "Certifying..." : "Certify All"}
+                  <Text
+                    style={[
+                      styles.dateButtonText,
+                      {
+                        color: isToday ? colors.textDim : colors.tint,
+                      },
+                    ]}
+                  >
+                    ▶
                   </Text>
                 </TouchableOpacity>
               </View>
-            </BottomSheetView>
-          </BottomSheetModal>
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
+
+              {/* Mini Summary Strip */}
+              {(hosSummary || hasUncertifiedLogs) && (
+                <View
+                  style={[
+                    styles.summaryStrip,
+                    { backgroundColor: isDark ? colors.cardBackground : "#F9FAFB" },
+                  ]}
+                >
+                  {allLogsCertified ? (
+                    <View style={styles.summaryRow}>
+                      <CheckCircle2 size={14} color="#22C55E" />
+                      <Text style={[styles.summaryText, { color: colors.text }]}>
+                        Certified through:{" "}
+                        {selectedDate.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.summaryRow}>
+                      <AlertCircle size={14} color="#F59E0B" />
+                      <Text style={[styles.summaryText, { color: colors.text }]}>
+                        {uncertifiedLogsCount} uncertified logs
+                      </Text>
+                    </View>
+                  )}
+                  {hosSummary && (
+                    <>
+                      <View style={styles.summaryDivider} />
+                      <View style={styles.summaryRow}>
+                        <Clock size={14} color={colors.tint} />
+                        <Text style={[styles.summaryText, { color: colors.text }]}>
+                          Drive: {hosSummary.driveLeft} • Shift: {hosSummary.shiftLeft}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Action Grid - Square Buttons */}
+            <View style={styles.actionGrid}>
+              <TouchableOpacity
+                style={[
+                  styles.actionGridItem,
+                  {
+                    backgroundColor:
+                      selectedAction === "transfer"
+                        ? colors.tint
+                        : isDark
+                          ? colors.cardBackground
+                          : "#FFFFFF",
+                    borderWidth: selectedAction === "transfer" ? 0 : 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                  },
+                ]}
+                onPress={() => {
+                  setSelectedAction("transfer")
+                  handleTransferNavigate()
+                }}
+                activeOpacity={0.85}
+              >
+                <Share2 size={24} color={selectedAction === "transfer" ? "#fff" : colors.tint} />
+                <Text
+                  style={[
+                    styles.actionGridText,
+                    { color: selectedAction === "transfer" ? "#fff" : colors.text },
+                  ]}
+                >
+                  Transfer
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionGridItem,
+                  {
+                    backgroundColor:
+                      selectedAction === "certify"
+                        ? colors.tint
+                        : isDark
+                          ? colors.cardBackground
+                          : "#FFFFFF",
+                    borderWidth: selectedAction === "certify" ? 0 : 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                    opacity: !hasUncertifiedLogs && selectedAction !== "certify" ? 0.6 : 1,
+                  },
+                ]}
+                onPress={() => {
+                  if (hasUncertifiedLogs) {
+                    setSelectedAction("certify")
+                    certifyBottomSheetRef.current?.present()
+                  }
+                }}
+                activeOpacity={0.85}
+                disabled={!hasUncertifiedLogs || certifyAllUncertifiedMutation.isPending}
+              >
+                {hasUncertifiedLogs ? (
+                  <>
+                    <Lock size={24} color={selectedAction === "certify" ? "#fff" : colors.tint} />
+                    <Text
+                      style={[
+                        styles.actionGridText,
+                        { color: selectedAction === "certify" ? "#fff" : colors.text },
+                      ]}
+                    >
+                      Certify
+                    </Text>
+                    {uncertifiedLogsCount > 0 && (
+                      <Text
+                        style={[
+                          styles.actionGridSubtext,
+                          {
+                            color:
+                              selectedAction === "certify"
+                                ? "rgba(255,255,255,0.9)"
+                                : colors.textDim,
+                          },
+                        ]}
+                      >
+                        ({uncertifiedLogsCount})
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2
+                      size={24}
+                      color={selectedAction === "certify" ? "#fff" : colors.textDim}
+                    />
+                    <Text
+                      style={[
+                        styles.actionGridText,
+                        { color: selectedAction === "certify" ? "#fff" : colors.textDim },
+                      ]}
+                    >
+                      Certified
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionGridItem,
+                  {
+                    backgroundColor:
+                      selectedAction === "inspector"
+                        ? colors.tint
+                        : isDark
+                          ? colors.cardBackground
+                          : "#FFFFFF",
+                    borderWidth: selectedAction === "inspector" ? 0 : 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                  },
+                ]}
+                onPress={() => {
+                  setSelectedAction("inspector")
+                  handleInspectorMode()
+                }}
+                activeOpacity={0.85}
+              >
+                <Shield size={24} color={selectedAction === "inspector" ? "#fff" : colors.tint} />
+                <Text
+                  style={[
+                    styles.actionGridText,
+                    { color: selectedAction === "inspector" ? "#fff" : colors.text },
+                  ]}
+                >
+                  Inspector
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionGridItem,
+                  {
+                    backgroundColor:
+                      selectedAction === "manual"
+                        ? colors.tint
+                        : isDark
+                          ? colors.cardBackground
+                          : "#FFFFFF",
+                    borderWidth: selectedAction === "manual" ? 0 : 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                  },
+                ]}
+                onPress={() => {
+                  setSelectedAction("manual")
+                  router.push("/logs/manual")
+                }}
+                activeOpacity={0.85}
+              >
+                <FileText size={24} color={selectedAction === "manual" ? "#fff" : colors.tint} />
+                <Text
+                  style={[
+                    styles.actionGridText,
+                    { color: selectedAction === "manual" ? "#fff" : colors.text },
+                  ]}
+                >
+                  Manual
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Certify All Uncertified Logs Modal */}
+            <Modal
+              visible={showCertifyAllModal}
+              transparent
+              animationType="fade"
+              onRequestClose={() =>
+                !certifyAllUncertifiedMutation.isPending && setShowCertifyAllModal(false)
+              }
+            >
+              <View style={styles.modalOverlay}>
+                <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    Certify All Uncertified Logs
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+                    You are about to certify {uncertifiedLogsCount} uncertified log
+                    {uncertifiedLogsCount !== 1 ? "s" : ""} for {selectedDate.toLocaleDateString()}.
+                    Once certified, these logs cannot be edited.
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textDim, marginTop: 8 }]}>
+                    Are you sure you want to continue?
+                  </Text>
+
+                  <View style={styles.modalButtons}>
+                    <View style={styles.modalButton}>
+                      <LoadingButton
+                        title="Cancel"
+                        onPress={() => setShowCertifyAllModal(false)}
+                        variant="outline"
+                        fullWidth
+                        disabled={certifyAllUncertifiedMutation.isPending}
+                      />
+                    </View>
+                    <View style={styles.modalButton}>
+                      <LoadingButton
+                        title={
+                          certifyAllUncertifiedMutation.isPending ? "Certifying..." : "Certify All"
+                        }
+                        onPress={handleCertifyAllUncertifiedLogs}
+                        fullWidth
+                        loading={certifyAllUncertifiedMutation.isPending}
+                        disabled={certifyAllUncertifiedMutation.isPending}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+
+            {/* Certification Modal */}
+            <Modal
+              visible={showCertificationModal}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowCertificationModal(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>Certify Your Logs</Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textDim }]}>
+                    By certifying these logs, you confirm their accuracy. Once certified, no changes
+                    can be made.
+                  </Text>
+
+                  <TextInput
+                    style={[
+                      styles.signatureInput,
+                      {
+                        backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                        color: colors.text,
+                        borderColor: isDark ? "transparent" : "#E5E7EB",
+                      },
+                    ]}
+                    placeholder="Enter your digital signature"
+                    placeholderTextColor={colors.textDim}
+                    value={signature}
+                    onChangeText={setSignature}
+                  />
+
+                  <View style={styles.modalButtons}>
+                    <View style={styles.modalButton}>
+                      <LoadingButton
+                        title="Cancel"
+                        onPress={() => {
+                          setShowCertificationModal(false)
+                          setSignature("")
+                        }}
+                        variant="outline"
+                        fullWidth
+                      />
+                    </View>
+                    <View style={styles.modalButton}>
+                      <LoadingButton
+                        title="Certify"
+                        onPress={handleSubmitCertification}
+                        fullWidth
+                      />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+
+            {isLoadingLogs ? (
+              <>
+                <View style={styles.skeletonWrapper}>
+                  <HOSChartSkeleton />
+                </View>
+                <View style={styles.logsContainer}>
+                  {[1, 2, 3].map((item) => (
+                    <View
+                      key={`log-skeleton-${item}`}
+                      style={[
+                        styles.logSkeleton,
+                        {
+                          backgroundColor: isDark ? "rgba(87, 80, 241, 0.08)" : "#F3F4F6",
+                          borderColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB",
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.logSkeletonBar,
+                          { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E5E7EB" },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.logSkeletonBarSmall,
+                          { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB" },
+                        ]}
+                      />
+                      <View style={styles.logSkeletonMeta}>
+                        {[1, 2, 3].map((meta) => (
+                          <View
+                            key={`log-skeleton-meta-${item}-${meta}`}
+                            style={[
+                              styles.logSkeletonDot,
+                              { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E5E7EB" },
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : filteredLogs.length === 0 ? (
+              <ElevatedCard style={styles.emptyContainer}>
+                <View style={styles.emptyIconContainer}>
+                  <FileText size={48} color={colors.text} />
+                </View>
+                <Text style={[styles.emptyText, { color: colors.text }]}>
+                  No logs recorded for this date
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+                  Status changes will appear here
+                </Text>
+              </ElevatedCard>
+            ) : (
+              <>
+                {/* HOS Chart - Only show if not all logs are certified */}
+
+                {/* Log Entries - Using FlatList for performance */}
+                <View style={styles.logsContainer}>
+                  <FlatList
+                    data={filteredLogs}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderLogEntry}
+                    showsVerticalScrollIndicator={false}
+                    scrollEnabled={false}
+                    contentContainerStyle={{ paddingBottom: 0 }}
+                    ListEmptyComponent={
+                      <ElevatedCard style={styles.emptyContainer}>
+                        <View style={styles.emptyIconContainer}>
+                          <FileText size={48} color={colors.text} />
+                        </View>
+                        <Text style={[styles.emptyText, { color: colors.text }]}>
+                          No logs recorded for this date
+                        </Text>
+                        <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
+                          Status changes will appear here
+                        </Text>
+                      </ElevatedCard>
+                    }
+                    // Performance optimizations
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={11}
+                    removeClippedSubviews={true}
+                    updateCellsBatchingPeriod={50}
+                  />
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Certification Bottom Sheet */}
+        <BottomSheetModal
+          ref={certifyBottomSheetRef}
+          index={0}
+          snapPoints={certifySnapPoints}
+          enablePanDownToClose
+          backdropComponent={(props) => (
+            <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} />
+          )}
+        >
+          <BottomSheetView
+            style={[styles.bottomSheetContent, { backgroundColor: colors.cardBackground }]}
+          >
+            <View style={styles.bottomSheetHeader}>
+              <Lock size={24} color={colors.tint} />
+              <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>
+                Certify Your Logs
+              </Text>
+            </View>
+            <Text style={[styles.bottomSheetSubtitle, { color: colors.textDim }]}>
+              You are certifying {uncertifiedLogsCount} logs for{" "}
+              {selectedDate.toLocaleDateString(undefined, { month: "long", day: "numeric" })}. By
+              certifying, you confirm these logs are accurate and final.
+            </Text>
+            <Text style={[styles.bottomSheetLabel, { color: colors.text }]}>
+              Enter your signature:
+            </Text>
+            <TextInput
+              style={[
+                styles.signatureInput,
+                {
+                  backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                  color: colors.text,
+                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E5E7EB",
+                },
+              ]}
+              placeholder="Your digital signature"
+              placeholderTextColor={colors.textDim}
+              value={signature}
+              onChangeText={setSignature}
+            />
+            <View style={styles.bottomSheetActions}>
+              <TouchableOpacity
+                style={[styles.bottomSheetButton, styles.bottomSheetButtonCancel]}
+                onPress={() => {
+                  certifyBottomSheetRef.current?.dismiss()
+                  setSignature("")
+                }}
+              >
+                <Text style={[styles.bottomSheetButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.bottomSheetButton,
+                  styles.bottomSheetButtonPrimary,
+                  { backgroundColor: colors.tint },
+                  (!signature.trim() || certifyAllUncertifiedMutation.isPending) &&
+                    styles.bottomSheetButtonDisabled,
+                ]}
+                onPress={handleCertifyAllUncertifiedLogs}
+                disabled={!signature.trim() || certifyAllUncertifiedMutation.isPending}
+              >
+                <Text style={styles.bottomSheetButtonTextPrimary}>
+                  {certifyAllUncertifiedMutation.isPending ? "Certifying..." : "Certify All"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </BottomSheetView>
+        </BottomSheetModal>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   )
 }
 
@@ -1145,11 +1306,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: "center",
     alignItems: "center",
+    borderRadius: 12,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
   },
   dateButtonText: {
     fontSize: 18,
@@ -1158,17 +1319,17 @@ const styles = StyleSheet.create({
   dateDisplay: {
     alignItems: "center",
     borderRadius: 12,
+    elevation: 2,
     flexDirection: "row",
+    justifyContent: "center",
     marginHorizontal: 8,
+    minWidth: 180,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    minWidth: 180,
-    justifyContent: "center",
     shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
   dateSelector: {
     alignItems: "center",
@@ -1319,45 +1480,45 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   actionRowContainer: {
-    paddingHorizontal: 20,
     gap: 12,
+    paddingHorizontal: 20,
     paddingRight: 32,
   },
   actionRowCard: {
-    width: 140,
-    borderRadius: 16,
-    padding: 16,
     alignItems: "center",
+    borderRadius: 16,
+    elevation: 4,
     justifyContent: "center",
+    minHeight: 160,
+    padding: 16,
     shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-    minHeight: 160,
+    width: 140,
   },
   actionRowIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    justifyContent: "center",
     alignItems: "center",
+    borderRadius: 16,
+    height: 64,
+    justifyContent: "center",
     marginBottom: 12,
     position: "relative",
+    width: 64,
   },
   actionRowBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
+    alignItems: "center",
     backgroundColor: "#FF4444",
+    borderColor: "#fff",
     borderRadius: 10,
-    minWidth: 20,
+    borderWidth: 2,
     height: 20,
     justifyContent: "center",
-    alignItems: "center",
+    minWidth: 20,
     paddingHorizontal: 6,
-    borderWidth: 2,
-    borderColor: "#fff",
+    position: "absolute",
+    right: -4,
+    top: -4,
   },
   actionRowBadgeText: {
     color: "#fff",
@@ -1367,8 +1528,8 @@ const styles = StyleSheet.create({
   actionRowTitle: {
     fontSize: 14,
     fontWeight: "700" as const,
-    textAlign: "center",
     marginBottom: 4,
+    textAlign: "center",
   },
   actionRowSubtitle: {
     fontSize: 12,
@@ -1376,11 +1537,11 @@ const styles = StyleSheet.create({
   },
   // Compliance Banner
   complianceBanner: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 8,
   },
   complianceText: {
     fontSize: 14,
@@ -1394,57 +1555,57 @@ const styles = StyleSheet.create({
   dateTextSecondary: {
     fontSize: 12,
     fontWeight: "500" as const,
-    opacity: 0.8,
     marginTop: 2,
+    opacity: 0.8,
   },
   // Summary Strip
   summaryStrip: {
-    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
     marginHorizontal: 20,
     marginTop: 12,
-    marginBottom: 16,
-    borderRadius: 12,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   summaryRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    flexDirection: "row",
     flex: 1,
+    gap: 6,
   },
   summaryText: {
     fontSize: 13,
     fontWeight: "500" as const,
   },
   summaryDivider: {
-    width: 1,
-    height: 16,
     backgroundColor: "rgba(0, 0, 0, 0.1)",
+    height: 16,
+    width: 1,
   },
   // Action Grid - Square Buttons
   actionGrid: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    marginBottom: 20,
     gap: 12,
     justifyContent: "space-between",
+    marginBottom: 20,
+    paddingHorizontal: 20,
   },
   actionGridItem: {
-    flex: 1,
-    aspectRatio: 1,
     alignItems: "center",
-    justifyContent: "center",
+    aspectRatio: 1,
     borderRadius: 16,
+    elevation: 2,
+    flex: 1,
+    justifyContent: "center",
     padding: 12,
     position: "relative",
     shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
   actionGridText: {
     fontSize: 13,
@@ -1459,18 +1620,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   actionGridBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
+    alignItems: "center",
     backgroundColor: "#EF4444",
+    borderColor: "#fff",
     borderRadius: 10,
-    minWidth: 20,
+    borderWidth: 2,
     height: 20,
     justifyContent: "center",
-    alignItems: "center",
+    minWidth: 20,
     paddingHorizontal: 6,
-    borderWidth: 2,
-    borderColor: "#fff",
+    position: "absolute",
+    right: 8,
+    top: 8,
   },
   actionGridBadgeText: {
     color: "#fff",
@@ -1480,84 +1641,84 @@ const styles = StyleSheet.create({
   // Timeline
   timelineRow: {
     flexDirection: "row",
+    marginBottom: 16,
     paddingLeft: 20,
     paddingRight: 20,
-    marginBottom: 16,
   },
   timelineRail: {
-    width: 24,
     alignItems: "center",
     marginRight: 12,
+    width: 24,
   },
   timelineLine: {
-    width: 4,
-    height: 20,
     borderRadius: 2,
+    height: 20,
+    width: 4,
   },
   timelineLineConnector: {
-    width: 2,
+    borderRadius: 1,
     flex: 1,
     marginTop: 2,
-    borderRadius: 1,
+    width: 2,
   },
   timelineDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
     alignItems: "center",
+    borderColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 3,
+    height: 20,
     justifyContent: "center",
     marginTop: -2,
-    borderWidth: 3,
-    borderColor: "#fff",
+    width: 20,
   },
   timelineLock: {
     position: "absolute",
   },
   timelineContent: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
     flex: 1,
     padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#F9FAFB",
   },
   timelineContentCertified: {
     backgroundColor: "#F0FDF4",
-    borderWidth: 1,
     borderColor: "#22C55E20",
+    borderWidth: 1,
   },
   timelineHeader: {
+    alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
     marginBottom: 4,
   },
   timelineStatusRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    flexDirection: "row",
     flex: 1,
+    gap: 8,
   },
   statusBadge: {
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
   },
   statusBadgeText: {
     fontSize: 13,
     fontWeight: "600" as const,
   },
   certifiedPill: {
-    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#22C55E",
+    borderRadius: 10,
+    flexDirection: "row",
     gap: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    backgroundColor: "#22C55E",
-    borderRadius: 10,
   },
   certifiedPillText: {
+    color: "#fff",
     fontSize: 10,
     fontWeight: "700" as const,
-    color: "#fff",
     letterSpacing: 0.5,
   },
   timelineTime: {
@@ -1578,8 +1739,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   bottomSheetHeader: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
     gap: 12,
     marginBottom: 16,
   },
@@ -1603,11 +1764,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   bottomSheetButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
     alignItems: "center",
+    borderRadius: 12,
+    flex: 1,
     justifyContent: "center",
+    paddingVertical: 14,
   },
   bottomSheetButtonCancel: {
     backgroundColor: "#F3F4F6",
@@ -1623,8 +1784,8 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
   },
   bottomSheetButtonTextPrimary: {
+    color: "#fff",
     fontSize: 16,
     fontWeight: "600" as const,
-    color: "#fff",
   },
 })

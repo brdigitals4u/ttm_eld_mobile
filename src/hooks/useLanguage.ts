@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import i18n from 'i18next'
-import { getCurrentLanguage } from '@/i18n'
+import { useEffect, useState } from "react"
+import i18n from "i18next"
+
+import { getCurrentLanguage } from "@/i18n"
 
 /**
  * Hook to get current language and trigger re-renders when language changes
@@ -16,7 +17,7 @@ export const useLanguage = () => {
     }
 
     // Subscribe to i18next language change events
-    i18n.on('languageChanged', handleLanguageChanged)
+    i18n.on("languageChanged", handleLanguageChanged)
 
     // Update state if language changes externally
     const currentLang = getCurrentLanguage()
@@ -25,16 +26,9 @@ export const useLanguage = () => {
     }
 
     return () => {
-      i18n.off('languageChanged', handleLanguageChanged)
+      i18n.off("languageChanged", handleLanguageChanged)
     }
   }, [language])
 
   return language
 }
-
-
-
-
-
-
-

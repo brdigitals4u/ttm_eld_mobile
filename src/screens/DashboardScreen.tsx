@@ -45,39 +45,42 @@ import {
   useMyTrips,
 } from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
+import { DtcIndicator } from "@/components/DtcIndicator"
+import { EldGpsWarning } from "@/components/EldGpsWarning"
+import { EldMalfunctionModal } from "@/components/EldMalfunctionModal"
+import { ExemptDriverBadge } from "@/components/ExemptDriverBadge"
 import { Header } from "@/components/Header"
+import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
 import { InactivityPrompt } from "@/components/InactivityPrompt"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
 import { Text } from "@/components/Text"
 import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
-import { ViolationModal } from "@/components/ViolationModal"
-import { ViolationBanner } from "@/components/ViolationBanner"
-import { ViolationToast } from "@/components/ViolationToast"
 import { VehicleTripAssignment } from "@/components/VehicleTripAssignment"
-import { EldMalfunctionModal } from "@/components/EldMalfunctionModal"
-import { EldGpsWarning } from "@/components/EldGpsWarning"
-import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
-import { ExemptDriverBadge } from "@/components/ExemptDriverBadge"
-import { DtcIndicator } from "@/components/DtcIndicator"
-import { COLORS } from "@/constants"
+import { ViolationBanner } from "@/components/ViolationBanner"
+import { ViolationModal } from "@/components/ViolationModal"
+import { ViolationToast } from "@/components/ViolationToast"
 import { usePermissions, useStatus } from "@/contexts"
+import { useHOSStatusContext } from "@/contexts/hos-status-context"
 import { useLocation } from "@/contexts/location-context"
 import { useObdData } from "@/contexts/obd-data-context"
 import { useViolationNotifications } from "@/contexts/ViolationNotificationContext"
+import { useLanguage } from "@/hooks/useLanguage"
 import { useLocationData } from "@/hooks/useLocationData"
+import { translate } from "@/i18n/translate"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
-import { colors } from "@/theme/colors"
-import { translate } from "@/i18n/translate"
-import { useLanguage } from "@/hooks/useLanguage"
-import { useHOSStatusContext } from "@/contexts/hos-status-context"
+import { useAppTheme } from "@/theme/context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 
 export const DashboardScreen = React.memo(() => {
   // Trigger re-render when language changes
   useLanguage()
+
+  // Get theme colors - supports both light and dark themes
+  const { theme } = useAppTheme()
+  const { colors } = theme
 
   const {
     user,
@@ -118,12 +121,16 @@ export const DashboardScreen = React.memo(() => {
     isAuthenticated,
   )
 
-  const hasVehicleAssignment = useMemo(() => Boolean(
-    vehicleAssignment?.has_vehicle_assigned &&
-      vehicleAssignment?.vehicle_info &&
-      vehicleAssignment?.vehicle_info.status === "active",
-  ), [vehicleAssignment])
-  
+  const hasVehicleAssignment = useMemo(
+    () =>
+      Boolean(
+        vehicleAssignment?.has_vehicle_assigned &&
+          vehicleAssignment?.vehicle_info &&
+          vehicleAssignment?.vehicle_info.status === "active",
+      ),
+    [vehicleAssignment],
+  )
+
   const activeTrip = useMemo(() => {
     if (!tripsData?.trips) return null
     const activeTrips = tripsData.trips.filter(
@@ -131,17 +138,29 @@ export const DashboardScreen = React.memo(() => {
     )
     return activeTrips.length > 0 ? activeTrips[0] : tripsData.trips[0]
   }, [tripsData])
-  
+
   const hasTrip = useMemo(() => !!activeTrip, [activeTrip])
   const shipperId = useMemo(() => user?.id ?? null, [user?.id])
   const hasShipperId = useMemo(() => Boolean(shipperId), [shipperId])
 
   // HOS/ELD can be used if (vehicle OR trip) is assigned AND shipping ID is present
   // Either vehicle assignment OR trip assignment is sufficient
-  const requiresMandatorySetup = useMemo(() => (!hasVehicleAssignment && !hasTrip) || !hasShipperId, [hasVehicleAssignment, hasTrip, hasShipperId])
-  const canUseHOS = useMemo(() => (hasVehicleAssignment || hasTrip) && hasShipperId, [hasVehicleAssignment, hasTrip, hasShipperId])
-  const canUseELD = useMemo(() => (hasVehicleAssignment || hasTrip) && hasShipperId, [hasVehicleAssignment, hasTrip, hasShipperId])
-  const showMandatorySetup = useMemo(() => !vehicleLoading && !tripsLoading && requiresMandatorySetup, [vehicleLoading, tripsLoading, requiresMandatorySetup])
+  const requiresMandatorySetup = useMemo(
+    () => (!hasVehicleAssignment && !hasTrip) || !hasShipperId,
+    [hasVehicleAssignment, hasTrip, hasShipperId],
+  )
+  const canUseHOS = useMemo(
+    () => (hasVehicleAssignment || hasTrip) && hasShipperId,
+    [hasVehicleAssignment, hasTrip, hasShipperId],
+  )
+  const canUseELD = useMemo(
+    () => (hasVehicleAssignment || hasTrip) && hasShipperId,
+    [hasVehicleAssignment, hasTrip, hasShipperId],
+  )
+  const showMandatorySetup = useMemo(
+    () => !vehicleLoading && !tripsLoading && requiresMandatorySetup,
+    [vehicleLoading, tripsLoading, requiresMandatorySetup],
+  )
 
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false)
@@ -152,11 +171,11 @@ export const DashboardScreen = React.memo(() => {
       console.warn("Failed to open ttmkonnect.com", error),
     )
   }, [])
-  
+
   const handleAddVehicle = useCallback(() => {
     router.push("/assignments" as any)
   }, [])
-  
+
   const handleAddShipperId = useCallback(() => {
     router.push("/assignments" as any)
   }, [])
@@ -701,21 +720,37 @@ export const DashboardScreen = React.memo(() => {
     const normalizedStatus = status.toUpperCase()
     switch (normalizedStatus) {
       case "DRIVING":
-        return { backgroundColor: "#FFF4DC", borderColor: "#F59E0B", textColor: "#B45309" }
+        return {
+          backgroundColor: colors.warningBackground,
+          borderColor: colors.warning,
+          textColor: colors.warning,
+        }
       case "ON_DUTY":
       case "ON-DUTY":
         return {
           backgroundColor: colors.palette.primary100,
-          borderColor: colors.PRIMARY,
-          textColor: colors.palette.primary700,
+          borderColor: colors.tint,
+          textColor: colors.tint,
         }
       case "OFF_DUTY":
       case "OFF-DUTY":
-        return { backgroundColor: "#F3F4F6", borderColor: "#6B7280", textColor: "#374151" }
+        return {
+          backgroundColor: colors.sectionBackground,
+          borderColor: colors.border,
+          textColor: colors.textDim,
+        }
       case "SLEEPER":
-        return { backgroundColor: "#FEF3C7", borderColor: "#D97706", textColor: "#92400E" }
+        return {
+          backgroundColor: colors.warningBackground,
+          borderColor: colors.warning,
+          textColor: colors.warning,
+        }
       default:
-        return { backgroundColor: "#F3F4F6", borderColor: "#6B7280", textColor: "#374151" }
+        return {
+          backgroundColor: colors.sectionBackground,
+          borderColor: colors.border,
+          textColor: colors.textDim,
+        }
     }
   }
 
@@ -794,6 +829,1156 @@ export const DashboardScreen = React.memo(() => {
     setShowNotifications(true)
   }, [notificationsData, markAllReadMutation])
 
+  // Dynamic styles based on theme
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        screen: { backgroundColor: colors.background, flex: 1, marginTop: 0 },
+        cc: { paddingBottom: 120 },
+
+        // Top Header
+        topHeader: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingBottom: 20,
+          paddingHorizontal: 20,
+          paddingTop: 60,
+        },
+        profileSection: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 12,
+        },
+        avatarText: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "900",
+        },
+        locationInfo: {
+          gap: 4,
+        },
+        locationRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 4,
+        },
+        locationTitle: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        locationAddress: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "500",
+        },
+        notificationBtn: {
+          alignItems: "center",
+          backgroundColor: "transparent",
+          borderRadius: 24,
+          height: 68,
+          justifyContent: "center",
+          position: "relative",
+          width: 68,
+        },
+
+        // Hero Card
+        heroCard: {
+          borderRadius: 24,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginHorizontal: 20,
+          marginTop: 20,
+          minHeight: 180,
+          overflow: "hidden",
+          padding: 24,
+        },
+        heroContent: {
+          flex: 1,
+          justifyContent: "center",
+        },
+        heroTitle: {
+          color: colors.text,
+          fontSize: 28,
+          fontWeight: "900",
+          lineHeight: 34,
+        },
+        heroButton: {
+          alignSelf: "flex-start",
+          backgroundColor: colors.text,
+          borderRadius: 16,
+          marginTop: 16,
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+        },
+        heroButtonText: {
+          color: colors.tint,
+          fontSize: 15,
+          fontWeight: "800",
+        },
+        heroIllustration: {
+          bottom: -10,
+          position: "absolute",
+          right: -10,
+        },
+
+        // Status Cards Row
+        statusCardsRow: {
+          flexDirection: "row",
+          gap: 12,
+          marginTop: 16,
+          paddingHorizontal: 20,
+        },
+        quickCard: {
+          alignItems: "center",
+          borderRadius: 20,
+          flex: 1,
+          padding: 16,
+        },
+        quickCardIcon: {
+          alignItems: "center",
+          borderRadius: 22,
+          height: 44,
+          justifyContent: "center",
+          marginBottom: 8,
+          width: 44,
+        },
+        quickCardLabel: {
+          color: colors.textDim,
+          fontSize: 12,
+          fontWeight: "600",
+          marginBottom: 4,
+        },
+        quickCardValue: {
+          fontSize: 14,
+          fontWeight: "800",
+        },
+
+        // Professional Header with Greeting
+        greetingSection: {
+          backgroundColor: colors.tint,
+          borderBottomLeftRadius: 20,
+          borderBottomRightRadius: 20,
+          marginBottom: 20,
+          paddingBottom: 30,
+          paddingHorizontal: 20,
+          paddingTop: 16,
+        },
+        headerTopRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        },
+        avatarContainer: {
+          alignItems: "center",
+          backgroundColor: colors.background,
+          borderRadius: 28,
+          elevation: 3,
+          height: 56,
+          justifyContent: "center",
+          overflow: "hidden",
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          width: 56,
+        },
+        avatarLogo: {
+          height: 56,
+          width: 56,
+        },
+        dateContainer: {
+          alignItems: "center",
+          flex: 1,
+          flexDirection: "row",
+          gap: 6,
+          justifyContent: "center",
+        },
+        dateText: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "500",
+        },
+        notificationButton: {
+          alignItems: "center",
+          height: 44,
+          justifyContent: "center",
+          position: "relative",
+          width: 44,
+        },
+        notificationBadge: {
+          alignItems: "center",
+          backgroundColor: colors.error,
+          borderRadius: 10,
+          height: 20,
+          justifyContent: "center",
+          minWidth: 20,
+          paddingHorizontal: 5,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        },
+        notificationBadgeText: {
+          color: colors.background,
+          fontSize: 11,
+          fontWeight: "700",
+        },
+        greetingRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        },
+        greetingLeft: {
+          flex: 1,
+        },
+        greetingText: {
+          color: colors.text,
+          fontSize: 26,
+          fontWeight: "800",
+          lineHeight: 32,
+        },
+        badgesRow: {
+          flexDirection: "row",
+          gap: 10,
+        },
+        badge: {
+          alignItems: "center",
+          borderRadius: 20,
+          flex: 1,
+          flexDirection: "row",
+          gap: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+        },
+        badgeGreen: {
+          backgroundColor: colors.successBackground,
+        },
+        badgeOrange: {
+          backgroundColor: colors.warningBackground,
+        },
+        badgeText: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: "600",
+        },
+
+        // Service Card (Hours of Service)
+        serviceCard: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 24,
+          elevation: 2,
+          marginHorizontal: 20,
+          marginTop: 10,
+          padding: 20,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+        },
+        serviceHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        },
+        serviceHeaderLeft: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 8,
+        },
+        serviceTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+        violationBadge: {
+          alignItems: "center",
+          backgroundColor: colors.error,
+          borderRadius: 10,
+          flexDirection: "row",
+          gap: 4,
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+        },
+        violationBadgeText: {
+          color: colors.text,
+          fontSize: 11,
+          fontWeight: "700",
+        },
+        viewAllText: {
+          color: colors.tint,
+          fontSize: 13,
+          fontWeight: "600",
+        },
+        currentStatusRow: {
+          marginBottom: 16,
+        },
+        statusBadge: {
+          alignSelf: "flex-start",
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+        },
+        statusBadgeText: {
+          fontSize: 13,
+          fontWeight: "700",
+        },
+        cannotDriveText: {
+          color: colors.error,
+          fontSize: 11,
+          fontWeight: "600",
+          marginTop: 2,
+        },
+        mainTimerWrapper: {
+          alignItems: "center",
+          marginBottom: 20,
+        },
+        mainTimerLabel: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "600",
+          marginTop: 12,
+        },
+        violationIndicator: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 4,
+          marginTop: 6,
+        },
+        violationText: {
+          color: colors.error,
+          fontSize: 11,
+          fontWeight: "700",
+        },
+        clocksGrid: {
+          flexDirection: "row",
+          gap: 16,
+          justifyContent: "space-around",
+        },
+        clockItem: {
+          alignItems: "center",
+          flex: 1,
+          gap: 8,
+        },
+        circularProgressWrapper: {
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+        },
+        circularProgressText: {
+          alignItems: "center",
+          justifyContent: "center",
+          position: "absolute",
+        },
+        circularClockValue: {
+          fontSize: 14,
+          fontWeight: "800",
+        },
+        clockHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 6,
+          justifyContent: "space-between",
+        },
+        clockLabel: {
+          color: colors.textDim,
+          fontSize: 12,
+          fontWeight: "600",
+        },
+        clockValue: {
+          fontSize: 20,
+          fontWeight: "800",
+        },
+        clockProgressBar: {
+          backgroundColor: colors.border,
+          borderRadius: 3,
+          height: 4,
+          overflow: "hidden",
+        },
+        clockProgressFill: {
+          borderRadius: 3,
+          height: "100%",
+        },
+        cycleDaysText: {
+          color: colors.textDim,
+          fontSize: 11,
+          fontWeight: "500",
+        },
+        breakOffDutyRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          marginTop: 8,
+        },
+        breakAlert: {
+          alignItems: "center",
+          backgroundColor: colors.warningBackground,
+          borderRadius: 8,
+          flexDirection: "row",
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        },
+        breakAlertText: {
+          color: colors.warning,
+          fontSize: 11,
+          fontWeight: "600",
+        },
+        offDutyAlert: {
+          alignItems: "center",
+          backgroundColor: colors.infoBackground,
+          borderRadius: 8,
+          flexDirection: "row",
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        },
+        offDutyAlertText: {
+          color: colors.info,
+          fontSize: 11,
+          fontWeight: "600",
+        },
+        splitSleeperInfo: {
+          backgroundColor: colors.background,
+          borderRadius: 8,
+          marginTop: 8,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        },
+        splitSleeperText: {
+          color: colors.textDim,
+          fontSize: 11,
+          fontWeight: "500",
+        },
+        violationsSummary: {
+          alignItems: "center",
+          backgroundColor: colors.errorBackground,
+          borderRadius: 8,
+          flexDirection: "row",
+          gap: 8,
+          marginTop: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+        },
+        violationsSummaryText: {
+          color: colors.error,
+          fontSize: 12,
+          fontWeight: "700",
+        },
+        signButton: {
+          alignItems: "center",
+          backgroundColor: colors.tint,
+          borderRadius: 12,
+          justifyContent: "center",
+          marginTop: 16,
+          paddingHorizontal: 24,
+          paddingVertical: 14,
+        },
+        signButtonText: {
+          color: colors.cardBackground,
+          fontSize: 16,
+          fontWeight: "700",
+        },
+        bigTimerSection: {
+          alignItems: "center",
+          backgroundColor: colors.background,
+          borderRadius: 16,
+          marginBottom: 20,
+          paddingVertical: 24,
+        },
+        bigTimerLabel: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "600",
+          marginBottom: 8,
+        },
+        bigTimerValue: {
+          color: colors.text,
+          fontSize: 48,
+          fontWeight: "900",
+        },
+        bigTimerSubtext: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "500",
+          marginTop: 4,
+        },
+        horizontalStats: {
+          flexDirection: "row",
+          marginBottom: 20,
+        },
+        statItem: {
+          alignItems: "center",
+          flex: 1,
+        },
+        statIconCircle: {
+          alignItems: "center",
+          backgroundColor: colors.background,
+          borderRadius: 18,
+          height: 36,
+          justifyContent: "center",
+          marginBottom: 8,
+          width: 36,
+        },
+        statItemLabel: {
+          color: colors.textDim,
+          fontSize: 12,
+          fontWeight: "600",
+          marginBottom: 4,
+        },
+        statItemValue: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "900",
+          marginBottom: 8,
+        },
+        miniBar: {
+          backgroundColor: colors.border,
+          borderRadius: 3,
+          height: 6,
+          overflow: "hidden",
+          width: "80%",
+        },
+        miniBarFill: {
+          borderRadius: 3,
+          height: "100%",
+        },
+        statDivider: {
+          backgroundColor: colors.border,
+          marginVertical: 8,
+          width: 1,
+        },
+        cycleSection: {
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          paddingTop: 16,
+        },
+        cycleLabelRow: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        },
+        cycleLabelText: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "600",
+        },
+        cycleValueText: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "800",
+        },
+        cycleProgressWrapper: {
+          alignItems: "center",
+          justifyContent: "center",
+          paddingVertical: 10,
+        },
+        cycleProgressBar: {
+          backgroundColor: colors.border,
+          borderRadius: 4,
+          height: 8,
+          overflow: "hidden",
+        },
+        cycleProgressFill: {
+          backgroundColor: colors.warning,
+          borderRadius: 4,
+          height: "100%",
+        },
+
+        // Quick Actions Section
+        actionsSection: {
+          marginTop: 24,
+          paddingHorizontal: 20,
+        },
+        actionsTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "800",
+          marginBottom: 16,
+        },
+        actionsGrid: {
+          flexDirection: "row",
+          gap: 12,
+        },
+        actionCard: {
+          borderRadius: 20,
+          flex: 1,
+          overflow: "hidden",
+        },
+        actionGradient: {
+          minHeight: 140,
+          padding: 20,
+        },
+        actionContent: {
+          alignItems: "center",
+        },
+        actionIconContainer: {
+          alignItems: "center",
+          backgroundColor: "rgba(255, 255, 255, 0.3)",
+          borderRadius: 32,
+          height: 64,
+          justifyContent: "center",
+          marginBottom: 12,
+          width: 64,
+        },
+        actionTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "900",
+          marginBottom: 4,
+        },
+        actionSubtitle: {
+          color: "rgba(255, 255, 255, 0.9)",
+          fontSize: 13,
+          fontWeight: "600",
+        },
+
+        // Activity Card
+        activityCard: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 24,
+          elevation: 2,
+          marginHorizontal: 20,
+          marginTop: 24,
+          padding: 20,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+        },
+        activityHeader: {
+          marginBottom: 20,
+        },
+        activityTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+        activitySubtitle: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "600",
+          marginTop: 4,
+        },
+        simpleChart: {
+          gap: 12,
+        },
+        chartRow: {
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 8,
+          height: 24,
+          overflow: "hidden",
+          position: "relative",
+        },
+        chartBlock: {
+          borderRadius: 6,
+          bottom: 0,
+          position: "absolute",
+          top: 0,
+        },
+        chartLegend: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 16,
+          marginTop: 16,
+        },
+        legendItem: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 6,
+        },
+        legendDot: {
+          borderRadius: 5,
+          height: 10,
+          width: 10,
+        },
+        legendText: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: "600",
+        },
+        loginHeaderImage: {
+          width: "100%",
+        },
+
+        fitnessHeader: {
+          backgroundColor: colors.cardBackground,
+          paddingBottom: 24,
+          paddingHorizontal: 20,
+          paddingTop: 60,
+        },
+        profileRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 12,
+          marginBottom: 16,
+        },
+        avatarCircle: {
+          alignItems: "center",
+          backgroundColor: colors.tint,
+          borderRadius: 28,
+          height: 56,
+          justifyContent: "center",
+          width: 56,
+        },
+        avatarInitial: {
+          color: colors.text,
+          fontSize: 24,
+          fontWeight: "900",
+        },
+        greetingBlock: { flex: 1 },
+        hiText: {
+          color: colors.textDim,
+          fontSize: 16,
+          fontWeight: "500",
+        },
+        motivationText: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "800",
+          marginTop: 2,
+        },
+        headerActions: {
+          flexDirection: "row",
+          gap: 12,
+        },
+        iconButton: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 22,
+          height: 44,
+          justifyContent: "center",
+          position: "relative",
+          width: 44,
+        },
+        redDot: {
+          backgroundColor: colors.error,
+          borderRadius: 4,
+          height: 8,
+          position: "absolute",
+          right: 8,
+          top: 8,
+          width: 8,
+        },
+
+        progressCard: {
+          borderRadius: 24,
+          elevation: 4,
+          marginHorizontal: 20,
+          marginTop: 20,
+          overflow: "hidden",
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+        },
+        progressGradient: { padding: 20 },
+        progressHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          marginBottom: 20,
+        },
+        progressIconBox: {
+          alignItems: "center",
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          borderRadius: 24,
+          height: 48,
+          justifyContent: "center",
+          marginRight: 12,
+          width: 48,
+        },
+        progressTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "800",
+        },
+        progressDate: {
+          color: "rgba(255, 255, 255, 0.8)",
+          fontSize: 13,
+          fontWeight: "500",
+          marginTop: 2,
+        },
+        progressStats: {
+          flexDirection: "row",
+          justifyContent: "space-around",
+        },
+        progressStatItem: { alignItems: "center" },
+        progressStatValue: {
+          color: colors.text,
+          fontSize: 24,
+          fontWeight: "900",
+        },
+        progressStatLabel: {
+          color: "rgba(255, 255, 255, 0.8)",
+          fontSize: 12,
+          fontWeight: "600",
+          marginTop: 4,
+        },
+
+        categoriesSection: {
+          marginTop: 24,
+          paddingLeft: 20,
+        },
+        sectionHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 16,
+          paddingRight: 20,
+        },
+        sectionTitle: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "800",
+        },
+        seeAllText: {
+          color: colors.tint,
+          fontSize: 14,
+          fontWeight: "700",
+        },
+        categoriesScroll: {
+          gap: 12,
+          paddingRight: 20,
+        },
+        categoryBox: {
+          alignItems: "center",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 20,
+          gap: 8,
+          height: 100,
+          justifyContent: "center",
+          width: 100,
+        },
+        categoryBoxActive: {
+          backgroundColor: colors.tint,
+        },
+        categoryText: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "700",
+        },
+        categoryTextActive: {
+          color: colors.text,
+          fontSize: 13,
+          fontWeight: "700",
+        },
+
+        overviewSection: {
+          marginTop: 24,
+          paddingHorizontal: 20,
+        },
+        circularProgressRow: {
+          flexDirection: "row",
+          gap: 12,
+          marginBottom: 12,
+        },
+        circularProgressCard: {
+          backgroundColor: colors.text,
+          borderRadius: 20,
+          elevation: 2,
+          flex: 1,
+          padding: 16,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+        },
+        overviewCardTitle: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "700",
+          marginBottom: 12,
+        },
+        circularContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        circleValue: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "900",
+        },
+        circleLabel: {
+          color: colors.textDim,
+          fontSize: 11,
+          fontWeight: "600",
+        },
+
+        popularSection: {
+          marginTop: 24,
+          paddingHorizontal: 20,
+        },
+        popularCard: {
+          borderRadius: 24,
+          elevation: 4,
+          overflow: "hidden",
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+        },
+        popularGradient: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          padding: 24,
+        },
+        popularContent: { flex: 1 },
+        popularTitle: {
+          color: colors.text,
+          fontSize: 22,
+          fontWeight: "800",
+          lineHeight: 28,
+        },
+        popularBadge: {
+          alignItems: "center",
+          backgroundColor: "rgba(255, 255, 255, 0.9)",
+          borderRadius: 36,
+          height: 72,
+          justifyContent: "center",
+          width: 72,
+        },
+
+        loginButton: {
+          alignSelf: "flex-start",
+          backgroundColor: colors.tint,
+          borderRadius: 16,
+          marginTop: 16,
+          paddingHorizontal: 24,
+          paddingVertical: 14,
+        },
+        loginButtonText: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "800",
+        },
+
+        // Vehicle Information Card
+        vehicleInfoCard: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 24,
+          elevation: 4,
+          marginHorizontal: 20,
+          marginTop: 24,
+          padding: 20,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+        },
+        vehicleInfoHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 16,
+          marginBottom: 20,
+        },
+        vehicleIconContainer: {
+          alignItems: "center",
+          backgroundColor: colors.tint,
+          borderRadius: 16,
+          elevation: 6,
+          height: 56,
+          justifyContent: "center",
+          shadowColor: colors.tint,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          width: 56,
+        },
+        vehicleInfoTitle: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "800",
+          marginBottom: 4,
+        },
+        vehicleInfoSubtitle: {
+          color: colors.tint,
+          fontSize: 14,
+          fontWeight: "700",
+        },
+        vehicleDivider: {
+          backgroundColor: colors.border,
+          height: 1,
+          marginBottom: 20,
+        },
+        vehicleDetails: {
+          gap: 24,
+        },
+        vehicleDetailSection: {
+          gap: 12,
+        },
+        vehicleDetailHeader: {
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 8,
+          marginBottom: 8,
+        },
+        vehicleSectionTitle: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "700",
+        },
+        vehicleAddressText: {
+          color: colors.textDim,
+          fontSize: 14,
+          fontWeight: "500",
+          lineHeight: 20,
+          paddingLeft: 24,
+        },
+        vehicleDetailGrid: {
+          flexDirection: "row",
+          gap: 16,
+        },
+        vehicleDetailItem: {
+          flex: 1,
+          gap: 6,
+        },
+        vehicleDetailRow: {
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingVertical: 8,
+        },
+        driverSheet: {
+          gap: 16,
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+        },
+        driverSheetTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: "700",
+        },
+        driverSheetSection: {
+          gap: 4,
+        },
+        driverSheetLabel: {
+          color: colors.textDim,
+          fontSize: 12,
+          fontWeight: "600",
+          letterSpacing: 0.6,
+          textTransform: "uppercase",
+        },
+        driverSheetValue: {
+          color: colors.text,
+          fontSize: 15,
+          fontWeight: "600",
+        },
+        driverSheetSubValue: {
+          color: colors.textDim,
+          fontSize: 13,
+        },
+        driverSheetButton: {
+          alignSelf: "flex-start",
+          backgroundColor: colors.tint,
+          borderRadius: 12,
+          marginTop: 8,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+        },
+        driverSheetButtonText: {
+          color: colors.cardBackground,
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        vehicleDetailLabel: {
+          color: colors.textDim,
+          fontSize: 13,
+          fontWeight: "600",
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+        },
+        vehicleDetailValue: {
+          color: colors.text,
+          fontSize: 15,
+          fontWeight: "800",
+          textAlign: "left",
+        },
+        vehicleVinText: {
+          fontFamily: "monospace",
+        },
+
+        debugButton: {
+          backgroundColor: colors.tint,
+          borderRadius: 12,
+          marginTop: 16,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+        },
+        debugButtonText: {
+          color: colors.cardBackground,
+          fontSize: 13,
+          fontWeight: "700",
+        },
+
+        // Notifications Modal
+        modalOverlay: {
+          alignItems: "center",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          flex: 1,
+          justifyContent: "center",
+          padding: 20,
+        },
+        modalContent: {
+          backgroundColor: colors.cardBackground,
+          borderRadius: 20,
+          elevation: 10,
+          maxWidth: 500,
+          overflow: "hidden",
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
+          width: "100%",
+        },
+
+        // Critical Alert Banner
+        criticalAlertBanner: {
+          alignItems: "center",
+          backgroundColor: colors.error,
+          borderRadius: 16,
+          elevation: 6,
+          flexDirection: "row",
+          marginHorizontal: 20,
+          marginTop: 20,
+          padding: 16,
+          shadowColor: colors.error,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        },
+        alertIconContainer: {
+          alignItems: "center",
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          borderRadius: 24,
+          height: 48,
+          justifyContent: "center",
+          marginRight: 12,
+          width: 48,
+        },
+        alertContent: {
+          flex: 1,
+        },
+        alertTitle: {
+          color: colors.cardBackground,
+          fontSize: 16,
+          fontWeight: "800",
+          marginBottom: 4,
+        },
+        alertMessage: {
+          color: "rgba(255, 255, 255, 0.9)",
+          fontSize: 13,
+          fontWeight: "500",
+          lineHeight: 18,
+        },
+      }),
+    [colors],
+  )
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
@@ -801,42 +1986,42 @@ export const DashboardScreen = React.memo(() => {
           <Header
             titleMode="flex"
             title={formattedDate}
-            titleStyle={{ color: COLORS.white, fontWeight: "700" }}
-            leftTextStyle={{ color: COLORS.white }}
+            titleStyle={{ color: colors.text, fontWeight: "700" }}
+            leftTextStyle={{ color: colors.text }}
             LeftActionComponent={
               <View
                 style={{
-                  backgroundColor: "#E6F1FA",
+                  backgroundColor: colors.palette.primary100,
                   borderRadius: 20,
                   height: 40,
                   width: 40,
                   justifyContent: "center",
                   alignItems: "center",
                   borderWidth: 2,
-                  borderColor: "rgba(255,255,255,0.25)",
+                  borderColor: colors.border,
                 }}
               >
-                <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: "700" }}>
+                <Text style={{ color: colors.tint, fontSize: 16, fontWeight: "700" }}>
                   {driverInitials}
                 </Text>
               </View>
             }
-            leftIconColor={COLORS.white}
-            backgroundColor={colors.PRIMARY}
+            leftIconColor={colors.text}
+            backgroundColor={colors.tint}
             RightActionComponent={
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 {/* Exempt Driver Badge */}
                 <ExemptDriverBadge />
-                
+
                 {/* DTC Indicator - Orange icon with count badge */}
                 <DtcIndicator />
-                
+
                 <TouchableOpacity
                   onPress={handleNotificationBellPress}
                   style={{
                     position: "relative",
                     alignItems: "center",
-                    backgroundColor: "#E6F1FA",
+                    backgroundColor: colors.palette.primary100,
                     borderRadius: 20,
                     gap: 8,
                     height: 40,
@@ -844,34 +2029,34 @@ export const DashboardScreen = React.memo(() => {
                     width: 40,
                   }}
                 >
-                <Bell size={24} color={COLORS.primary} strokeWidth={2} />
-                {notificationCount > 0 && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: -4,
-                      right: -4,
-                      backgroundColor: "transparent",
-                      borderRadius: 12,
-                      minWidth: 22,
-                      height: 20,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      paddingHorizontal: 2,
-                    }}
-                  >
-                    <Text style={{ color: COLORS.white, fontSize: 11, fontWeight: "700" }}>
-                      {notificationCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                  <Bell size={24} color={colors.tint} strokeWidth={2} />
+                  {notificationCount > 0 && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: -4,
+                        right: -4,
+                        backgroundColor: "transparent",
+                        borderRadius: 12,
+                        minWidth: 22,
+                        height: 20,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 2,
+                      }}
+                    >
+                      <Text style={{ color: colors.text, fontSize: 11, fontWeight: "700" }}>
+                        {notificationCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               </View>
             }
             containerStyle={{
               borderBottomWidth: 0,
-              borderBottomColor: COLORS.white,
-              shadowColor: COLORS.white,
+              borderBottomColor: colors.border,
+              shadowColor: colors.palette.neutral900,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.15,
               shadowRadius: 8,
@@ -891,30 +2076,31 @@ export const DashboardScreen = React.memo(() => {
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={onRefresh}
-                tintColor={colors.PRIMARY}
-                colors={[colors.PRIMARY]}
+                tintColor={colors.tint}
+                colors={[colors.tint]}
               />
             }
           >
             {/* Professional Header with Greeting Section */}
-      
-            <View style={s.greetingSection}>
-                    <TouchableOpacity onPress={handleOpenDriverSheet}>
-   <View style={[s.greetingRow, { paddingBottom: 30 }]}>
-                <View style={s.greetingLeft}>
-                  <Text style={s.greetingText}>
-                    {greeting.text}, {driverName.split(" ")[0]}! {greeting.emoji}
-                  </Text>
-                </View>
-              </View>
 
-                    </TouchableOpacity>
-           
+            <View style={s.greetingSection}>
+              <TouchableOpacity onPress={handleOpenDriverSheet}>
+                <View style={[s.greetingRow, { paddingBottom: 30 }]}>
+                  <View style={s.greetingLeft}>
+                    <Text style={s.greetingText}>
+                      {greeting.text}, {driverName.split(" ")[0]}! {greeting.emoji}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
 
               {/* Badges Row */}
               <View style={s.badgesRow}>
                 <View
-                  style={[s.badge, { backgroundColor: COLORS.white, justifyContent: "center" }]}
+                  style={[
+                    s.badge,
+                    { backgroundColor: colors.cardBackground, justifyContent: "center" },
+                  ]}
                 >
                   <Text style={s.badgeText}>
                     <View
@@ -941,8 +2127,8 @@ export const DashboardScreen = React.memo(() => {
                   style={[s.badge, s.badgeOrange]}
                   onPress={() => {
                     if (!eldConnected) {
-                      console.log('📱 Dashboard: ELD not connected, navigating to device scan...')
-                      router.push('/device-scan')
+                      console.log("📱 Dashboard: ELD not connected, navigating to device scan...")
+                      router.push("/device-scan")
                     }
                   }}
                   disabled={eldConnected}
@@ -959,14 +2145,17 @@ export const DashboardScreen = React.memo(() => {
 
               <View style={[s.badgesRow, { marginTop: 10 }]}>
                 <View
-                  style={[s.badge, { backgroundColor: COLORS.white, justifyContent: "center" }]}
+                  style={[
+                    s.badge,
+                    { backgroundColor: colors.cardBackground, justifyContent: "center" },
+                  ]}
                 >
                   <Text style={s.badgeText}>
                     {translate("dashboard.collaborationWith" as any)}{" "}
                     {driverProfile?.organization_name}{" "}
                     <Building2Icon
                       size={16}
-                      color={colors.PRIMARY}
+                      color={colors.tint}
                       strokeWidth={2}
                       style={{ marginLeft: 4, marginTop: 10 }}
                     />
@@ -974,8 +2163,6 @@ export const DashboardScreen = React.memo(() => {
                 </View>
               </View>
             </View>
-
-
 
             {/* Unified Smart HOS Card */}
             <View
@@ -1015,7 +2202,7 @@ export const DashboardScreen = React.memo(() => {
 
             {/* Hero Card - Are you ready */}
             <LinearGradient
-              colors={[colors.palette.primary400, colors.PRIMARY]}
+              colors={[colors.palette.primary400, colors.tint]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={s.heroCard}
@@ -1049,14 +2236,14 @@ export const DashboardScreen = React.memo(() => {
                   style={s.categoryBox}
                   onPress={() => router.push("/logs/transfer")}
                 >
-                  <FileCheck size={32} color={colors.PRIMARY} strokeWidth={2} />
+                  <FileCheck size={32} color={colors.tint} strokeWidth={2} />
                   <Text style={s.categoryText}>Logs Transfer</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.categoryBox}
                   onPress={() => router.push("/(tabs)/fuel" as any)}
                 >
-                  <BookOpen size={32} color={colors.PRIMARY} strokeWidth={2} />
+                  <BookOpen size={32} color={colors.tint} strokeWidth={2} />
                   <Text style={s.categoryText}>Fuel</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -1064,7 +2251,7 @@ export const DashboardScreen = React.memo(() => {
 
             {/* Vehicle & Trip Assignment - Show if vehicle OR trip assigned (and shipping ID present) */}
             {canUseHOS && <VehicleTripAssignment />}
-            
+
             {/* Bottom Spacer */}
             <View style={{ height: 100 }} />
           </ScrollView>
@@ -1204,1149 +2391,4 @@ export const DashboardScreen = React.memo(() => {
   )
 })
 
-DashboardScreen.displayName = 'DashboardScreen'
-
-const s = StyleSheet.create({
-  screen: { backgroundColor: "#F9FAFB", flex: 1, marginTop: 0 },
-  cc: { paddingBottom: 120 },
-
-  // Top Header
-  topHeader: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    paddingTop: 60,
-  },
-  profileSection: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-  },
-  avatarText: {
-    color: "#FFF",
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  locationInfo: {
-    gap: 4,
-  },
-  locationRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-  },
-  locationTitle: {
-    color: "#1F2937",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  locationAddress: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  notificationBtn: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderRadius: 24,
-    height: 68,
-    justifyContent: "center",
-    position: "relative",
-    width: 68,
-  },
-
-  // Hero Card
-  heroCard: {
-    borderRadius: 24,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginHorizontal: 20,
-    marginTop: 20,
-    minHeight: 180,
-    overflow: "hidden",
-    padding: 24,
-  },
-  heroContent: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  heroTitle: {
-    color: "#FFF",
-    fontSize: 28,
-    fontWeight: "900",
-    lineHeight: 34,
-  },
-  heroButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  heroButtonText: {
-    color: colors.PRIMARY,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  heroIllustration: {
-    bottom: -10,
-    position: "absolute",
-    right: -10,
-  },
-
-  // Status Cards Row
-  statusCardsRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
-    paddingHorizontal: 20,
-  },
-  quickCard: {
-    alignItems: "center",
-    borderRadius: 20,
-    flex: 1,
-    padding: 16,
-  },
-  quickCardIcon: {
-    alignItems: "center",
-    borderRadius: 22,
-    height: 44,
-    justifyContent: "center",
-    marginBottom: 8,
-    width: 44,
-  },
-  quickCardLabel: {
-    color: "#6B7280",
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  quickCardValue: {
-    fontSize: 14,
-    fontWeight: "800",
-  },
-
-  // Professional Header with Greeting
-  greetingSection: {
-    backgroundColor: COLORS.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 20,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  headerTopRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  avatarContainer: {
-    alignItems: "center",
-    backgroundColor: colors.background,
-    borderRadius: 28,
-    elevation: 3,
-    height: 56,
-    justifyContent: "center",
-    overflow: "hidden",
-    shadowColor: colors.palette.neutral900,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    width: 56,
-  },
-  avatarLogo: {
-    height: 56,
-    width: 56,
-  },
-  dateContainer: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-  },
-  dateText: {
-    color: colors.textDim,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  notificationButton: {
-    alignItems: "center",
-    height: 44,
-    justifyContent: "center",
-    position: "relative",
-    width: 44,
-  },
-  notificationBadge: {
-    alignItems: "center",
-    backgroundColor: colors.error,
-    borderRadius: 10,
-    height: 20,
-    justifyContent: "center",
-    minWidth: 20,
-    paddingHorizontal: 5,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  notificationBadgeText: {
-    color: colors.background,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  greetingRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  greetingLeft: {
-    flex: 1,
-  },
-  greetingText: {
-    color: COLORS.white,
-    fontSize: 26,
-    fontWeight: "800",
-    lineHeight: 32,
-  },
-  badgesRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  badge: {
-    alignItems: "center",
-    borderRadius: 20,
-    flex: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  badgeGreen: {
-    backgroundColor: colors.successBackground,
-  },
-  badgeOrange: {
-    backgroundColor: colors.warningBackground,
-  },
-  badgeText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  // Service Card (Hours of Service)
-  serviceCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    elevation: 2,
-    marginHorizontal: 20,
-    marginTop: 10,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-  },
-  serviceHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  serviceHeaderLeft: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  serviceTitle: {
-    color: "#1F2937",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  violationBadge: {
-    alignItems: "center",
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  violationBadgeText: {
-    color: "#FFF",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  viewAllText: {
-    color: colors.PRIMARY,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  currentStatusRow: {
-    marginBottom: 16,
-  },
-  statusBadge: {
-    alignSelf: "flex-start",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  statusBadgeText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  cannotDriveText: {
-    color: "#DC2626",
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  mainTimerWrapper: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  mainTimerLabel: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 12,
-  },
-  violationIndicator: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    marginTop: 6,
-  },
-  violationText: {
-    color: "#EF4444",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  clocksGrid: {
-    flexDirection: "row",
-    gap: 16,
-    justifyContent: "space-around",
-  },
-  clockItem: {
-    alignItems: "center",
-    flex: 1,
-    gap: 8,
-  },
-  circularProgressWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  circularProgressText: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "absolute",
-  },
-  circularClockValue: {
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  clockHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "space-between",
-  },
-  clockLabel: {
-    color: "#6B7280",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  clockValue: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  clockProgressBar: {
-    backgroundColor: "#E5E7EB",
-    borderRadius: 3,
-    height: 4,
-    overflow: "hidden",
-  },
-  clockProgressFill: {
-    borderRadius: 3,
-    height: "100%",
-  },
-  cycleDaysText: {
-    color: "#9CA3AF",
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  breakOffDutyRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  breakAlert: {
-    alignItems: "center",
-    backgroundColor: "#FEF3C7",
-    borderRadius: 8,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  breakAlertText: {
-    color: "#92400E",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  offDutyAlert: {
-    alignItems: "center",
-    backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  offDutyAlertText: {
-    color: "#1E40AF",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  splitSleeperInfo: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 8,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  splitSleeperText: {
-    color: "#6B7280",
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  violationsSummary: {
-    alignItems: "center",
-    backgroundColor: "#FEE2E2",
-    borderRadius: 8,
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  violationsSummaryText: {
-    color: "#DC2626",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  signButton: {
-    alignItems: "center",
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 12,
-    justifyContent: "center",
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-  },
-  signButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  bigTimerSection: {
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    marginBottom: 20,
-    paddingVertical: 24,
-  },
-  bigTimerLabel: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  bigTimerValue: {
-    color: "#1F2937",
-    fontSize: 48,
-    fontWeight: "900",
-  },
-  bigTimerSubtext: {
-    color: "#9CA3AF",
-    fontSize: 13,
-    fontWeight: "500",
-    marginTop: 4,
-  },
-  horizontalStats: {
-    flexDirection: "row",
-    marginBottom: 20,
-  },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  statIconCircle: {
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 18,
-    height: 36,
-    justifyContent: "center",
-    marginBottom: 8,
-    width: 36,
-  },
-  statItemLabel: {
-    color: "#6B7280",
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  statItemValue: {
-    color: "#1F2937",
-    fontSize: 20,
-    fontWeight: "900",
-    marginBottom: 8,
-  },
-  miniBar: {
-    backgroundColor: "#E5E7EB",
-    borderRadius: 3,
-    height: 6,
-    overflow: "hidden",
-    width: "80%",
-  },
-  miniBarFill: {
-    borderRadius: 3,
-    height: "100%",
-  },
-  statDivider: {
-    backgroundColor: "#E5E7EB",
-    marginVertical: 8,
-    width: 1,
-  },
-  cycleSection: {
-    borderTopColor: "#E5E7EB",
-    borderTopWidth: 1,
-    paddingTop: 16,
-  },
-  cycleLabelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  cycleLabelText: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  cycleValueText: {
-    color: "#1F2937",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  cycleProgressWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-  },
-  cycleProgressBar: {
-    backgroundColor: "#E5E7EB",
-    borderRadius: 4,
-    height: 8,
-    overflow: "hidden",
-  },
-  cycleProgressFill: {
-    backgroundColor: "#F59E0B",
-    borderRadius: 4,
-    height: "100%",
-  },
-
-  // Quick Actions Section
-  actionsSection: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  actionsTitle: {
-    color: "#1F2937",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 16,
-  },
-  actionsGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  actionCard: {
-    borderRadius: 20,
-    flex: 1,
-    overflow: "hidden",
-  },
-  actionGradient: {
-    minHeight: 140,
-    padding: 20,
-  },
-  actionContent: {
-    alignItems: "center",
-  },
-  actionIconContainer: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 32,
-    height: 64,
-    justifyContent: "center",
-    marginBottom: 12,
-    width: 64,
-  },
-  actionTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-  actionSubtitle: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  // Activity Card
-  activityCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    elevation: 2,
-    marginHorizontal: 20,
-    marginTop: 24,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-  },
-  activityHeader: {
-    marginBottom: 20,
-  },
-  activityTitle: {
-    color: "#1F2937",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  activitySubtitle: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-  simpleChart: {
-    gap: 12,
-  },
-  chartRow: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 8,
-    height: 24,
-    overflow: "hidden",
-    position: "relative",
-  },
-  chartBlock: {
-    borderRadius: 6,
-    bottom: 0,
-    position: "absolute",
-    top: 0,
-  },
-  chartLegend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 16,
-    marginTop: 16,
-  },
-  legendItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  legendDot: {
-    borderRadius: 5,
-    height: 10,
-    width: 10,
-  },
-  legendText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  loginHeaderImage: {
-    width: "100%",
-  },
-
-  fitnessHeader: {
-    backgroundColor: "#FFFFFF",
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    paddingTop: 60,
-  },
-  profileRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  avatarCircle: {
-    alignItems: "center",
-    backgroundColor: "#0071ce",
-    borderRadius: 28,
-    height: 56,
-    justifyContent: "center",
-    width: 56,
-  },
-  avatarInitial: {
-    color: "#FFF",
-    fontSize: 24,
-    fontWeight: "900",
-  },
-  greetingBlock: { flex: 1 },
-  hiText: {
-    color: "#9CA3AF",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  motivationText: {
-    color: "#1F2937",
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  iconButton: {
-    alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 22,
-    height: 44,
-    justifyContent: "center",
-    position: "relative",
-    width: 44,
-  },
-  redDot: {
-    backgroundColor: "#EF4444",
-    borderRadius: 4,
-    height: 8,
-    position: "absolute",
-    right: 8,
-    top: 8,
-    width: 8,
-  },
-
-  progressCard: {
-    borderRadius: 24,
-    elevation: 4,
-    marginHorizontal: 20,
-    marginTop: 20,
-    overflow: "hidden",
-    shadowColor: "#0071ce",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-  },
-  progressGradient: { padding: 20 },
-  progressHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: 20,
-  },
-  progressIconBox: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    marginRight: 12,
-    width: 48,
-  },
-  progressTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  progressDate: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 13,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  progressStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  progressStatItem: { alignItems: "center" },
-  progressStatValue: {
-    color: "#FFF",
-    fontSize: 24,
-    fontWeight: "900",
-  },
-  progressStatLabel: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-
-  categoriesSection: {
-    marginTop: 24,
-    paddingLeft: 20,
-  },
-  sectionHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingRight: 20,
-  },
-  sectionTitle: {
-    color: "#1F2937",
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  seeAllText: {
-    color: colors.PRIMARY,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  categoriesScroll: {
-    gap: 12,
-    paddingRight: 20,
-  },
-  categoryBox: {
-    alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 20,
-    gap: 8,
-    height: 100,
-    justifyContent: "center",
-    width: 100,
-  },
-  categoryBoxActive: {
-    backgroundColor: colors.PRIMARY,
-  },
-  categoryText: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  categoryTextActive: {
-    color: "#FFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  overviewSection: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  circularProgressRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
-  },
-  circularProgressCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    elevation: 2,
-    flex: 1,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  overviewCardTitle: {
-    color: "#1F2937",
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  circularContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  circleValue: {
-    color: "#1F2937",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  circleLabel: {
-    color: "#6B7280",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-
-  popularSection: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  popularCard: {
-    borderRadius: 24,
-    elevation: 4,
-    overflow: "hidden",
-    shadowColor: "#A78BFA",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-  },
-  popularGradient: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 24,
-  },
-  popularContent: { flex: 1 },
-  popularTitle: {
-    color: "#1F2937",
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 28,
-  },
-  popularBadge: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 36,
-    height: 72,
-    justifyContent: "center",
-    width: 72,
-  },
-
-  loginButton: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 16,
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-  },
-  loginButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-
-  // Vehicle Information Card
-  vehicleInfoCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    elevation: 4,
-    marginHorizontal: 20,
-    marginTop: 24,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-  },
-  vehicleInfoHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 20,
-  },
-  vehicleIconContainer: {
-    alignItems: "center",
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 16,
-    elevation: 6,
-    height: 56,
-    justifyContent: "center",
-    shadowColor: colors.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    width: 56,
-  },
-  vehicleInfoTitle: {
-    color: "#1F2937",
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  vehicleInfoSubtitle: {
-    color: colors.PRIMARY,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  vehicleDivider: {
-    backgroundColor: "#E5E7EB",
-    height: 1,
-    marginBottom: 20,
-  },
-  vehicleDetails: {
-    gap: 24,
-  },
-  vehicleDetailSection: {
-    gap: 12,
-  },
-  vehicleDetailHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 8,
-  },
-  vehicleSectionTitle: {
-    color: "#1F2937",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  vehicleAddressText: {
-    color: "#4B5563",
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 20,
-    paddingLeft: 24,
-  },
-  vehicleDetailGrid: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  vehicleDetailItem: {
-    flex: 1,
-    gap: 6,
-  },
-  vehicleDetailRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-  },
-  driverSheet: {
-    gap: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  driverSheetTitle: {
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  driverSheetSection: {
-    gap: 4,
-  },
-  driverSheetLabel: {
-    color: "#6B7280",
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-  driverSheetValue: {
-    color: "#111827",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  driverSheetSubValue: {
-    color: "#4B5563",
-    fontSize: 13,
-  },
-  driverSheetButton: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 12,
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  driverSheetButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  vehicleDetailLabel: {
-    color: "#6B7280",
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  vehicleDetailValue: {
-    color: "#1F2937",
-    fontSize: 15,
-    fontWeight: "800",
-    textAlign: "left",
-  },
-  vehicleVinText: {
-    fontFamily: "monospace",
-  },
-
-  debugButton: {
-    backgroundColor: colors.PRIMARY,
-    borderRadius: 12,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  debugButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  // Notifications Modal
-  modalOverlay: {
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    elevation: 10,
-    maxWidth: 500,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    width: "100%",
-  },
-
-  // Critical Alert Banner
-  criticalAlertBanner: {
-    alignItems: "center",
-    backgroundColor: "#DC2626",
-    borderRadius: 16,
-    elevation: 6,
-    flexDirection: "row",
-    marginHorizontal: 20,
-    marginTop: 20,
-    padding: 16,
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  alertIconContainer: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    marginRight: 12,
-    width: 48,
-  },
-  alertContent: {
-    flex: 1,
-  },
-  alertTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  alertMessage: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 18,
-  },
-})
+DashboardScreen.displayName = "DashboardScreen"

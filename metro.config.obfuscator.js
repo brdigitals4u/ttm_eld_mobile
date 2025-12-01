@@ -3,8 +3,8 @@
  * This transformer applies obfuscation to JavaScript code in production builds
  */
 
-const obfuscator = require('javascript-obfuscator');
-const { transformSync } = require('@babel/core');
+const { transformSync } = require("@babel/core")
+const obfuscator = require("javascript-obfuscator")
 
 // Obfuscation options for production builds
 const obfuscationOptions = {
@@ -16,7 +16,7 @@ const obfuscationOptions = {
   debugProtection: true,
   debugProtectionInterval: 2000,
   disableConsoleOutput: true,
-  identifierNamesGenerator: 'hexadecimal',
+  identifierNamesGenerator: "hexadecimal",
   log: false,
   numbersToExpressions: true,
   renameGlobals: false,
@@ -26,54 +26,46 @@ const obfuscationOptions = {
   splitStringsChunkLength: 10,
   stringArray: true,
   stringArrayCallsTransform: true,
-  stringArrayEncoding: ['base64'],
+  stringArrayEncoding: ["base64"],
   stringArrayIndexShift: true,
   stringArrayRotate: true,
   stringArrayShuffle: true,
   stringArrayWrappersCount: 2,
   stringArrayWrappersChainedCalls: true,
   stringArrayWrappersParametersMaxCount: 4,
-  stringArrayWrappersType: 'function',
+  stringArrayWrappersType: "function",
   stringArrayThreshold: 0.75,
   transformObjectKeys: true,
   unicodeEscapeSequence: false,
-};
+}
 
 function obfuscateCode(sourceCode, filename) {
   // Only obfuscate in production builds
-  if (process.env.NODE_ENV !== 'production') {
-    return sourceCode;
+  if (process.env.NODE_ENV !== "production") {
+    return sourceCode
   }
 
   // Skip obfuscation for certain files that need to remain readable
-  const skipPatterns = [
-    /node_modules/,
-    /\.test\./,
-    /\.spec\./,
-    /__tests__/,
-    /react-native/,
-    /expo/,
-  ];
+  const skipPatterns = [/node_modules/, /\.test\./, /\.spec\./, /__tests__/, /react-native/, /expo/]
 
-  if (skipPatterns.some(pattern => pattern.test(filename))) {
-    return sourceCode;
+  if (skipPatterns.some((pattern) => pattern.test(filename))) {
+    return sourceCode
   }
 
   try {
     const obfuscationResult = obfuscator.obfuscate(sourceCode, {
       ...obfuscationOptions,
       sourceMap: false, // Disable source maps for production
-    });
+    })
 
-    return obfuscationResult.getObfuscatedCode();
+    return obfuscationResult.getObfuscatedCode()
   } catch (error) {
-    console.warn(`[Obfuscator] Failed to obfuscate ${filename}:`, error.message);
-    return sourceCode; // Return original code if obfuscation fails
+    console.warn(`[Obfuscator] Failed to obfuscate ${filename}:`, error.message)
+    return sourceCode // Return original code if obfuscation fails
   }
 }
 
 module.exports = {
   obfuscateCode,
   obfuscationOptions,
-};
-
+}

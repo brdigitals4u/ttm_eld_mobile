@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react'
-import { View, TouchableOpacity, StyleSheet } from 'react-native'
-import { Filter } from 'lucide-react-native'
-import { router } from 'expo-router'
-import { useAppTheme } from '@/theme/context'
-import { Header } from '@/components/Header'
-import { FuelPurchasesList } from '@/components/FuelPurchasesList'
+import React, { useEffect, useState } from "react"
+import { View, TouchableOpacity, StyleSheet } from "react-native"
+import { router } from "expo-router"
+import { Filter } from "lucide-react-native"
+
+import { FuelPurchasesList } from "@/components/FuelPurchasesList"
+import { Header } from "@/components/Header"
+import { useAppTheme } from "@/theme/context"
 
 export default function FuelPurchasesScreen() {
   const { theme } = useAppTheme()
@@ -21,17 +22,14 @@ export default function FuelPurchasesScreen() {
         RightActionComponent={
           <TouchableOpacity
             onPress={() => setShowFilters(true)}
-            style={[styles.filterButton, { backgroundColor: colors.PRIMARY + '20' }]}
+            style={[styles.filterButton, { backgroundColor: colors.PRIMARY + "20" }]}
           >
             <Filter size={20} color={colors.PRIMARY} />
           </TouchableOpacity>
         }
       />
 
-      <FuelPurchasesList
-        showFilters={showFilters}
-        onFilterPress={() => setShowFilters(false)}
-      />
+      <FuelPurchasesList showFilters={showFilters} onFilterPress={() => setShowFilters(false)} />
     </View>
   )
 }
@@ -41,11 +39,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterButton: {
-    width: 36,
-    height: 36,
+    alignItems: "center",
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 36,
+    justifyContent: "center",
+    width: 36,
   },
 })
-

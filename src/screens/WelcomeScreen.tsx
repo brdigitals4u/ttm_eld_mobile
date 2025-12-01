@@ -1,19 +1,26 @@
-import React from 'react'
-import { View, StyleSheet, TouchableOpacity, Image } from 'react-native'
-import { Text } from '@/components/Text'
-import { router } from 'expo-router'
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect, Circle } from 'react-native-svg'
-import { settingsStorage } from '@/utils/storage'
-import { COLORS } from '@/constants/colors'
-import { translate } from '@/i18n/translate'
-import { BetaBanner } from '@/components/BetaBanner'
-import { SafeAreaContainer } from '@/components/SafeAreaContainer'
-import { shadows } from '@/theme/shadows'
+import React from "react"
+import { View, StyleSheet, TouchableOpacity, Image } from "react-native"
+import { router } from "expo-router"
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+  Circle,
+} from "react-native-svg"
+
+import { BetaBanner } from "@/components/BetaBanner"
+import { SafeAreaContainer } from "@/components/SafeAreaContainer"
+import { Text } from "@/components/Text"
+import { COLORS } from "@/constants/colors"
+import { translate } from "@/i18n/translate"
+import { shadows } from "@/theme/shadows"
+import { settingsStorage } from "@/utils/storage"
 
 export const WelcomeScreen: React.FC = () => {
   const goToPermissions = async () => {
     await settingsStorage.setHasSeenWelcome(true)
-    router.replace('/permissions')
+    router.replace("/permissions")
   }
 
   const handleNext = async () => {
@@ -59,77 +66,74 @@ export const WelcomeScreen: React.FC = () => {
         <View style={styles.imageContainer}>
           <View style={styles.imagePlaceholder}>
             {/* You can add your own image here */}
-                  <Image
-                    source={require('assets/images/login_header.png')}
-                    style={styles.loginHeaderImage}
-                    resizeMode="contain"
-                  />
+            <Image
+              source={require("assets/images/login_header.png")}
+              style={styles.loginHeaderImage}
+              resizeMode="contain"
+            />
           </View>
         </View>
       </View>
 
       {/* Bottom Card */}
 
-        <View style={styles.bottomCard}>
-          <Text style={styles.title}>{translate("welcome.subtitle" as any)}</Text>
-          <Text style={styles.subtitle}>
-            {translate("welcome.description" as any)}
-          </Text>
+      <View style={styles.bottomCard}>
+        <Text style={styles.title}>{translate("welcome.subtitle" as any)}</Text>
+        <Text style={styles.subtitle}>{translate("welcome.description" as any)}</Text>
 
-          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-            <Text style={styles.nextButtonText}>{translate("welcome.next" as any)}</Text>
-          </TouchableOpacity>
-        </View>
-
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <Text style={styles.nextButtonText}>{translate("welcome.next" as any)}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: COLORS.violet,
+    flex: 1,
   },
 
   /* Header */
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingTop: 60,
     zIndex: 10,
   },
   brandText: {
-    fontSize: 20,
-    fontWeight: 'bold',
     color: COLORS.white,
+    fontSize: 20,
+    fontWeight: "bold",
   },
   skipText: {
-    fontSize: 16,
     color: COLORS.white,
+    fontSize: 16,
     opacity: 0.9,
   },
 
   /* Content */
   content: {
+    alignItems: "center",
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
     paddingHorizontal: 24,
   },
   imageContainer: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   imagePlaceholder: {
-    width: 380,
-    height: 280,
+    alignItems: "center",
+    backgroundColor: "rgb(255, 255, 255)",
     borderRadius: 20,
-    backgroundColor: 'rgb(255, 255, 255)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: 280,
+    justifyContent: "center",
+    width: 380,
   },
   placeholderText: {
     fontSize: 120,
@@ -140,46 +144,46 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 50,
     borderTopRightRadius: 50,
+    elevation: 8,
+    paddingBottom: 48,
     paddingHorizontal: 32,
     paddingTop: 40,
-    paddingBottom: 48,
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
     color: COLORS.ink700,
-    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: "bold",
     marginBottom: 16,
+    textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
     color: COLORS.ink500,
-    textAlign: 'center',
+    fontSize: 16,
     lineHeight: 24,
     marginBottom: 32,
+    textAlign: "center",
   },
   nextButton: {
+    alignItems: "center",
     backgroundColor: COLORS.indigo,
     borderRadius: 16,
     height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
     ...shadows.medium,
     shadowColor: COLORS.indigo,
   },
   nextButtonText: {
     color: COLORS.white,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   loginHeaderImage: {
-    width: '100%',
     height: 100,
     marginBottom: 24,
+    width: "100%",
   },
 })

@@ -249,7 +249,17 @@ export function Header(props: HeaderProps) {
  * @returns {JSX.Element} The rendered `HeaderAction` component.
  */
 function HeaderAction(props: HeaderActionProps) {
-  const { backgroundColor, icon, text, tx, txOptions, onPress, ActionComponent, iconColor, textStyle } = props
+  const {
+    backgroundColor,
+    icon,
+    text,
+    tx,
+    txOptions,
+    onPress,
+    ActionComponent,
+    iconColor,
+    textStyle,
+  } = props
   const { themed } = useAppTheme()
 
   const content = tx ? translate(tx, txOptions) : text

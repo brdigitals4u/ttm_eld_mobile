@@ -18,15 +18,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import { useDriverLogin } from "@/api/organization"
 import { AnimatedButton } from "@/components/AnimatedButton"
+import { BetaBanner } from "@/components/BetaBanner"
 import { Text } from "@/components/Text"
 import { COLORS } from "@/constants/colors"
 import { LoginCredentials } from "@/database/schemas"
 import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
-import { useAuth } from "@/stores/authStore"
-import { BetaBanner } from "@/components/BetaBanner"
-import { settingsStorage } from "@/utils/storage"
 import { analyticsService } from "@/services/AnalyticsService"
+import { useAuth } from "@/stores/authStore"
+import { settingsStorage } from "@/utils/storage"
 
 const loadingAnimation = require("assets/animations/loading.json")
 const successAnimation = require("assets/animations/success.json")
@@ -118,10 +118,10 @@ export const LoginScreen: React.FC = () => {
       setPrivacyError("You must agree to the Privacy Policy to continue")
       throw new Error("You must agree to the Privacy Policy to continue")
     }
-    
+
     // Track login attempt
-    await analyticsService.logLoginAttempt('email', credentials.tenant_code).catch(() => {})
-    
+    await analyticsService.logLoginAttempt("email", credentials.tenant_code).catch(() => {})
+
     try {
       const result = await driverLoginMutation.mutateAsync({
         email: credentials.email,
@@ -143,24 +143,22 @@ export const LoginScreen: React.FC = () => {
       }
 
       await login(result)
-      
+
       // Track login success
-      await analyticsService.logLoginSuccess('email', credentials.tenant_code).catch(() => {})
-      
+      await analyticsService.logLoginSuccess("email", credentials.tenant_code).catch(() => {})
+
       // Set driver properties for analytics
       const userId = result?.user?.id || result?.id || result?.driverProfile?.driver_id
       const vehicleId = result?.vehicleAssignment?.vehicle_info?.id
       const organizationId = result?.user?.organizationId || result?.organizationId
       if (userId) {
-        await analyticsService.setDriverProperties(
-          userId.toString(),
-          vehicleId?.toString(),
-          organizationId?.toString()
-        ).catch(() => {})
+        await analyticsService
+          .setDriverProperties(userId.toString(), vehicleId?.toString(), organizationId?.toString())
+          .catch(() => {})
       }
-      
+
       toast.success("Login successful!", 2000)
-      
+
       // Check if user has accepted privacy policy
       // Extract user ID from login result
       if (userId) {
@@ -171,13 +169,13 @@ export const LoginScreen: React.FC = () => {
           return
         }
       }
-      
+
       // Navigate to device scan if already accepted
       router.replace("/device-scan")
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred"
       let errorCode: string | undefined
-      
+
       if (error?.response?.status === 401) {
         errorMessage = "Invalid email or password"
         errorCode = "401"
@@ -195,10 +193,10 @@ export const LoginScreen: React.FC = () => {
       } else if (typeof error === "string") {
         errorMessage = error
       }
-      
+
       // Track login failure
-      await analyticsService.logLoginFailure('email', errorCode, errorMessage).catch(() => {})
-      
+      await analyticsService.logLoginFailure("email", errorCode, errorMessage).catch(() => {})
+
       toast.error(errorMessage, 4000)
       throw error // Re-throw to prevent AnimatedButton from showing success
     }

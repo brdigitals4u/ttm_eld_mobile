@@ -1,23 +1,24 @@
 /**
  * Unidentified Drivers Screen
- * 
+ *
  * Displays and allows reassignment of unidentified driver records
  * Records created when ELD was powered on without a driver logged in
  */
 
-import React, { useState, useEffect } from 'react'
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native'
-import { router } from 'expo-router'
-import { ArrowLeft, User, AlertCircle, CheckCircle } from 'lucide-react-native'
-import { Text } from '@/components/Text'
-import { useAppTheme } from '@/theme/context'
-import ElevatedCard from '@/components/EvevatedCard'
-import LoadingButton from '@/components/LoadingButton'
-import { UnidentifiedDriverReassignment } from '@/components/UnidentifiedDriverReassignment'
-import { useAuth } from '@/stores/authStore'
-import { getUnidentifiedRecords, reassignUnidentifiedRecords } from '@/api/unidentified-drivers'
-import { toast } from '@/components/Toast'
-import { format } from 'date-fns'
+import React, { useState, useEffect } from "react"
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native"
+import { router } from "expo-router"
+import { format } from "date-fns"
+import { ArrowLeft, User, AlertCircle, CheckCircle } from "lucide-react-native"
+
+import { getUnidentifiedRecords, reassignUnidentifiedRecords } from "@/api/unidentified-drivers"
+import ElevatedCard from "@/components/EvevatedCard"
+import LoadingButton from "@/components/LoadingButton"
+import { Text } from "@/components/Text"
+import { toast } from "@/components/Toast"
+import { UnidentifiedDriverReassignment } from "@/components/UnidentifiedDriverReassignment"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 export default function UnidentifiedDriversScreen() {
   const { theme } = useAppTheme()
@@ -40,8 +41,8 @@ export default function UnidentifiedDriversScreen() {
       const response = await getUnidentifiedRecords()
       setRecords(response.records || [])
     } catch (error: any) {
-      console.error('Failed to load unidentified records:', error)
-      toast.error(error?.message || 'Failed to load records')
+      console.error("Failed to load unidentified records:", error)
+      toast.error(error?.message || "Failed to load records")
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
@@ -55,7 +56,7 @@ export default function UnidentifiedDriversScreen() {
 
   const handleReassign = async (recordIds: string[], annotation: string) => {
     if (!driverProfile?.driver_id) {
-      toast.error('Driver information not available')
+      toast.error("Driver information not available")
       return
     }
 
@@ -71,14 +72,14 @@ export default function UnidentifiedDriversScreen() {
       setSelectedRecords([])
       loadRecords() // Refresh list
     } catch (error: any) {
-      console.error('Failed to reassign records:', error)
-      toast.error(error?.message || 'Failed to reassign records')
+      console.error("Failed to reassign records:", error)
+      toast.error(error?.message || "Failed to reassign records")
     }
   }
 
   const handleOpenReassignment = () => {
     if (records.length === 0) {
-      toast.warning('No unidentified records to reassign')
+      toast.warning("No unidentified records to reassign")
       return
     }
     setSelectedRecords(records)
@@ -95,7 +96,9 @@ export default function UnidentifiedDriversScreen() {
           <Text style={[styles.title, { color: colors.text }]}>Unidentified Drivers</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading records...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading records...
+          </Text>
         </View>
       </View>
     )
@@ -113,9 +116,7 @@ export default function UnidentifiedDriversScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
       >
         {records.length === 0 ? (
           <ElevatedCard style={styles.emptyCard}>
@@ -132,11 +133,11 @@ export default function UnidentifiedDriversScreen() {
                 <AlertCircle size={20} color={colors.tint} />
                 <View style={styles.infoContent}>
                   <Text style={[styles.infoTitle, { color: colors.text }]}>
-                    {records.length} Unidentified Record{records.length !== 1 ? 's' : ''}
+                    {records.length} Unidentified Record{records.length !== 1 ? "s" : ""}
                   </Text>
                   <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                    These records were created when the ELD was powered on without a driver logged in.
-                    Review and assume them to assign to your account.
+                    These records were created when the ELD was powered on without a driver logged
+                    in. Review and assume them to assign to your account.
                   </Text>
                 </View>
               </View>
@@ -150,7 +151,7 @@ export default function UnidentifiedDriversScreen() {
                   </View>
                   <View style={styles.recordContent}>
                     <Text style={[styles.recordTime, { color: colors.text }]}>
-                      {format(new Date(record.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                      {format(new Date(record.timestamp), "MMM dd, yyyy HH:mm:ss")}
                     </Text>
                     <Text style={[styles.recordType, { color: colors.textSecondary }]}>
                       Event: {record.event_type}
@@ -158,7 +159,7 @@ export default function UnidentifiedDriversScreen() {
                     {record.missing_fields && record.missing_fields.length > 0 && (
                       <View style={styles.missingFields}>
                         <Text style={[styles.missingFieldsLabel, { color: colors.textSecondary }]}>
-                          Missing: {record.missing_fields.join(', ')}
+                          Missing: {record.missing_fields.join(", ")}
                         </Text>
                       </View>
                     )}
@@ -173,7 +174,7 @@ export default function UnidentifiedDriversScreen() {
       {records.length > 0 && (
         <View style={[styles.footer, { backgroundColor: colors.background }]}>
           <LoadingButton
-            title={`Reassign ${records.length} Record${records.length !== 1 ? 's' : ''}`}
+            title={`Reassign ${records.length} Record${records.length !== 1 ? "s" : ""}`}
             onPress={handleOpenReassignment}
             icon={<CheckCircle size={18} color="#fff" />}
             fullWidth
@@ -184,13 +185,14 @@ export default function UnidentifiedDriversScreen() {
       {/* Reassignment Modal */}
       <UnidentifiedDriverReassignment
         visible={showReassignmentModal}
-        records={selectedRecords.map(r => ({
+        records={selectedRecords.map((r) => ({
           id: r.id,
           timestamp: new Date(r.timestamp),
           eventType: r.event_type,
-          location: r.latitude && r.longitude
-            ? { latitude: r.latitude, longitude: r.longitude }
-            : undefined,
+          location:
+            r.latitude && r.longitude
+              ? { latitude: r.latitude, longitude: r.longitude }
+              : undefined,
           vehicleId: r.vehicle_id,
           missingFields: r.missing_fields || [],
           rawData: r.raw_data || {},
@@ -206,98 +208,70 @@ export default function UnidentifiedDriversScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 60,
-  },
   backButton: {
     marginRight: 16,
     padding: 4,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  scrollView: {
+  container: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    fontSize: 16,
   },
   emptyCard: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  footer: {
+    borderTopColor: "#E5E7EB",
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    padding: 16,
+    paddingBottom: 32,
+    position: "absolute",
+    right: 0,
+  },
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    padding: 16,
+    paddingTop: 60,
   },
   infoCard: {
     marginBottom: 16,
   },
-  infoRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   infoContent: {
     flex: 1,
   },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+  infoRow: {
+    flexDirection: "row",
+    gap: 12,
   },
   infoText: {
     fontSize: 14,
     lineHeight: 20,
   },
-  recordCard: {
-    marginBottom: 12,
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
   },
-  recordHeader: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  recordIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F0F4FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recordContent: {
+  loadingContainer: {
+    alignItems: "center",
     flex: 1,
+    justifyContent: "center",
+    padding: 32,
   },
-  recordTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  recordType: {
-    fontSize: 12,
-    marginBottom: 4,
+  loadingText: {
+    fontSize: 16,
   },
   missingFields: {
     marginTop: 4,
@@ -305,15 +279,42 @@ const styles = StyleSheet.create({
   missingFieldsLabel: {
     fontSize: 11,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  recordCard: {
+    marginBottom: 12,
+  },
+  recordContent: {
+    flex: 1,
+  },
+  recordHeader: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  recordIcon: {
+    alignItems: "center",
+    backgroundColor: "#F0F4FF",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  recordTime: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  recordType: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  scrollContent: {
     padding: 16,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    paddingBottom: 100,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
   },
 })
-

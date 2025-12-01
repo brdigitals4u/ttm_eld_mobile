@@ -7,21 +7,21 @@
  * - Notification polling (every 60 seconds)
  */
 
-import { useEffect } from 'react'
-import { Platform } from 'react-native'
+import { useEffect } from "react"
+import { Platform } from "react-native"
 
-import { useNotifications } from '@/api/driver-hooks'
-import { driverApi } from '@/api/driver'
-import { NotificationService } from '@/services/NotificationService'
-import { useAuth } from '@/stores/authStore'
-import { getAppVersion, getDeviceId } from '@/utils/device'
+import { driverApi } from "@/api/driver"
+import { useNotifications } from "@/api/driver-hooks"
+import { NotificationService } from "@/services/NotificationService"
+import { useAuth } from "@/stores/authStore"
+import { getAppVersion, getDeviceId } from "@/utils/device"
 
 export const BackgroundServices: React.FC = () => {
   const { isAuthenticated } = useAuth()
 
   // Poll notifications every 60 seconds
   const { data: notifications } = useNotifications({
-    status: 'unread',
+    status: "unread",
     limit: 50,
     enabled: isAuthenticated,
     refetchInterval: 60000,
@@ -40,14 +40,14 @@ export const BackgroundServices: React.FC = () => {
 
             await driverApi.registerPushToken({
               device_token: pushToken,
-              platform: Platform.OS as 'ios' | 'android',
+              platform: Platform.OS as "ios" | "android",
               device_id: deviceId,
               app_version: appVersion,
             })
-            console.log('✅ BackgroundServices: Push token registered with driver API')
+            console.log("✅ BackgroundServices: Push token registered with driver API")
           }
         } catch (error) {
-          console.error('❌ BackgroundServices: Failed to register push token:', error)
+          console.error("❌ BackgroundServices: Failed to register push token:", error)
         }
       }
 
@@ -64,4 +64,3 @@ export const BackgroundServices: React.FC = () => {
 
   return null
 }
-

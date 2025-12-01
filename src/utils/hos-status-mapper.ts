@@ -1,26 +1,26 @@
 /**
  * HOS Status Mapper
- * 
+ *
  * Maps between new driver API HOS status format and app's internal status format
  */
 
-import { DriverStatus } from '@/types/status'
-import { HOSCurrentStatus } from '@/api/driver'
+import { HOSCurrentStatus } from "@/api/driver"
+import { DriverStatus } from "@/types/status"
 
 /**
  * Map driver API duty status to app DriverStatus
  */
 export function mapDriverStatusToAppStatus(apiStatus: string): DriverStatus {
   const statusMap: Record<string, DriverStatus> = {
-    'off_duty': 'offDuty',
-    'sleeper_berth': 'sleeperBerth',
-    'driving': 'driving',
-    'on_duty': 'onDuty',
-    'personal_conveyance': 'personalConveyance',
-    'yard_move': 'yardMove',
+    off_duty: "offDuty",
+    sleeper_berth: "sleeperBerth",
+    driving: "driving",
+    on_duty: "onDuty",
+    personal_conveyance: "personalConveyance",
+    yard_move: "yardMove",
   }
 
-  return statusMap[apiStatus.toLowerCase()] || 'offDuty'
+  return statusMap[apiStatus.toLowerCase()] || "offDuty"
 }
 
 /**
@@ -28,16 +28,16 @@ export function mapDriverStatusToAppStatus(apiStatus: string): DriverStatus {
  */
 export function mapAppStatusToDriverStatus(appStatus: DriverStatus): string {
   const statusMap: Record<DriverStatus, string> = {
-    'offDuty': 'off_duty',
-    'sleeping': 'sleeper_berth',
-    'sleeperBerth': 'sleeper_berth',
-    'driving': 'driving',
-    'onDuty': 'on_duty',
-    'personalConveyance': 'personal_conveyance',
-    'yardMove': 'yard_move',
+    offDuty: "off_duty",
+    sleeping: "sleeper_berth",
+    sleeperBerth: "sleeper_berth",
+    driving: "driving",
+    onDuty: "on_duty",
+    personalConveyance: "personal_conveyance",
+    yardMove: "yard_move",
   }
 
-  return statusMap[appStatus] || 'off_duty'
+  return statusMap[appStatus] || "off_duty"
 }
 
 /**
@@ -45,10 +45,9 @@ export function mapAppStatusToDriverStatus(appStatus: DriverStatus): string {
  */
 export function mapHOSStatusToAuthFormat(hosStatus: HOSCurrentStatus) {
   // Ensure driver_id is always a string (HOSStatus requires string)
-  const driverId = typeof hosStatus.driver_id === 'number' 
-    ? String(hosStatus.driver_id) 
-    : hosStatus.driver_id
-  
+  const driverId =
+    typeof hosStatus.driver_id === "number" ? String(hosStatus.driver_id) : hosStatus.driver_id
+
   return {
     driver_id: driverId,
     driver_name: driverId, // Will be updated from driverProfile if available
@@ -63,4 +62,3 @@ export function mapHOSStatusToAuthFormat(hosStatus: HOSCurrentStatus) {
     },
   }
 }
-

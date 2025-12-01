@@ -1,6 +1,6 @@
-import { API_CONFIG, HTTP_STATUS, ERROR_MESSAGES } from './constants'
-import { getStoredToken, removeStoredTokens } from '../utils/storage'
-import { tokenRefreshService } from '../services/token-refresh-service'
+import { API_CONFIG, HTTP_STATUS, ERROR_MESSAGES } from "./constants"
+import { tokenRefreshService } from "../services/token-refresh-service"
+import { getStoredToken, removeStoredTokens } from "../utils/storage"
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -15,9 +15,17 @@ export class ApiError extends Error {
   status: number
   errors?: Record<string, string[]>
 
-  constructor({ message, status, errors }: { message: string; status: number; errors?: Record<string, string[]> }) {
+  constructor({
+    message,
+    status,
+    errors,
+  }: {
+    message: string
+    status: number
+    errors?: Record<string, string[]>
+  }) {
     super(message)
-    this.name = 'ApiError'
+    this.name = "ApiError"
     this.status = status
     this.errors = errors
   }
@@ -34,45 +42,49 @@ class ApiClient {
   }
 
   // Get headers with authentication
-  private async getHeaders(options?: { idempotencyKey?: string; deviceId?: string; appVersion?: string }): Promise<Record<string, string>> {
+  private async getHeaders(options?: {
+    idempotencyKey?: string
+    deviceId?: string
+    appVersion?: string
+  }): Promise<Record<string, string>> {
     // Check and refresh token if needed before making request
     await tokenRefreshService.checkAndRefreshToken()
-    
+
     const token = await getStoredToken()
-    
-    console.log('🔑 API Client: Retrieved token:', token ? 'Token exists' : 'No token found')
-    
+
+    console.log("🔑 API Client: Retrieved token:", token ? "Token exists" : "No token found")
+
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      "Content-Type": "application/json",
+      "Accept": "application/json",
     }
 
     if (token) {
       // Support both Token and Bearer formats (Bearer is standard for JWT)
       // Check if token looks like JWT (starts with eyJ) or use Bearer for new APIs
-      if (token.startsWith('eyJ')) {
-        headers['Authorization'] = `Bearer ${token}`
+      if (token.startsWith("eyJ")) {
+        headers["Authorization"] = `Bearer ${token}`
       } else {
-        headers['Authorization'] = `Token ${token}`
+        headers["Authorization"] = `Token ${token}`
       }
-      console.log('✅ API Client: Authorization header added')
+      console.log("✅ API Client: Authorization header added")
     } else {
-      console.log('❌ API Client: No token available, request will be unauthenticated')
+      console.log("❌ API Client: No token available, request will be unauthenticated")
     }
 
     // Add idempotency key if provided
     if (options?.idempotencyKey) {
-      headers['Idempotency-Key'] = options.idempotencyKey
+      headers["Idempotency-Key"] = options.idempotencyKey
     }
 
     // Add device ID if provided
     if (options?.deviceId) {
-      headers['X-Device-ID'] = options.deviceId
+      headers["X-Device-ID"] = options.deviceId
     }
 
     // Add app version if provided
     if (options?.appVersion) {
-      headers['X-App-Version'] = options.appVersion
+      headers["X-App-Version"] = options.appVersion
     }
 
     return headers
@@ -81,18 +93,22 @@ class ApiClient {
   // Make HTTP request
   private async makeRequest<T>(
     endpoint: string,
-    options: RequestInit & { idempotencyKey?: string; deviceId?: string; appVersion?: string } = {}
+    options: RequestInit & { idempotencyKey?: string; deviceId?: string; appVersion?: string } = {},
   ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseURL}${endpoint}`
       const { idempotencyKey, deviceId, appVersion, ...requestOptions } = options
       const headers = await this.getHeaders({ idempotencyKey, deviceId, appVersion })
 
-      console.log('🌐 API Request:', {
-        method: requestOptions.method || 'GET',
+      console.log("🌐 API Request:", {
+        method: requestOptions.method || "GET",
         url,
         timeout: `${this.timeout}ms`,
-        body: requestOptions.body ? (typeof requestOptions.body === 'string' ? requestOptions.body : JSON.stringify(requestOptions.body)) : undefined,
+        body: requestOptions.body
+          ? typeof requestOptions.body === "string"
+            ? requestOptions.body
+            : JSON.stringify(requestOptions.body)
+          : undefined,
       })
 
       const config: RequestInit = {
@@ -113,7 +129,7 @@ class ApiClient {
       const urlObj = new URL(url)
       if (__DEV__) {
         // In development, log certificate pinning status
-        const { certificatePinningService } = await import('../services/CertificatePinningService')
+        const { certificatePinningService } = await import("../services/CertificatePinningService")
         if (certificatePinningService.isPinningEnabled(urlObj.hostname)) {
           console.log(`🔒 Certificate pinning enabled for ${urlObj.hostname}`)
         }
@@ -122,7 +138,7 @@ class ApiClient {
       const response = await fetch(url, config)
       clearTimeout(timeoutId)
 
-      console.log('✅ API Response:', {
+      console.log("✅ API Response:", {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
@@ -134,12 +150,12 @@ class ApiClient {
         // Handle 401 Unauthorized - try to refresh token and retry
         if (response.status === HTTP_STATUS.UNAUTHORIZED) {
           // Skip refresh for refresh endpoint itself to avoid infinite loop
-          if (!endpoint.includes('/refresh/')) {
-            console.log('🔄 API Client: 401 error, attempting token refresh...')
+          if (!endpoint.includes("/refresh/")) {
+            console.log("🔄 API Client: 401 error, attempting token refresh...")
             const refreshed = await tokenRefreshService.refreshToken()
-            
+
             if (refreshed) {
-              console.log('✅ API Client: Token refreshed, retrying request...')
+              console.log("✅ API Client: Token refreshed, retrying request...")
               // Retry the request with new token
               const retryHeaders = await this.getHeaders()
               const retryConfig: RequestInit = {
@@ -149,16 +165,16 @@ class ApiClient {
                   ...options.headers,
                 },
               }
-              
+
               const retryController = new AbortController()
               const retryTimeoutId = setTimeout(() => retryController.abort(), this.timeout)
               retryConfig.signal = retryController.signal
-              
+
               const retryResponse = await fetch(url, retryConfig)
               clearTimeout(retryTimeoutId)
-              
+
               const retryData = await retryResponse.json()
-              
+
               if (!retryResponse.ok) {
                 // Still failed after refresh, logout
                 await removeStoredTokens()
@@ -167,7 +183,7 @@ class ApiClient {
                   status: retryResponse.status,
                 })
               }
-              
+
               return {
                 success: true,
                 data: retryData,
@@ -209,7 +225,7 @@ class ApiClient {
       }
 
       // Handle network errors
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         throw new ApiError({
           message: ERROR_MESSAGES.TIMEOUT_ERROR,
           status: 408,
@@ -217,7 +233,7 @@ class ApiClient {
       }
 
       // Log detailed error for debugging
-      console.error('API Request failed:', {
+      console.error("API Request failed:", {
         url: `${this.baseURL}${endpoint}`,
         error: error.message || error,
         errorType: error.constructor.name,
@@ -232,12 +248,16 @@ class ApiClient {
 
   // HTTP Methods
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.makeRequest<T>(endpoint, { method: 'GET' })
+    return this.makeRequest<T>(endpoint, { method: "GET" })
   }
 
-  async post<T>(endpoint: string, data?: any, options?: { idempotencyKey?: string; deviceId?: string; appVersion?: string }): Promise<ApiResponse<T>> {
+  async post<T>(
+    endpoint: string,
+    data?: any,
+    options?: { idempotencyKey?: string; deviceId?: string; appVersion?: string },
+  ): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, {
-      method: 'POST',
+      method: "POST",
       body: data ? JSON.stringify(data) : undefined,
       ...options,
     })
@@ -245,20 +265,20 @@ class ApiClient {
 
   async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, {
-      method: 'PUT',
+      method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
     })
   }
 
   async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, {
-      method: 'PATCH',
+      method: "PATCH",
       body: data ? JSON.stringify(data) : undefined,
     })
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.makeRequest<T>(endpoint, { method: 'DELETE' })
+    return this.makeRequest<T>(endpoint, { method: "DELETE" })
   }
 
   // Upload file
@@ -279,15 +299,19 @@ class ApiClient {
           typeof payload === "object" &&
           typeof (payload as any).append === "function" &&
           !(payload as any).uri)
-      
+
       // Don't set Content-Type for FormData, let runtime include the boundary
       if (!isFormData) {
         const inferredType =
           typeof payload === "object" && payload !== null && "type" in payload
             ? ((payload as any).type as string | undefined)
             : undefined
-        const finalType = options?.contentType && options.contentType.length > 0 ? options.contentType : inferredType
-        headers["Content-Type"] = finalType && finalType.length > 0 ? finalType : "application/octet-stream"
+        const finalType =
+          options?.contentType && options.contentType.length > 0
+            ? options.contentType
+            : inferredType
+        headers["Content-Type"] =
+          finalType && finalType.length > 0 ? finalType : "application/octet-stream"
       }
 
       const token = await getStoredToken()
@@ -296,7 +320,7 @@ class ApiClient {
       }
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: payload as any,
       })

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, memo } from 'react'
+import React, { useState, useMemo, useCallback, useRef, memo } from "react"
 import {
   View,
   Text,
@@ -11,19 +11,20 @@ import {
   ScrollView,
   TextInput,
   Platform,
-} from 'react-native'
-import { Calendar, ChevronDown, X, Plus } from 'lucide-react-native'
-import { useAppTheme } from '@/theme/context'
-import { FuelPurchaseCard } from '@/components/FuelPurchaseCard'
-import { FuelPurchaseSummary } from '@/components/FuelPurchaseSummary'
+} from "react-native"
+import { Calendar, ChevronDown, X, Plus } from "lucide-react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
 import {
   useDriverFuelPurchases,
   DriverFuelPurchasesParams,
   DriverFuelPurchaseListItem,
-} from '@/api/fuel-purchase'
-import { useAuth } from '@/contexts'
-import { toast } from '@/components/Toast'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+} from "@/api/fuel-purchase"
+import { FuelPurchaseCard } from "@/components/FuelPurchaseCard"
+import { FuelPurchaseSummary } from "@/components/FuelPurchaseSummary"
+import { toast } from "@/components/Toast"
+import { useAuth } from "@/contexts"
+import { useAppTheme } from "@/theme/context"
 
 interface FuelPurchasesListProps {
   showFilters?: boolean
@@ -44,7 +45,7 @@ const getItemLayout = (_: any, index: number) => ({
 
 // Date grouping helper
 const groupByDate = (
-  items: DriverFuelPurchaseListItem[]
+  items: DriverFuelPurchaseListItem[],
 ): { [key: string]: DriverFuelPurchaseListItem[] } => {
   const groups: { [key: string]: DriverFuelPurchaseListItem[] } = {}
   const today = new Date()
@@ -59,14 +60,14 @@ const groupByDate = (
 
     let groupKey: string
     if (itemDate.getTime() === today.getTime()) {
-      groupKey = 'Today'
+      groupKey = "Today"
     } else if (itemDate.getTime() === yesterday.getTime()) {
-      groupKey = 'Yesterday'
+      groupKey = "Yesterday"
     } else {
-      groupKey = itemDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: itemDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+      groupKey = itemDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: itemDate.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
       })
     }
 
@@ -81,7 +82,7 @@ const groupByDate = (
 
 // Format date for display
 const formatDateHeader = (dateStr: string): string => {
-  if (dateStr === 'Today' || dateStr === 'Yesterday') return dateStr
+  if (dateStr === "Today" || dateStr === "Yesterday") return dateStr
   return dateStr
 }
 
@@ -100,11 +101,11 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
     offset: 0,
   })
   const [showFilters, setShowFilters] = useState(false)
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | undefined>()
-  const [selectedPreset, setSelectedPreset] = useState<string>('thisMonth')
-  const [sortBy, setSortBy] = useState<'transactions' | 'fuel' | 'total' | null>(null)
+  const [selectedPreset, setSelectedPreset] = useState<string>("thisMonth")
+  const [sortBy, setSortBy] = useState<"transactions" | "fuel" | "total" | null>(null)
   const [showCustomRange, setShowCustomRange] = useState(false)
 
   // Get date presets
@@ -114,25 +115,25 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
     let start: Date, end: Date
 
     switch (preset) {
-      case 'today':
+      case "today":
         start = new Date(today)
         end = new Date(today)
         break
-      case 'yesterday':
+      case "yesterday":
         start = new Date(today)
         start.setDate(start.getDate() - 1)
         end = new Date(start)
         break
-      case 'last7Days':
+      case "last7Days":
         start = new Date(today)
         start.setDate(start.getDate() - 7)
         end = new Date(today)
         break
-      case 'thisMonth':
+      case "thisMonth":
         start = new Date(now.getFullYear(), now.getMonth(), 1)
         end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
         break
-      case 'lastMonth':
+      case "lastMonth":
         start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
         end = new Date(now.getFullYear(), now.getMonth(), 0)
         break
@@ -142,13 +143,13 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
     }
 
     return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0],
+      start: start.toISOString().split("T")[0],
+      end: end.toISOString().split("T")[0],
     }
   }, [])
 
   // Initialize with current month
-  const defaultDates = useMemo(() => getDatePreset('thisMonth'), [getDatePreset])
+  const defaultDates = useMemo(() => getDatePreset("thisMonth"), [getDatePreset])
 
   const queryParams: DriverFuelPurchasesParams = useMemo(() => {
     const params: DriverFuelPurchasesParams = {
@@ -189,16 +190,16 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
   const sortedAndGroupedData = useMemo(() => {
     if (!purchasesData?.results) return []
 
-    let sorted = [...purchasesData.results]
+    const sorted = [...purchasesData.results]
 
     // Sort based on selected tile
-    if (sortBy === 'fuel') {
+    if (sortBy === "fuel") {
       sorted.sort((a, b) => {
         const aGal = Number(a.fuel_quantity_liters) / 3.78541
         const bGal = Number(b.fuel_quantity_liters) / 3.78541
         return bGal - aGal
       })
-    } else if (sortBy === 'total') {
+    } else if (sortBy === "total") {
       sorted.sort((a, b) => {
         const aAmount = Number(a.transaction_price_amount) || 0
         const bAmount = Number(b.transaction_price_amount) || 0
@@ -216,19 +217,19 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
 
     const grouped = groupByDate(sorted)
     // Convert to array format for FlatList
-    const sections: Array<{ type: 'header' | 'item'; data: any }> = []
+    const sections: Array<{ type: "header" | "item"; data: any }> = []
     const sortedKeys = Object.keys(grouped).sort((a, b) => {
-      if (a === 'Today') return -1
-      if (b === 'Today') return 1
-      if (a === 'Yesterday') return -1
-      if (b === 'Yesterday') return 1
+      if (a === "Today") return -1
+      if (b === "Today") return 1
+      if (a === "Yesterday") return -1
+      if (b === "Yesterday") return 1
       return b.localeCompare(a)
     })
 
     sortedKeys.forEach((key) => {
-      sections.push({ type: 'header', data: key })
+      sections.push({ type: "header", data: key })
       grouped[key].forEach((item) => {
-        sections.push({ type: 'item', data: item })
+        sections.push({ type: "item", data: item })
       })
     })
 
@@ -252,7 +253,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
   const handlePresetSelect = useCallback(
     (preset: string) => {
       setSelectedPreset(preset)
-      if (preset === 'custom') {
+      if (preset === "custom") {
         setShowCustomRange(true)
       } else {
         const dates = getDatePreset(preset)
@@ -261,7 +262,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
         setShowCustomRange(false)
       }
     },
-    [getDatePreset]
+    [getDatePreset],
   )
 
   const applyFilters = useCallback(() => {
@@ -277,10 +278,10 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
   }, [filters, startDate, endDate, selectedVehicleId, defaultDates, onFilterPress])
 
   const clearFilters = useCallback(() => {
-    setStartDate('')
-    setEndDate('')
+    setStartDate("")
+    setEndDate("")
     setSelectedVehicleId(undefined)
-    setSelectedPreset('thisMonth')
+    setSelectedPreset("thisMonth")
     setShowCustomRange(false)
     setFilters({
       limit: 50,
@@ -291,28 +292,25 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
   }, [onFilterPress])
 
   const handleReceiptPress = useCallback((receiptUrl: string) => {
-    toast.info('Receipt viewer coming soon')
+    toast.info("Receipt viewer coming soon")
   }, [])
 
-  const handleSummaryTilePress = useCallback(
-    (type: 'transactions' | 'fuel' | 'total') => {
-      setSortBy(type === 'transactions' ? null : type)
-    },
-    []
-  )
+  const handleSummaryTilePress = useCallback((type: "transactions" | "fuel" | "total") => {
+    setSortBy(type === "transactions" ? null : type)
+  }, [])
 
   const handleAddPress = useCallback(() => {
     if (onAddPress) {
       onAddPress()
     } else {
-      toast.info('Add fuel purchase feature coming soon')
+      toast.info("Add fuel purchase feature coming soon")
     }
   }, [onAddPress])
 
   // Memoized render functions
   const renderItem = useCallback(
     ({ item }: { item: { type: string; data: any } }) => {
-      if (item.type === 'header') {
+      if (item.type === "header") {
         return (
           <View style={styles.dateHeader}>
             <Text style={[styles.dateHeaderText, { color: colors.text }]}>
@@ -331,7 +329,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
         />
       )
     },
-    [colors, handleReceiptPress]
+    [colors, handleReceiptPress],
   )
 
   const renderEmptyState = useCallback(() => {
@@ -343,8 +341,8 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
         <Text style={[styles.emptyText, { color: colors.text }]}>No fuel purchases found</Text>
         <Text style={[styles.emptySubtext, { color: colors.textDim }]}>
           {filters.start_date || filters.end_date
-            ? 'Try adjusting your filters to see more results'
-            : 'Your fuel purchase history will appear here'}
+            ? "Try adjusting your filters to see more results"
+            : "Your fuel purchase history will appear here"}
         </Text>
       </View>
     )
@@ -396,7 +394,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                 total_purchases: purchasesData.count || 0,
                 total_liters: 0,
                 total_amount: 0,
-                currency: 'usd',
+                currency: "usd",
               }
             }
             onTilePress={handleSummaryTilePress}
@@ -418,7 +416,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
           data={sortedAndGroupedData}
           renderItem={renderItem}
           keyExtractor={(item, index) =>
-            item.type === 'header' ? `header-${item.data}` : keyExtractor(item.data, index)
+            item.type === "header" ? `header-${item.data}` : keyExtractor(item.data, index)
           }
           contentContainerStyle={[
             styles.listContent,
@@ -481,12 +479,12 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                 </Text>
                 <View style={styles.presetButtons}>
                   {[
-                    { key: 'today', label: 'Today' },
-                    { key: 'yesterday', label: 'Yesterday' },
-                    { key: 'last7Days', label: 'Last 7 Days' },
-                    { key: 'thisMonth', label: 'This Month' },
-                    { key: 'lastMonth', label: 'Last Month' },
-                    { key: 'custom', label: 'Custom Range 📅' },
+                    { key: "today", label: "Today" },
+                    { key: "yesterday", label: "Yesterday" },
+                    { key: "last7Days", label: "Last 7 Days" },
+                    { key: "thisMonth", label: "This Month" },
+                    { key: "lastMonth", label: "Last Month" },
+                    { key: "custom", label: "Custom Range 📅" },
                   ].map((preset) => (
                     <TouchableOpacity
                       key={preset.key}
@@ -497,14 +495,14 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                             selectedPreset === preset.key
                               ? colors.tint
                               : isDark
-                              ? '#242830'
-                              : '#F3F4F6',
+                                ? "#242830"
+                                : "#F3F4F6",
                           borderColor:
                             selectedPreset === preset.key
                               ? colors.tint
                               : isDark
-                              ? '#242830'
-                              : '#E5E7EB',
+                                ? "#242830"
+                                : "#E5E7EB",
                         },
                       ]}
                       onPress={() => handlePresetSelect(preset.key)}
@@ -513,10 +511,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                         style={[
                           styles.presetButtonText,
                           {
-                            color:
-                              selectedPreset === preset.key
-                                ? '#fff'
-                                : colors.text,
+                            color: selectedPreset === preset.key ? "#fff" : colors.text,
                           },
                         ]}
                       >
@@ -571,8 +566,8 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                           selectedVehicleId === parseInt(vehicleAssignment.vehicle_info.id)
                             ? colors.tint
                             : isDark
-                            ? '#242830'
-                            : '#E5E7EB',
+                              ? "#242830"
+                              : "#E5E7EB",
                       },
                     ]}
                     onPress={() => {
@@ -581,7 +576,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                         setSelectedVehicleId(
                           selectedVehicleId === parseInt(vehicleId)
                             ? undefined
-                            : parseInt(vehicleId)
+                            : parseInt(vehicleId),
                         )
                       }
                     }}
@@ -590,7 +585,7 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
                       {vehicleAssignment.vehicle_info &&
                       selectedVehicleId === parseInt(vehicleAssignment.vehicle_info.id)
                         ? vehicleAssignment.vehicle_info.vehicle_unit
-                        : 'All Vehicles'}
+                        : "All Vehicles"}
                     </Text>
                     <ChevronDown size={20} color={colors.textDim} />
                   </TouchableOpacity>
@@ -620,8 +615,108 @@ const FuelPurchasesListComponent: React.FC<FuelPurchasesListProps> = ({
 }
 
 const styles = StyleSheet.create({
-  stickySummary: {
-    zIndex: 10,
+  applyButton: {},
+  applyButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  clearButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+  },
+  customRangeSection: {
+    marginBottom: 24,
+    marginTop: 16,
+  },
+  dateHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingVertical: 12,
+  },
+  dateHeaderText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  dateInput: {
+    borderColor: "rgba(0,0,0,0.1)",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    fontSize: 15,
+    fontWeight: "500",
+    padding: 16,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    borderRadius: 24,
+    flex: 1,
+    justifyContent: "center",
+    margin: 20,
+    padding: 40,
+  },
+  emptyIconContainer: {
+    alignItems: "center",
+    borderRadius: 60,
+    height: 120,
+    justifyContent: "center",
+    marginBottom: 24,
+    width: 120,
+  },
+  emptySubtext: {
+    fontSize: 15,
+    lineHeight: 22,
+    maxWidth: 280,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    marginBottom: 12,
+  },
+  errorContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 40,
+  },
+  errorText: {
+    fontSize: 17,
+    fontWeight: "600",
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  fab: {
+    alignItems: "center",
+    borderRadius: 28,
+    elevation: 6,
+    height: 56,
+    justifyContent: "center",
+    position: "absolute",
+    right: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    width: 56,
+    zIndex: 1000,
+  },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    textTransform: "uppercase",
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  footerLoader: {
+    alignItems: "center",
+    paddingVertical: 20,
   },
   listContent: {
     paddingBottom: 100,
@@ -630,226 +725,126 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   loadingContainer: {
+    alignItems: "center",
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
     padding: 40,
   },
   loadingText: {
+    fontSize: 15,
+    fontWeight: "500",
     marginTop: 20,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    margin: 20,
-    borderRadius: 24,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
-    letterSpacing: -0.3,
-  },
-  emptySubtext: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 280,
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorText: {
-    fontSize: 17,
-    marginBottom: 24,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  retryButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-    letterSpacing: -0.2,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    zIndex: 1000,
-  },
-  dateHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 20,
-  },
-  dateHeaderText: {
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '85%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: -0.3,
   },
   modalBody: {
     padding: 24,
   },
-  presetSection: {
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  presetButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  presetButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-  },
-  presetButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  customRangeSection: {
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  filterSection: {
-    marginBottom: 20,
-  },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dateInput: {
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 15,
-    borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.1)',
-    fontWeight: '500',
-  },
-  selectButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1.5,
-  },
-  selectButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
-  },
   modalButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    elevation: 2,
     flex: 1,
     paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
-  clearButton: {
-    borderWidth: 1.5,
-    backgroundColor: 'transparent',
-  },
-  applyButton: {},
   modalButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-  applyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+  modalContent: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    elevation: 10,
+    maxHeight: "85%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  modalFooter: {
+    borderTopColor: "rgba(0,0,0,0.06)",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  modalHeader: {
+    alignItems: "center",
+    borderBottomColor: "rgba(0,0,0,0.06)",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 24,
+  },
+  modalOverlay: {
+    backgroundColor: "rgba(0,0,0,0.6)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  presetButton: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  presetButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  presetButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  presetSection: {
+    marginBottom: 24,
+  },
+  retryButton: {
+    borderRadius: 12,
+    elevation: 3,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
     letterSpacing: -0.2,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    textTransform: "uppercase",
+  },
+  selectButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  selectButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  stickySummary: {
+    zIndex: 10,
   },
 })
 

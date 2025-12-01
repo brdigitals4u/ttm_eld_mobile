@@ -1,19 +1,25 @@
-import React from 'react';
-import { StyleSheet, View, ViewProps, ViewStyle } from 'react-native';
-import { useAppTheme } from '@/theme/context';
-import { getShadowForTheme } from '@/theme/shadows';
+import React from "react"
+import { StyleSheet, View, ViewProps, ViewStyle } from "react-native"
 
-interface CardProps extends Omit<ViewProps, 'style'> {
-  children: React.ReactNode;
-  variant?: 'default' | 'elevated';
-  style?: ViewStyle | ViewStyle[];
+import { useAppTheme } from "@/theme/context"
+import { getShadowForTheme } from "@/theme/shadows"
+
+interface CardProps extends Omit<ViewProps, "style"> {
+  children: React.ReactNode
+  variant?: "default" | "elevated"
+  style?: ViewStyle | ViewStyle[]
 }
 
-export default function EvelvatedCard({ children, variant = 'default', style, ...props }: CardProps) {
-  const { theme } = useAppTheme();
-  const {colors, isDark} = theme;
-  
-  const shadowPreset = variant === 'elevated' ? 'medium' : 'small'
+export default function EvelvatedCard({
+  children,
+  variant = "default",
+  style,
+  ...props
+}: CardProps) {
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+
+  const shadowPreset = variant === "elevated" ? "medium" : "small"
   const shadow = getShadowForTheme(isDark, shadowPreset)
 
   return (
@@ -32,13 +38,13 @@ export default function EvelvatedCard({ children, variant = 'default', style, ..
     >
       {children}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
-    padding: 16,
     marginVertical: 8,
+    padding: 16,
   },
-});
+})

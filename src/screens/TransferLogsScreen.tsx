@@ -9,28 +9,37 @@ import {
   View,
   Platform,
 } from "react-native"
-import { GestureHandlerRootView } from "react-native-gesture-handler"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useAuth } from "@/stores/authStore"
-import type { DriverProfile, User, VehicleAssignment, OrganizationSettings } from "@/stores/authStore"
-import { useCarrier } from "@/contexts/carrier-context"
-import type { CarrierInfo } from "@/types/carrier"
-import { useAppTheme } from "@/theme/context"
-import { Header } from "@/components/Header"
-import LoadingButton from "@/components/LoadingButton"
-import { useHOSLogs } from "@/api/hos"
-import { router } from "expo-router"
-import { toast } from "@/components/Toast"
-import TransferLogsSheet, { TransferLogEvent, TransferLogsSheetData } from "@/components/TransferLogsSheet"
-import { Share2, Mail, Send } from "lucide-react-native"
 import { Share } from "react-native"
+import { router } from "expo-router"
 import {
   BottomSheetModal,
   BottomSheetBackdrop,
   BottomSheetView,
   BottomSheetModalProvider,
 } from "@gorhom/bottom-sheet"
+import { Share2, Mail, Send } from "lucide-react-native"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
+import { useHOSLogs } from "@/api/hos"
+import { Header } from "@/components/Header"
+import LoadingButton from "@/components/LoadingButton"
+import { toast } from "@/components/Toast"
+import TransferLogsSheet, {
+  TransferLogEvent,
+  TransferLogsSheetData,
+} from "@/components/TransferLogsSheet"
+import { useCarrier } from "@/contexts/carrier-context"
 import { translate } from "@/i18n/translate"
+import type {
+  DriverProfile,
+  User,
+  VehicleAssignment,
+  OrganizationSettings,
+} from "@/stores/authStore"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
+import type { CarrierInfo } from "@/types/carrier"
 
 const formatDate = (date: Date) => date.toISOString().split("T")[0]
 
@@ -53,12 +62,13 @@ export const TransferLogsScreen: React.FC = () => {
   const bottomSheetRef = useRef<BottomSheetModal>(null)
   const bottomSheetSnapPoints = useMemo(() => ["45%", "65%"], [])
 
-  const { driverProfile, user, vehicleAssignment, organizationSettings, isAuthenticated } = useAuth()
+  const { driverProfile, user, vehicleAssignment, organizationSettings, isAuthenticated } =
+    useAuth()
   const { carrierInfo } = useCarrier()
-  
+
   const presetRanges = useMemo(() => {
-    if (typeof translate !== 'function') {
-      console.error('translate function is not available')
+    if (typeof translate !== "function") {
+      console.error("translate function is not available")
       return [
         { id: "today", label: "Today", days: 0 },
         { id: "yesterday", label: "Yesterday", days: 1 },
@@ -100,7 +110,11 @@ export const TransferLogsScreen: React.FC = () => {
   const startDateStr = useMemo(() => formatDate(startDate), [startDate])
   const endDateStr = useMemo(() => formatDate(endDate), [endDate])
 
-  const { data: hosLogsData, isFetching, refetch } = useHOSLogs(
+  const {
+    data: hosLogsData,
+    isFetching,
+    refetch,
+  } = useHOSLogs(
     {
       driver: driverId,
       startDate: startDateStr,
@@ -221,8 +235,9 @@ export const TransferLogsScreen: React.FC = () => {
 
     try {
       // For email transfers, use empty comment
-      const transferComment = (transferOption === "email-dot" || transferOption === "email-self") ? "" : comment
-      
+      const transferComment =
+        transferOption === "email-dot" || transferOption === "email-self" ? "" : comment
+
       const html = renderTransferLogsSheet(transferSheetData, transferComment, emailAddress)
       await Share.share({
         message: `TTM Konnect FMCSA Transfer Report\nRange: ${startDateStr} → ${endDateStr}${transferComment ? `\n\n${transferComment}` : ""}`,
@@ -245,23 +260,18 @@ export const TransferLogsScreen: React.FC = () => {
         {presetRanges.map((preset) => {
           const isActive = preset.id === activePreset
           return (
-          <TouchableOpacity
-            key={preset.id}
-            onPress={() => handlePresetChange(preset.id)}
-            style={[
-              styles.presetChip,
-              isActive && { backgroundColor: colors.tint, borderColor: colors.tint },
-            ]}
-          >
-            <Text
+            <TouchableOpacity
+              key={preset.id}
+              onPress={() => handlePresetChange(preset.id)}
               style={[
-                styles.presetChipText,
-                { color: isActive ? "#fff" : colors.text },
+                styles.presetChip,
+                isActive && { backgroundColor: colors.tint, borderColor: colors.tint },
               ]}
             >
-              {preset.label}
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.presetChipText, { color: isActive ? "#fff" : colors.text }]}>
+                {preset.label}
+              </Text>
+            </TouchableOpacity>
           )
         })}
       </View>
@@ -270,11 +280,17 @@ export const TransferLogsScreen: React.FC = () => {
         <View style={styles.datePickerCard}>
           <Text style={[styles.datePickerLabel, { color: colors.textDim }]}>Start</Text>
           <View style={styles.dateControls}>
-            <TouchableOpacity onPress={() => handleStartDateChange("back")} style={styles.arrowButton}>
+            <TouchableOpacity
+              onPress={() => handleStartDateChange("back")}
+              style={styles.arrowButton}
+            >
               <Text style={[styles.arrowText, { color: colors.tint }]}>◀</Text>
             </TouchableOpacity>
             <Text style={[styles.dateDisplayText, { color: colors.text }]}>{startDateStr}</Text>
-            <TouchableOpacity onPress={() => handleStartDateChange("forward")} style={styles.arrowButton}>
+            <TouchableOpacity
+              onPress={() => handleStartDateChange("forward")}
+              style={styles.arrowButton}
+            >
               <Text style={[styles.arrowText, { color: colors.tint }]}>▶</Text>
             </TouchableOpacity>
           </View>
@@ -283,11 +299,17 @@ export const TransferLogsScreen: React.FC = () => {
         <View style={styles.datePickerCard}>
           <Text style={[styles.datePickerLabel, { color: colors.textDim }]}>End</Text>
           <View style={styles.dateControls}>
-            <TouchableOpacity onPress={() => handleEndDateChange("back")} style={styles.arrowButton}>
+            <TouchableOpacity
+              onPress={() => handleEndDateChange("back")}
+              style={styles.arrowButton}
+            >
               <Text style={[styles.arrowText, { color: colors.tint }]}>◀</Text>
             </TouchableOpacity>
             <Text style={[styles.dateDisplayText, { color: colors.text }]}>{endDateStr}</Text>
-            <TouchableOpacity onPress={() => handleEndDateChange("forward")} style={styles.arrowButton}>
+            <TouchableOpacity
+              onPress={() => handleEndDateChange("forward")}
+              style={styles.arrowButton}
+            >
               <Text style={[styles.arrowText, { color: colors.tint }]}>▶</Text>
             </TouchableOpacity>
           </View>
@@ -324,7 +346,10 @@ export const TransferLogsScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             ...baseChip,
-            transferOption === "email-dot" && { backgroundColor: activeChipBg, borderColor: activeChipBg },
+            transferOption === "email-dot" && {
+              backgroundColor: activeChipBg,
+              borderColor: activeChipBg,
+            },
           ]}
           onPress={() => handleOpenTransferOption("email-dot")}
         >
@@ -341,7 +366,10 @@ export const TransferLogsScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             ...baseChip,
-            transferOption === "email-self" && { backgroundColor: activeChipBg, borderColor: activeChipBg },
+            transferOption === "email-self" && {
+              backgroundColor: activeChipBg,
+              borderColor: activeChipBg,
+            },
           ]}
           onPress={() => handleOpenTransferOption("email-self")}
         >
@@ -363,73 +391,71 @@ export const TransferLogsScreen: React.FC = () => {
     <GestureHandlerRootView style={styles.gestureRoot}>
       <BottomSheetModalProvider>
         <View style={styles.container}>
-      <Header
-        title="TRANSFER LOGS"
-        titleMode="center"
-        backgroundColor={colors.background}
-        titleStyle={{
-          fontSize: 22,
-          fontWeight: "800",
-          color: colors.text,
-          letterSpacing: 0.3,
-          paddingLeft: 20,
-        }}
-        leftIcon="back"
-        leftIconColor={colors.tint}
-        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
-        containerStyle={{
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-          shadowColor: colors.tint,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 6,
-        }}
-        style={{
-          paddingHorizontal: 16,
-        }}
-        safeAreaEdges={["top"]}
-      />
-
-      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 120 }}>
-        {renderDateControls()}
-        {renderTransferActions()}
-
-
-
-        {isFetching && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={colors.tint} size="large" />
-          </View>
-        )}
-
-        {!isFetching && transferSheetData && (
-          <View style={styles.reportContainer}>
-            <TransferLogsSheet
-              data={transferSheetData}
-              theme={{
-                textColor: colors.text,
-                mutedTextColor: colors.textDim,
-                borderColor: colors.border,
-                headingColor: colors.tint,
-                backgroundColor: colors.background,
-              }}
-            />
-          </View>
-        )}
-      </ScrollView>
-
-      <SafeAreaContainer edges={['bottom']} bottomPadding={16}>
-        <View style={[styles.bottomBar, { backgroundColor: colors.background }]}>
-          <LoadingButton
-            title="Transfer Now"
-            onPress={() => handleOpenTransferOption("wireless")}
-            icon={<Share2 size={18} color="#fff" />}
-            fullWidth
+          <Header
+            title="TRANSFER LOGS"
+            titleMode="center"
+            backgroundColor={colors.background}
+            titleStyle={{
+              fontSize: 22,
+              fontWeight: "800",
+              color: colors.text,
+              letterSpacing: 0.3,
+              paddingLeft: 20,
+            }}
+            leftIcon="back"
+            leftIconColor={colors.tint}
+            onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+            containerStyle={{
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+              shadowColor: colors.tint,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+            style={{
+              paddingHorizontal: 16,
+            }}
+            safeAreaEdges={["top"]}
           />
-        </View>
-      </SafeAreaContainer>
+
+          <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 120 }}>
+            {renderDateControls()}
+            {renderTransferActions()}
+
+            {isFetching && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={colors.tint} size="large" />
+              </View>
+            )}
+
+            {!isFetching && transferSheetData && (
+              <View style={styles.reportContainer}>
+                <TransferLogsSheet
+                  data={transferSheetData}
+                  theme={{
+                    textColor: colors.text,
+                    mutedTextColor: colors.textDim,
+                    borderColor: colors.border,
+                    headingColor: colors.tint,
+                    backgroundColor: colors.background,
+                  }}
+                />
+              </View>
+            )}
+          </ScrollView>
+
+          <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
+            <View style={[styles.bottomBar, { backgroundColor: colors.background }]}>
+              <LoadingButton
+                title="Transfer Now"
+                onPress={() => handleOpenTransferOption("wireless")}
+                icon={<Share2 size={18} color="#fff" />}
+                fullWidth
+              />
+            </View>
+          </SafeAreaContainer>
 
           <BottomSheetModal
             ref={bottomSheetRef}
@@ -447,94 +473,109 @@ export const TransferLogsScreen: React.FC = () => {
                 { backgroundColor: colors.cardBackground, paddingBottom: insets.bottom + 24 },
               ]}
             >
-          <View style={styles.bottomSheetHeader}>
-            <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>
-              {transferOption === "wireless"
-                ? "Wireless Transfer"
-                : transferOption === "email-dot"
-                  ? "Email to DOT"
-                  : "Email to Myself"}
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                bottomSheetRef.current?.dismiss()
-                setTransferOption(null)
-              }}
-            >
-              <Text style={{ color: colors.tint, fontSize: 16 }}>Close</Text>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.bottomSheetHeader}>
+                <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>
+                  {transferOption === "wireless"
+                    ? "Wireless Transfer"
+                    : transferOption === "email-dot"
+                      ? "Email to DOT"
+                      : "Email to Myself"}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    bottomSheetRef.current?.dismiss()
+                    setTransferOption(null)
+                  }}
+                >
+                  <Text style={{ color: colors.tint, fontSize: 16 }}>Close</Text>
+                </TouchableOpacity>
+              </View>
 
-          {transferOption !== "wireless" && (
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.textDim }]}>Recipient Email</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                    color: colors.text,
-                    borderColor: colors.border,
-                  },
-                ]}
-                value={emailAddress}
-                onChangeText={setEmailAddress}
-                autoCapitalize="none"
-                keyboardType="email-address"
+              {transferOption !== "wireless" && (
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: colors.textDim }]}>
+                    Recipient Email
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    value={emailAddress}
+                    onChangeText={setEmailAddress}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+                </View>
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textDim }]}>
+                  Comments{" "}
+                  {transferOption === "email-dot" || transferOption === "email-self"
+                    ? "(empty for email transfers)"
+                    : "(optional, max 60 words)"}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    {
+                      backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
+                      color: colors.text,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  value={
+                    transferOption === "email-dot" || transferOption === "email-self" ? "" : comment
+                  }
+                  onChangeText={(text) => {
+                    if (transferOption === "email-dot" || transferOption === "email-self") {
+                      setComment("") // Keep empty for email transfers
+                    } else {
+                      setComment(text)
+                    }
+                  }}
+                  multiline
+                  numberOfLines={3}
+                  editable={transferOption !== "email-dot" && transferOption !== "email-self"}
+                  placeholder={
+                    transferOption === "email-dot" || transferOption === "email-self"
+                      ? "Comments are empty for email transfers"
+                      : "Enter comment (max 60 words)"
+                  }
+                />
+                {transferOption !== "email-dot" &&
+                  transferOption !== "email-self" &&
+                  comment.trim() && (
+                    <Text style={[styles.wordCount, { color: colors.textDim }]}>
+                      {comment.trim().split(/\s+/).length} / 60 words
+                    </Text>
+                  )}
+              </View>
+
+              <LoadingButton
+                title="Send Transfer"
+                onPress={shareTransfer}
+                icon={<Send size={18} color="#fff" />}
+                fullWidth
               />
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.textDim }]}>
-              Comments {transferOption === "email-dot" || transferOption === "email-self" ? "(empty for email transfers)" : "(optional, max 60 words)"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.textArea,
-                {
-                  backgroundColor: isDark ? colors.cardBackground : "#F3F4F6",
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              value={transferOption === "email-dot" || transferOption === "email-self" ? "" : comment}
-              onChangeText={(text) => {
-                if (transferOption === "email-dot" || transferOption === "email-self") {
-                  setComment("") // Keep empty for email transfers
-                } else {
-                  setComment(text)
-                }
-              }}
-              multiline
-              numberOfLines={3}
-              editable={transferOption !== "email-dot" && transferOption !== "email-self"}
-              placeholder={transferOption === "email-dot" || transferOption === "email-self" ? "Comments are empty for email transfers" : "Enter comment (max 60 words)"}
-            />
-            {transferOption !== "email-dot" && transferOption !== "email-self" && comment.trim() && (
-              <Text style={[styles.wordCount, { color: colors.textDim }]}>
-                {comment.trim().split(/\s+/).length} / 60 words
-              </Text>
-            )}
-          </View>
-
-            <LoadingButton
-              title="Send Transfer"
-              onPress={shareTransfer}
-              icon={<Send size={18} color="#fff" />}
-              fullWidth
-            />
             </BottomSheetView>
           </BottomSheetModal>
-
         </View>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   )
 }
 
-const buildTransferData = (logs: any[], authSnapshot: AuthSnapshot): TransferLogsSheetData | null => {
+const buildTransferData = (
+  logs: any[],
+  authSnapshot: AuthSnapshot,
+): TransferLogsSheetData | null => {
   const { driverProfile, user, vehicleAssignment, carrierInfo, organizationSettings } = authSnapshot
   if (!driverProfile) return null
 
@@ -550,7 +591,10 @@ const buildTransferData = (logs: any[], authSnapshot: AuthSnapshot): TransferLog
   const licenseState = fallback(driverProfile.license_state || user?.licenseState, "TX")
   const coDriver = fallback((driverProfile as any)?.co_driver_name, "Not Assigned")
 
-  const carrierName = fallback(carrierInfo?.name || organizationSettings?.organization_name, "TTM Logistics LLC")
+  const carrierName = fallback(
+    carrierInfo?.name || organizationSettings?.organization_name,
+    "TTM Logistics LLC",
+  )
   const carrierDot = fallback(carrierInfo?.dotNumber, "2765841")
   const mainOfficeAddress = fallback(
     carrierInfo?.address
@@ -569,9 +613,12 @@ const buildTransferData = (logs: any[], authSnapshot: AuthSnapshot): TransferLog
   const trailerId = "TRL-7785"
   const shippingDocumentNumber = "BL-2025-4587"
 
-  const sortedLogs = [...logs].sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+  const sortedLogs = [...logs].sort(
+    (a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+  )
   const startDate = sortedLogs[0]?.start_time?.split("T")[0] ?? formatDate(new Date())
-  const endDate = sortedLogs[sortedLogs.length - 1]?.start_time?.split("T")[0] ?? formatDate(new Date())
+  const endDate =
+    sortedLogs[sortedLogs.length - 1]?.start_time?.split("T")[0] ?? formatDate(new Date())
 
   const timeline: TransferLogEvent[] = sortedLogs.map((log: any, index: number) => {
     const status = log.duty_status || "off_duty"
@@ -596,11 +643,15 @@ const buildTransferData = (logs: any[], authSnapshot: AuthSnapshot): TransferLog
   })
 
   const odometerStart = String(sortedLogs[0]?.odometer ?? 23050)
-  const odometerEnd = String(sortedLogs[sortedLogs.length - 1]?.odometer ?? Number(odometerStart) + 152)
+  const odometerEnd = String(
+    sortedLogs[sortedLogs.length - 1]?.odometer ?? Number(odometerStart) + 152,
+  )
   const totalMiles = String(Math.max(0, Number(odometerEnd) - Number(odometerStart)))
 
   const engineHoursStart = String(sortedLogs[0]?.engine_hours ?? 15322)
-  const engineHoursEnd = String(sortedLogs[sortedLogs.length - 1]?.engine_hours ?? Number(engineHoursStart) + 135)
+  const engineHoursEnd = String(
+    sortedLogs[sortedLogs.length - 1]?.engine_hours ?? Number(engineHoursStart) + 135,
+  )
 
   return {
     metadata: {
@@ -626,7 +677,10 @@ const buildTransferData = (logs: any[], authSnapshot: AuthSnapshot): TransferLog
       homeTerminalAddress: homeTerminalAddress,
       startTime: "Midnight",
       timeZone: organizationSettings?.timezone ?? "America/Chicago",
-      cycleRule: organizationSettings?.hos_settings?.cycle_type === "60-7" ? "USA 60 hour / 7 day" : "USA 70 hour / 8 day",
+      cycleRule:
+        organizationSettings?.hos_settings?.cycle_type === "60-7"
+          ? "USA 60 hour / 7 day"
+          : "USA 70 hour / 8 day",
     },
     vehicle: {
       truckId: truckId,
@@ -670,11 +724,7 @@ const convertStatusToEvent = (status: string) => {
   return map[status] || { type: "Duty Status", code: "1" }
 }
 
-const renderTransferLogsSheet = (
-  data: TransferLogsSheetData,
-  comment: string,
-  email: string,
-) => {
+const renderTransferLogsSheet = (data: TransferLogsSheetData, comment: string, email: string) => {
   return `
 TTM Konnect FMCSA Transfer Report
 Range: ${data.metadata.reportRange}
@@ -690,62 +740,27 @@ Recipient: ${email}
 }
 
 const styles = StyleSheet.create({
-  gestureRoot: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  rangeContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  presetsRow: {
+  actionChip: {
+    alignItems: "center",
+    borderRadius: 12,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  presetChip: {
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    paddingVertical: 10,
   },
-  presetChipText: {
+  actionChipOutline: {
+    borderWidth: 1,
+  },
+  actionChipText: {
+    color: "#fff",
     fontSize: 13,
     fontWeight: "600",
   },
-  datePickerRow: {
+  actionChips: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
-  },
-  datePickerCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 12,
-  },
-  datePickerLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  dateControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 16,
+    paddingHorizontal: 20,
   },
   arrowButton: {
     padding: 8,
@@ -754,105 +769,71 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  dateDisplayText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  actionChips: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  actionChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  actionChipOutline: {
-    borderWidth: 1,
-  },
-  actionChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  statusCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    padding: 16,
-  },
-  statusTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  statusSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  statusFooter: {
-    fontSize: 12,
-    marginTop: 8,
-  },
-  loadingContainer: {
-    alignItems: "center",
-    paddingVertical: 24,
-  },
-  reportContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-    paddingBottom: 12
-  },
-  summaryCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    gap: 4,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  summarySubtitle: {
-    fontSize: 13,
-  },
   bottomBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 16,
-    borderTopWidth: 1,
     borderTopColor: "rgba(0,0,0,0.06)",
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    padding: 16,
     paddingBottom: 30,
-    paddingTop:12,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
+    paddingTop: 12,
+    position: "absolute",
+    right: 0,
   },
   bottomSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    marginBottom: -10,
     gap: 16,
+    marginBottom: -10,
+    padding: 20,
   },
   bottomSheetHeader: {
-    flexDirection: "row",
     alignItems: "center",
+    flexDirection: "row",
     justifyContent: "space-between",
   },
   bottomSheetTitle: {
     fontSize: 18,
     fontWeight: "700",
+  },
+  container: {
+    flex: 1,
+  },
+  dateControls: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  dateDisplayText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  datePickerCard: {
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    padding: 12,
+  },
+  datePickerLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  datePickerRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  gestureRoot: {
+    flex: 1,
+  },
+  input: {
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 8,
   },
   inputGroup: {
     gap: 8,
@@ -861,12 +842,81 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  input: {
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  modalOverlay: {
+    backgroundColor: "rgba(0,0,0,0.4)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  presetChip: {
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
     borderWidth: 1,
-    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: Platform.OS === "ios" ? 12 : 8,
-    fontSize: 14,
+    paddingVertical: 8,
+  },
+  presetChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  presetsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  rangeContainer: {
+    paddingBottom: 12,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  reportContainer: {
+    gap: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+  },
+  scroll: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  statusCard: {
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    marginHorizontal: 20,
+    padding: 16,
+  },
+  statusFooter: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+  statusSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  summaryCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+    padding: 16,
+  },
+  summarySubtitle: {
+    fontSize: 13,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "700",
   },
   textArea: {
     height: 96,
@@ -880,4 +930,3 @@ const styles = StyleSheet.create({
 })
 
 export default TransferLogsScreen
-

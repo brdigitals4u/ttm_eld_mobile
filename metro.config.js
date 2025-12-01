@@ -3,8 +3,8 @@
 const { getDefaultConfig } = require("expo/metro-config")
 
 // Check if obfuscation should be enabled
-const shouldObfuscate = process.env.NODE_ENV === 'production' && 
-  process.env.ENABLE_OBFUSCATION !== 'false'
+const shouldObfuscate =
+  process.env.NODE_ENV === "production" && process.env.ENABLE_OBFUSCATION !== "false"
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname)
@@ -12,8 +12,9 @@ const config = getDefaultConfig(__dirname)
 // Note: Obfuscation disabled for now due to Metro serializer compatibility issues
 // Obfuscation should be applied post-build or via a different method
 // The custom serializer approach conflicts with Expo's build process
-if (shouldObfuscate && false) { // Disabled for compatibility
-  console.warn('[Metro] Obfuscation is disabled - use post-build obfuscation instead')
+if (shouldObfuscate && false) {
+  // Disabled for compatibility
+  console.warn("[Metro] Obfuscation is disabled - use post-build obfuscation instead")
 }
 
 config.transformer.getTransformOptions = async () => ({
@@ -45,7 +46,7 @@ config.transformer.getTransformOptions = async () => ({
     compress: {
       // Aggressive compression settings
       dead_code: true,
-      drop_console: process.env.NODE_ENV === 'production',
+      drop_console: process.env.NODE_ENV === "production",
       drop_debugger: true,
       evaluate: true,
       reduce_vars: true,
@@ -78,7 +79,7 @@ config.resolver.platforms = ["native", "android", "ios", "web"]
 // Cache is optimized by default in Metro
 
 // Optimize serializer for production builds
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === "production") {
   config.serializer = {
     ...config.serializer,
     // Enable source map optimization

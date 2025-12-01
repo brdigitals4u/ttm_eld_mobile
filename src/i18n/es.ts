@@ -89,11 +89,13 @@ const es: Translations = {
     failedToConnect: "Error al conectar",
     failedToStartScan: "Error al iniciar escaneo",
     failedToStopScan: "Error al detener escaneo",
-    bluetoothPermissionsRequired: "Se requieren permisos de Bluetooth para usar esta aplicación. Por favor, otorga los permisos y reinicia la aplicación.",
+    bluetoothPermissionsRequired:
+      "Se requieren permisos de Bluetooth para usar esta aplicación. Por favor, otorga los permisos y reinicia la aplicación.",
     failedToInitializeBluetooth: "Error al inicializar Bluetooth",
     deviceNotConnected: "El dispositivo no está conectado. Por favor, inténtalo de nuevo.",
     connectionLost: "Conexión perdida. Por favor, inténtalo de nuevo.",
-    failedToStartEldTransmission: "Error al iniciar la transmisión de datos ELD. Puedes intentarlo de nuevo desde el panel de control.",
+    failedToStartEldTransmission:
+      "Error al iniciar la transmisión de datos ELD. Puedes intentarlo de nuevo desde el panel de control.",
     failedToCompleteSetup: "Error al completar la configuración",
     connectionModal: {
       connecting: "Conectando al dispositivo ELD...",
@@ -208,7 +210,8 @@ const es: Translations = {
   vehicleTrip: {
     title: "Asignación de Vehículo y Viaje",
     mandatorySetup: "Configuración Requerida",
-    mandatoryMessage: "Debe tener un vehículo o viaje asignado, e ID de envío antes de usar las funciones HOS y ELD.",
+    mandatoryMessage:
+      "Debe tener un vehículo o viaje asignado, e ID de envío antes de usar las funciones HOS y ELD.",
     vehicleRequired: "Asignación de Vehículo Requerida",
     tripRequired: "Asignación de Viaje/Envío Requerida",
     vehicleOrTripRequired: "Asignación de Vehículo o Viaje Requerida",
@@ -351,7 +354,8 @@ const es: Translations = {
   welcome: {
     title: "Bienvenido",
     subtitle: "Gestión de Flota Simplificada",
-    description: "Rastrea tus horas, gestiona el cumplimiento y mantente conectado con tu flota en tiempo real",
+    description:
+      "Rastrea tus horas, gestiona el cumplimiento y mantente conectado con tu flota en tiempo real",
     getStarted: "Comenzar",
     next: "Siguiente",
   },
@@ -379,13 +383,15 @@ const es: Translations = {
       code: "Código",
       powerSteps: {
         step1: "La Puerta de Enlace del Vehículo fue desconectada por más de 30 minutos",
-        step2: "Asegúrese de que el dispositivo ELD permanezca conectado mientras el vehículo está en movimiento",
+        step2:
+          "Asegúrese de que el dispositivo ELD permanezca conectado mientras el vehículo está en movimiento",
         step3: "Contacte al soporte de la flota si el problema persiste",
       },
       engineSteps: {
         step1: "ELD perdió conexión con el motor del vehículo por más de 30 minutos",
         step2: "Datos faltantes: GPS, VIN, fecha/hora u horas del motor",
-        step3: "Asegúrese de que la aplicación Motive Driver permanezca conectada mientras el vehículo está encendido",
+        step3:
+          "Asegúrese de que la aplicación Motive Driver permanezca conectada mientras el vehículo está encendido",
         step4: "El fallo se limpiará automáticamente después de 24 horas",
       },
       positioningSteps: {
@@ -407,7 +413,7 @@ const es: Translations = {
       checkPermission: "Verificar Permiso GPS",
       reconnect: "Reconectar Servicio de Ubicación",
       markLocation: "Marcar Ubicación Actual",
-      addNote: "Agregar Nota (ej., \"Túnel / almacén\")",
+      addNote: 'Agregar Nota (ej., "Túnel / almacén")',
       noteLabel: "Agregar Nota:",
       notePlaceholder: "Ingrese nota (ej., Túnel, Almacén, GPS bloqueado)",
       saveNote: "Guardar Nota",
@@ -468,7 +474,8 @@ const es: Translations = {
       location: "Ubicación:",
       missing: "Faltante:",
       annotationLabel: "Anotación (requerida, mínimo 4 caracteres)",
-      annotationPlaceholder: "Ingrese anotación explicando por qué está asumiendo estos registros...",
+      annotationPlaceholder:
+        "Ingrese anotación explicando por qué está asumiendo estos registros...",
       reassign: "Reasignar {{count}} Registro{{plural}}",
       reassigning: "Reasignando...",
       noRecords: "Sin Registros No Identificados",

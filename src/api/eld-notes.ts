@@ -1,12 +1,12 @@
 /**
  * ELD Driver Notes API
- * 
+ *
  * API for attaching driver notes to ELD records
  * Preserves original timestamp and adds note timestamp
  */
 
-import { apiClient } from './client'
-import { API_ENDPOINTS } from './constants'
+import { apiClient } from "./client"
+import { API_ENDPOINTS } from "./constants"
 
 export interface DriverNote {
   id: string
@@ -46,11 +46,11 @@ export interface GetRecordNotesResponse {
  * Create a driver note for an ELD record
  */
 export async function createDriverNote(
-  request: CreateDriverNoteRequest
+  request: CreateDriverNoteRequest,
 ): Promise<CreateDriverNoteResponse> {
   const response = await apiClient.post<CreateDriverNoteResponse>(
-    API_ENDPOINTS.ELD_NOTES || '/eld/notes',
-    request
+    API_ENDPOINTS.ELD_NOTES || "/eld/notes",
+    request,
   )
   return response.data
 }
@@ -60,7 +60,7 @@ export async function createDriverNote(
  */
 export async function getRecordNotes(recordId: string): Promise<GetRecordNotesResponse> {
   const response = await apiClient.get<GetRecordNotesResponse>(
-    `${API_ENDPOINTS.ELD_NOTES || '/eld/notes'}/${recordId}`
+    `${API_ENDPOINTS.ELD_NOTES || "/eld/notes"}/${recordId}`,
   )
   return response.data
 }
@@ -70,7 +70,7 @@ export async function getRecordNotes(recordId: string): Promise<GetRecordNotesRe
  */
 export async function getDriverNotes(driverId: string): Promise<GetRecordNotesResponse> {
   const response = await apiClient.get<GetRecordNotesResponse>(
-    `${API_ENDPOINTS.ELD_NOTES || '/eld/notes'}/driver/${driverId}`
+    `${API_ENDPOINTS.ELD_NOTES || "/eld/notes"}/driver/${driverId}`,
   )
   return response.data
 }
@@ -78,10 +78,11 @@ export async function getDriverNotes(driverId: string): Promise<GetRecordNotesRe
 /**
  * Delete a driver note
  */
-export async function deleteDriverNote(noteId: string): Promise<{ success: boolean; message: string }> {
+export async function deleteDriverNote(
+  noteId: string,
+): Promise<{ success: boolean; message: string }> {
   const response = await apiClient.delete<{ success: boolean; message: string }>(
-    `${API_ENDPOINTS.ELD_NOTES || '/eld/notes'}/${noteId}`
+    `${API_ENDPOINTS.ELD_NOTES || "/eld/notes"}/${noteId}`,
   )
   return response.data
 }
-

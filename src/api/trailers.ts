@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
 import { apiClient, ApiError } from "./client"
 import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
@@ -10,9 +11,9 @@ export interface Trailer {
   id: string
   asset_id: string
   name: string
-  asset_type: 'trailer'
-  trailer_type: string  // dry_van/refrigerated/flatbed/tanker/etc.
-  status?: string  // active/inactive
+  asset_type: "trailer"
+  trailer_type: string // dry_van/refrigerated/flatbed/tanker/etc.
+  status?: string // active/inactive
   make?: string
   model?: string
   year?: number
@@ -31,10 +32,10 @@ export interface Trailer {
 }
 
 export interface CreateTrailerRequest {
-  asset_id: string  // Required, unique
-  name: string  // Required
-  asset_type: 'trailer'  // Required, must be "trailer"
-  trailer_type: string  // Required: dry_van/refrigerated/flatbed/tanker/etc.
+  asset_id: string // Required, unique
+  name: string // Required
+  asset_type: "trailer" // Required, must be "trailer"
+  trailer_type: string // Required: dry_van/refrigerated/flatbed/tanker/etc.
   status?: string
   make?: string
   model?: string
@@ -59,27 +60,27 @@ export interface TrailerAssignment {
   trailer: string
   trailer_asset_id?: string
   assigned_by?: string
-  start_time: string  // ISO 8601
+  start_time: string // ISO 8601
   end_time?: string | null
-  status: string  // active/inactive
+  status: string // active/inactive
   is_primary?: boolean
   notes?: string
   created_at?: string
 }
 
 export interface CreateTrailerAssignmentRequest {
-  driver: string  // UUID, required
-  trailer: string  // UUID, required
-  start_time: string  // ISO 8601 datetime, required
-  assigned_by?: string  // UUID
-  status?: string  // default: "active"
+  driver: string // UUID, required
+  trailer: string // UUID, required
+  start_time: string // ISO 8601 datetime, required
+  assigned_by?: string // UUID
+  status?: string // default: "active"
   is_primary?: boolean
   notes?: string
 }
 
 export interface UpdateTrailerAssignmentRequest {
-  status?: string  // 'active' | 'inactive'
-  end_time?: string  // ISO 8601 datetime
+  status?: string // 'active' | 'inactive'
+  end_time?: string // ISO 8601 datetime
   notes?: string
 }
 
@@ -97,7 +98,7 @@ export const trailersApi = {
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to create trailer', status: 400 })
+    throw new ApiError({ message: "Failed to create trailer", status: 400 })
   },
 
   /**
@@ -109,7 +110,7 @@ export const trailersApi = {
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to assign trailer', status: 400 })
+    throw new ApiError({ message: "Failed to assign trailer", status: 400 })
   },
 
   /**
@@ -122,19 +123,19 @@ export const trailersApi = {
     trailer?: string
   }): Promise<TrailerAssignment[]> {
     let endpoint = API_ENDPOINTS.TRAILERS.GET_ASSIGNMENTS
-    
+
     if (params) {
       const queryParams = new URLSearchParams()
-      if (params.driver) queryParams.append('driver', params.driver)
-      if (params.status) queryParams.append('status', params.status)
-      if (params.trailer) queryParams.append('trailer', params.trailer)
-      
+      if (params.driver) queryParams.append("driver", params.driver)
+      if (params.status) queryParams.append("status", params.status)
+      if (params.trailer) queryParams.append("trailer", params.trailer)
+
       const queryString = queryParams.toString()
       if (queryString) {
         endpoint += `?${queryString}`
       }
     }
-    
+
     const response = await apiClient.get<TrailerAssignment[]>(endpoint)
     if (response.success && response.data) {
       if (Array.isArray(response.data)) {
@@ -145,7 +146,7 @@ export const trailersApi = {
       }
       return []
     }
-    throw new ApiError({ message: 'Failed to get trailer assignments', status: 400 })
+    throw new ApiError({ message: "Failed to get trailer assignments", status: 400 })
   },
 
   /**
@@ -154,14 +155,14 @@ export const trailersApi = {
    */
   async updateTrailerAssignment(
     assignmentId: string,
-    data: UpdateTrailerAssignmentRequest
+    data: UpdateTrailerAssignmentRequest,
   ): Promise<TrailerAssignment> {
-    const endpoint = API_ENDPOINTS.TRAILERS.UPDATE_ASSIGNMENT.replace('{id}', assignmentId)
+    const endpoint = API_ENDPOINTS.TRAILERS.UPDATE_ASSIGNMENT.replace("{id}", assignmentId)
     const response = await apiClient.patch<TrailerAssignment>(endpoint, data)
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to update trailer assignment', status: 400 })
+    throw new ApiError({ message: "Failed to update trailer assignment", status: 400 })
   },
 
   /**
@@ -170,7 +171,7 @@ export const trailersApi = {
    */
   async removeTrailerAssignment(assignmentId: string): Promise<TrailerAssignment> {
     return this.updateTrailerAssignment(assignmentId, {
-      status: 'inactive',
+      status: "inactive",
       end_time: new Date().toISOString(),
     })
   },
@@ -192,7 +193,7 @@ export const useCreateTrailer = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TRAILERS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to create trailer:', error)
+      console.error("Failed to create trailer:", error)
     },
   })
 }
@@ -209,7 +210,7 @@ export const useAssignTrailer = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TRAILER_ASSIGNMENTS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to assign trailer:', error)
+      console.error("Failed to assign trailer:", error)
     },
   })
 }
@@ -217,16 +218,19 @@ export const useAssignTrailer = () => {
 /**
  * Hook: Get Trailer Assignments
  */
-export const useTrailerAssignments = (params?: {
-  driver?: string
-  status?: string
-  trailer?: string
-}, options?: { enabled?: boolean }) => {
+export const useTrailerAssignments = (
+  params?: {
+    driver?: string
+    status?: string
+    trailer?: string
+  },
+  options?: { enabled?: boolean },
+) => {
   return useQuery({
     queryKey: [...QUERY_KEYS.TRAILER_ASSIGNMENTS, params],
     queryFn: () => trailersApi.getTrailerAssignments(params),
     enabled: options?.enabled !== false,
-    staleTime: 30 * 1000,  // 30 seconds
+    staleTime: 30 * 1000, // 30 seconds
   })
 }
 
@@ -242,7 +246,7 @@ export const useRemoveTrailer = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TRAILER_ASSIGNMENTS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to remove trailer assignment:', error)
+      console.error("Failed to remove trailer assignment:", error)
     },
   })
 }

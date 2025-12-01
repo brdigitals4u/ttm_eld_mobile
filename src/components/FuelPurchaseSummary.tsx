@@ -1,7 +1,8 @@
-import React, { useMemo, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
-import { Receipt, Fuel, DollarSign } from 'lucide-react-native'
-import { useAppTheme } from '@/theme/context'
+import React, { useMemo, useCallback } from "react"
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
+import { Receipt, Fuel, DollarSign } from "lucide-react-native"
+
+import { useAppTheme } from "@/theme/context"
 
 interface FuelPurchaseSummaryProps {
   summary: {
@@ -10,16 +11,16 @@ interface FuelPurchaseSummaryProps {
     total_amount: number
     currency: string
   }
-  onTilePress?: (type: 'transactions' | 'fuel' | 'total') => void
-  sortBy?: 'transactions' | 'fuel' | 'total' | null
+  onTilePress?: (type: "transactions" | "fuel" | "total") => void
+  sortBy?: "transactions" | "fuel" | "total" | null
 }
 
 // Memoized formatters
-const formatCurrency = (amount: number, currency: string = 'USD'): string => {
+const formatCurrency = (amount: number, currency: string = "USD"): string => {
   const num = Number(amount) || 0
   try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
       currency: currency.toUpperCase(),
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
@@ -58,12 +59,8 @@ const SummaryTile: React.FC<SummaryTileProps> = ({
       style={[
         styles.tile,
         {
-          backgroundColor: isDark ? '#181B20' : '#F9FAFB',
-          borderColor: isSelected
-            ? colors.tint
-            : isDark
-            ? '#242830'
-            : 'rgba(0,0,0,0.06)',
+          backgroundColor: isDark ? "#181B20" : "#F9FAFB",
+          borderColor: isSelected ? colors.tint : isDark ? "#242830" : "rgba(0,0,0,0.06)",
         },
       ]}
       onPress={onPress}
@@ -90,32 +87,26 @@ export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
   const { colors, isDark } = theme
 
   // Memoize computed values
-  const gallons = useMemo(
-    () => litersToGallons(summary.total_liters),
-    [summary.total_liters]
-  )
+  const gallons = useMemo(() => litersToGallons(summary.total_liters), [summary.total_liters])
 
   const totalAmount = useMemo(
     () => formatCurrency(summary.total_amount, summary.currency),
-    [summary.total_amount, summary.currency]
+    [summary.total_amount, summary.currency],
   )
 
-  const transactions = useMemo(
-    () => summary.total_purchases.toString(),
-    [summary.total_purchases]
-  )
+  const transactions = useMemo(() => summary.total_purchases.toString(), [summary.total_purchases])
 
   // Handlers
   const handleTransactionsPress = useCallback(() => {
-    onTilePress?.('transactions')
+    onTilePress?.("transactions")
   }, [onTilePress])
 
   const handleFuelPress = useCallback(() => {
-    onTilePress?.('fuel')
+    onTilePress?.("fuel")
   }, [onTilePress])
 
   const handleTotalPress = useCallback(() => {
-    onTilePress?.('total')
+    onTilePress?.("total")
   }, [onTilePress])
 
   return (
@@ -123,8 +114,8 @@ export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#101215' : '#F9FAFB',
-          borderBottomColor: isDark ? '#242830' : 'rgba(0,0,0,0.06)',
+          backgroundColor: isDark ? "#101215" : "#F9FAFB",
+          borderBottomColor: isDark ? "#242830" : "rgba(0,0,0,0.06)",
         },
       ]}
     >
@@ -133,7 +124,7 @@ export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
           icon={Receipt}
           label="TRANSACTIONS"
           value={transactions}
-          isSelected={sortBy === 'transactions'}
+          isSelected={sortBy === "transactions"}
           onPress={handleTransactionsPress}
           colors={colors}
           isDark={isDark}
@@ -142,7 +133,7 @@ export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
           icon={Fuel}
           label="FUEL"
           value={`${gallons} gal`}
-          isSelected={sortBy === 'fuel'}
+          isSelected={sortBy === "fuel"}
           onPress={handleFuelPress}
           colors={colors}
           isDark={isDark}
@@ -151,7 +142,7 @@ export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
           icon={DollarSign}
           label="TOTAL"
           value={totalAmount}
-          isSelected={sortBy === 'total'}
+          isSelected={sortBy === "total"}
           onPress={handleTotalPress}
           colors={colors}
           isDark={isDark}
@@ -163,43 +154,43 @@ export const FuelPurchaseSummary: React.FC<FuelPurchaseSummaryProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    borderBottomWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  tilesContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  tile: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 6,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
+    alignItems: "center",
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 36,
+    justifyContent: "center",
     marginBottom: 4,
+    width: 36,
   },
-  tileValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    lineHeight: 26,
+  tile: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    gap: 6,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 14,
   },
   tileLabel: {
     fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontWeight: "700",
     letterSpacing: 0.5,
     marginTop: -2,
+    textTransform: "uppercase",
+  },
+  tileValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    lineHeight: 26,
+  },
+  tilesContainer: {
+    flexDirection: "row",
+    gap: 10,
   },
 })

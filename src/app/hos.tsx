@@ -1,7 +1,7 @@
-import React from 'react'
-import { HOSScreen } from '@/screens/HOSScreen'
+import React from "react"
+
+import { HOSScreen } from "@/screens/HOSScreen"
 
 export default function HOSPage() {
   return <HOSScreen />
 }
-

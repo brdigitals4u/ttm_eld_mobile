@@ -3,7 +3,7 @@
  * Provides secure access to API keys and sensitive configuration stored in native Android Keystore
  */
 
-import { NativeModules, Platform } from 'react-native'
+import { NativeModules, Platform } from "react-native"
 
 const { SecureConfig } = NativeModules
 
@@ -33,7 +33,7 @@ class SecureConfigService {
    * Should be called early in app lifecycle
    */
   async initialize(): Promise<void> {
-    if (this.initialized || Platform.OS !== 'android') {
+    if (this.initialized || Platform.OS !== "android") {
       return
     }
 
@@ -42,7 +42,7 @@ class SecureConfigService {
       await Promise.all([this.loadFreshchatConfig(), this.loadAwsConfig()])
       this.initialized = true
     } catch (error) {
-      console.error('[SecureConfig] Failed to initialize:', error)
+      console.error("[SecureConfig] Failed to initialize:", error)
       // Fallback to environment variables or defaults
     }
   }
@@ -54,9 +54,9 @@ class SecureConfigService {
     if (!SecureConfig) {
       // Fallback to environment variables
       this.freshchatConfig = {
-        appId: process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || '',
-        appKey: process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || '',
-        domain: process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || '',
+        appId: process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || "",
+        appKey: process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || "",
+        domain: process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || "",
       }
       return
     }
@@ -65,12 +65,12 @@ class SecureConfigService {
       const config = await SecureConfig.getFreshchatConfig()
       this.freshchatConfig = config
     } catch (error) {
-      console.warn('[SecureConfig] Failed to load Freshchat config, using fallback:', error)
+      console.warn("[SecureConfig] Failed to load Freshchat config, using fallback:", error)
       // Fallback to environment variables
       this.freshchatConfig = {
-        appId: process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || '',
-        appKey: process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || '',
-        domain: process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || '',
+        appId: process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || "",
+        appKey: process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || "",
+        domain: process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || "",
       }
     }
   }
@@ -83,11 +83,11 @@ class SecureConfigService {
       // Fallback to hardcoded values (will be obfuscated)
       this.awsConfig = {
         apiGateway: {
-          baseUrl: 'https://oy47qb63f3.execute-api.us-east-1.amazonaws.com',
+          baseUrl: "https://oy47qb63f3.execute-api.us-east-1.amazonaws.com",
         },
         cognito: {
-          userPoolId: 'us-east-1_JEeMFBWHc',
-          clientId: '3r6e3uq1motr9n3u5b4uonm9th',
+          userPoolId: "us-east-1_JEeMFBWHc",
+          clientId: "3r6e3uq1motr9n3u5b4uonm9th",
         },
       }
       return
@@ -97,15 +97,15 @@ class SecureConfigService {
       const config = await SecureConfig.getAwsConfig()
       this.awsConfig = config
     } catch (error) {
-      console.warn('[SecureConfig] Failed to load AWS config, using fallback:', error)
+      console.warn("[SecureConfig] Failed to load AWS config, using fallback:", error)
       // Fallback to hardcoded values (will be obfuscated)
       this.awsConfig = {
         apiGateway: {
-          baseUrl: 'https://oy47qb63f3.execute-api.us-east-1.amazonaws.com',
+          baseUrl: "https://oy47qb63f3.execute-api.us-east-1.amazonaws.com",
         },
         cognito: {
-          userPoolId: 'us-east-1_JEeMFBWHc',
-          clientId: '3r6e3uq1motr9n3u5b4uonm9th',
+          userPoolId: "us-east-1_JEeMFBWHc",
+          clientId: "3r6e3uq1motr9n3u5b4uonm9th",
         },
       }
     }
@@ -118,9 +118,9 @@ class SecureConfigService {
     if (!this.freshchatConfig) {
       // Return fallback if not initialized
       return {
-        appId: process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || '',
-        appKey: process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || '',
-        domain: process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || '',
+        appId: process.env.EXPO_PUBLIC_FRESHCHAT_APP_ID || "",
+        appKey: process.env.EXPO_PUBLIC_FRESHCHAT_APP_KEY || "",
+        domain: process.env.EXPO_PUBLIC_FRESHCHAT_DOMAIN || "",
       }
     }
     return this.freshchatConfig
@@ -134,11 +134,11 @@ class SecureConfigService {
       // Return fallback if not initialized
       return {
         apiGateway: {
-          baseUrl: 'https://oy47qb63f3.execute-api.us-east-1.amazonaws.com',
+          baseUrl: "https://oy47qb63f3.execute-api.us-east-1.amazonaws.com",
         },
         cognito: {
-          userPoolId: 'us-east-1_JEeMFBWHc',
-          clientId: '3r6e3uq1motr9n3u5b4uonm9th',
+          userPoolId: "us-east-1_JEeMFBWHc",
+          clientId: "3r6e3uq1motr9n3u5b4uonm9th",
         },
       }
     }
@@ -150,7 +150,7 @@ class SecureConfigService {
    * This should only be called during app initialization
    */
   async setSecureValue(key: string, value: string): Promise<boolean> {
-    if (!SecureConfig || Platform.OS !== 'android') {
+    if (!SecureConfig || Platform.OS !== "android") {
       return false
     }
 
@@ -158,7 +158,7 @@ class SecureConfigService {
       await SecureConfig.setSecureValue(key, value)
       return true
     } catch (error) {
-      console.error('[SecureConfig] Failed to set secure value:', error)
+      console.error("[SecureConfig] Failed to set secure value:", error)
       return false
     }
   }
@@ -166,19 +166,18 @@ class SecureConfigService {
   /**
    * Get a secure value by key
    */
-  async getSecureValue(key: string, defaultValue: string = ''): Promise<string> {
-    if (!SecureConfig || Platform.OS !== 'android') {
+  async getSecureValue(key: string, defaultValue: string = ""): Promise<string> {
+    if (!SecureConfig || Platform.OS !== "android") {
       return defaultValue
     }
 
     try {
       return await SecureConfig.getSecureValue(key, defaultValue)
     } catch (error) {
-      console.error('[SecureConfig] Failed to get secure value:', error)
+      console.error("[SecureConfig] Failed to get secure value:", error)
       return defaultValue
     }
   }
 }
 
 export const secureConfigService = new SecureConfigService()
-

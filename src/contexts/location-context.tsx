@@ -1,15 +1,10 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  ReactNode,
-} from 'react'
-import { Platform } from 'react-native'
-import * as Location from 'expo-location'
-import { useStatusStore } from '@/stores/statusStore'
-import { usePermissions } from './permissions-context'
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react"
+import { Platform } from "react-native"
+import * as Location from "expo-location"
+
+import { useStatusStore } from "@/stores/statusStore"
+
+import { usePermissions } from "./permissions-context"
 
 export interface LocationData {
   latitude: number
@@ -42,7 +37,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   const [hasPermission, setHasPermission] = useState(false)
   const hasFetchedAfterPermission = useRef(false)
   const { permissions } = usePermissions()
-  const locationPermissionState = permissions.find((permission) => permission.name === 'location')
+  const locationPermissionState = permissions.find((permission) => permission.name === "location")
 
   // Request location permission on mount - but only when needed
   useEffect(() => {
@@ -56,35 +51,35 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       const foreground = await Location.requestForegroundPermissionsAsync()
       let backgroundStatus: Location.PermissionStatus | undefined
 
-      if (foreground.status === 'granted') {
+      if (foreground.status === "granted") {
         try {
           const background = await Location.requestBackgroundPermissionsAsync()
           backgroundStatus = background.status
         } catch (err) {
-          console.warn('Background location permission request failed:', err)
+          console.warn("Background location permission request failed:", err)
         }
       }
 
       const granted =
-        backgroundStatus === 'granted' ||
-        (!backgroundStatus && foreground.status === 'granted' && Platform.OS === 'web')
+        backgroundStatus === "granted" ||
+        (!backgroundStatus && foreground.status === "granted" && Platform.OS === "web")
 
       if (granted) {
-        console.log('Location permission granted (foreground/background)')
+        console.log("Location permission granted (foreground/background)")
         setHasPermission(true)
         setError(null)
       } else {
         const reason =
-          backgroundStatus && backgroundStatus !== 'granted'
-            ? 'Background location permission denied'
-            : 'Location permission denied'
+          backgroundStatus && backgroundStatus !== "granted"
+            ? "Background location permission denied"
+            : "Location permission denied"
         console.warn(reason)
         setError(reason)
         setHasPermission(false)
       }
     } catch (err) {
-      console.warn('Location permission request failed:', err)
-      setError('Failed to request location permission')
+      console.warn("Location permission request failed:", err)
+      setError("Failed to request location permission")
       setHasPermission(false)
     }
   }
@@ -96,7 +91,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
     if (!permissionGranted) {
       await requestLocationPermission()
       if (!hasPermission && !locationPermissionState?.granted) {
-        setError('Location permission not granted')
+        setError("Location permission not granted")
         return null
       }
     }
@@ -111,13 +106,13 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       })
 
       // Reverse geocode to get address
-      let address = 'Current Location'
+      let address = "Current Location"
       try {
         const reverseGeocode = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         })
-        console.log('Reverse geocode result:', reverseGeocode)
+        console.log("Reverse geocode result:", reverseGeocode)
         if (reverseGeocode && reverseGeocode.length > 0) {
           const addr = reverseGeocode[0]
           const addressParts = [
@@ -129,9 +124,9 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
             addr.postalCode,
             addr.country,
           ].filter(Boolean)
-          
+
           if (addressParts.length > 0) {
-            address = addressParts.join(', ')
+            address = addressParts.join(", ")
           } else {
             // Fallback to coordinates if no address parts
             address = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
@@ -141,7 +136,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
           address = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
         }
       } catch (geocodeError) {
-        console.warn('Reverse geocoding failed:', geocodeError)
+        console.warn("Reverse geocoding failed:", geocodeError)
         // Fallback to coordinates on error
         address = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`
       }
@@ -163,11 +158,15 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         address: locationData.address,
       })
       setIsLoading(false)
-      console.log('📍 Location Context: Stored expo-location:', locationData.latitude, locationData.longitude)
+      console.log(
+        "📍 Location Context: Stored expo-location:",
+        locationData.latitude,
+        locationData.longitude,
+      )
       return locationData
     } catch (error: any) {
-      console.error('Error getting current location:', error)
-      setError(error.message || 'Failed to get current location')
+      console.error("Error getting current location:", error)
+      setError(error.message || "Failed to get current location")
       setIsLoading(false)
       return null
     }
@@ -185,7 +184,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       if (!hasFetchedAfterPermission.current) {
         hasFetchedAfterPermission.current = true
         getCurrentLocation().catch((err) => {
-          console.warn('Failed to get location after permission granted:', err)
+          console.warn("Failed to get location after permission granted:", err)
         })
       }
     } else if (locationPermissionState && !locationPermissionState.granted) {
@@ -208,7 +207,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 export const useLocation = (): LocationContextType => {
   const context = useContext(LocationContext)
   if (context === undefined) {
-    throw new Error('useLocation must be used within a LocationProvider')
+    throw new Error("useLocation must be used within a LocationProvider")
   }
   return context
 }

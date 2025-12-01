@@ -10,13 +10,13 @@ import { View, StyleSheet, TouchableOpacity, FlatList, ListRenderItem } from "re
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet"
 import { format } from "date-fns"
 import { User, CheckCircle, X, AlertCircle } from "lucide-react-native"
+import { TextInput } from "react-native-paper"
 
-import { useAuth } from "@/stores/authStore"
-import { colors } from "@/theme/colors"
 import { translate } from "@/i18n/translate"
+import { useAuth } from "@/stores/authStore"
+import { useAppTheme } from "@/theme/context"
 
 import { Text } from "./Text"
-import { TextInput } from "react-native-paper"
 
 export interface UnidentifiedDriverRecord {
   id: string
@@ -44,10 +44,184 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
   onDismiss,
   onReassign,
 }) => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const bottomSheetRef = useRef<BottomSheetModal>(null)
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set())
   const [annotation, setAnnotation] = useState("")
   const [isReassigning, setIsReassigning] = useState(false)
+
+  // Dynamic styles based on theme
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        annotationCharCount: {
+          color: colors.textDim,
+          fontSize: 12,
+          textAlign: "right",
+        },
+        annotationContainer: {
+          marginBottom: 16,
+        },
+        annotationInput: {
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.border,
+          borderRadius: 8,
+          borderWidth: 1,
+          color: colors.text,
+          fontSize: 14,
+          marginBottom: 4,
+          minHeight: 80,
+          padding: 12,
+          textAlignVertical: "top",
+        },
+        annotationLabel: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "600",
+          marginBottom: 8,
+        },
+        button: {
+          alignItems: "center",
+          borderRadius: 8,
+          flex: 1,
+          flexDirection: "row",
+          gap: 8,
+          justifyContent: "center",
+          padding: 16,
+        },
+        buttonContainer: {
+          flexDirection: "row",
+          gap: 12,
+        },
+        cancelButton: {
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.border,
+          borderWidth: 1,
+        },
+        cancelButtonText: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+        },
+        checkboxEmpty: {
+          borderColor: colors.border,
+          borderRadius: 12,
+          borderWidth: 2,
+          height: 24,
+          width: 24,
+        },
+        content: {
+          flex: 1,
+          padding: 24,
+        },
+        handleIndicator: {
+          backgroundColor: colors.border,
+        },
+        header: {
+          alignItems: "center",
+          marginBottom: 24,
+        },
+        infoBox: {
+          alignItems: "flex-start",
+          backgroundColor: colors.sectionBackground,
+          borderRadius: 8,
+          flexDirection: "row",
+          gap: 8,
+          marginBottom: 16,
+          padding: 12,
+        },
+        infoText: {
+          color: colors.textDim,
+          flex: 1,
+          fontSize: 12,
+          lineHeight: 18,
+        },
+        missingFieldsContainer: {
+          marginTop: 4,
+        },
+        missingFieldsLabel: {
+          color: colors.textDim,
+          fontSize: 11,
+          fontWeight: "600",
+        },
+        missingFieldsText: {
+          color: colors.error,
+          fontSize: 11,
+          marginTop: 2,
+        },
+        modalBackground: {
+          backgroundColor: colors.cardBackground,
+        },
+        reassignButton: {
+          backgroundColor: colors.tint,
+        },
+        reassignButtonDisabled: {
+          backgroundColor: colors.border,
+          opacity: 0.5,
+        },
+        reassignButtonText: {
+          color: colors.cardBackground,
+          fontSize: 16,
+          fontWeight: "600",
+        },
+        recordCard: {
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.border,
+          borderRadius: 8,
+          borderWidth: 1,
+          flexDirection: "row",
+          marginBottom: 8,
+          padding: 12,
+        },
+        recordCardSelected: {
+          backgroundColor: colors.palette.primary100,
+          borderColor: colors.tint,
+        },
+        recordCheckbox: {
+          justifyContent: "center",
+          marginRight: 12,
+        },
+        recordContent: {
+          flex: 1,
+        },
+        recordLocation: {
+          color: colors.textDim,
+          fontSize: 11,
+          marginTop: 4,
+        },
+        recordTime: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "600",
+          marginBottom: 4,
+        },
+        recordType: {
+          color: colors.textDim,
+          fontSize: 12,
+          marginBottom: 4,
+        },
+        recordsList: {
+          flex: 1,
+          marginBottom: 16,
+        },
+        recordsListContent: {
+          paddingBottom: 8,
+        },
+        subtitle: {
+          color: colors.textDim,
+          fontSize: 14,
+          marginTop: 4,
+        },
+        title: {
+          color: colors.text,
+          fontSize: 24,
+          fontWeight: "bold",
+          marginTop: 12,
+        },
+      }),
+    [colors],
+  )
   const { driverProfile } = useAuth()
 
   const snapPoints = useMemo(() => ["85%"], [])
@@ -67,11 +241,11 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
   const toggleRecord = useCallback((recordId: string) => {
     setSelectedRecords((prev) => {
       const newSelected = new Set(prev)
-    if (newSelected.has(recordId)) {
-      newSelected.delete(recordId)
-    } else {
-      newSelected.add(recordId)
-    }
+      if (newSelected.has(recordId)) {
+        newSelected.delete(recordId)
+      } else {
+        newSelected.add(recordId)
+      }
       return newSelected
     })
   }, [])
@@ -104,9 +278,7 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
                 <Text style={styles.missingFieldsLabel}>
                   {translate("eld.unidentified.missing" as any)}
                 </Text>
-                <Text style={styles.missingFieldsText}>
-                  {record.missingFields.join(", ")}
-                </Text>
+                <Text style={styles.missingFieldsText}>{record.missingFields.join(", ")}</Text>
               </View>
             )}
             {record.location && (
@@ -119,7 +291,7 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
         </TouchableOpacity>
       )
     },
-    [selectedRecords, toggleRecord]
+    [selectedRecords, toggleRecord],
   )
 
   const keyExtractor = useCallback((item: UnidentifiedDriverRecord) => item.id, [])
@@ -132,7 +304,7 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
       offset: ITEM_HEIGHT * index,
       index,
     }),
-    []
+    [],
   )
 
   const handleReassign = async () => {
@@ -267,170 +439,3 @@ export const UnidentifiedDriverReassignment: React.FC<UnidentifiedDriverReassign
     </BottomSheetModal>
   )
 }
-
-const styles = StyleSheet.create({
-  annotationCharCount: {
-    color: colors.light?.textSecondary || colors.text,
-    fontSize: 12,
-    textAlign: "right",
-  },
-  annotationContainer: {
-    marginBottom: 16,
-  },
-  annotationInput: {
-    backgroundColor: colors.cardBackground,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: colors.text,
-    fontSize: 14,
-    marginBottom: 4,
-    minHeight: 80,
-    padding: 12,
-    textAlignVertical: "top",
-  },
-  annotationLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  button: {
-    alignItems: "center",
-    borderRadius: 8,
-    flex: 1,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    padding: 16,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  cancelButton: {
-    backgroundColor: colors.cardBackground,
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  checkboxEmpty: {
-    borderColor: colors.border,
-    borderRadius: 12,
-    borderWidth: 2,
-    height: 24,
-    width: 24,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  handleIndicator: {
-    backgroundColor: colors.border,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  infoBox: {
-    alignItems: "flex-start",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 8,
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-    padding: 12,
-  },
-  infoText: {
-    color: colors.light?.textSecondary || colors.text,
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  missingFieldsContainer: {
-    marginTop: 4,
-  },
-  missingFieldsLabel: {
-    color: colors.light?.textSecondary || colors.text,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  missingFieldsText: {
-    color: "#DC2626",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  modalBackground: {
-    backgroundColor: colors.cardBackground,
-  },
-  reassignButton: {
-    backgroundColor: colors.tint,
-  },
-  reassignButtonDisabled: {
-    backgroundColor: colors.border,
-    opacity: 0.5,
-  },
-  reassignButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  recordCard: {
-    backgroundColor: colors.cardBackground,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: "row",
-    marginBottom: 8,
-    padding: 12,
-  },
-  recordCardSelected: {
-    backgroundColor: "#F0F4FF",
-    borderColor: colors.tint,
-  },
-  recordCheckbox: {
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  recordContent: {
-    flex: 1,
-  },
-  recordLocation: {
-    color: colors.light?.textSecondary || colors.text,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  recordTime: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  recordType: {
-    color: colors.light?.textSecondary || colors.text,
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  recordsList: {
-    flex: 1,
-    marginBottom: 16,
-  },
-  recordsListContent: {
-    paddingBottom: 8,
-  },
-  subtitle: {
-    color: colors.light?.textSecondary || colors.text,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 12,
-  },
-})

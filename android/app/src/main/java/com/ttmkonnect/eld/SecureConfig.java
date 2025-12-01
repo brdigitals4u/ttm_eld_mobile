@@ -2,8 +2,6 @@ package com.ttmkonnect.eld;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 import java.io.IOException;
@@ -15,7 +13,6 @@ import java.security.GeneralSecurityException;
  */
 public class SecureConfig {
     private static final String PREFS_NAME = "secure_config";
-    private static final String MASTER_KEY_ALIAS = "_secure_config_key";
     
     private static SharedPreferences encryptedPrefs;
     
@@ -28,18 +25,10 @@ public class SecureConfig {
         }
         
         try {
-            // Create or retrieve master key
-            KeyGenParameterSpec keyGenParameterSpec = new KeyGenParameterSpec.Builder(
-                MASTER_KEY_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
-            )
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setKeySize(256)
-                .build();
-            
+            // Create or retrieve master key using default MasterKey behavior
+            // This uses the default alias and avoids key alias conflicts
             MasterKey masterKey = new MasterKey.Builder(context)
-                .setKeyGenParameterSpec(keyGenParameterSpec)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build();
             
             // Create encrypted shared preferences
@@ -128,4 +117,5 @@ public class SecureConfig {
         }
     }
 }
+
 

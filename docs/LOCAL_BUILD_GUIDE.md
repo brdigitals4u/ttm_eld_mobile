@@ -208,3 +208,4 @@ adb install android/app/build/outputs/apk/release/app-release.apk
 cd android && ./gradlew bundleRelease --info | tee build.log && cd ..
 ```
 
+

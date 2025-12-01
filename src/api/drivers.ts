@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
 import { apiClient, ApiError } from "./client"
 import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
@@ -26,15 +27,16 @@ export interface DriversListResponse {
 }
 
 export interface CreateCoDriverEventRequest {
-  driver: string  // Primary driver UUID, required
-  vehicle: number  // Vehicle ID, required
-  event_type: 'co_driver_login' | 'co_driver_logout'  // Required
-  event_time: string  // ISO 8601 datetime, required
+  driver: string // Primary driver UUID, required
+  vehicle: number // Vehicle ID, required
+  event_type: "co_driver_login" | "co_driver_logout" // Required
+  event_time: string // ISO 8601 datetime, required
   event_location?: string
   remark?: string
-  event_data: {  // Required
-    co_driver_id: string  // Co-driver UUID
-    co_driver_name: string  // Co-driver name
+  event_data: {
+    // Required
+    co_driver_id: string // Co-driver UUID
+    co_driver_name: string // Co-driver name
   }
 }
 
@@ -72,21 +74,24 @@ export const driversApi = {
       }
       return []
     }
-    throw new ApiError({ message: 'Failed to get drivers', status: 400 })
+    throw new ApiError({ message: "Failed to get drivers", status: 400 })
   },
 
   /**
    * Create Co-Driver Event (Login/Logout)
    * POST /api/hos/eld-events/
-   * 
+   *
    * This creates an ELD event for co-driver login or logout
    */
   async createCoDriverEvent(data: CreateCoDriverEventRequest): Promise<ELDEventResponse> {
-    const response = await apiClient.post<ELDEventResponse>(API_ENDPOINTS.DRIVERS.CREATE_CO_DRIVER_EVENT, data)
+    const response = await apiClient.post<ELDEventResponse>(
+      API_ENDPOINTS.DRIVERS.CREATE_CO_DRIVER_EVENT,
+      data,
+    )
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to create co-driver event', status: 400 })
+    throw new ApiError({ message: "Failed to create co-driver event", status: 400 })
   },
 }
 
@@ -103,13 +108,13 @@ export const useDrivers = (options?: { enabled?: boolean }) => {
     queryKey: QUERY_KEYS.DRIVERS,
     queryFn: driversApi.getDrivers,
     enabled: options?.enabled !== false,
-    staleTime: 5 * 60 * 1000,  // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
 /**
  * Hook: Create Co-Driver Event
- * 
+ *
  * Call this on screen-specific basis (e.g., when user logs in/out a co-driver)
  */
 export const useCreateCoDriverEvent = () => {
@@ -119,11 +124,11 @@ export const useCreateCoDriverEvent = () => {
     mutationFn: driversApi.createCoDriverEvent,
     onSuccess: () => {
       // Invalidate HOS logs to reflect co-driver events
-      queryClient.invalidateQueries({ queryKey: ['hos_logs'] })
+      queryClient.invalidateQueries({ queryKey: ["hos_logs"] })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.HOS_CLOCKS })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to create co-driver event:', error)
+      console.error("Failed to create co-driver event:", error)
     },
   })
 }

@@ -6,7 +6,7 @@ let storage: MMKV | null = null
 try {
   storage = new MMKV()
 } catch (error) {
-  console.warn('MMKV initialization failed, using fallback:', error)
+  console.warn("MMKV initialization failed, using fallback:", error)
   storage = null
 }
 

@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiClient, ApiError } from './client'
-import { API_ENDPOINTS, QUERY_KEYS } from './constants'
+import { useQuery } from "@tanstack/react-query"
+
+import { apiClient, ApiError } from "./client"
+import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
 // Dashboard data interfaces
 export interface DashboardStats {
@@ -14,7 +15,7 @@ export interface DashboardStats {
 
 export interface ActivityItem {
   id: string
-  type: 'login' | 'registration' | 'profile_update' | 'password_change'
+  type: "login" | "registration" | "profile_update" | "password_change"
   description: string
   timestamp: Date
   userId: string
@@ -25,7 +26,7 @@ export interface NotificationItem {
   id: string
   title: string
   message: string
-  type: 'info' | 'warning' | 'error' | 'success'
+  type: "info" | "warning" | "error" | "success"
   isRead: boolean
   timestamp: Date
   actionUrl?: string
@@ -36,42 +37,42 @@ export const dashboardApi = {
   // Get dashboard statistics
   async getStats(): Promise<DashboardStats> {
     const response = await apiClient.get<DashboardStats>(API_ENDPOINTS.DASHBOARD.STATS)
-    
+
     if (!response.success || !response.data) {
       throw new ApiError({
-        message: response.message || 'Failed to fetch dashboard stats',
+        message: response.message || "Failed to fetch dashboard stats",
         status: 500,
       })
     }
-    
+
     return response.data
   },
 
   // Get recent activity
   async getRecentActivity(): Promise<ActivityItem[]> {
     const response = await apiClient.get<ActivityItem[]>(API_ENDPOINTS.DASHBOARD.RECENT_ACTIVITY)
-    
+
     if (!response.success || !response.data) {
       throw new ApiError({
-        message: response.message || 'Failed to fetch recent activity',
+        message: response.message || "Failed to fetch recent activity",
         status: 500,
       })
     }
-    
+
     return response.data
   },
 
   // Get notifications
   async getNotifications(): Promise<NotificationItem[]> {
     const response = await apiClient.get<NotificationItem[]>(API_ENDPOINTS.DASHBOARD.NOTIFICATIONS)
-    
+
     if (!response.success || !response.data) {
       throw new ApiError({
-        message: response.message || 'Failed to fetch notifications',
+        message: response.message || "Failed to fetch notifications",
         status: 500,
       })
     }
-    
+
     return response.data
   },
 }

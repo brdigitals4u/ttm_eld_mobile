@@ -7,6 +7,7 @@ import {
   BackgroundFetchOptions,
 } from "expo-background-fetch"
 import * as TaskManager from "expo-task-manager"
+
 import { runBackgroundSync } from "@/services/background-sync-service"
 
 export const BACKGROUND_SYNC_TASK = "BACKGROUND_SYNC_TASK"
@@ -41,10 +42,7 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
 export async function registerBackgroundFetchAsync(options?: BackgroundFetchOptions) {
   const status = await getStatusAsync()
 
-  if (
-    status === BackgroundFetchStatus.Restricted ||
-    status === BackgroundFetchStatus.Denied
-  ) {
+  if (status === BackgroundFetchStatus.Restricted || status === BackgroundFetchStatus.Denied) {
     console.warn("⚠️ Background fetch is disabled or restricted on this device.")
     return
   }
@@ -67,5 +65,3 @@ export async function unregisterBackgroundFetchAsync() {
     console.log("🛑 Background fetch task unregistered.")
   }
 }
-
-

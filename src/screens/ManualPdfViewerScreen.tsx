@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react'
-import { StyleSheet, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
-import { router } from 'expo-router'
-import { ArrowLeft, FileText, BookOpen, FileCheck, HelpCircle } from 'lucide-react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useAppTheme } from '@/theme/context'
-import { Text } from '@/components/Text'
-import Pdf from 'react-native-pdf'
-import { Asset } from 'expo-asset'
+import React, { useState, useMemo } from "react"
+import { StyleSheet, View, TouchableOpacity, ActivityIndicator, Alert } from "react-native"
+import { Asset } from "expo-asset"
+import { router } from "expo-router"
+import { ArrowLeft, FileText, BookOpen, FileCheck, HelpCircle } from "lucide-react-native"
+import Pdf from "react-native-pdf"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
+import { Text } from "@/components/Text"
+import { useAppTheme } from "@/theme/context"
 
 interface PdfOptionBase {
   id: string
@@ -22,24 +23,24 @@ interface PdfOption extends PdfOptionBase {
 // Local PDF files from assets/files/pdf
 const PDF_OPTIONS_DATA: PdfOptionBase[] = [
   {
-    id: 'ttm-konnect-manual',
-    title: 'TTM Konnect Manual',
-    asset: require('assets/files/pdf/Manual.pdf'),
+    id: "ttm-konnect-manual",
+    title: "TTM Konnect Manual",
+    asset: require("assets/files/pdf/Manual.pdf"),
   },
   {
-    id: 'dot-instruction-eng',
-    title: 'DOT Instruction Sheet (English)',
-    asset: require('assets/files/pdf/DOTEnglish.pdf'),
+    id: "dot-instruction-eng",
+    title: "DOT Instruction Sheet (English)",
+    asset: require("assets/files/pdf/DOTEnglish.pdf"),
   },
   {
-    id: 'dot-instruction-spanish',
-    title: 'DOT Instruction Sheet (Spanish)',
-    asset: require('assets/files/pdf/DOTSpanish.pdf'),
+    id: "dot-instruction-spanish",
+    title: "DOT Instruction Sheet (Spanish)",
+    asset: require("assets/files/pdf/DOTSpanish.pdf"),
   },
   {
-    id: 'manual-spanish',
-    title: 'TTM Konnect Manual (Spanish)',
-    asset: require('assets/files/pdf/ManualSpanish.pdf'),
+    id: "manual-spanish",
+    title: "TTM Konnect Manual (Spanish)",
+    asset: require("assets/files/pdf/ManualSpanish.pdf"),
   },
 ]
 
@@ -47,7 +48,7 @@ const PDF_ICONS = [BookOpen, FileText, FileCheck, HelpCircle]
 
 export const ManualPdfViewerScreen: React.FC = () => {
   const { theme, themeContext } = useAppTheme()
-  const isDark = themeContext === 'dark'
+  const isDark = themeContext === "dark"
   const colors = theme.colors
   const insets = useSafeAreaInsets()
   const [selectedPdf, setSelectedPdf] = useState<PdfOption | null>(null)
@@ -73,7 +74,7 @@ export const ManualPdfViewerScreen: React.FC = () => {
       // Find the corresponding asset from PDF_OPTIONS_DATA
       const pdfData = PDF_OPTIONS_DATA.find((p) => p.id === pdf.id)
       if (!pdfData) {
-        throw new Error('PDF asset not found')
+        throw new Error("PDF asset not found")
       }
 
       // Create Asset instance from require()
@@ -88,13 +89,13 @@ export const ManualPdfViewerScreen: React.FC = () => {
       } else if (asset.uri) {
         setPdfUri(asset.uri)
       } else {
-        throw new Error('Could not resolve PDF URI')
+        throw new Error("Could not resolve PDF URI")
       }
 
       setLoading(false)
     } catch (err) {
-      console.error('Error preparing PDF:', err)
-      setError('Failed to load PDF. Please try again.')
+      console.error("Error preparing PDF:", err)
+      setError("Failed to load PDF. Please try again.")
       setLoading(false)
     }
   }
@@ -115,9 +116,9 @@ export const ManualPdfViewerScreen: React.FC = () => {
 
   const handleError = (error: any) => {
     setLoading(false)
-    setError('Failed to load PDF. Please try again.')
-    console.error('PDF Error:', error)
-    Alert.alert('Error', 'Failed to load PDF. Please try again.')
+    setError("Failed to load PDF. Please try again.")
+    console.error("PDF Error:", error)
+    Alert.alert("Error", "Failed to load PDF. Please try again.")
   }
 
   const handlePageChanged = (page: number, numberOfPages: number) => {
@@ -194,8 +195,8 @@ export const ManualPdfViewerScreen: React.FC = () => {
                 style={[
                   styles.pdfOptionCard,
                   {
-                    backgroundColor: isDark ? colors.cardBackground : '#FFFFFF',
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : colors.border,
+                    backgroundColor: isDark ? colors.cardBackground : "#FFFFFF",
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : colors.border,
                   },
                 ]}
                 onPress={() => handlePdfSelect(pdf)}
@@ -215,104 +216,103 @@ export const ManualPdfViewerScreen: React.FC = () => {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    marginLeft: -8,
+    padding: 8,
+  },
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerPlaceholder: {
-    width: 40,
   },
   content: {
     flex: 1,
     padding: 20,
   },
+  errorContainer: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  header: {
+    alignItems: "center",
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerPlaceholder: {
+    width: 40,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    bottom: 0,
+    justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 12,
+  },
   optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignContent: 'flex-start',
+    alignContent: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
   },
+  pdf: {
+    flex: 1,
+    width: "100%",
+  },
+  pdfContainer: {
+    flex: 1,
+  },
   pdfOptionCard: {
-    width: '48%',
+    alignItems: "center",
     aspectRatio: 1,
     borderRadius: 12,
     borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
     elevation: 2,
-    shadowColor: '#000',
+    justifyContent: "center",
+    padding: 20,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    width: "48%",
   },
   pdfOptionIcon: {
     marginBottom: 12,
   },
   pdfOptionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  pdfContainer: {
-    flex: 1,
-  },
-  pdf: {
-    flex: 1,
-    width: '100%',
-  },
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
+    fontWeight: "600",
+    textAlign: "center",
   },
   retryButton: {
+    borderRadius: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 })
-

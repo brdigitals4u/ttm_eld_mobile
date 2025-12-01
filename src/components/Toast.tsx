@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react'
-import { View, StyleSheet, TouchableOpacity } from 'react-native'
-import { Card, Text } from 'react-native-paper'
-import { useAppTheme } from '@/theme/context'
-import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react-native'
+import React, { useEffect } from "react"
+import { View, StyleSheet, TouchableOpacity } from "react-native"
+import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from "lucide-react-native"
+import { Card, Text } from "react-native-paper"
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,15 +9,17 @@ import Animated, {
   withSequence,
   Easing,
   runOnJS,
-} from 'react-native-reanimated'
+} from "react-native-reanimated"
+
+import { useAppTheme } from "@/theme/context"
 
 export interface ToastProps {
   visible: boolean
   message: string
-  type: 'success' | 'warning' | 'error' | 'info'
+  type: "success" | "warning" | "error" | "info"
   duration?: number
   onDismiss: () => void
-  position?: 'top' | 'bottom'
+  position?: "top" | "bottom"
 }
 
 export const Toast: React.FC<ToastProps> = ({
@@ -27,55 +28,52 @@ export const Toast: React.FC<ToastProps> = ({
   type,
   duration = 4000,
   onDismiss,
-  position = 'top',
+  position = "top",
 }) => {
   const { theme } = useAppTheme()
-  
+
   // Use react-native-reanimated values
-  const translateY = useSharedValue(position === 'top' ? -100 : 100)
+  const translateY = useSharedValue(position === "top" ? -100 : 100)
   const opacity = useSharedValue(0)
   const scale = useSharedValue(0.8)
 
   // Animated styles
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { translateY: translateY.value },
-        { scale: scale.value },
-      ],
+      transform: [{ translateY: translateY.value }, { scale: scale.value }],
       opacity: opacity.value,
     }
   })
 
   const getToastColors = () => {
     switch (type) {
-      case 'success':
+      case "success":
         return {
           background: theme.colors.palette.success100,
           border: theme.colors.palette.success500,
           text: theme.colors.palette.success900,
           icon: theme.colors.palette.success500,
         }
-      case 'warning':
+      case "warning":
         return {
           background: theme.colors.palette.warning100,
           border: theme.colors.palette.warning500,
           text: theme.colors.palette.warning900,
           icon: theme.colors.palette.warning500,
         }
-      case 'error':
+      case "error":
         return {
           background: theme.colors.palette.angry100,
           border: theme.colors.palette.angry500,
           text: theme.colors.palette.neutral900,
           icon: theme.colors.palette.angry500,
         }
-      case 'info':
+      case "info":
         return {
-            background: theme.colors.palette.neutral100,
-            border: theme.colors.palette.neutral500,
-            text: theme.colors.palette.neutral900,
-            icon: theme.colors.palette.neutral500,
+          background: theme.colors.palette.neutral100,
+          border: theme.colors.palette.neutral500,
+          text: theme.colors.palette.neutral900,
+          icon: theme.colors.palette.neutral500,
         }
       default:
         return {
@@ -90,15 +88,15 @@ export const Toast: React.FC<ToastProps> = ({
   const getIcon = () => {
     const iconColor = getToastColors().icon
     const iconSize = 24
-    
+
     switch (type) {
-      case 'success':
+      case "success":
         return <CheckCircle size={iconSize} color={iconColor} />
-      case 'warning':
+      case "warning":
         return <AlertTriangle size={iconSize} color={iconColor} />
-      case 'error':
+      case "error":
         return <AlertCircle size={iconSize} color={iconColor} />
-      case 'info':
+      case "info":
         return <Info size={iconSize} color={iconColor} />
       default:
         return <Info size={iconSize} color={iconColor} />
@@ -126,7 +124,7 @@ export const Toast: React.FC<ToastProps> = ({
         withTiming(1, {
           duration: 150,
           easing: Easing.in(Easing.cubic),
-        })
+        }),
       )
 
       // Auto dismiss
@@ -142,7 +140,7 @@ export const Toast: React.FC<ToastProps> = ({
   }, [visible])
 
   const hideToast = () => {
-    translateY.value = withTiming(position === 'top' ? -100 : 100, {
+    translateY.value = withTiming(position === "top" ? -100 : 100, {
       duration: 300,
       easing: Easing.in(Easing.cubic),
     })
@@ -150,12 +148,16 @@ export const Toast: React.FC<ToastProps> = ({
       duration: 300,
       easing: Easing.in(Easing.cubic),
     })
-    scale.value = withTiming(0.8, {
-      duration: 300,
-      easing: Easing.in(Easing.cubic),
-    }, () => {
-      runOnJS(onDismiss)()
-    })
+    scale.value = withTiming(
+      0.8,
+      {
+        duration: 300,
+        easing: Easing.in(Easing.cubic),
+      },
+      () => {
+        runOnJS(onDismiss)()
+      },
+    )
   }
 
   if (!visible) return null
@@ -183,13 +185,8 @@ export const Toast: React.FC<ToastProps> = ({
       >
         <View style={styles.content}>
           <View style={styles.leftContent}>
-            <View style={styles.iconContainer}>
-              {getIcon()}
-            </View>
-            <Text
-              variant="bodyMedium"
-              style={[styles.message, { color: colors.text }]}
-            >
+            <View style={styles.iconContainer}>{getIcon()}</View>
+            <Text variant="bodyMedium" style={[styles.message, { color: colors.text }]}>
               {message}
             </Text>
           </View>
@@ -207,41 +204,41 @@ export const Toast: React.FC<ToastProps> = ({
 }
 
 const styles = StyleSheet.create({
+  closeButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 0,
+    padding: 4,
+  },
   container: {
-    position: 'absolute',
     left: 16,
+    position: "absolute",
     right: 16,
     zIndex: 1000,
   },
-  toast: {
-    borderRadius: 8,
-  },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  leftContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
   iconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  leftContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    flex: 1,
   },
   message: {
     flex: 1,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  closeButton: {
-    margin: 0,
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+  toast: {
+    borderRadius: 8,
   },
 })
 
@@ -249,9 +246,9 @@ const styles = StyleSheet.create({
 interface ToastState {
   visible: boolean
   message: string
-  type: 'success' | 'warning' | 'error' | 'info'
+  type: "success" | "warning" | "error" | "info"
   duration?: number
-  position?: 'top' | 'bottom'
+  position?: "top" | "bottom"
 }
 
 class ToastManager {
@@ -269,19 +266,19 @@ class ToastManager {
   subscribe(listener: (toast: ToastState) => void) {
     this.listeners.push(listener)
     return () => {
-      this.listeners = this.listeners.filter(l => l !== listener)
+      this.listeners = this.listeners.filter((l) => l !== listener)
     }
   }
 
   private notifyListeners() {
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       if (this.currentToast) {
         listener(this.currentToast)
       }
     })
   }
 
-  show(toast: Omit<ToastState, 'visible'>) {
+  show(toast: Omit<ToastState, "visible">) {
     this.currentToast = {
       ...toast,
       visible: true,
@@ -296,20 +293,20 @@ class ToastManager {
     }
   }
 
-  success(message: string, duration?: number, position?: 'top' | 'bottom') {
-    this.show({ message, type: 'success', duration, position })
+  success(message: string, duration?: number, position?: "top" | "bottom") {
+    this.show({ message, type: "success", duration, position })
   }
 
-  warning(message: string, duration?: number, position?: 'top' | 'bottom') {
-    this.show({ message, type: 'warning', duration, position })
+  warning(message: string, duration?: number, position?: "top" | "bottom") {
+    this.show({ message, type: "warning", duration, position })
   }
 
-  error(message: string, duration?: number, position?: 'top' | 'bottom') {
-    this.show({ message, type: 'error', duration, position })
+  error(message: string, duration?: number, position?: "top" | "bottom") {
+    this.show({ message, type: "error", duration, position })
   }
 
-  info(message: string, duration?: number, position?: 'top' | 'bottom') {
-    this.show({ message, type: 'info', duration, position })
+  info(message: string, duration?: number, position?: "top" | "bottom") {
+    this.show({ message, type: "info", duration, position })
   }
 }
 

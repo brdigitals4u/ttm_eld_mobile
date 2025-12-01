@@ -1,12 +1,13 @@
-import React, { useEffect, useRef } from 'react'
-import { View, StyleSheet, Animated } from 'react-native'
-import { useObdData } from '@/contexts'
+import React, { useEffect, useRef } from "react"
+import { View, StyleSheet, Animated } from "react-native"
+
+import { useObdData } from "@/contexts"
 
 const COLORS = {
-  green: '#10B981',    // ELD connected and working
-  red: '#EF4444',      // ELD disconnected or error
-  sync: '#5750F1',     // Syncing data to API
-  border: '#E6E7FB',
+  green: "#10B981", // ELD connected and working
+  red: "#EF4444", // ELD disconnected or error
+  sync: "#5750F1", // Syncing data to API
+  border: "#E6E7FB",
 }
 
 export const EldIndicator: React.FC = () => {
@@ -15,7 +16,7 @@ export const EldIndicator: React.FC = () => {
   const rotateAnim = useRef(new Animated.Value(0)).current
 
   // Check if any sync is active (local or AWS)
-  const isAnySyncing = isSyncing || awsSyncStatus === 'syncing'
+  const isAnySyncing = isSyncing || awsSyncStatus === "syncing"
 
   // Pulse animation for syncing state
   useEffect(() => {
@@ -32,7 +33,7 @@ export const EldIndicator: React.FC = () => {
             duration: 600,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       )
       pulse.start()
       return () => {
@@ -52,7 +53,7 @@ export const EldIndicator: React.FC = () => {
           toValue: 1,
           duration: 2000,
           useNativeDriver: true,
-        })
+        }),
       )
       rotate.start()
       return () => {
@@ -66,28 +67,28 @@ export const EldIndicator: React.FC = () => {
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ["0deg", "360deg"],
   })
 
   // Determine color based on state (prioritize errors)
   const getColor = () => {
     // Error states (highest priority)
-    if (awsSyncStatus === 'error') return COLORS.red
+    if (awsSyncStatus === "error") return COLORS.red
     if (!isConnected) return COLORS.red
     if (obdData.length === 0) return COLORS.red // No data received
-    
+
     // Syncing states
-    if (isSyncing || awsSyncStatus === 'syncing') return COLORS.sync
-    
+    if (isSyncing || awsSyncStatus === "syncing") return COLORS.sync
+
     // Success state
-    if (awsSyncStatus === 'success') return COLORS.green
-    
+    if (awsSyncStatus === "success") return COLORS.green
+
     // Default: connected and idle
     return COLORS.green
   }
 
   const color = getColor()
-  
+
   // Show dual-ring for dual sync mode
   const showDualRing = isAnySyncing
 
@@ -96,22 +97,15 @@ export const EldIndicator: React.FC = () => {
       style={[
         styles.container,
         {
-          transform: [
-            { scale: pulseAnim },
-            { rotate: isAnySyncing ? rotation : '0deg' },
-          ],
+          transform: [{ scale: pulseAnim }, { rotate: isAnySyncing ? rotation : "0deg" }],
         },
       ]}
     >
       <View style={[styles.indicator, { backgroundColor: color }]}>
         {/* Outer ring for AWS sync */}
-        {showDualRing && (
-          <View style={[styles.syncRing, styles.outerRing]} />
-        )}
+        {showDualRing && <View style={[styles.syncRing, styles.outerRing]} />}
         {/* Inner ring for local sync */}
-        {isSyncing && !awsSyncStatus && (
-          <View style={[styles.syncRing, styles.innerRing]} />
-        )}
+        {isSyncing && !awsSyncStatus && <View style={[styles.syncRing, styles.innerRing]} />}
       </View>
     </Animated.View>
   )
@@ -119,41 +113,40 @@ export const EldIndicator: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    width: 6,
+    alignItems: "center",
     height: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    width: 6,
   },
   indicator: {
-    width: 2,
-    height: 2,
     borderRadius: 6,
-    shadowColor: '#000',
+    elevation: 2,
+    height: 2,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 2,
-  },
-  syncRing: {
-    position: 'absolute',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.sync,
-    opacity: 0.3,
-  },
-  outerRing: {
-    width: 20,
-    height: 20,
-    top: -4,
-    left: -4,
-    opacity: 0.2,
+    width: 2,
   },
   innerRing: {
-    width: 16,
     height: 16,
-    top: -2,
     left: -2,
     opacity: 0.4,
+    top: -2,
+    width: 16,
+  },
+  outerRing: {
+    height: 20,
+    left: -4,
+    opacity: 0.2,
+    top: -4,
+    width: 20,
+  },
+  syncRing: {
+    borderColor: COLORS.sync,
+    borderRadius: 8,
+    borderWidth: 2,
+    opacity: 0.3,
+    position: "absolute",
   },
 })
-

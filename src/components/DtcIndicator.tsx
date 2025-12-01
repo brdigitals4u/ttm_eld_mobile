@@ -4,21 +4,23 @@
  * Navigates to DTC history screen on press
  */
 
-import React from 'react'
-import { View, StyleSheet, TouchableOpacity } from 'react-native'
-import { AlertTriangle } from 'lucide-react-native'
-import { router } from 'expo-router'
-import * as Haptics from 'expo-haptics'
-import { Text } from './Text'
-import { useObdData } from '@/contexts/obd-data-context'
-import { colors } from '@/theme/colors'
-import { translate } from '@/i18n/translate'
+import React from "react"
+import { View, StyleSheet, TouchableOpacity } from "react-native"
+import * as Haptics from "expo-haptics"
+import { router } from "expo-router"
+import { AlertTriangle } from "lucide-react-native"
 
-const ORANGE_COLOR = '#FF9500' // Orange color for DTC indicator
+import { useObdData } from "@/contexts/obd-data-context"
+import { translate } from "@/i18n/translate"
+import { useAppTheme } from "@/theme/context"
+
+import { Text } from "./Text"
 
 export const DtcIndicator: React.FC = () => {
+  const { theme } = useAppTheme()
+  const { colors } = theme
   const { recentMalfunctions } = useObdData()
-  
+
   // Count DTC codes (each record now contains one code, so count = records.length)
   // But we sum codes.length for backward compatibility
   const activeDtcCount = recentMalfunctions.reduce((count, record) => {
@@ -28,73 +30,71 @@ export const DtcIndicator: React.FC = () => {
   const handlePress = () => {
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    
+
     // Navigate to DTC history screen
-    router.push('/dtc-history' as any)
+    router.push("/dtc-history" as any)
   }
 
   // Always show icon, but use different styling when no DTCs
   const hasActiveDtcs = activeDtcCount > 0
-  const iconColor = hasActiveDtcs ? ORANGE_COLOR : colors.palette.neutral500 || '#6B7280'
+  const iconColor = hasActiveDtcs ? colors.warning : colors.textDim
 
   if (!hasActiveDtcs) {
     return null
   }
 
+  // Dynamic styles based on theme
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        badge: {
+          alignItems: "center",
+          backgroundColor: colors.warning,
+          borderColor: colors.cardBackground,
+          borderRadius: 10,
+          borderWidth: 2,
+          height: 20,
+          justifyContent: "center",
+          minWidth: 20,
+          paddingHorizontal: 6,
+          position: "absolute",
+          right: -6,
+          top: -6,
+        },
+        badgeText: {
+          color: colors.cardBackground,
+          fontSize: 11,
+          fontWeight: "700",
+          textAlign: "center",
+        },
+        container: {
+          alignItems: "center",
+          backgroundColor: colors.palette.primary100,
+          borderRadius: 20,
+          height: 40,
+          justifyContent: "center",
+          position: "relative",
+          width: 40,
+        },
+        iconContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+        },
+      }),
+    [colors],
+  )
+
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      style={styles.container}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.7}>
       <View style={styles.iconContainer}>
         <AlertTriangle size={24} color={iconColor} strokeWidth={2} />
         {hasActiveDtcs && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {translate('dtc.badge' as any)}
-            </Text>
+            <Text style={styles.badgeText}>{translate("dtc.badge" as any)}</Text>
           </View>
         )}
       </View>
     </TouchableOpacity>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E6F1FA',
-    borderRadius: 20,
-    height: 40,
-    width: 40,
-  },
-  iconContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: ORANGE_COLOR,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-})
-

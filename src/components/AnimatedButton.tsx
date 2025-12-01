@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from "react"
 import { TouchableOpacity, StyleSheet, ViewStyle, TextStyle, View } from "react-native"
-import { Text } from "@/components/Text"
 import LottieView from "lottie-react-native"
+
+import { Text } from "@/components/Text"
 import { shadows } from "@/theme/shadows"
 
 interface AnimatedButtonProps {
@@ -101,34 +102,34 @@ export const AnimatedButton: React.FC<AnimatedButtonProps> = ({
 }
 
 const styles = StyleSheet.create({
-  buttonSuccess: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    height: 60,
-    justifyContent: "center",
-    alignItems: "center",
-    ...shadows.medium,
-    shadowColor: "#fff",
+  animation: {
+    height: 150,
+    width: 150,
   },
   button: {
+    alignItems: "center",
     backgroundColor: "#5750F1",
     borderRadius: 16,
     height: 60,
     justifyContent: "center",
-    alignItems: "center",
     ...shadows.medium,
     shadowColor: "#5750F1",
   },
   buttonDisabled: {
     opacity: 0.5,
   },
+  buttonSuccess: {
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    height: 60,
+    justifyContent: "center",
+    ...shadows.medium,
+    shadowColor: "#fff",
+  },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "bold",
-  },
-  animation: {
-    width: 150,
-    height: 150,
   },
 })

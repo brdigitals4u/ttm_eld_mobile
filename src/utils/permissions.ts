@@ -48,11 +48,14 @@ function mkResult(
   error?: string,
 ): PermissionResult {
   return { name, granted, status, error }
-  }
+}
 
 /* ----- Media / Camera generic helper ----- */
 
-async function checkThenRequest<TCheck extends { status?: string } | undefined, TReq extends { status?: string }>(
+async function checkThenRequest<
+  TCheck extends { status?: string } | undefined,
+  TReq extends { status?: string },
+>(
   name: PermissionResult["name"],
   checkFn: () => Promise<TCheck>,
   requestFn: () => Promise<TReq>,
@@ -76,7 +79,9 @@ async function checkThenRequest<TCheck extends { status?: string } | undefined, 
 
 /* ----- Media / Camera implementations ----- */
 
-export async function requestMediaLibraryPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+export async function requestMediaLibraryPermission(
+  skipIfGranted: boolean,
+): Promise<PermissionResult> {
   return checkThenRequest(
     "mediaLibrary",
     () => ImagePicker.getMediaLibraryPermissionsAsync(),
@@ -94,7 +99,7 @@ export async function requestCameraPermission(skipIfGranted: boolean): Promise<P
     skipIfGranted,
     "Unable to request camera permission",
   )
-  }
+}
 
 /* ----- Location (foreground only) ----- */
 
@@ -110,7 +115,12 @@ export async function requestLocationPermission(skipIfGranted: boolean): Promise
     const foreground = await Location.requestForegroundPermissionsAsync()
     return mkResult("location", foreground.status === "granted", foreground.status)
   } catch (error: any) {
-    return mkResult("location", false, undefined, error?.message ?? "Unable to request location permission")
+    return mkResult(
+      "location",
+      false,
+      undefined,
+      error?.message ?? "Unable to request location permission",
+    )
   }
 }
 
@@ -144,20 +154,32 @@ async function callJMBluetoothRequest(arg?: JBRequestPermsArg): Promise<JBResult
   }
 }
 
-export async function requestBluetoothPermission(skipIfGranted: boolean): Promise<PermissionResult> {
+export async function requestBluetoothPermission(
+  skipIfGranted: boolean,
+): Promise<PermissionResult> {
   try {
     // When skipIfGranted is requested, first try a check-only invocation to avoid dialogs.
-    const result = await safe<JBResult>(() => callJMBluetoothRequest(skipIfGranted ? { checkOnly: true } : undefined), undefined)
+    const result = await safe<JBResult>(
+      () => callJMBluetoothRequest(skipIfGranted ? { checkOnly: true } : undefined),
+      undefined,
+    )
 
     const granted = typeof result === "boolean" ? result : !!(result && (result as any).granted)
     const status =
-      typeof result === "object" && result ? (result as any).status ?? (granted ? "granted" : "denied") : undefined
+      typeof result === "object" && result
+        ? ((result as any).status ?? (granted ? "granted" : "denied"))
+        : undefined
 
     return mkResult("bluetooth", granted, status)
   } catch (error: any) {
-    return mkResult("bluetooth", false, undefined, error?.message ?? "Unable to request bluetooth permission")
-    }
+    return mkResult(
+      "bluetooth",
+      false,
+      undefined,
+      error?.message ?? "Unable to request bluetooth permission",
+    )
   }
+}
 
 /* ----- Public high-level API (optimized: parallel where possible) ----- */
 
@@ -192,7 +214,7 @@ export async function requestCorePermissions(
   for (let i = 0; i < tasks.length; i++) {
     // Add delay between requests to prevent system dialog conflicts
     if (i > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay))
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
     // do not throw — helpers return a PermissionResult with error field if something went wrong
     const r = await tasks[i]()
@@ -216,7 +238,12 @@ async function checkMediaLibraryPermission(): Promise<PermissionResult> {
     const { status } = await ImagePicker.getMediaLibraryPermissionsAsync()
     return mkResult("mediaLibrary", status === "granted", status)
   } catch (error: any) {
-    return mkResult("mediaLibrary", false, undefined, error?.message ?? "Unable to check media library permission")
+    return mkResult(
+      "mediaLibrary",
+      false,
+      undefined,
+      error?.message ?? "Unable to check media library permission",
+    )
   }
 }
 
@@ -225,7 +252,12 @@ async function checkCameraPermission(): Promise<PermissionResult> {
     const { status } = await ImagePicker.getCameraPermissionsAsync()
     return mkResult("camera", status === "granted", status)
   } catch (error: any) {
-    return mkResult("camera", false, undefined, error?.message ?? "Unable to check camera permission")
+    return mkResult(
+      "camera",
+      false,
+      undefined,
+      error?.message ?? "Unable to check camera permission",
+    )
   }
 }
 
@@ -234,20 +266,35 @@ async function checkLocationPermission(): Promise<PermissionResult> {
     const foreground = await Location.getForegroundPermissionsAsync()
     return mkResult("location", foreground.status === "granted", foreground.status)
   } catch (error: any) {
-    return mkResult("location", false, undefined, error?.message ?? "Unable to check location permission")
+    return mkResult(
+      "location",
+      false,
+      undefined,
+      error?.message ?? "Unable to check location permission",
+    )
   }
 }
 
 async function checkBluetoothPermission(): Promise<PermissionResult> {
   try {
     // Use checkOnly to avoid dialogs when possible
-    const result = await safe<JBResult>(() => callJMBluetoothRequest({ checkOnly: true }), undefined)
+    const result = await safe<JBResult>(
+      () => callJMBluetoothRequest({ checkOnly: true }),
+      undefined,
+    )
     const granted = typeof result === "boolean" ? result : !!(result && (result as any).granted)
     const status =
-      typeof result === "object" && result ? (result as any).status ?? (granted ? "granted" : "denied") : undefined
+      typeof result === "object" && result
+        ? ((result as any).status ?? (granted ? "granted" : "denied"))
+        : undefined
     return mkResult("bluetooth", granted, status)
   } catch (error: any) {
-    return mkResult("bluetooth", false, undefined, error?.message ?? "Unable to check bluetooth permission")
+    return mkResult(
+      "bluetooth",
+      false,
+      undefined,
+      error?.message ?? "Unable to check bluetooth permission",
+    )
   }
 }
 

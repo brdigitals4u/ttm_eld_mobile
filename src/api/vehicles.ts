@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+
 import { apiClient, ApiError } from "./client"
 import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
@@ -16,10 +17,10 @@ export interface Vehicle {
   license_plate: string
   registration_state: string
   registration_expiry?: string
-  fuel_type?: string  // diesel/gasoline/electric/hybrid/cng/lng
+  fuel_type?: string // diesel/gasoline/electric/hybrid/cng/lng
   engine_type?: string
   gross_weight?: number
-  status?: string  // active/inactive/maintenance/retired
+  status?: string // active/inactive/maintenance/retired
   current_odometer?: number
   current_engine_hours?: number
   current_location?: string
@@ -28,11 +29,11 @@ export interface Vehicle {
 }
 
 export interface CreateVehicleRequest {
-  vehicle_unit: string  // Required, unique
-  make: string  // Required
-  vin: string  // Required, unique, 17 chars
-  license_plate: string  // Required
-  registration_state: string  // Required
+  vehicle_unit: string // Required, unique
+  make: string // Required
+  vin: string // Required, unique, 17 chars
+  license_plate: string // Required
+  registration_state: string // Required
   // Optional fields
   model?: string
   year?: number
@@ -51,7 +52,7 @@ export interface UpdateVehicleRequest {
   current_odometer?: number
   current_location?: string
   status?: string
-  [key: string]: any  // Allow other fields
+  [key: string]: any // Allow other fields
 }
 
 // ============================================================================
@@ -68,7 +69,7 @@ export const vehiclesApi = {
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to create vehicle', status: 400 })
+    throw new ApiError({ message: "Failed to create vehicle", status: 400 })
   },
 
   /**
@@ -87,7 +88,7 @@ export const vehiclesApi = {
       }
       return []
     }
-    throw new ApiError({ message: 'Failed to get vehicles', status: 400 })
+    throw new ApiError({ message: "Failed to get vehicles", status: 400 })
   },
 
   /**
@@ -95,12 +96,12 @@ export const vehiclesApi = {
    * GET /api/vehicles/vehicles/{vehicle_id}/
    */
   async getVehicle(vehicleId: string | number): Promise<Vehicle> {
-    const endpoint = API_ENDPOINTS.VEHICLES.GET_ONE.replace('{id}', vehicleId.toString())
+    const endpoint = API_ENDPOINTS.VEHICLES.GET_ONE.replace("{id}", vehicleId.toString())
     const response = await apiClient.get<Vehicle>(endpoint)
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to get vehicle', status: 400 })
+    throw new ApiError({ message: "Failed to get vehicle", status: 400 })
   },
 
   /**
@@ -108,12 +109,12 @@ export const vehiclesApi = {
    * PATCH /api/vehicles/vehicles/{vehicle_id}/
    */
   async updateVehicle(vehicleId: string | number, data: UpdateVehicleRequest): Promise<Vehicle> {
-    const endpoint = API_ENDPOINTS.VEHICLES.UPDATE.replace('{id}', vehicleId.toString())
+    const endpoint = API_ENDPOINTS.VEHICLES.UPDATE.replace("{id}", vehicleId.toString())
     const response = await apiClient.patch<Vehicle>(endpoint, data)
     if (response.success && response.data) {
       return response.data
     }
-    throw new ApiError({ message: 'Failed to update vehicle', status: 400 })
+    throw new ApiError({ message: "Failed to update vehicle", status: 400 })
   },
 }
 
@@ -133,7 +134,7 @@ export const useCreateVehicle = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.VEHICLES })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to create vehicle:', error)
+      console.error("Failed to create vehicle:", error)
     },
   })
 }
@@ -146,7 +147,7 @@ export const useVehicles = (options?: { enabled?: boolean }) => {
     queryKey: QUERY_KEYS.VEHICLES,
     queryFn: vehiclesApi.getVehicles,
     enabled: options?.enabled !== false,
-    staleTime: 5 * 60 * 1000,  // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
@@ -176,7 +177,7 @@ export const useUpdateVehicle = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.VEHICLE(variables.vehicleId) })
     },
     onError: (error: ApiError) => {
-      console.error('Failed to update vehicle:', error)
+      console.error("Failed to update vehicle:", error)
     },
   })
 }

@@ -1,6 +1,5 @@
 import React, { useEffect } from "react"
 import { View, TouchableOpacity, StyleSheet, ScrollView } from "react-native"
-import Svg, { Circle } from "react-native-svg"
 import Animated, {
   useSharedValue,
   withTiming,
@@ -11,6 +10,8 @@ import Animated, {
   Extrapolate,
   Easing,
 } from "react-native-reanimated"
+import Svg, { Circle } from "react-native-svg"
+
 import { Text } from "@/components/Text"
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
@@ -105,7 +106,7 @@ export default function CompactRingRow({
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        <View style={[cStyles.container, { paddingHorizontal: 0 }]}> 
+        <View style={[cStyles.container, { paddingHorizontal: 0 }]}>
           {items.map((it, idx) => (
             <RingItem
               key={idx}
@@ -166,7 +167,14 @@ function RingItem({
     <TouchableOpacity activeOpacity={0.85} onPress={item.onPress} style={[cStyles.item, style]}>
       <Svg width={size} height={size}>
         {/* remaining path (full circle) */}
-        <Circle cx={cx} cy={cy} r={radius} stroke={remaining} strokeWidth={strokeWidth} fill="transparent" />
+        <Circle
+          cx={cx}
+          cy={cy}
+          r={radius}
+          stroke={remaining}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
 
         {/* animated progress (on top) */}
         <AnimatedCircle
@@ -190,47 +198,47 @@ function RingItem({
 }
 
 const cStyles = StyleSheet.create({
+  bottomLabel: {
+    color: "#6b7280",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+  },
   container: {
-    flexDirection: "row",
     alignItems: "flex-start",
+    flexDirection: "row",
   },
   item: {
     alignItems: "center",
     width: 72,
   },
   topLabel: {
-    marginTop: 6,
+    color: "#111827",
     fontSize: 12,
     fontWeight: "700",
-    color: "#111827",
-  },
-  bottomLabel: {
-    marginTop: 2,
-    fontSize: 12,
-    color: "#6b7280",
-    fontWeight: "600",
+    marginTop: 6,
   },
 })
 
 const containerStyles = StyleSheet.create({
-  wrapper: {
-    position: "relative",
-    width: "100%",
-    minHeight: 88,
+  logoInner: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: "70%",
     justifyContent: "center",
+    width: "70%",
   },
   logoWrapper: {
-    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
     left: 12,
+    position: "absolute",
     top: 12,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  logoInner: {
-    width: "70%",
-    height: "70%",
-    borderRadius: 999,
-    alignItems: "center",
+  wrapper: {
     justifyContent: "center",
+    minHeight: 88,
+    position: "relative",
+    width: "100%",
   },
 })
