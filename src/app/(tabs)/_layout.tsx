@@ -13,7 +13,7 @@ import { COLORS } from "@/constants"
 function CustomTabButton({ isFocused, icon, label, colors, styles: tabStyles, ...props }: any) {
   return (
     <Pressable {...props} style={[tabStyles.tabItem, isFocused && tabStyles.tabActive]}>
-      <Icon icon={icon} size={22} color={isFocused ? COLORS.white : COLORS.primary} />
+      <Icon icon={icon} size={22} color={isFocused ? COLORS.primary : COLORS.white} />
       <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>{label}</Text>
     </Pressable>
   )
@@ -33,12 +33,12 @@ export default function Layout() {
     () =>
       StyleSheet.create({
         label: {
-          color: colors.textDim,
+          color: COLORS.white,
           fontSize: 12,
           marginTop: 4,
         },
         labelActive: {
-          color: COLORS.white,
+          color: COLORS.ink700,
           fontWeight: "500",
         },
         safeArea: {
