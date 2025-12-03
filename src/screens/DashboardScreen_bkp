@@ -25,12 +25,8 @@ import {
   FileCheck,
   BookOpen,
   Bell,
-  AlertTriangle,
   BluetoothConnectedIcon,
   Building2Icon,
-  Settings,
-  User,
-  LogOut,
 } from "lucide-react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import {
@@ -49,11 +45,7 @@ import {
   useMyTrips,
 } from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
-import { DriverInfoSection } from "@/components/DriverInfoSection"
-import { StatusIconsRow } from "@/components/StatusIconsRow"
 import { DtcIndicator } from "@/components/DtcIndicator"
-import { LanguageSwitcher } from "@/components/LanguageSwitcher"
-import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { EldGpsWarning } from "@/components/EldGpsWarning"
 import { EldMalfunctionModal } from "@/components/EldMalfunctionModal"
 import { ExemptDriverBadge } from "@/components/ExemptDriverBadge"
@@ -64,7 +56,8 @@ import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
 import { Text } from "@/components/Text"
-import { UnifiedHOSCard, UnifiedHOSCardRef } from "@/components/UnifiedHOSCard"
+import { UnifiedHOSCard } from "@/components/UnifiedHOSCard"
+import { VehicleTripAssignment } from "@/components/VehicleTripAssignment"
 import { ViolationBanner } from "@/components/ViolationBanner"
 import { ViolationModal } from "@/components/ViolationModal"
 import { ViolationToast } from "@/components/ViolationToast"
@@ -80,16 +73,15 @@ import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { useAppTheme } from "@/theme/context"
 import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
-import { applyShadow } from "@/theme/shadows"
 
 export const DashboardScreen = React.memo(() => {
   // Trigger re-render when language changes
   useLanguage()
 
   // Get theme colors - supports both light and dark themes
-  const { theme, themeContext } = useAppTheme()
-  const { colors } = theme
-  const isDark = themeContext === "dark"
+  const { theme } = useAppTheme()
+  const { colors, isDark } = theme
+
 
   const {
     user,
@@ -99,7 +91,6 @@ export const DashboardScreen = React.memo(() => {
     organizationSettings,
     isAuthenticated,
     updateHosStatus,
-    logout,
   } = useAuth()
   const { logEntries, certification, hoursOfService } = useStatus()
   const { requestPermissions } = usePermissions()
@@ -119,9 +110,6 @@ export const DashboardScreen = React.memo(() => {
     onGpsNoteAdded,
   } = useObdData()
   const { setCurrentStatus, setHoursOfService } = useStatusStore()
-
-  // Ref for UnifiedHOSCard to open status modal
-  const unifiedHOSCardRef = useRef<UnifiedHOSCardRef>(null)
 
   // Violation notifications from WebSocket
   const { criticalViolations, highPriorityViolations, mediumPriorityViolations, removeViolation } =
@@ -847,7 +835,7 @@ export const DashboardScreen = React.memo(() => {
     () =>
       StyleSheet.create({
         screen: { backgroundColor: colors.background, flex: 1, marginTop: 0 },
-        cc: { paddingBottom: 200 }, // Extra padding for floating logout button
+        cc: { paddingBottom: 120 },
 
         // Top Header
         topHeader: {
@@ -1992,242 +1980,95 @@ export const DashboardScreen = React.memo(() => {
     [colors],
   )
 
-  // Get driver username for header
-  const driverUsername = useMemo(() => {
-    return driverProfile?.username || user?.email?.split("@")[0] || ""
-  }, [driverProfile, user])
-
-  // Logo source based on theme
-  const logoSource = useMemo(() => {
-    return isDark
-      ? require("assets/images/ttm-white-logo.png")
-      : require("assets/images/ttm-logo.png")
-  }, [isDark])
-
-  // Get violation count for header
-  const violationCount = useMemo(() => {
-    return criticalViolations.length + highPriorityViolations.length
-  }, [criticalViolations, highPriorityViolations])
-
-  // Get notification count for header (reuse existing notificationsData)
-  const headerNotificationCount = useMemo(() => {
-    if (!notificationsData) return 0
-    if ("results" in notificationsData && Array.isArray(notificationsData.results)) {
-      return notificationsData.results.filter((n: any) => !n.is_read).length
-    }
-    if ("notifications" in notificationsData && Array.isArray((notificationsData as any).notifications)) {
-      return (notificationsData as any).notifications.filter((n: any) => !n.is_read).length
-    }
-    return 0
-  }, [notificationsData])
-
-  const handleViolationPress = useCallback(() => {
-    router.push("/violations" as any)
-  }, [])
-
-  // Unified notification center - combines all alerts
-  const { recentMalfunctions } = useObdData()
-  const totalAlertsCount = useMemo(() => {
-    const dtcCount = recentMalfunctions.reduce((count, record) => count + record.codes.length, 0)
-    return violationCount + dtcCount + headerNotificationCount
-  }, [violationCount, recentMalfunctions, headerNotificationCount])
-
-  const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false)
-  const quickActionsRef = useRef<BottomSheetModal>(null)
-
-  const handleAvatarPress = useCallback(() => {
-    quickActionsRef.current?.present()
-    setShowQuickActionsMenu(true)
-  }, [])
-
-  const handleQuickAction = useCallback(
-    (action: "profile" | "settings" | "logout") => {
-      quickActionsRef.current?.dismiss()
-      setShowQuickActionsMenu(false)
-      if (action === "logout") {
-        logout()
-        router.replace("/login")
-      } else {
-        router.push(`/${action}` as any)
-      }
-    },
-    [],
-  )
-
-  const handleUnifiedAlertsPress = useCallback(async () => {
-    // Always open notifications panel - show all notifications
-    await handleNotificationBellPress()
-  }, [handleNotificationBellPress])
-
-  // Header styles
-  const headerStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        avatar: {
-          alignItems: "center",
-          backgroundColor: colors.tint,
-          borderColor: colors.border,
-          borderRadius: 28,
-          borderWidth: 2,
-          height: 56,
-          justifyContent: "center",
-          width: 56,
-        },
-        avatarText: {
-          color: colors.buttonPrimaryText,
-          fontSize: 20,
-          fontWeight: "900",
-        },
-        badgeText: {
-          color: colors.buttonPrimaryText,
-          fontSize: 10,
-          fontWeight: "700",
-        },
-        driverInfo: {
-          flex: 1,
-        },
-        driverName: {
-          color: colors.text,
-          fontSize: 16,
-          fontWeight: "700",
-          marginBottom: 4,
-        },
-        driverUsername: {
-          color: colors.textDim,
-          fontSize: 13,
-          fontWeight: "500",
-        },
-        headerContainerStyle: {
-          paddingBottom: 20,
-          paddingHorizontal: 20,
-          paddingTop: 0,
-        },
-        headerStyle: {
-          alignItems: "center",
-          minHeight: 76,
-        },
-        iconButton: {
-          alignItems: "center",
-          backgroundColor: colors.sectionBackground,
-          borderColor: colors.border,
-          borderRadius: 20,
-          borderWidth: 1,
-          height: 40,
-          justifyContent: "center",
-          position: "relative",
-          width: 40,
-        },
-        iconWrapper: {
-          alignItems: "center",
-          height: 40,
-          justifyContent: "center",
-          width: 40,
-        },
-        leftSection: {
-          alignItems: "center",
-          flex: 1,
-          flexDirection: "row",
-        },
-        logo: {
-          height: 32,
-          resizeMode: "contain",
-          width: 120,
-        },
-        logoContainer: {
-          marginRight: 12,
-        },
-        notificationBadge: {
-          backgroundColor: colors.error,
-          borderColor: colors.cardBackground,
-          borderRadius: 4,
-          borderWidth: 1,
-          height: 8,
-          position: "absolute",
-          right: 4,
-          top: 4,
-          width: 8,
-        },
-        profileContainer: {
-          marginRight: 12,
-        },
-        rightSection: {
-          alignItems: "center",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 8,
-          justifyContent: "flex-end",
-          width: 136,
-        },
-        violationBadge: {
-          alignItems: "center",
-          backgroundColor: colors.error,
-          borderColor: colors.cardBackground,
-          borderRadius: 9,
-          borderWidth: 2,
-          height: 18,
-          justifyContent: "center",
-          minWidth: 18,
-          paddingHorizontal: 4,
-          position: "absolute",
-          right: -2,
-          top: -2,
-        },
-      }),
-    [colors],
-  )
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Header
-        backgroundColor={colors.background}
-        LeftActionComponent={
-          <View style={headerStyles.leftSection}>
-            {/* TTM Konnect Logo */}
-            <View style={headerStyles.logoContainer}>
-              <Image source={logoSource} style={headerStyles.logo} />
-            </View>
-          </View>
-        }
-        RightActionComponent={
-          <View style={headerStyles.rightSection}>
-            {/* Language Switcher */}
-            <View style={headerStyles.iconWrapper}>
-              <LanguageSwitcher compact />
-            </View>
-            {/* Theme Switcher */}
-            <View style={headerStyles.iconWrapper}>
-              <ThemeSwitcher compact />
-            </View>
-            {/* Unified Alerts Center - All alerts in one place */}
-            <TouchableOpacity
-              style={[headerStyles.iconButton, headerStyles.iconWrapper]}
-              onPress={handleUnifiedAlertsPress}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Bell
-                size={18}
-                color={totalAlertsCount > 0 || headerNotificationCount > 0 ? colors.error : colors.text}
-              />
-              {totalAlertsCount > 0 ? (
-                <View style={headerStyles.violationBadge}>
-                  <Text style={headerStyles.badgeText}>
-                    {totalAlertsCount > 9 ? "9+" : totalAlertsCount}
-                  </Text>
-                </View>
-              ) : headerNotificationCount > 0 ? (
-                <View style={headerStyles.notificationBadge} />
-              ) : null}
-            </TouchableOpacity>
-          </View>
-        }
-        style={headerStyles.headerStyle}
-        containerStyle={headerStyles.headerContainerStyle}
-        safeAreaEdges={["top"]}
-      />
-
       <BottomSheetModalProvider>
         <View style={{ flex: 1 }}>
+          <Header
+            titleMode="flex"
+            title={formattedDate}
+            titleStyle={{ color: colors.text, fontWeight: "700" }}
+            leftTextStyle={{ color: colors.text }}
+            LeftActionComponent={
+              <View
+                style={{
+                  backgroundColor: colors.palette.primary100,
+                  borderRadius: 20,
+                  height: 40,
+                  width: 40,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  borderWidth: 2,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.tint, fontSize: 16, fontWeight: "700" }}>
+                  {driverInitials}
+                </Text>
+              </View>
+            }
+            leftIconColor={colors.text}
+            backgroundColor={colors.tint}
+            RightActionComponent={
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {/* Exempt Driver Badge */}
+                <ExemptDriverBadge />
+
+                {/* DTC Indicator - Orange icon with count badge */}
+                <DtcIndicator />
+
+                <TouchableOpacity
+                  onPress={handleNotificationBellPress}
+                  style={{
+                    position: "relative",
+                    alignItems: "center",
+                    backgroundColor: colors.palette.primary100,
+                    borderRadius: 20,
+                    gap: 8,
+                    height: 40,
+                    justifyContent: "center",
+                    width: 40,
+                  }}
+                >
+                  <Bell size={24} color={colors.tint} strokeWidth={2} />
+                  {notificationCount > 0 && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: -4,
+                        right: -4,
+                        backgroundColor: "transparent",
+                        borderRadius: 12,
+                        minWidth: 22,
+                        height: 20,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 2,
+                      }}
+                    >
+                      <Text style={{ color: colors.text, fontSize: 11, fontWeight: "700" }}>
+                        {notificationCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            }
+            containerStyle={{
+              borderBottomWidth: 0,
+              borderBottomColor: colors.border,
+              shadowColor: colors.palette.neutral900,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+            style={{
+              paddingHorizontal: 16,
+            }}
+            safeAreaEdges={["top"]}
+          />
+
           <ScrollView
             ref={scrollViewRef}
             style={s.screen}
@@ -2241,16 +2082,88 @@ export const DashboardScreen = React.memo(() => {
               />
             }
           >
-            {/* Driver Info Section */}
-            <DriverInfoSection />
+            {/* Professional Header with Greeting Section */}
 
-            {/* Status Icons Row */}
-            <StatusIconsRow
-              disabled={!canUseHOS}
-              onStatusPress={(status) => {
-                unifiedHOSCardRef.current?.openStatusModal(status)
-              }}
-            />
+            <View style={s.greetingSection}>
+              <TouchableOpacity onPress={handleOpenDriverSheet}>
+                <View style={[s.greetingRow, { paddingBottom: 30 }]}>
+                  <View style={s.greetingLeft}>
+                    <Text style={s.greetingText}>
+                      {greeting.text}, {driverName.split(" ")[0]}! {greeting.emoji}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Badges Row */}
+              <View style={s.badgesRow}>
+                <View
+                  style={[
+                    s.badge,
+                    { backgroundColor: colors.cardBackground, justifyContent: "center" },
+                  ]}
+                >
+                  <Text style={s.badgeText}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        gap: 12,
+                        paddingRight: 4,
+                        alignItems: "center",
+                      }}
+                    >
+                      <Pressable
+                        onPress={handleLogoPress}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Image
+                          source={require("assets/images/ttm-logo.png")}
+                          style={{ width: 120, height: 32, resizeMode: "contain" }}
+                        />
+                      </Pressable>
+                    </View>
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[s.badge, s.badgeOrange]}
+                  onPress={() => {
+                    if (!eldConnected) {
+                      console.log("📱 Dashboard: ELD not connected, navigating to device scan...")
+                      router.push("/device-scan")
+                    }
+                  }}
+                  disabled={eldConnected}
+                  activeOpacity={eldConnected ? 1 : 0.7}
+                >
+                  <BluetoothConnectedIcon size={16} color={colors.warning} />
+                  <Text style={s.badgeText}>
+                    {eldConnected
+                      ? translate("dashboard.badges.eldConnected" as any)
+                      : translate("dashboard.badges.eldNotConnected" as any)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[s.badgesRow, { marginTop: 10 }]}>
+                <View
+                  style={[
+                    s.badge,
+                    { backgroundColor: colors.cardBackground, justifyContent: "center" },
+                  ]}
+                >
+                  <Text style={s.badgeText}>
+                    {translate("dashboard.collaborationWith" as any)}{" "}
+                    {driverProfile?.organization_name}{" "}
+                    <Building2Icon
+                      size={16}
+                      color={colors.tint}
+                      strokeWidth={2}
+                      style={{ marginLeft: 4, marginTop: 10 }}
+                    />
+                  </Text>
+                </View>
+              </View>
+            </View>
 
             {/* Unified Smart HOS Card */}
             <View
@@ -2262,7 +2175,6 @@ export const DashboardScreen = React.memo(() => {
               }}
             >
               <UnifiedHOSCard
-                ref={unifiedHOSCardRef}
                 disabled={!canUseHOS}
                 disabledMessage={translate("vehicleTrip.mandatoryMessage" as any)}
                 onScrollToTop={() => {
@@ -2289,9 +2201,61 @@ export const DashboardScreen = React.memo(() => {
               />
             )}
 
-          </ScrollView>
+            {/* Hero Card - Are you ready */}
+            <LinearGradient
+              colors={[colors.palette.primary400, colors.tint]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.heroCard}
+            >
+              <View style={s.heroContent}>
+                <Text style={s.heroTitle}>Ready to hit</Text>
+                <Text style={s.heroTitle}>the road with TTM Konnect?</Text>
+              </View>
+              <View style={s.heroIllustration}>
+                <Image
+                  source={require("assets/images/trident_logo.png")}
+                  style={s.loginHeaderImage}
+                  resizeMode="cover"
+                />
+              </View>
+            </LinearGradient>
 
-          {/* Floating Logout Button */}
+            <View style={s.categoriesSection}>
+              <View style={s.sectionHeader}>
+                <Text style={s.sectionTitle}>Categories</Text>
+                <TouchableOpacity>
+                  <Text style={s.seeAllText}>See All</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.categoriesScroll}
+              >
+                <TouchableOpacity
+                  style={s.categoryBox}
+                  onPress={() => router.push("/logs/transfer")}
+                >
+                  <FileCheck size={32} color={colors.tint} strokeWidth={2} />
+                  <Text style={s.categoryText}>Logs Transfer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.categoryBox}
+                  onPress={() => router.push("/(tabs)/fuel" as any)}
+                >
+                  <BookOpen size={32} color={colors.tint} strokeWidth={2} />
+                  <Text style={s.categoryText}>Fuel</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+
+            {/* Vehicle & Trip Assignment - Show if vehicle OR trip assigned (and shipping ID present) */}
+            {canUseHOS && <VehicleTripAssignment />}
+
+            {/* Bottom Spacer */}
+            <View style={{ height: 100 }} />
+          </ScrollView>
         </View>
 
         {/* Notifications Modal */}
@@ -2423,69 +2387,6 @@ export const DashboardScreen = React.memo(() => {
             console.log(`✅ History fetch completed: ${recordsCount} records`)
           }}
         />
-
-        {/* Quick Actions Menu (Profile, Settings, Logout) */}
-        <BottomSheetModal
-          ref={quickActionsRef}
-          index={0}
-          snapPoints={["40%"]}
-          enablePanDownToClose
-          onDismiss={() => setShowQuickActionsMenu(false)}
-          backgroundStyle={{ backgroundColor: colors.cardBackground }}
-        >
-          <BottomSheetView style={{ padding: 20 }}>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text, marginBottom: 20 }}>
-              {driverName}
-            </Text>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                padding: 16,
-                borderRadius: 12,
-                backgroundColor: colors.sectionBackground,
-                marginBottom: 12,
-              }}
-              onPress={() => handleQuickAction("profile")}
-            >
-              <User size={20} color={colors.text} style={{ marginRight: 12 }} />
-              <Text style={{ fontSize: 16, color: colors.text, fontWeight: "600" }}>
-                {translate("common.profile" as any) || "Profile"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                padding: 16,
-                borderRadius: 12,
-                backgroundColor: colors.sectionBackground,
-                marginBottom: 12,
-              }}
-              onPress={() => handleQuickAction("settings")}
-            >
-              <Settings size={20} color={colors.text} style={{ marginRight: 12 }} />
-              <Text style={{ fontSize: 16, color: colors.text, fontWeight: "600" }}>
-                {translate("common.settings" as any) || "Settings"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                padding: 16,
-                borderRadius: 12,
-                backgroundColor: colors.errorBackground || colors.sectionBackground,
-              }}
-              onPress={() => handleQuickAction("logout")}
-            >
-              <LogOut size={20} color={colors.error} style={{ marginRight: 12 }} />
-              <Text style={{ fontSize: 16, color: colors.error, fontWeight: "600" }}>
-                {translate("common.logout" as any) || "Logout"}
-              </Text>
-            </TouchableOpacity>
-          </BottomSheetView>
-        </BottomSheetModal>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   )

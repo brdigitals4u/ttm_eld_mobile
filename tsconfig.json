@@ -40,7 +40,7 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ],
+, "src/screens/DashboardScreen.tsx.bkp"  ],
   "exclude": [
     "node_modules",
     "test/**/*"

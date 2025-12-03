@@ -1,6 +1,17 @@
 import { Translations } from "./en"
 
 const es: Translations = {
+  notifications: {
+    title: "Notificaciones",
+    viewViolations: "Violaciones",
+    viewDtc: "Códigos DTC",
+    noNotifications: "No tienes notificaciones nuevas",
+    allCaughtUp: "¡Todo al día!",
+    loading: "Cargando notificaciones...",
+    failedToLoad: "Error al cargar",
+    unableToFetch: "No se pudieron obtener las notificaciones",
+    tryAgain: "Intentar de nuevo",
+  },
   common: {
     ok: "OK",
     cancel: "Cancelar",
@@ -23,6 +34,9 @@ const es: Translations = {
     tryAgain: "Intentar de nuevo",
     today: "Hoy",
     yesterday: "Ayer",
+    logout: "Cerrar Sesión",
+    confirmLogout: "Confirmar Cierre de Sesión",
+    logoutMessage: "¿Estás seguro de que quieres cerrar sesión? Necesitarás iniciar sesión nuevamente para acceder a la aplicación.",
   },
   welcomeScreen: {
     postscript:
@@ -61,6 +75,20 @@ const es: Translations = {
     welcomeBack: "¡Bienvenido de nuevo!",
     locationUnavailable: "Ubicación no disponible",
     today: "Hoy",
+    driverInfo: "Información del Conductor",
+    askOrgForCoDriver: "Pide a tu organización que agregue un copiloto",
+    driverName: "Nombre del Conductor",
+    organization: "Organización",
+    username: "Nombre de Usuario",
+    eldConnected: "ELD Conectado",
+    eldNotConnected: "ELD No Conectado",
+    reconnect: "Reconectar",
+    connect: "Conectar ELD",
+    disconnect: "Desconectar",
+    disconnecting: "Desconectando...",
+    currentDateTime: "Fecha y Hora",
+    statusSetTo: "Estado establecido en {{status}}",
+    undo: "Deshacer",
   },
   login: {
     welcomeTitle: "Bienvenido a TTM Fleet",
@@ -117,8 +145,24 @@ const es: Translations = {
     onDuty: "En servicio",
     offDuty: "Fuera de servicio",
     sleeping: "Durmiendo",
+    sleeper: "Dormitorio",
+    personalConveyance: "Transporte Personal",
+    yardMove: "Movimiento en Patio",
     cycleLabel: "EE. UU. 70 horas / 8 días",
     statusChange: "Cambio de estado",
+    statusUpdateFailed: "Error al actualizar el estado",
+    driveRemaining: "Tiempo de Conducción Restante",
+    shiftRemaining: "Turno Restante",
+    cycleRemaining: "Ciclo Restante",
+    untilBreak: "Hasta el Descanso",
+  },
+  statusModal: {
+    selectReason: "Selecciona una razón (o espera {{seconds}}s para la predeterminada)",
+    autoSelecting: "Selección automática en {{seconds}}...",
+    timerSeconds: "{{seconds}}s",
+    defaultOption: "Predeterminado",
+    updating: "Actualizando estado...",
+    selectRemark: "Selecciona una observación (requerido)",
   },
   fuel: {
     title: "Compras de combustible",
@@ -320,6 +364,14 @@ const es: Translations = {
     selectLanguage: "Seleccionar Idioma",
     languageChanged: "Idioma cambiado exitosamente",
     languageChangeFailed: "Error al cambiar el idioma",
+    theme: "Tema",
+    selectTheme: "Seleccionar Tema",
+    themeChanged: "Tema cambiado exitosamente",
+    themeChangeFailed: "Error al cambiar el tema",
+    themes: {
+      lightMode: "Modo Claro",
+      darkMode: "Modo Oscuro",
+    },
   },
   inspection: {
     title: "Inspección de Vehículo",

@@ -8,14 +8,23 @@ import { Text } from "@/components/Text"
 import { NotificationService } from "@/services/NotificationService"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
+import { translate } from "@/i18n/translate"
+import { useObdData } from "@/contexts/obd-data-context"
+import { useViolations } from "@/api/driver-hooks"
 
 interface NotificationsPanelProps {
   onClose?: () => void
+  violationCount?: number
+  dtcCount?: number
 }
 
-export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose }) => {
+export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
+  onClose,
+  violationCount = 0,
+  dtcCount = 0,
+}) => {
   const { theme } = useAppTheme()
-  const { colors } = theme
+  const { colors, isDark } = theme
   const { isAuthenticated } = useAuth()
   const { data, isLoading, error, refetch } = useNotifications({
     status: "all",
@@ -27,6 +36,16 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
 
   // Calculate unread count from results
   const unreadCount = data?.results?.filter((n: Notification) => !n.is_read).length || 0
+
+  const handleViolationsPress = () => {
+    if (onClose) onClose()
+    router.push("/violations" as any)
+  }
+
+  const handleDtcPress = () => {
+    if (onClose) onClose()
+    router.push("/dtc-history" as any)
+  }
 
   // Sync badge count with unread notifications
   useEffect(() => {
@@ -275,8 +294,20 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
           marginTop: 6,
           width: 8,
         },
+        viewAllText: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: "700",
+        }, 
+        row: {
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+        }
       }),
-    [colors],
+    [colors, isDark],
   )
 
   if (isLoading) {
@@ -287,7 +318,9 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.tint} />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
+          <Text style={styles.loadingText}>
+            {translate("notifications.loading" as any) || "Loading notifications..."}
+          </Text>
         </View>
       </View>
     )
@@ -300,11 +333,17 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
           <Text style={styles.headerTitle}>Notifications</Text>
         </View>
         <View style={styles.emptyContainer}>
-          <XCircle size={48} color="#EF4444" strokeWidth={2} />
-          <Text style={styles.emptyTitle}>Failed to Load</Text>
-          <Text style={styles.emptyText}>Unable to fetch notifications</Text>
+          <XCircle size={48} color={colors.error} strokeWidth={2} />
+          <Text style={styles.emptyTitle}>
+            {translate("notifications.failedToLoad" as any) || "Failed to Load"}
+          </Text>
+          <Text style={styles.emptyText}>
+            {translate("notifications.unableToFetch" as any) || "Unable to fetch notifications"}
+          </Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.retryButtonText}>
+              {translate("notifications.tryAgain" as any) || "Try Again"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -395,6 +434,14 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ onClose 
               ))}
           </>
         )}
+        <View style={styles.row}>
+          <TouchableOpacity onPress={handleViolationsPress}>  
+            <Text style={styles.viewAllText}>View All Violations</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDtcPress}>
+            <Text style={styles.viewAllText}>View All DTCs</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   )

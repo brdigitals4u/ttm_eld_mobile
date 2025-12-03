@@ -46,7 +46,7 @@ const palette = {
   error200: "#F1B0B7", // Lighter red
   error300: "#EAA0A8", // Medium light red
   error400: "#E3737E", // Medium red
-  error500: "#DC3545", // Alert Red - Stopped, SOS, Overdue
+  error500: "#FF6B00", // Alert Red - Stopped, SOS, Overdue
   error600: "#C82333", // Darker red
   error700: "#A71E2A", // Dark red
   error800: "#7F1A23", // Very dark red

@@ -1,89 +1,161 @@
 import { useMemo } from "react"
-import { Pressable, StyleSheet, StatusBar, View } from "react-native"
+import { Pressable, StyleSheet, StatusBar, View, ViewStyle, TextStyle } from "react-native"
 import { Tabs, TabList, TabTrigger, TabSlot } from "expo-router/ui"
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
+import { SafeAreaView, useSafeAreaInsets, Edge } from "react-native-safe-area-context"
 
 import { Icon } from "@/components/Icon"
 import { Text } from "@/components/Text"
 import { useLanguage } from "@/hooks/useLanguage"
 import { translate } from "@/i18n/translate"
 import { useAppTheme } from "@/theme/context"
-import { COLORS } from "@/constants"
 
-function CustomTabButton({ isFocused, icon, label, colors, styles: tabStyles, ...props }: any) {
+interface CustomTabButtonProps {
+  isFocused: boolean
+  icon: string
+  label: string
+  colors: any
+  isDark: boolean
+  styles: {
+    tabItem: ViewStyle
+    tabActive: ViewStyle
+    label: TextStyle
+    labelActive: TextStyle
+  }
+}
+
+interface Styles {
+  safeArea: ViewStyle
+  tabContentContainer: ViewStyle
+  tabBarContainer: ViewStyle
+  tabItem: ViewStyle
+  tabActive: ViewStyle
+  label: TextStyle
+  labelActive: TextStyle
+}
+
+const TAB_CONFIG = [
+  { name: "dashboard", href: "/dashboard", icon: "menu", labelKey: "tabs.home" },
+  { name: "fuel", href: "/fuel", icon: "bell", labelKey: "tabs.fuel" },
+  { name: "logs", href: "/logs", icon: "view", labelKey: "tabs.logs" },
+  { name: "support", href: "/support", icon: "bell", labelKey: "tabs.support" },
+  { name: "profile", href: "/profile", icon: "user", labelKey: "tabs.profile" },
+] as const
+
+const LAYOUT_CONSTANTS = {
+  PADDING: 8,
+  ICON_SIZE: 22,
+  LABEL_SIZE: 12,
+  LABEL_MARGIN_TOP: 4,
+  TAB_PADDING_VERTICAL: 14,
+  TAB_BORDER_RADIUS: 24,
+  TAB_MARGIN_HORIZONTAL: 4,
+  OPACITY_INACTIVE: "80", // 50% opacity
+} as const
+
+function CustomTabButton({ 
+  isFocused, 
+  icon, 
+  label, 
+  colors, 
+  isDark, 
+  styles: tabStyles, 
+  ...props 
+}: CustomTabButtonProps) {
+  // Dark theme: dark background, active uses primary color (tint), inactive uses dim text
+  // Light theme: light background, active uses primary color (tint), inactive uses dim text
+  const iconColor = isFocused ? colors.tint : colors.textDim
+  const labelColor = isFocused ? colors.tint : colors.textDim
+
   return (
-    <Pressable {...props} style={[tabStyles.tabItem, isFocused && tabStyles.tabActive]}>
-      <Icon icon={icon} size={22} color={isFocused ? COLORS.primary : COLORS.white} />
-      <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>{label}</Text>
+    <Pressable 
+      {...props} 
+      style={[tabStyles.tabItem, isFocused && tabStyles.tabActive]}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={label}
+    >
+      <Icon icon={icon} size={LAYOUT_CONSTANTS.ICON_SIZE} color={iconColor} />
+      <Text style={[tabStyles.label, { color: labelColor }, isFocused && tabStyles.labelActive]}>
+        {label}
+      </Text>
     </Pressable>
   )
 }
 
 export default function Layout() {
-  // Use language hook to trigger re-render when language changes
   useLanguage()
-  const { theme } = useAppTheme()
-  const { colors, isDark } = theme
+  const { theme, themeContext } = useAppTheme()
+  const { colors } = theme
+  const isDark = themeContext === "dark"
   const insets = useSafeAreaInsets()
 
-  // Calculate tab bar height: padding (8) + icon (22) + label (12 + 4 margin) + paddingVertical (14*2) + bottom padding
-  const tabBarHeight = 8 + 22 + 12 + 4 + 14 * 2 + 8 + insets.bottom
+  const tabBarHeight = useMemo(() => {
+    return (
+      LAYOUT_CONSTANTS.PADDING +
+      LAYOUT_CONSTANTS.ICON_SIZE +
+      LAYOUT_CONSTANTS.LABEL_SIZE +
+      LAYOUT_CONSTANTS.LABEL_MARGIN_TOP +
+      LAYOUT_CONSTANTS.TAB_PADDING_VERTICAL * 2 +
+      LAYOUT_CONSTANTS.PADDING +
+      insets.bottom
+    )
+  }, [insets.bottom])
 
-  const styles = useMemo(
+  const styles = useMemo<Styles>(
     () =>
       StyleSheet.create({
-        label: {
-          color: COLORS.white,
-          fontSize: 12,
-          marginTop: 4,
-        },
-        labelActive: {
-          color: COLORS.ink700,
-          fontWeight: "500",
-        },
         safeArea: {
-          backgroundColor: colors.background,
           flex: 1,
-        },
-        tabActive: {
-          backgroundColor: colors.cardBackground,
-        },
-        tabBarContainer: {
-          backgroundColor: colors.sectionBackground,
-          bottom: 0,
-          elevation: 0,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          left: 0,
-          padding: 8,
-          paddingBottom: insets.bottom + 8,
-          position: "absolute",
-          right: 0,
-          shadowColor: colors.palette.neutral900,
-          shadowOffset: { width: 0, height: 5 },
-          shadowOpacity: 0.18,
-          shadowRadius: 8,
+          backgroundColor: colors.background,
         },
         tabContentContainer: {
           flex: 1,
           paddingBottom: tabBarHeight,
         },
+        tabBarContainer: {
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          backgroundColor: isDark ? colors.sectionBackground : colors.background,
+          padding: LAYOUT_CONSTANTS.PADDING,
+          paddingBottom: insets.bottom + LAYOUT_CONSTANTS.PADDING,
+          elevation: 0,
+          shadowColor: colors.text,
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: 0.18,
+          shadowRadius: 8,
+        },
         tabItem: {
+          flex: 1,
           alignItems: "center",
           backgroundColor: "transparent",
-          borderRadius: 24,
-          flex: 1,
-          marginHorizontal: 4,
-          paddingVertical: 14,
+          borderRadius: LAYOUT_CONSTANTS.TAB_BORDER_RADIUS,
+          paddingVertical: LAYOUT_CONSTANTS.TAB_PADDING_VERTICAL,
+          marginHorizontal: LAYOUT_CONSTANTS.TAB_MARGIN_HORIZONTAL,
+        },
+        tabActive: {
+          backgroundColor: isDark ? colors.cardBackground : colors.white,
+        },
+        label: {
+          fontSize: LAYOUT_CONSTANTS.LABEL_SIZE,
+          marginTop: LAYOUT_CONSTANTS.LABEL_MARGIN_TOP,
+        },
+        labelActive: {
+          fontWeight: "500",
         },
       }),
-    [colors, insets.bottom, tabBarHeight],
+    [colors, insets.bottom, tabBarHeight, isDark],
   )
 
+  const edges: Edge[] = ["top"]
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={edges}>
       <StatusBar
-        animated={true}
+        animated
         backgroundColor={colors.background}
         showHideTransition="fade"
         hidden={false}
@@ -91,50 +163,20 @@ export default function Layout() {
       />
       <Tabs>
         <View style={styles.tabContentContainer}>
-          <TabSlot /> {/* Renders the selected screen */}
+          <TabSlot />
         </View>
         <TabList style={styles.tabBarContainer}>
-          <TabTrigger name="dashboard" href="/dashboard" asChild>
-            <CustomTabButton
-              icon="menu"
-              label={translate("tabs.home" as any)}
-              colors={colors}
-              styles={styles}
-            />
-          </TabTrigger>
-
-          <TabTrigger name="fuel" href="/fuel" asChild>
-            <CustomTabButton
-              icon="bell"
-              label={translate("tabs.fuel" as any)}
-              colors={colors}
-              styles={styles}
-            />
-          </TabTrigger>
-          <TabTrigger name="logs" href="/logs" asChild>
-            <CustomTabButton
-              icon="view"
-              label={translate("tabs.logs" as any)}
-              colors={colors}
-              styles={styles}
-            />
-          </TabTrigger>
-          <TabTrigger name="support" href="/support" asChild>
-            <CustomTabButton
-              icon="bell"
-              label={translate("tabs.support" as any)}
-              colors={colors}
-              styles={styles}
-            />
-          </TabTrigger>
-          <TabTrigger name="profile" href="/profile" asChild>
-            <CustomTabButton
-              icon="user"
-              label={translate("tabs.profile" as any)}
-              colors={colors}
-              styles={styles}
-            />
-          </TabTrigger>
+          {TAB_CONFIG.map((tab) => (
+            <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
+              <CustomTabButton
+                icon={tab.icon}
+                label={translate(tab.labelKey as any)}
+                colors={colors}
+                isDark={isDark}
+                styles={styles}
+              />
+            </TabTrigger>
+          ))}
         </TabList>
       </Tabs>
     </SafeAreaView>

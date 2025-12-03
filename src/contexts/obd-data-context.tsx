@@ -128,6 +128,7 @@ interface ObdDataContextType {
   activityState: ActivityState
   recentMalfunctions: MalfunctionRecord[]
   eldDeviceId: string | null
+  eldVin: string | null
   eldHistoryRecords: EldHistoryRecord[]
   isFetchingHistory: boolean
   historyFetchProgress: HistoryProgress | null
@@ -221,6 +222,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activityState, setActivityState] = useState<ActivityState>("inactive")
   const [recentMalfunctions, setRecentMalfunctions] = useState<MalfunctionRecord[]>([])
   const [eldDeviceId, setEldDeviceId] = useState<string | null>(null)
+  const [eldVin, setEldVin] = useState<string | null>(null)
 
   const [eldHistoryRecords, setEldHistoryRecords] = useState<EldHistoryRecord[]>([])
   const [isFetchingHistory, setIsFetchingHistory] = useState(false)
@@ -2246,6 +2248,17 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       },
     )
 
+    // Listen for VIN data from ELD device
+    const obdVinDataListener = JMBluetoothService.addEventListener(
+      "onObdVinDataReceived",
+      (data: { vinCode?: string }) => {
+        if (data?.vinCode) {
+          console.log("🚗 OBD Data Context: Received VIN from ELD device:", data.vinCode)
+          setEldVin(data.vinCode)
+        }
+      },
+    )
+
     // Listen for any data received event
     const obdDataReceivedListener = JMBluetoothService.addEventListener(
       "onDataReceived",
@@ -2265,6 +2278,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       JMBluetoothService.removeEventListener(deviceIdListener)
       JMBluetoothService.removeEventListener(historyProgressListener)
       JMBluetoothService.removeEventListener(obdErrorDataListener)
+      JMBluetoothService.removeEventListener(obdVinDataListener)
       JMBluetoothService.removeEventListener(obdDataReceivedListener)
       JMBluetoothService.removeEventListener(eldMalfunctionListener)
 
@@ -2285,6 +2299,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     vehicleAssignment?.vehicle_info?.vin,
     localSyncIntervalMs,
     eldDeviceId,
+    eldVin,
     completeHistoryFetch,
     currentStatus,
   ])
@@ -2672,6 +2687,7 @@ export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     activityState,
     recentMalfunctions,
     eldDeviceId,
+    eldVin,
     eldHistoryRecords,
     isFetchingHistory,
     historyFetchProgress,

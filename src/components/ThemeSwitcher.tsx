@@ -1,85 +1,58 @@
 import React, { useState, useEffect } from "react"
 import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native"
-import { Check, Globe } from "lucide-react-native"
+import { Check, Moon, Sun } from "lucide-react-native"
 
 import ElevatedCard from "@/components/EvevatedCard"
 import { Text } from "@/components/Text"
 import { toast } from "@/components/Toast"
-import { useLanguage } from "@/hooks/useLanguage"
-import { changeLanguage, getCurrentLanguage } from "@/i18n"
-import { translate } from "@/i18n/translate"
-import { useAppTheme } from "@/theme/context"
 import { useAppStore } from "@/stores/appStore"
+import { useAppTheme } from "@/theme/context"
+import { translate } from "@/i18n/translate"
+import { THEME_OPTIONS } from "@/constants/dashboard"
 
-// Only include languages that are actually imported and supported
-const languages = [
-  { code: "en", name: "English", nativeName: "English" },
-  { code: "es", name: "Spanish", nativeName: "Español" },
+const themes = [
+  { code: "light", nameKey: "settings.themes.lightMode", icon: Sun },
+  { code: "dark", nameKey: "settings.themes.darkMode", icon: Moon },
 ]
 
-interface LanguageSwitcherProps {
+interface ThemeSwitcherProps {
   onClose?: () => void
   compact?: boolean // For header icon button
 }
 
-export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose, compact = false }) => {
+export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ onClose, compact = false }) => {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
   const [isOpen, setIsOpen] = useState(false)
-  // Use hook to get current language and trigger re-renders
-  const currentLangFromHook = useLanguage()
-  const [currentLang, setCurrentLang] = useState(() => {
-    const lang = getCurrentLanguage()
-    // Extract primary tag if needed
-    return lang.split("-")[0]
-  })
+  const { theme: currentTheme, setTheme, triggerThemeTransition } = useAppStore()
 
-  // Update local state when language changes from hook
-  useEffect(() => {
-    const primaryTag = currentLangFromHook.split("-")[0]
-    setCurrentLang(primaryTag)
-  }, [currentLangFromHook])
-
-  const { triggerThemeTransition, setLanguage } = useAppStore()
-
-  const handleLanguageChange = async (languageCode: string) => {
+  const handleThemeChange = async (themeCode: "light" | "dark") => {
     try {
-      // Trigger overlay before language change
+      // Trigger overlay before theme change
       triggerThemeTransition(true)
 
-      // Update language in app store
-      setLanguage(languageCode)
+      // Update theme in store (this will trigger ThemeProvider update)
+      setTheme(themeCode)
 
-      // Change language via i18next
-      const success = await changeLanguage(languageCode)
-      if (success) {
-        // Update local state with primary tag
-        const primaryTag = languageCode.split("-")[0]
-        setCurrentLang(primaryTag)
-        
-        // Hide overlay after animation
-        setTimeout(() => {
-          triggerThemeTransition(false)
-          toast.success(translate("settings.languageChanged" as any))
-          setIsOpen(false)
-          onClose?.()
-        }, 200)
-      } else {
+      // ThemeProvider will read from appStore automatically
+
+      // Wait for overlay animation
+      setTimeout(() => {
         triggerThemeTransition(false)
-        toast.error(translate("settings.languageChangeFailed" as any))
-      }
+        setIsOpen(false)
+        onClose?.()
+        toast.success(translate("settings.themeChanged" as any) || "Theme changed")
+      }, 200)
     } catch (error) {
       triggerThemeTransition(false)
-      console.error("Failed to change language:", error)
-      toast.error(translate("settings.languageChangeFailed" as any))
+      console.error("Failed to change theme:", error)
+      toast.error(translate("settings.themeChangeFailed" as any) || "Failed to change theme")
     }
   }
 
-  const currentLanguage =
-    languages.find((lang) => {
-      const langPrimary = currentLang.split("-")[0]
-      return langPrimary === lang.code
-    }) || languages[0]
+  const currentThemeObj = themes.find((t) => t.code === currentTheme) || themes[1] // Default to dark
+  const IconComponent = currentThemeObj.icon
+  const currentThemeName = translate(currentThemeObj.nameKey as any) || currentThemeObj.nameKey.replace("settings.themes.", "")
 
   // Compact mode for header icon button
   if (compact) {
@@ -90,7 +63,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose, com
           onPress={() => setIsOpen(true)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Globe size={20} color={colors.text} />
+          <IconComponent size={20} color={colors.text} />
         </TouchableOpacity>
 
         <Modal
@@ -103,37 +76,40 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose, com
             <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  {translate("settings.selectLanguage" as any)}
+                  {translate("settings.selectTheme" as any) || "Select Theme"}
                 </Text>
                 <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
                   <Text style={[styles.closeButtonText, { color: colors.tint }]}>
-                    {translate("common.close" as any)}
+                    {translate("common.close" as any) || "Close"}
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.languageList}>
-                {languages.map((language) => {
-                  const isSelected = currentLang.startsWith(language.code)
+              <ScrollView style={styles.themeList}>
+                {themes.map((themeOption) => {
+                  const isSelected = currentTheme === themeOption.code
+                  const ThemeIcon = themeOption.icon
                   return (
                     <TouchableOpacity
-                      key={language.code}
+                      key={themeOption.code}
                       style={[
-                        styles.languageItem,
+                        styles.themeItem,
                         {
                           backgroundColor: isSelected ? `${colors.tint}10` : colors.surface,
                           borderColor: isSelected ? colors.tint : colors.border,
                         },
                       ]}
-                      onPress={() => handleLanguageChange(language.code)}
+                      onPress={() => handleThemeChange(themeOption.code as "light" | "dark")}
                     >
-                      <View style={styles.languageContent}>
-                        <Text style={[styles.languageName, { color: colors.text }]}>
-                          {language.nativeName}
-                        </Text>
-                        <Text style={[styles.languageCode, { color: colors.textDim }]}>
-                          {language.name}
-                        </Text>
+                      <View style={styles.themeContent}>
+                        <View style={[styles.themeIconContainer, { backgroundColor: `${colors.tint}15` }]}>
+                          <ThemeIcon size={24} color={colors.tint} />
+                        </View>
+                        <View style={styles.themeTextContainer}>
+                          <Text style={[styles.themeName, { color: colors.text }]}>
+                            {translate(themeOption.nameKey as any) || themeOption.nameKey}
+                          </Text>
+                        </View>
                       </View>
                       {isSelected && <Check size={20} color={colors.tint} />}
                     </TouchableOpacity>
@@ -147,6 +123,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose, com
     )
   }
 
+  // Full card mode (for settings screen)
   return (
     <>
       <TouchableOpacity
@@ -155,14 +132,14 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose, com
       >
         <View style={styles.content}>
           <View style={[styles.iconContainer, { backgroundColor: `${colors.tint}15` }]}>
-            <Globe size={20} color={colors.tint} />
+            <IconComponent size={20} color={colors.tint} />
           </View>
           <View style={styles.textContainer}>
             <Text style={[styles.label, { color: colors.text }]}>
-              {translate("settings.language" as any)}
+              {translate("settings.theme" as any) || "Theme"}
             </Text>
             <Text style={[styles.value, { color: colors.textDim }]}>
-              {currentLanguage.nativeName}
+              {currentThemeName}
             </Text>
           </View>
         </View>
@@ -179,37 +156,40 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ onClose, com
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {translate("settings.selectLanguage" as any)}
+                {translate("settings.selectTheme" as any) || "Select Theme"}
               </Text>
               <TouchableOpacity onPress={() => setIsOpen(false)} style={styles.closeButton}>
                 <Text style={[styles.closeButtonText, { color: colors.tint }]}>
-                  {translate("common.close" as any)}
+                  {translate("common.close" as any) || "Close"}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.languageList}>
-              {languages.map((language) => {
-                const isSelected = currentLang.startsWith(language.code)
+            <ScrollView style={styles.themeList}>
+              {themes.map((themeOption) => {
+                const isSelected = currentTheme === themeOption.code
+                const ThemeIcon = themeOption.icon
                 return (
                   <TouchableOpacity
-                    key={language.code}
+                    key={themeOption.code}
                     style={[
-                      styles.languageItem,
+                      styles.themeItem,
                       {
                         backgroundColor: isSelected ? `${colors.tint}10` : colors.surface,
                         borderColor: isSelected ? colors.tint : colors.border,
                       },
                     ]}
-                    onPress={() => handleLanguageChange(language.code)}
+                    onPress={() => handleThemeChange(themeOption.code as "light" | "dark")}
                   >
-                    <View style={styles.languageContent}>
-                      <Text style={[styles.languageName, { color: colors.text }]}>
-                        {language.nativeName}
-                      </Text>
-                      <Text style={[styles.languageCode, { color: colors.textDim }]}>
-                        {language.name}
-                      </Text>
+                    <View style={styles.themeContent}>
+                      <View style={[styles.themeIconContainer, { backgroundColor: `${colors.tint}15` }]}>
+                        <ThemeIcon size={24} color={colors.tint} />
+                      </View>
+                      <View style={styles.themeTextContainer}>
+                        <Text style={[styles.themeName, { color: colors.text }]}>
+                          {themeOption.name}
+                        </Text>
+                      </View>
                     </View>
                     {isSelected && <Check size={20} color={colors.tint} />}
                   </TouchableOpacity>
@@ -237,7 +217,7 @@ const styles = StyleSheet.create({
   },
   compactButton: {
     alignItems: "center",
-    borderRadius: 22,
+    borderRadius: 20,
     height: 44,
     justifyContent: "center",
     width: 44,
@@ -268,29 +248,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 2,
   },
-  languageCode: {
-    fontSize: 14,
-  },
-  languageContent: {
-    flex: 1,
-  },
-  languageItem: {
-    alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-    padding: 16,
-  },
-  languageList: {
-    padding: 16,
-  },
-  languageName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -316,7 +273,40 @@ const styles = StyleSheet.create({
   textContainer: {
     flex: 1,
   },
+  themeContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    flex: 1,
+  },
+  themeIconContainer: {
+    alignItems: "center",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    marginRight: 12,
+    width: 40,
+  },
+  themeItem: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    padding: 16,
+  },
+  themeList: {
+    padding: 16,
+  },
+  themeName: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  themeTextContainer: {
+    flex: 1,
+  },
   value: {
     fontSize: 14,
   },
 })
+

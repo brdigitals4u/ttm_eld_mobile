@@ -18,6 +18,7 @@ import { analyticsService } from "@/services/AnalyticsService"
 import { initFreshchat } from "@/services/freshchat"
 import { NotificationService } from "@/services/NotificationService"
 import { ThemeProvider } from "@/theme/context"
+import { ThemeTransitionOverlay } from "@/components/ThemeTransitionOverlay"
 import { customFontsToLoad } from "@/theme/typography"
 import { loadDateFnsLocale } from "@/utils/formatDate"
 
@@ -132,7 +133,8 @@ export default function Root() {
         <BottomSheetModalProvider>
           <QueryProvider>
             <AllContextsProvider>
-              <ThemeProvider initialContext="dark">
+              <ThemeProvider>
+                <ThemeTransitionOverlay />
                 <ToastProvider>
                   <BackgroundServices />
                   <KeyboardProvider>

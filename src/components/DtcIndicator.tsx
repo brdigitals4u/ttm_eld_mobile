@@ -39,10 +39,6 @@ export const DtcIndicator: React.FC = () => {
   const hasActiveDtcs = activeDtcCount > 0
   const iconColor = hasActiveDtcs ? colors.warning : colors.textDim
 
-  if (!hasActiveDtcs) {
-    return null
-  }
-
   // Dynamic styles based on theme
   const styles = React.useMemo(
     () =>
@@ -69,12 +65,12 @@ export const DtcIndicator: React.FC = () => {
         },
         container: {
           alignItems: "center",
-          backgroundColor: colors.palette.primary100,
+          backgroundColor: hasActiveDtcs ? colors.palette.primary100 : colors.sectionBackground,
           borderRadius: 20,
-          height: 40,
+          height: 44,
           justifyContent: "center",
           position: "relative",
-          width: 40,
+          width: 44,
         },
         iconContainer: {
           alignItems: "center",
@@ -82,7 +78,7 @@ export const DtcIndicator: React.FC = () => {
           position: "relative",
         },
       }),
-    [colors],
+    [colors, hasActiveDtcs],
   )
 
   return (

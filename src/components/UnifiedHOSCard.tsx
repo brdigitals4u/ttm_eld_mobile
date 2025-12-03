@@ -10,7 +10,15 @@
  * - Optimistic updates with undo
  */
 
-import React, { useState, useCallback, useMemo, useRef, memo } from "react"
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  memo,
+  useImperativeHandle,
+  forwardRef,
+} from "react"
 import {
   Modal,
   Pressable,
@@ -32,16 +40,16 @@ import {
   Briefcase,
   ChevronRight,
 } from "lucide-react-native"
-import * as Progress from "react-native-progress"
-
 import { useHOSCurrentStatus, useChangeDutyStatus } from "@/api/driver-hooks"
 import { useHOSLogs } from "@/api/driver-hooks"
-import HOSCircle from "@/components/HOSSvg"
-import { Text } from "@/components/Text"
 import HOSChart from "@/components/VictoryHOS"
+import { Text } from "@/components/Text"
+import { getGaugeColors } from "@/config/hos-gauge-colors"
+import { Gauge } from "@wz-mobile/rn-gauge"
 import { useLocation } from "@/contexts/location-context"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useLocationData } from "@/hooks/useLocationData"
+import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
@@ -121,14 +129,20 @@ interface UnifiedHOSCardProps {
   disabledMessage?: string
 }
 
-const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
+export interface UnifiedHOSCardRef {
+  openStatusModal: (status: DriverStatus) => void
+}
+
+const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProps>(({
   onScrollToTop,
   disabled = false,
   disabledMessage,
-}) => {
+}, ref) => {
   // Get theme colors - supports both light and dark themes
-  const { theme } = useAppTheme()
+  const { theme, themeContext } = useAppTheme()
   const { colors } = theme
+  const isDark = themeContext === "dark"
+  const themeMode = isDark ? "dark" : "light"
 
   // Status configuration with theme colors
   const STATUS_CONFIG: Record<DriverStatus, StatusConfigEntry> = useMemo(
@@ -233,25 +247,18 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
   const [violationWarning, setViolationWarning] = useState<any>(null)
   const [optimisticStatus, setOptimisticStatus] = useState<DriverStatus | null>(null)
   const [previousStatus, setPreviousStatus] = useState<DriverStatus | null>(null)
-  const [showUndoSnackbar, setShowUndoSnackbar] = useState(false)
   const [pendingSignOut, setPendingSignOut] = useState(false)
   const [statusModalVisible, setStatusModalVisible] = useState(false)
-  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Timer state for auto-select default option
+  const [timerSeconds, setTimerSeconds] = useState(10)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const resetSelection = useCallback(() => {
     setSelectedStatus(null)
     setSelectedReason(null)
     setSplitSleepEnabled(false)
     setPendingSignOut(false)
-  }, [])
-
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (undoTimeoutRef.current) {
-        clearTimeout(undoTimeoutRef.current)
-      }
-    }
   }, [])
 
   // Current status from API (or optimistic update)
@@ -314,31 +321,105 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
     setSelectedStatus(status)
     setViolationWarning(null)
     const reasons = STATUS_REASON_OPTIONS[status] || []
-    setSelectedReason(reasons.length > 0 ? reasons[0] : null)
+    // Set first reason as default, but don't auto-select yet
+    setSelectedReason(null)
     setSplitSleepEnabled(false)
     setPendingSignOut(false)
 
+    // Start timer
+    setTimerSeconds(10)
     setStatusModalVisible(true)
   }, [])
 
-  // Handle undo
-  const handleUndo = useCallback(() => {
-    if (undoTimeoutRef.current) {
-      clearTimeout(undoTimeoutRef.current)
-      undoTimeoutRef.current = null
+  // Timer effect - countdown and auto-select default
+  React.useEffect(() => {
+    if (!statusModalVisible || !selectedStatus) {
+      // Clear timer when modal closes
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      return
     }
 
-    setStatusModalVisible(false)
-
-    if (previousStatus) {
-      setOptimisticStatus(previousStatus)
+    const reasonOptions = STATUS_REASON_OPTIONS[selectedStatus] || []
+    if (reasonOptions.length === 0) {
+      // No reason required - update immediately
+      handleConfirmStatusChange(false).catch(() => {
+        // Error handling
+      })
+      return
     }
-    setShowUndoSnackbar(false)
-    setPendingEventId(null)
-    resetSelection()
 
-    toast.info("Status change reverted")
-  }, [previousStatus, resetSelection, toast])
+    // Start countdown timer
+    timerRef.current = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          // Timer expired - auto-select first reason and save
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
+          const defaultReason = reasonOptions[0]
+          setSelectedReason(defaultReason)
+          // Auto-save will be triggered by the reason selection effect
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusModalVisible, selectedStatus])
+
+  // Auto-save when reason is selected (only once, prevent infinite loops)
+  const hasAutoSavedRef = useRef(false)
+  const lastSavedReasonRef = useRef<string | null>(null)
+
+  React.useEffect(() => {
+    if (
+      selectedReason &&
+      selectedStatus &&
+      statusModalVisible &&
+      !isSubmitting &&
+      !hasAutoSavedRef.current &&
+      lastSavedReasonRef.current !== selectedReason
+    ) {
+      hasAutoSavedRef.current = true
+      lastSavedReasonRef.current = selectedReason
+      // Reason selected - auto-save
+      handleConfirmStatusChange(false).catch(() => {
+        // Error handling - reset flag on error
+        hasAutoSavedRef.current = false
+        lastSavedReasonRef.current = null
+      })
+      // Reset after a delay to allow for new selections
+      setTimeout(() => {
+        hasAutoSavedRef.current = false
+      }, 2000)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReason, selectedStatus, statusModalVisible, isSubmitting])
+
+  // Reset auto-save flag when modal closes
+  React.useEffect(() => {
+    if (!statusModalVisible) {
+      hasAutoSavedRef.current = false
+      lastSavedReasonRef.current = null
+      setTimerSeconds(10)
+    }
+  }, [statusModalVisible])
+
+  // Expose handleStatusChipTap via ref
+  useImperativeHandle(ref, () => ({
+    openStatusModal: handleStatusChipTap,
+  }), [handleStatusChipTap])
 
   // Handle confirm status change
   const handleConfirmStatusChange = useCallback(
@@ -347,11 +428,23 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
 
       const reasonOptions = STATUS_REASON_OPTIONS[selectedStatus] || []
       if (reasonOptions.length > 0 && !selectedReason) {
-        toast.error("Please select a remark before confirming.")
+        // If timer expired and auto-selected, use first reason
+        if (timerSeconds === 0 && reasonOptions.length > 0) {
+          setSelectedReason(reasonOptions[0])
+          // Will trigger auto-save via effect
+          return
+        }
+        // Otherwise wait for user selection
         return
       }
 
-      // Store previous status for undo
+      // Clear timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+
+      // Store previous status for undo (but we won't show undo snackbar)
       setPreviousStatus(currentStatus)
 
       // Optimistic update - show new status immediately
@@ -362,16 +455,7 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
       setPendingEventId(clientEventId)
       setIsSubmitting(true)
 
-      // Show undo snackbar (auto-hide after 5 seconds)
-      setShowUndoSnackbar(true)
-
-      if (undoTimeoutRef.current) {
-        clearTimeout(undoTimeoutRef.current)
-      }
-
-      undoTimeoutRef.current = setTimeout(() => {
-        setShowUndoSnackbar(false)
-      }, 5000)
+      // Remove undo snackbar - no longer showing it
 
       try {
         // Get odometer
@@ -395,13 +479,11 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
 
         await changeDutyStatusMutation.mutateAsync(requestPayload)
 
-        // Success - clear undo snackbar
-        if (undoTimeoutRef.current) {
-          clearTimeout(undoTimeoutRef.current)
-          undoTimeoutRef.current = null
-        }
-        setShowUndoSnackbar(false)
+        // Success - close modal automatically
         setStatusModalVisible(false)
+        resetSelection()
+        hasAutoSavedRef.current = false
+        lastSavedReasonRef.current = null
 
         const statusLabel = STATUS_CONFIG[selectedStatus]?.label || selectedStatus
         toast.success(`Status set to ${statusLabel}`)
@@ -446,11 +528,6 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
           setOptimisticStatus(null)
         }
         setPendingEventId(null)
-        setShowUndoSnackbar(false)
-        if (undoTimeoutRef.current) {
-          clearTimeout(undoTimeoutRef.current)
-          undoTimeoutRef.current = null
-        }
         setPendingSignOut(false)
         resetSelection()
       } finally {
@@ -903,6 +980,96 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
           fontSize: 14,
           fontWeight: "500",
         },
+        // Clocks Container - Responsive Layout
+        clocksContainer: {
+          marginVertical: 20,
+        },
+        clocksContainerTablet: {
+          marginVertical: 12,
+        },
+        clocksRow: {
+          flexDirection: "row",
+          justifyContent: "space-around",
+          alignItems: "center",
+          gap: 12,
+        },
+        clocksGridMobile: {
+          flexDirection: "column",
+          gap: 12,
+        },
+        clocksRowMobile: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          gap: 12,
+        },
+        gaugeCard: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderRadius: 16,
+          flex: 1,
+          padding: 12,
+        },
+        gaugeCardMobile: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderRadius: 16,
+          flex: 1,
+          padding: 10,
+        },
+        gaugeContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+        },
+        gaugeTitle: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: "600",
+          marginBottom: 8,
+          textAlign: "center",
+        },
+        gaugeLabel: {
+          color: colors.text,
+          fontWeight: "600",
+          textAlign: "center",
+        },
+        drivingClockContainer: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderRadius: 16,
+          marginBottom: 20,
+          padding: 20,
+        },
+        drivingClockTitle: {
+          color: colors.text,
+          fontSize: 16,
+          fontWeight: "600",
+          marginBottom: 12,
+        },
+        drivingClockSubtitle: {
+          color: colors.textDim,
+          fontSize: 12,
+          marginTop: 12,
+        },
+        secondaryClocksRow: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          gap: 12,
+        },
+        secondaryClockCard: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderRadius: 16,
+          flex: 1,
+          padding: 12,
+        },
+        secondaryClockTitle: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: "600",
+          marginBottom: 8,
+          textAlign: "center",
+        },
         // Clocks Row
         clocksGrid: {
           flexDirection: "row",
@@ -1221,163 +1388,213 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
         </View>
       )}
 
-      {/* HOS Clocks Row */}
-      <View style={[styles.clocksGrid, gridColumns === 3 && styles.clocksGridTablet]}>
-        <View
-          style={[
-            styles.clockCard,
-            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
-            {
-              width: gridColumns === 3 ? "32%" : "48%",
-            },
-          ]}
-        >
-          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>
-            Driver
-          </Text>
-          <HOSCircle
-            text={formatTime(clocks.drive.remaining_minutes)}
-            size={driveCircleSize}
-            progress={Math.min(100, Math.max(0, driveProgress * 100))}
-            strokeWidth={driveCircleThickness}
-          />
-          <Text style={[styles.clockCardSubtitle, { fontSize: driveLabelFontSize }]}>
-            11-Hour Drive Limit
-          </Text>
-          <Text style={styles.clockCardMeta}>
-            Used {formatTime(driveUsedMinutes)} • Left {formatTime(clocks.drive.remaining_minutes)}
-          </Text>
-          {clocks.drive.remaining_minutes <= 0 && (
-            <View style={styles.clockCardWarning}>
-              <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
-              <Text style={styles.clockCardWarningText}>Violation</Text>
-            </View>
-          )}
-        </View>
-
-        <View
-          style={[
-            styles.clockCard,
-            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
-            {
-              width: gridColumns === 3 ? "32%" : "48%",
-            },
-          ]}
-        >
-          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>
-            14-Hr Shift
-          </Text>
-          <View style={styles.clockCardMeter}>
-            <Progress.Circle
-              size={secondaryCircleSize}
-              progress={Math.min(1, Math.max(0, shiftProgress))}
-              color={clocks.shift.remaining_minutes <= 0 ? colors.error : colors.warning}
-              thickness={secondaryCircleThickness}
-              showsText={false}
-              strokeCap="round"
-              unfilledColor={colors.border}
-            />
-            <View style={styles.clockCardMeterOverlay}>
-              <Text
-                style={[
-                  styles.clockCardValue,
-                  { fontSize: secondaryValueFontSize },
-                  clocks.shift.remaining_minutes <= 0 && styles.clockValueViolation,
-                ]}
-              >
-                {formatTime(clocks.shift.remaining_minutes)}
+      {/* HOS Clocks - Responsive Layout: Tablet (row), Mobile (2x2 grid) */}
+      <View style={[styles.clocksContainer, isTabletWidth && styles.clocksContainerTablet]}>
+        {isTabletWidth ? (
+          // Tablet Layout: Single row with all 4 gauges
+          <View style={styles.clocksRow}>
+            {/* Driving Gauge - Larger */}
+            <View style={styles.gaugeCard}>
+              <Text style={styles.gaugeTitle}>
+                {translate("hos.driveRemaining" as any) || "Drive Remaining"}
               </Text>
+              <View style={styles.gaugeContainer}>
+                <Gauge
+                  emptyColor={getGaugeColors(themeMode, "driving").emptyColor}
+                  colors={getGaugeColors(themeMode, "driving").colors}
+                  fillProgress={1 - driveProgress}
+                  renderLabel={() => (
+                    <Text style={[styles.gaugeLabel, { fontSize: driveValueFontSize, color: colors.text }]}>
+                      {formatTime(clocks.drive.remaining_minutes)}
+                    </Text>
+                  )}
+                  size={220}
+                  strokeWidth={14}
+                  sweepAngle={250}
+                  thickness={60}
+                />
+              </View>
+              {clocks.drive.remaining_minutes <= 0 && (
+                <View style={styles.clockCardWarning}>
+                  <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
+                  <Text style={styles.clockCardWarningText}>Violation</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Shift Remaining */}
+            <View style={styles.gaugeCard}>
+              <Text style={styles.gaugeTitle}>
+                {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
+              </Text>
+              <View style={styles.gaugeContainer}>
+                <Gauge
+                  emptyColor={getGaugeColors(themeMode, "shiftRemaining").emptyColor}
+                  colors={getGaugeColors(themeMode, "shiftRemaining").colors}
+                  fillProgress={shiftProgress}
+                  renderLabel={() => (
+                    <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
+                      {formatTime(clocks.shift.remaining_minutes)}
+                    </Text>
+                  )}
+                  size={180}
+                  strokeWidth={12}
+                  sweepAngle={180}
+                  thickness={48}
+                />
+              </View>
+            </View>
+
+            {/* Cycle Remaining */}
+            <View style={styles.gaugeCard}>
+              <Text style={styles.gaugeTitle}>
+                {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
+              </Text>
+              <View style={styles.gaugeContainer}>
+                <Gauge
+                  emptyColor={getGaugeColors(themeMode, "cycleRemaining").emptyColor}
+                  colors={getGaugeColors(themeMode, "cycleRemaining").colors}
+                  fillProgress={cycleProgress}
+                  renderLabel={() => (
+                    <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
+                      {formatCycleTime(clocks.cycle.remaining_minutes)}
+                    </Text>
+                  )}
+                  size={180}
+                  strokeWidth={10}
+                  sweepAngle={250}
+                  thickness={40}
+                />
+              </View>
+            </View>
+
+            {/* Until Break */}
+            <View style={styles.gaugeCard}>
+              <Text style={styles.gaugeTitle}>
+                {translate("hos.untilBreak" as any) || "Until Break"}
+              </Text>
+              <View style={styles.gaugeContainer}>
+                <Gauge
+                  emptyColor={getGaugeColors(themeMode, "untilBreak").emptyColor}
+                  colors={getGaugeColors(themeMode, "untilBreak").colors}
+                  fillProgress={breakProgress}
+                  renderLabel={() => (
+                    <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
+                      {formatTime(breakTimeUntilRequired)}
+                    </Text>
+                  )}
+                  size={180}
+                  strokeWidth={10}
+                  sweepAngle={250}
+                  thickness={50}
+                />
+              </View>
             </View>
           </View>
-          <Text style={styles.clockCardMeta}>
-            Used {formatTime(shiftUsedMinutes)} • Left {formatTime(clocks.shift.remaining_minutes)}
-          </Text>
-        </View>
+        ) : (
+          // Mobile Layout: 2x2 grid
+          <View style={styles.clocksGridMobile}>
+            {/* Top Row: Driving (left, larger) + Shift (right, smaller) */}
+            <View style={styles.clocksRowMobile}>
+              <View style={styles.gaugeCardMobile}>
+                <Text style={styles.gaugeTitle}>
+                  {translate("hos.driveRemaining" as any) || "Drive Remaining"}
+                </Text>
+                <View style={styles.gaugeContainer}>
+                  <Gauge
+                    emptyColor={getGaugeColors(themeMode, "driving").emptyColor}
+                    colors={getGaugeColors(themeMode, "driving").colors}
+                    fillProgress={1 - driveProgress}
+                    renderLabel={() => (
+                      <Text style={[styles.gaugeLabel, { fontSize: driveValueFontSize, color: colors.text }]}>
+                        {formatTime(clocks.drive.remaining_minutes)}
+                      </Text>
+                    )}
+                    size={180}
+                    strokeWidth={12}
+                    sweepAngle={250}
+                    thickness={50}
+                  />
+                </View>
+                {clocks.drive.remaining_minutes <= 0 && (
+                  <View style={styles.clockCardWarning}>
+                    <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
+                    <Text style={styles.clockCardWarningText}>Violation</Text>
+                  </View>
+                )}
+              </View>
 
-        <View
-          style={[
-            styles.clockCard,
-            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
-            {
-              width: gridColumns === 3 ? "32%" : "48%",
-            },
-          ]}
-        >
-          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>
-            {clocks.cycle.type === "70_8" ? "70-Hr" : "60-Hr"} Cycle
-          </Text>
-          <View style={styles.clockCardMeter}>
-            <Progress.Circle
-              size={secondaryCircleSize}
-              progress={Math.min(1, Math.max(0, cycleProgress))}
-              color={clocks.cycle.remaining_minutes <= 0 ? colors.error : colors.tint}
-              thickness={secondaryCircleThickness}
-              showsText={false}
-              strokeCap="round"
-              unfilledColor={colors.border}
-            />
-            <View style={styles.clockCardMeterOverlay}>
-              <Text
-                style={[
-                  styles.clockCardValue,
-                  { fontSize: secondaryValueFontSize },
-                  clocks.cycle.remaining_minutes <= 0 && styles.clockValueViolation,
-                ]}
-              >
-                {formatCycleTime(clocks.cycle.remaining_minutes)}
-              </Text>
+              <View style={styles.gaugeCardMobile}>
+                <Text style={styles.gaugeTitle}>
+                  {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
+                </Text>
+                <View style={styles.gaugeContainer}>
+                  <Gauge
+                    emptyColor={getGaugeColors(themeMode, "shiftRemaining").emptyColor}
+                    colors={getGaugeColors(themeMode, "shiftRemaining").colors}
+                    fillProgress={shiftProgress}
+                    renderLabel={() => (
+                      <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
+                        {formatTime(clocks.shift.remaining_minutes)}
+                      </Text>
+                    )}
+                    size={140}
+                    strokeWidth={10}
+                    sweepAngle={180}
+                    thickness={40}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Bottom Row: Cycle (left, smaller) + Break (right, smaller) */}
+            <View style={styles.clocksRowMobile}>
+              <View style={styles.gaugeCardMobile}>
+                <Text style={styles.gaugeTitle}>
+                  {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
+                </Text>
+                <View style={styles.gaugeContainer}>
+                  <Gauge
+                    emptyColor={getGaugeColors(themeMode, "cycleRemaining").emptyColor}
+                    colors={getGaugeColors(themeMode, "cycleRemaining").colors}
+                    fillProgress={cycleProgress}
+                    renderLabel={() => (
+                      <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
+                        {formatCycleTime(clocks.cycle.remaining_minutes)}
+                      </Text>
+                    )}
+                    size={140}
+                    strokeWidth={8}
+                    sweepAngle={250}
+                    thickness={35}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.gaugeCardMobile}>
+                <Text style={styles.gaugeTitle}>
+                  {translate("hos.untilBreak" as any) || "Until Break"}
+                </Text>
+                <View style={styles.gaugeContainer}>
+                  <Gauge
+                    emptyColor={getGaugeColors(themeMode, "untilBreak").emptyColor}
+                    colors={getGaugeColors(themeMode, "untilBreak").colors}
+                    fillProgress={breakProgress}
+                    renderLabel={() => (
+                      <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
+                        {formatTime(breakTimeUntilRequired)}
+                      </Text>
+                    )}
+                    size={140}
+                    strokeWidth={8}
+                    sweepAngle={250}
+                    thickness={40}
+                  />
+                </View>
+              </View>
             </View>
           </View>
-          <Text style={styles.clockCardMeta}>
-            Used {formatCycleTime(cycleUsedMinutes)} • Left{" "}
-            {formatCycleTime(clocks.cycle.remaining_minutes)}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.clockCard,
-            gridColumns === 3 ? styles.clockCardTablet : styles.clockCardMobile,
-            {
-              width: gridColumns === 3 ? "32%" : "48%",
-            },
-          ]}
-        >
-          <Text style={[styles.clockCardTitle, { fontSize: secondaryLabelFontSize + 1 }]}>
-            30-Min Break
-          </Text>
-          <View style={styles.clockCardMeter}>
-            <Progress.Circle
-              size={secondaryCircleSize}
-              progress={breakProgress}
-              color={isBreakRequired ? colors.error : colors.warning}
-              thickness={secondaryCircleThickness}
-              showsText={false}
-              strokeCap="round"
-              unfilledColor={colors.border}
-            />
-            <View style={styles.clockCardMeterOverlay}>
-              <Text
-                style={[
-                  styles.clockCardValue,
-                  { fontSize: secondaryValueFontSize },
-                  isBreakRequired && styles.clockValueViolation,
-                ]}
-              >
-                {formatTime(breakTimeUntilRequired)}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.clockCardMeta}>
-            Driving since {formatTime((clocks as any)?.break?.driving_since_break ?? 0)}
-          </Text>
-          {isBreakRequired && (
-            <View style={styles.clockCardWarning}>
-              <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
-              <Text style={styles.clockCardWarningText}>Break Required</Text>
-            </View>
-          )}
-        </View>
+        )}
       </View>
 
       {/* Mini HOS Chart */}
@@ -1403,7 +1620,7 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
         )}
       </View>
       {/* Status Grid */}
-      <View style={styles.statusGrid}>
+      {/* <View style={styles.statusGrid}>
         {STATUS_ORDER.map((status) => {
           const config = STATUS_CONFIG[status]
           const IconComponent = config.icon
@@ -1439,10 +1656,10 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
             </TouchableOpacity>
           )
         })}
-      </View>
+      </View> */}
 
       {/* Violation Banner */}
-      {violationWarning && (
+      {/* {violationWarning && (
         <View style={styles.violationBanner}>
           <AlertTriangle size={20} color={colors.error} />
           <View style={styles.violationContent}>
@@ -1466,7 +1683,7 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
             </View>
           </View>
         </View>
-      )}
+      )} */}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -1488,17 +1705,6 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
       </View>
 
       {/* Undo Snackbar */}
-      {showUndoSnackbar && selectedStatus && (
-        <View style={styles.snackbar}>
-          <Text style={styles.snackbarText}>
-            Status set to {STATUS_CONFIG[selectedStatus]?.label || "Unknown"} — Undo
-          </Text>
-          <TouchableOpacity onPress={handleUndo} style={styles.snackbarButton}>
-            <Text style={styles.snackbarButtonText}>Undo</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <Modal
         visible={statusModalVisible}
         transparent
@@ -1512,26 +1718,42 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{STATUS_CONFIG[selectedStatus]?.label}</Text>
                 <Text style={styles.modalSubtitle}>
-                  Confirm new duty status below and select a required remark.
+                  {reasonOptions.length > 0
+                    ? translate("statusModal.selectReason" as any, { seconds: timerSeconds }) ||
+                      `Select a reason (or wait ${timerSeconds}s for default)`
+                    : translate("statusModal.updating" as any) || "Updating status..."}
                 </Text>
               </View>
 
               {reasonOptions.length > 0 && (
                 <View style={styles.reasonSection}>
-                  <Text style={styles.reasonLabel}>Select remark (required)</Text>
+                  <Text style={styles.reasonLabel}>
+                    {translate("statusModal.selectRemark" as any) || "Select remark (required)"}
+                  </Text>
                   <View style={styles.reasonChipGrid}>
-                    {reasonOptions.map((reason) => {
+                    {reasonOptions.map((reason, index) => {
                       const isActive = selectedReason === reason
+                      const isDefault = index === 0
+                      const showTimer = isDefault && timerSeconds > 0 && !selectedReason
                       return (
                         <TouchableOpacity
                           key={reason}
                           style={[styles.reasonChip, isActive && styles.reasonChipActive]}
-                          onPress={() => setSelectedReason(reason)}
+                          onPress={() => {
+                            // Cancel timer when user selects
+                            if (timerRef.current) {
+                              clearInterval(timerRef.current)
+                              timerRef.current = null
+                            }
+                            setSelectedReason(reason)
+                          }}
                         >
                           <Text
                             style={[styles.reasonChipText, isActive && styles.reasonChipTextActive]}
                           >
                             {reason}
+                            {showTimer &&
+                              ` (${translate("statusModal.timerSeconds" as any, { seconds: timerSeconds }) || `${timerSeconds}s`})`}
                           </Text>
                         </TouchableOpacity>
                       )
@@ -1557,47 +1779,12 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
                 </View>
               )}
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={handleCloseStatusModal}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <View style={styles.modalActionGroup}>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalPrimaryButton,
-                      (confirmDisabled || isSubmitting) && styles.modalPrimaryButtonDisabled,
-                    ]}
-                    onPress={() => {
-                      handleConfirmStatusChange(false)
-                    }}
-                    disabled={confirmDisabled || isSubmitting}
-                  >
-                    <Text style={styles.modalPrimaryText}>
-                      {isSubmitting ? "Updating..." : "Confirm"}
-                    </Text>
-                  </TouchableOpacity>
-                  {selectedStatus === "offDuty" && (
-                    <TouchableOpacity
-                      style={[
-                        styles.modalSecondaryButton,
-                        (confirmDisabled || isSubmitting) && styles.modalPrimaryButtonDisabled,
-                      ]}
-                      onPress={() => {
-                        handleConfirmStatusChange(true)
-                      }}
-                      disabled={confirmDisabled || isSubmitting}
-                    >
-                      <Text style={styles.modalSecondaryText}>
-                        {isSubmitting ? "Updating..." : "Confirm & Sign Out"}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+              {/* Remove Cancel/Confirm buttons - auto-save on reason selection */}
+              {isSubmitting && (
+                <View style={styles.modalActions}>
+                  <Text style={styles.modalSubtitle}>Updating status...</Text>
                 </View>
-              </View>
+              )}
             </>
           ) : (
             <View style={styles.modalEmptyState}>
@@ -1608,8 +1795,9 @@ const UnifiedHOSCardComponent: React.FC<UnifiedHOSCardProps> = ({
       </Modal>
     </View>
   )
-}
+})
 
+// Wrap the already-forwarded component with memo
 export const UnifiedHOSCard = memo(UnifiedHOSCardComponent, (prevProps, nextProps) => {
   // Only re-render if props actually change
   return (
