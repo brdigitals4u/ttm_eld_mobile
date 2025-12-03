@@ -15,7 +15,7 @@ import {
   Theme as NavTheme,
 } from "@react-navigation/native"
 
-import { secureStorage as storage } from "@/utils/storage"
+import { useAppStore } from "@/stores/appStore"
 
 import { setImperativeTheming } from "./context.utils"
 import { darkTheme, lightTheme } from "./theme"
@@ -55,36 +55,26 @@ export const ThemeProvider: FC<PropsWithChildren<ThemeProviderProps>> = ({
   children,
   initialContext,
 }) => {
-  // Our saved theme context: can be "light", "dark", or undefined (defaults to dark)
-  const [themeScheme, setThemeSchemeState] = useState<ThemeContextModeT>(undefined)
+  // Get theme from appStore (Zustand) - this is the source of truth
+  const storeTheme = useAppStore((state) => state.theme)
+  const setStoreTheme = useAppStore((state) => state.setTheme)
 
-  // Load theme from storage on mount
+  // Local state to track the current theme
+  const [themeScheme, setThemeSchemeState] = useState<ThemeContextModeT>(storeTheme)
+
+  // Sync with appStore whenever it changes
   useEffect(() => {
-    const loadTheme = async () => {
-      try {
-        const savedTheme = await storage.getItem("ignite.themeScheme")
-        if (savedTheme === "light" || savedTheme === "dark") {
-          setThemeSchemeState(savedTheme)
-        }
-      } catch (error) {
-        console.error("Failed to load theme from storage:", error)
-      }
-    }
-    loadTheme()
-  }, [])
+    setThemeSchemeState(storeTheme)
+  }, [storeTheme])
 
-  const setThemeScheme = useCallback(async (value: ThemeContextModeT) => {
-    try {
-      setThemeSchemeState(value)
-      if (value) {
-        await storage.setItem("ignite.themeScheme", value)
-      } else {
-        await storage.removeItem("ignite.themeScheme")
+  const setThemeScheme = useCallback(
+    (value: ThemeContextModeT) => {
+      if (value === "light" || value === "dark") {
+        setStoreTheme(value)
       }
-    } catch (error) {
-      console.error("Failed to save theme to storage:", error)
-    }
-  }, [])
+    },
+    [setStoreTheme],
+  )
 
   /**
    * This function is used to set the theme context and is exported from the useAppTheme() hook.

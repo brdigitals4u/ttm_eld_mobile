@@ -187,7 +187,7 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ onClose, compact =
                       </View>
                       <View style={styles.themeTextContainer}>
                         <Text style={[styles.themeName, { color: colors.text }]}>
-                          {themeOption.name}
+                          {translate(themeOption.nameKey as any) || themeOption.nameKey}
                         </Text>
                       </View>
                     </View>

@@ -80,3 +80,4 @@ export function getGaugeColors(
   return HOS_GAUGE_COLORS[theme][gaugeType]
 }
 
+

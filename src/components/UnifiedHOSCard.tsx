@@ -40,12 +40,13 @@ import {
   Briefcase,
   ChevronRight,
 } from "lucide-react-native"
+import RNSpeedometer from "react-native-speedometer"
+
 import { useHOSCurrentStatus, useChangeDutyStatus } from "@/api/driver-hooks"
-import { useHOSLogs } from "@/api/driver-hooks"
-import HOSChart from "@/components/VictoryHOS"
-import { Text } from "@/components/Text"
 import { getGaugeColors } from "@/config/hos-gauge-colors"
-import { Gauge } from "@wz-mobile/rn-gauge"
+import { useHOSLogs } from "@/api/driver-hooks"
+import { Text } from "@/components/Text"
+import HOSChart from "@/components/VictoryHOS"
 import { useLocation } from "@/contexts/location-context"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useLocationData } from "@/hooks/useLocationData"
@@ -143,6 +144,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
   const { colors } = theme
   const isDark = themeContext === "dark"
   const themeMode = isDark ? "dark" : "light"
+
+  // Get theme-aware gauge colors
+  const gaugeColors = useMemo(
+    () => ({
+      driving: getGaugeColors(themeMode, "driving"),
+      shiftRemaining: getGaugeColors(themeMode, "shiftRemaining"),
+      cycleRemaining: getGaugeColors(themeMode, "cycleRemaining"),
+      untilBreak: getGaugeColors(themeMode, "untilBreak"),
+    }),
+    [themeMode],
+  )
 
   // Status configuration with theme colors
   const STATUS_CONFIG: Record<DriverStatus, StatusConfigEntry> = useMemo(
@@ -1399,20 +1411,19 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                 {translate("hos.driveRemaining" as any) || "Drive Remaining"}
               </Text>
               <View style={styles.gaugeContainer}>
-                <Gauge
-                  emptyColor={getGaugeColors(themeMode, "driving").emptyColor}
-                  colors={getGaugeColors(themeMode, "driving").colors}
-                  fillProgress={1 - driveProgress}
-                  renderLabel={() => (
-                    <Text style={[styles.gaugeLabel, { fontSize: driveValueFontSize, color: colors.text }]}>
-                      {formatTime(clocks.drive.remaining_minutes)}
-                    </Text>
-                  )}
+                <RNSpeedometer
+                  value={clocks.drive.remaining_minutes}
+                  minValue={0}
+                  maxValue={clocks.drive.limit_minutes}
                   size={220}
-                  strokeWidth={14}
-                  sweepAngle={250}
-                  thickness={60}
+                  labels={gaugeColors.driving.colors.map((color: string) => ({
+                    name: "",
+                    labelColor: color,
+                    activeBarColor: color,
+                  }))}
+                  valueFormatter={(value: number) => formatTime(value)}
                 />
+              
               </View>
               {clocks.drive.remaining_minutes <= 0 && (
                 <View style={styles.clockCardWarning}>
@@ -1428,19 +1439,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                 {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
               </Text>
               <View style={styles.gaugeContainer}>
-                <Gauge
-                  emptyColor={getGaugeColors(themeMode, "shiftRemaining").emptyColor}
-                  colors={getGaugeColors(themeMode, "shiftRemaining").colors}
-                  fillProgress={shiftProgress}
-                  renderLabel={() => (
-                    <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
-                      {formatTime(clocks.shift.remaining_minutes)}
-                    </Text>
-                  )}
+                <RNSpeedometer
+                  value={clocks.shift.remaining_minutes}
+                  minValue={0}
+                  maxValue={clocks.shift.limit_minutes}
                   size={180}
-                  strokeWidth={12}
-                  sweepAngle={180}
-                  thickness={48}
+                  labels={gaugeColors.shiftRemaining.colors.map((color) => ({
+                    name: "",
+                    labelColor: color,
+                    activeBarColor: color,
+                  }))}
+                  valueFormatter={(value: number) => formatTime(value)}
                 />
               </View>
             </View>
@@ -1451,19 +1460,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                 {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
               </Text>
               <View style={styles.gaugeContainer}>
-                <Gauge
-                  emptyColor={getGaugeColors(themeMode, "cycleRemaining").emptyColor}
-                  colors={getGaugeColors(themeMode, "cycleRemaining").colors}
-                  fillProgress={cycleProgress}
-                  renderLabel={() => (
-                    <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
-                      {formatCycleTime(clocks.cycle.remaining_minutes)}
-                    </Text>
-                  )}
+                <RNSpeedometer
+                  value={clocks.cycle.remaining_minutes}
+                  minValue={0}
+                  maxValue={clocks.cycle.limit_minutes}
                   size={180}
-                  strokeWidth={10}
-                  sweepAngle={250}
-                  thickness={40}
+                  labels={gaugeColors.cycleRemaining.colors.map((color) => ({
+                    name: "",
+                    labelColor: color,
+                    activeBarColor: color,
+                  }))}
+                  valueFormatter={(value) => formatCycleTime(value)}
                 />
               </View>
             </View>
@@ -1474,19 +1481,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                 {translate("hos.untilBreak" as any) || "Until Break"}
               </Text>
               <View style={styles.gaugeContainer}>
-                <Gauge
-                  emptyColor={getGaugeColors(themeMode, "untilBreak").emptyColor}
-                  colors={getGaugeColors(themeMode, "untilBreak").colors}
-                  fillProgress={breakProgress}
-                  renderLabel={() => (
-                    <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
-                      {formatTime(breakTimeUntilRequired)}
-                    </Text>
-                  )}
+                <RNSpeedometer
+                  value={breakTimeUntilRequired}
+                  minValue={0}
+                  maxValue={(clocks as any)?.break?.trigger_after_minutes || 480}
                   size={180}
-                  strokeWidth={10}
-                  sweepAngle={250}
-                  thickness={50}
+                  labels={gaugeColors.untilBreak.colors.map((color) => ({
+                    name: "",
+                    labelColor: color,
+                    activeBarColor: color,
+                  }))}
+                  valueFormatter={(value: number) => formatTime(value)}
                 />
               </View>
             </View>
@@ -1501,19 +1506,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                   {translate("hos.driveRemaining" as any) || "Drive Remaining"}
                 </Text>
                 <View style={styles.gaugeContainer}>
-                  <Gauge
-                    emptyColor={getGaugeColors(themeMode, "driving").emptyColor}
-                    colors={getGaugeColors(themeMode, "driving").colors}
-                    fillProgress={1 - driveProgress}
-                    renderLabel={() => (
-                      <Text style={[styles.gaugeLabel, { fontSize: driveValueFontSize, color: colors.text }]}>
-                        {formatTime(clocks.drive.remaining_minutes)}
-                      </Text>
-                    )}
+                  <RNSpeedometer
+                    value={clocks.drive.remaining_minutes}
+                    minValue={0}
+                    maxValue={clocks.drive.limit_minutes}
                     size={180}
-                    strokeWidth={12}
-                    sweepAngle={250}
-                    thickness={50}
+                    labels={gaugeColors.driving.colors.map((color: string) => ({
+                      name: "",
+                      labelColor: color,
+                      activeBarColor: color,
+                    }))}
+                    valueFormatter={(value: number) => formatTime(value)}
                   />
                 </View>
                 {clocks.drive.remaining_minutes <= 0 && (
@@ -1529,19 +1532,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                   {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
                 </Text>
                 <View style={styles.gaugeContainer}>
-                  <Gauge
-                    emptyColor={getGaugeColors(themeMode, "shiftRemaining").emptyColor}
-                    colors={getGaugeColors(themeMode, "shiftRemaining").colors}
-                    fillProgress={shiftProgress}
-                    renderLabel={() => (
-                      <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
-                        {formatTime(clocks.shift.remaining_minutes)}
-                      </Text>
-                    )}
+                  <RNSpeedometer
+                    value={clocks.shift.remaining_minutes}
+                    minValue={0}
+                    maxValue={clocks.shift.limit_minutes}
                     size={140}
-                    strokeWidth={10}
-                    sweepAngle={180}
-                    thickness={40}
+                    labels={gaugeColors.shiftRemaining.colors.map((color) => ({
+                      name: "",
+                      labelColor: color,
+                      activeBarColor: color,
+                    }))}
+                    valueFormatter={(value: number) => formatTime(value)}
                   />
                 </View>
               </View>
@@ -1554,19 +1555,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                   {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
                 </Text>
                 <View style={styles.gaugeContainer}>
-                  <Gauge
-                    emptyColor={getGaugeColors(themeMode, "cycleRemaining").emptyColor}
-                    colors={getGaugeColors(themeMode, "cycleRemaining").colors}
-                    fillProgress={cycleProgress}
-                    renderLabel={() => (
-                      <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
-                        {formatCycleTime(clocks.cycle.remaining_minutes)}
-                      </Text>
-                    )}
+                  <RNSpeedometer
+                    value={clocks.cycle.remaining_minutes}
+                    minValue={0}
+                    maxValue={clocks.cycle.limit_minutes}
                     size={140}
-                    strokeWidth={8}
-                    sweepAngle={250}
-                    thickness={35}
+                    labels={gaugeColors.cycleRemaining.colors.map((color) => ({
+                      name: "",
+                      labelColor: color,
+                      activeBarColor: color,
+                    }))}
+                    valueFormatter={(value) => formatCycleTime(value)}
                   />
                 </View>
               </View>
@@ -1576,19 +1575,17 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
                   {translate("hos.untilBreak" as any) || "Until Break"}
                 </Text>
                 <View style={styles.gaugeContainer}>
-                  <Gauge
-                    emptyColor={getGaugeColors(themeMode, "untilBreak").emptyColor}
-                    colors={getGaugeColors(themeMode, "untilBreak").colors}
-                    fillProgress={breakProgress}
-                    renderLabel={() => (
-                      <Text style={[styles.gaugeLabel, { fontSize: secondaryValueFontSize, color: colors.text }]}>
-                        {formatTime(breakTimeUntilRequired)}
-                      </Text>
-                    )}
+                  <RNSpeedometer
+                    value={breakTimeUntilRequired}
+                    minValue={0}
+                    maxValue={(clocks as any)?.break?.trigger_after_minutes || 480}
                     size={140}
-                    strokeWidth={8}
-                    sweepAngle={250}
-                    thickness={40}
+                    labels={gaugeColors.untilBreak.colors.map((color) => ({
+                      name: "",
+                      labelColor: color,
+                      activeBarColor: color,
+                    }))}
+                    valueFormatter={(value: number) => formatTime(value)}
                   />
                 </View>
               </View>
