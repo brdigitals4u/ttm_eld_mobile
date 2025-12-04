@@ -1,8 +1,8 @@
 import { useMemo, useState, useEffect } from "react"
-import { View, StyleSheet, TouchableOpacity, Image } from "react-native"
+import { View, StyleSheet, TouchableOpacity } from "react-native"
 import * as Haptics from "expo-haptics"
 import { router } from "expo-router"
-import { XCircle, Bluetooth, Calendar, MapPin, Navigation, Clock } from "lucide-react-native"
+import { XCircle, Bluetooth, Calendar, Clock } from "lucide-react-native"
 
 import { Text } from "@/components/Text"
 import {
@@ -113,65 +113,34 @@ export const DriverInfoSection: React.FC = () => {
           fontWeight: "600",
         },
         grid: {
-          gap: 8,
+          gap: 12,
         },
-        row: {
-          flexDirection: "row",
-          gap: 8,
-        },
-        infoCard: {
-          flex: 1,
-          backgroundColor: colors.background,
-          borderRadius: 10,
-          padding: 10,
-          borderWidth: 1,
-          borderColor: colors.border,
-        },
-        infoCardRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
+        driverNameContainer: {
           marginBottom: 4,
         },
-        iconContainer: {
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        label: {
-          color: colors.textDim,
-          fontSize: 10,
-          fontWeight: "500",
-          marginBottom: 2,
-        },
-        value: {
+        driverName: {
           color: colors.text,
-          fontSize: 13,
-          fontWeight: "600",
+          fontSize: 18,
+          fontWeight: "700",
         },
-        fullWidthCard: {
-          backgroundColor: colors.background,
-          borderRadius: 10,
-          padding: 10,
-          borderWidth: 1,
-          borderColor: colors.border,
+        detailsRow: {
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
         },
-        timeSection: {
+        detailItem: {
           flexDirection: "row",
           alignItems: "center",
           gap: 6,
           flex: 1,
+          minWidth: "30%",
         },
-        dateSection: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 6,
-          flex: 1,
+        detailValue: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: "500",
+          flexShrink: 1,
         },
       }),
     [colors],
@@ -186,7 +155,7 @@ export const DriverInfoSection: React.FC = () => {
       {/* Header with Title and ELD Status */}
       <View style={styles.header}>
         <Text style={styles.title}>
-          {translate("dashboard.driverInfo" as any) || "Driver Info"}
+        {driverName} {`(${driverUsername})`}
         </Text>
         
         {eldConnected ? (
@@ -212,34 +181,21 @@ export const DriverInfoSection: React.FC = () => {
 
       {/* Content Grid */}
       <View style={styles.grid}>
-        {/* Row 1: Driver Name and Organization */}
-        <View style={styles.row}>
-          <View style={styles.infoCard}>
-            <Text style={[styles.value, { color: colors.text, fontSize: 12 }]}>{driverName} {`(${driverUsername})`}</Text>
+
+        {/* Row: Organization, VIN, Date/Time */}
+        <View style={styles.detailsRow}>
+          <View style={styles.detailItem}>
+            <Text style={styles.detailValue} numberOfLines={1}>{organizationName}</Text>
           </View>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.value} numberOfLines={1}>{organizationName}</Text>
-          </View>
-        </View>
-
-        {/* Row 2: Username */}
-
-
-        {/* Row 3: Date and Time */}
-        <View style={styles.fullWidthCard}>
-          <View style={styles.dateSection}>
-            <Calendar size={16} color={colors.textDim} />
-            <View>
-              <Text style={styles.value}>{vin}</Text>
-            </View>
+          <View style={styles.detailItem}>
+            <Calendar size={14} color={colors.textDim} />
+            <Text style={styles.detailValue} numberOfLines={1}>{vin}</Text>
           </View>
 
-          <View style={styles.timeSection}>
-            <Clock size={16} color={colors.textDim} />
-            <View>
-              <Text style={styles.value}>{formattedDate + " " + formattedTime}</Text>
-            </View>
+          <View style={styles.detailItem}>
+            <Clock size={14} color={colors.textDim} />
+            <Text style={styles.detailValue} numberOfLines={1}>{formattedDate + " " + formattedTime}</Text>
           </View>
         </View>
       </View>

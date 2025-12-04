@@ -72,12 +72,18 @@ export default function HOSChart({
   onRenderPlan,
 }: HOSChartProps) {
   // Get theme colors - supports both light and dark themes
-  const { theme } = useAppTheme()
+  const { theme, themeContext } = useAppTheme()
   const { colors } = theme
 
   // FMCSA standard colors with theme
   const THEME_COLOR = colors.tint
-  const THEME_LIGHT = colors.palette.primary100 // Light variant of primary color
+  // Chart background: secondary primary in light mode, secondary black in dark mode
+  const CHART_BACKGROUND = useMemo(() => {
+    if (themeContext === "dark") {
+      return colors.cardBackground // secondary black (neutral20 in dark mode)
+    }
+    return colors.palette.primary100 // secondary primary (light blue #E3F2FD in light mode)
+  }, [themeContext, colors.cardBackground, colors.palette.primary100])
 
   const FMCSA_STATUS = useMemo(
     () => ({
@@ -136,7 +142,7 @@ export default function HOSChart({
     () =>
       StyleSheet.create({
         chartContainer: {
-          backgroundColor: THEME_LIGHT,
+          backgroundColor: CHART_BACKGROUND,
           borderRadius: 16,
           padding: 12,
         },
@@ -181,7 +187,7 @@ export default function HOSChart({
           marginTop: 4,
         },
       }),
-    [colors, THEME_LIGHT],
+    [colors, CHART_BACKGROUND],
   )
 
   // Normalize and clip segments to 24-hour window

@@ -17,9 +17,6 @@ type StatusConfigEntry = {
   shortCode: string
   fullName: string
   icon: typeof Truck
-  color: string
-  bgColor: string
-  textColor: string
 }
 
 // STATUS_ORDER imported from constants
@@ -68,66 +65,45 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
         shortCode: "OFF",
         fullName: "Off Duty",
         icon: MapPin,
-        color: "#FFFFFF",
-        bgColor: colors.cardBackground,
-        textColor: "#FFFFFF",
       },
       onDuty: {
         label: "On Duty",
         shortCode: "ON",
         fullName: "On Duty",
         icon: Briefcase,
-        color: "#F59E0B",
-        bgColor: colors.cardBackground,
-        textColor: "#F59E0B",
       },
       sleeperBerth: {
         label: "Sleeper Berth",
         shortCode: "SB",
         fullName: "Sleeper Berth",
         icon: Bed,
-        color: "#6366F1",
-        bgColor: colors.cardBackground,
-        textColor: "#6366F1",
       },
       driving: {
         label: "Driving",
         shortCode: "D",
         fullName: "Drive",
         icon: Truck,
-        color: "#0071ce",
-        bgColor: colors.cardBackground,
-        textColor: "#0071ce",
       },
       personalConveyance: {
         label: "Personal Conveyance",
         shortCode: "PC",
         fullName: "Personal Use",
         icon: User,
-        color: "#10B981",
-        bgColor: colors.cardBackground,
-        textColor: "#10B981",
       },
       yardMove: {
         label: "Yard Move",
         shortCode: "YM",
         fullName: "Yard Move",
         icon: Navigation,
-        color: "#6366F1",
-        bgColor: colors.cardBackground,
-        textColor: "#6366F1",
       },
       sleeping: {
         label: "Sleeper",
         shortCode: "SB",
         fullName: "Sleeper Berth",
         icon: Bed,
-        color: "#6366F1",
-        bgColor: colors.cardBackground,
-        textColor: "#6366F1",
       },
     }),
-    [colors],
+    [],
   )
 
   // Get current display status
@@ -177,14 +153,14 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
           position: "relative",
         },
         statusButtonActive: {
-          borderColor: "#0071ce",
+          borderColor: colors.text,
           borderWidth: 2,
         },
         statusButtonDisabled: {
           opacity: 0.5,
         },
         statusButtonDot: {
-          backgroundColor: "#0071ce",
+          backgroundColor: colors.text,
           borderRadius: 4,
           height: 8,
           position: "absolute",
@@ -236,7 +212,7 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
                 style={[
                   styles.statusShortCode,
                   {
-                    color: config.textColor,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -246,7 +222,7 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
                 style={[
                   styles.statusFullName,
                   {
-                    color: config.textColor,
+                    color: colors.text,
                   },
                 ]}
               >
