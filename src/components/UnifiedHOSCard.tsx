@@ -10,15 +10,7 @@
  * - Optimistic updates with undo
  */
 
-import React, {
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-  memo,
-  useImperativeHandle,
-  forwardRef,
-} from "react"
+import React, { useState, useCallback, useMemo, useRef, memo, useImperativeHandle, forwardRef } from "react"
 import {
   Modal,
   Pressable,
@@ -40,11 +32,11 @@ import {
   Briefcase,
   ChevronRight,
 } from "lucide-react-native"
-import RNSpeedometer from "react-native-speedometer"
+import * as Progress from "react-native-progress"
 
 import { useHOSCurrentStatus, useChangeDutyStatus } from "@/api/driver-hooks"
-import { getGaugeColors } from "@/config/hos-gauge-colors"
 import { useHOSLogs } from "@/api/driver-hooks"
+import HOSCircle from "@/components/HOSSvg"
 import { Text } from "@/components/Text"
 import HOSChart from "@/components/VictoryHOS"
 import { useLocation } from "@/contexts/location-context"
@@ -140,21 +132,8 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
   disabledMessage,
 }, ref) => {
   // Get theme colors - supports both light and dark themes
-  const { theme, themeContext } = useAppTheme()
+  const { theme } = useAppTheme()
   const { colors } = theme
-  const isDark = themeContext === "dark"
-  const themeMode = isDark ? "dark" : "light"
-
-  // Get theme-aware gauge colors
-  const gaugeColors = useMemo(
-    () => ({
-      driving: getGaugeColors(themeMode, "driving"),
-      shiftRemaining: getGaugeColors(themeMode, "shiftRemaining"),
-      cycleRemaining: getGaugeColors(themeMode, "cycleRemaining"),
-      untilBreak: getGaugeColors(themeMode, "untilBreak"),
-    }),
-    [themeMode],
-  )
 
   // Status configuration with theme colors
   const STATUS_CONFIG: Record<DriverStatus, StatusConfigEntry> = useMemo(
@@ -992,58 +971,9 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
           fontSize: 14,
           fontWeight: "500",
         },
-        // Clocks Container - Responsive Layout
+        // Clocks Container - New Layout
         clocksContainer: {
           marginVertical: 20,
-        },
-        clocksContainerTablet: {
-          marginVertical: 12,
-        },
-        clocksRow: {
-          flexDirection: "row",
-          justifyContent: "space-around",
-          alignItems: "center",
-          gap: 12,
-        },
-        clocksGridMobile: {
-          flexDirection: "column",
-          gap: 12,
-        },
-        clocksRowMobile: {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          gap: 12,
-        },
-        gaugeCard: {
-          alignItems: "center",
-          backgroundColor: colors.cardBackground,
-          borderRadius: 16,
-          flex: 1,
-          padding: 12,
-        },
-        gaugeCardMobile: {
-          alignItems: "center",
-          backgroundColor: colors.cardBackground,
-          borderRadius: 16,
-          flex: 1,
-          padding: 10,
-        },
-        gaugeContainer: {
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-        },
-        gaugeTitle: {
-          color: colors.text,
-          fontSize: 12,
-          fontWeight: "600",
-          marginBottom: 8,
-          textAlign: "center",
-        },
-        gaugeLabel: {
-          color: colors.text,
-          fontWeight: "600",
-          textAlign: "center",
         },
         drivingClockContainer: {
           alignItems: "center",
@@ -1400,198 +1330,119 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
         </View>
       )}
 
-      {/* HOS Clocks - Responsive Layout: Tablet (row), Mobile (2x2 grid) */}
-      <View style={[styles.clocksContainer, isTabletWidth && styles.clocksContainerTablet]}>
-        {isTabletWidth ? (
-          // Tablet Layout: Single row with all 4 gauges
-          <View style={styles.clocksRow}>
-            {/* Driving Gauge - Larger */}
-            <View style={styles.gaugeCard}>
-              <Text style={styles.gaugeTitle}>
-                {translate("hos.driveRemaining" as any) || "Drive Remaining"}
-              </Text>
-              <View style={styles.gaugeContainer}>
-                <RNSpeedometer
-                  value={clocks.drive.remaining_minutes}
-                  minValue={0}
-                  maxValue={clocks.drive.limit_minutes}
-                  size={220}
-                  labels={gaugeColors.driving.colors.map((color: string) => ({
-                    name: "",
-                    labelColor: color,
-                    activeBarColor: color,
-                  }))}
-                  valueFormatter={(value: number) => formatTime(value)}
-                />
-              
-              </View>
-              {clocks.drive.remaining_minutes <= 0 && (
-                <View style={styles.clockCardWarning}>
-                  <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
-                  <Text style={styles.clockCardWarningText}>Violation</Text>
-                </View>
-              )}
+      {/* HOS Clocks - New Layout: Driving large on top, 3 smaller below */}
+      <View style={styles.clocksContainer}>
+        {/* Top Row - Large Driving Clock */}
+        <View style={styles.drivingClockContainer}>
+          <Text style={[styles.drivingClockTitle, { fontSize: driveLabelFontSize + 2 }]}>
+            {translate("hos.driveRemaining" as any) || "Drive Remaining"}
+          </Text>
+          <HOSCircle
+            text={formatTime(clocks.drive.remaining_minutes)}
+            size={isTabletWidth ? 160 : isSmallWidth ? 140 : 150}
+            progress={Math.min(100, Math.max(0, driveProgress * 100))}
+            strokeWidth={driveCircleThickness}
+          />
+          <Text style={[styles.drivingClockSubtitle, { fontSize: driveLabelFontSize }]}>
+            11-Hour Drive Limit
+          </Text>
+          {clocks.drive.remaining_minutes <= 0 && (
+            <View style={styles.clockCardWarning}>
+              <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
+              <Text style={styles.clockCardWarningText}>Violation</Text>
             </View>
+          )}
+        </View>
 
-            {/* Shift Remaining */}
-            <View style={styles.gaugeCard}>
-              <Text style={styles.gaugeTitle}>
-                {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
-              </Text>
-              <View style={styles.gaugeContainer}>
-                <RNSpeedometer
-                  value={clocks.shift.remaining_minutes}
-                  minValue={0}
-                  maxValue={clocks.shift.limit_minutes}
-                  size={180}
-                  labels={gaugeColors.shiftRemaining.colors.map((color) => ({
-                    name: "",
-                    labelColor: color,
-                    activeBarColor: color,
-                  }))}
-                  valueFormatter={(value: number) => formatTime(value)}
-                />
-              </View>
-            </View>
-
-            {/* Cycle Remaining */}
-            <View style={styles.gaugeCard}>
-              <Text style={styles.gaugeTitle}>
-                {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
-              </Text>
-              <View style={styles.gaugeContainer}>
-                <RNSpeedometer
-                  value={clocks.cycle.remaining_minutes}
-                  minValue={0}
-                  maxValue={clocks.cycle.limit_minutes}
-                  size={180}
-                  labels={gaugeColors.cycleRemaining.colors.map((color) => ({
-                    name: "",
-                    labelColor: color,
-                    activeBarColor: color,
-                  }))}
-                  valueFormatter={(value) => formatCycleTime(value)}
-                />
-              </View>
-            </View>
-
-            {/* Until Break */}
-            <View style={styles.gaugeCard}>
-              <Text style={styles.gaugeTitle}>
-                {translate("hos.untilBreak" as any) || "Until Break"}
-              </Text>
-              <View style={styles.gaugeContainer}>
-                <RNSpeedometer
-                  value={breakTimeUntilRequired}
-                  minValue={0}
-                  maxValue={(clocks as any)?.break?.trigger_after_minutes || 480}
-                  size={180}
-                  labels={gaugeColors.untilBreak.colors.map((color) => ({
-                    name: "",
-                    labelColor: color,
-                    activeBarColor: color,
-                  }))}
-                  valueFormatter={(value: number) => formatTime(value)}
-                />
+        {/* Bottom Row - 3 Smaller Clocks */}
+        <View style={styles.secondaryClocksRow}>
+          {/* 14-Hr Shift */}
+          <View style={styles.secondaryClockCard}>
+            <Text style={[styles.secondaryClockTitle, { fontSize: secondaryLabelFontSize }]}>
+              {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
+            </Text>
+            <View style={styles.clockCardMeter}>
+              <Progress.Circle
+                size={isTabletWidth ? 100 : isSmallWidth ? 80 : 90}
+                progress={Math.min(1, Math.max(0, shiftProgress))}
+                color={clocks.shift.remaining_minutes <= 0 ? colors.error : colors.warning}
+                thickness={secondaryCircleThickness}
+                showsText={false}
+                strokeCap="round"
+                unfilledColor={colors.border}
+              />
+              <View style={styles.clockCardMeterOverlay}>
+                <Text
+                  style={[
+                    styles.clockCardValue,
+                    { fontSize: secondaryValueFontSize },
+                    clocks.shift.remaining_minutes <= 0 && styles.clockValueViolation,
+                  ]}
+                >
+                  {formatTime(clocks.shift.remaining_minutes)}
+                </Text>
               </View>
             </View>
           </View>
-        ) : (
-          // Mobile Layout: 2x2 grid
-          <View style={styles.clocksGridMobile}>
-            {/* Top Row: Driving (left, larger) + Shift (right, smaller) */}
-            <View style={styles.clocksRowMobile}>
-              <View style={styles.gaugeCardMobile}>
-                <Text style={styles.gaugeTitle}>
-                  {translate("hos.driveRemaining" as any) || "Drive Remaining"}
-                </Text>
-                <View style={styles.gaugeContainer}>
-                  <RNSpeedometer
-                    value={clocks.drive.remaining_minutes}
-                    minValue={0}
-                    maxValue={clocks.drive.limit_minutes}
-                    size={180}
-                    labels={gaugeColors.driving.colors.map((color: string) => ({
-                      name: "",
-                      labelColor: color,
-                      activeBarColor: color,
-                    }))}
-                    valueFormatter={(value: number) => formatTime(value)}
-                  />
-                </View>
-                {clocks.drive.remaining_minutes <= 0 && (
-                  <View style={styles.clockCardWarning}>
-                    <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
-                    <Text style={styles.clockCardWarningText}>Violation</Text>
-                  </View>
-                )}
-              </View>
 
-              <View style={styles.gaugeCardMobile}>
-                <Text style={styles.gaugeTitle}>
-                  {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
+          {/* Cycle */}
+          <View style={styles.secondaryClockCard}>
+            <Text style={[styles.secondaryClockTitle, { fontSize: secondaryLabelFontSize }]}>
+              {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
+            </Text>
+            <View style={styles.clockCardMeter}>
+              <Progress.Circle
+                size={isTabletWidth ? 100 : isSmallWidth ? 80 : 90}
+                progress={Math.min(1, Math.max(0, cycleProgress))}
+                color={clocks.cycle.remaining_minutes <= 0 ? colors.error : colors.tint}
+                thickness={secondaryCircleThickness}
+                showsText={false}
+                strokeCap="round"
+                unfilledColor={colors.border}
+              />
+              <View style={styles.clockCardMeterOverlay}>
+                <Text
+                  style={[
+                    styles.clockCardValue,
+                    { fontSize: secondaryValueFontSize },
+                    clocks.cycle.remaining_minutes <= 0 && styles.clockValueViolation,
+                  ]}
+                >
+                  {formatCycleTime(clocks.cycle.remaining_minutes)}
                 </Text>
-                <View style={styles.gaugeContainer}>
-                  <RNSpeedometer
-                    value={clocks.shift.remaining_minutes}
-                    minValue={0}
-                    maxValue={clocks.shift.limit_minutes}
-                    size={140}
-                    labels={gaugeColors.shiftRemaining.colors.map((color) => ({
-                      name: "",
-                      labelColor: color,
-                      activeBarColor: color,
-                    }))}
-                    valueFormatter={(value: number) => formatTime(value)}
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Bottom Row: Cycle (left, smaller) + Break (right, smaller) */}
-            <View style={styles.clocksRowMobile}>
-              <View style={styles.gaugeCardMobile}>
-                <Text style={styles.gaugeTitle}>
-                  {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
-                </Text>
-                <View style={styles.gaugeContainer}>
-                  <RNSpeedometer
-                    value={clocks.cycle.remaining_minutes}
-                    minValue={0}
-                    maxValue={clocks.cycle.limit_minutes}
-                    size={140}
-                    labels={gaugeColors.cycleRemaining.colors.map((color) => ({
-                      name: "",
-                      labelColor: color,
-                      activeBarColor: color,
-                    }))}
-                    valueFormatter={(value) => formatCycleTime(value)}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.gaugeCardMobile}>
-                <Text style={styles.gaugeTitle}>
-                  {translate("hos.untilBreak" as any) || "Until Break"}
-                </Text>
-                <View style={styles.gaugeContainer}>
-                  <RNSpeedometer
-                    value={breakTimeUntilRequired}
-                    minValue={0}
-                    maxValue={(clocks as any)?.break?.trigger_after_minutes || 480}
-                    size={140}
-                    labels={gaugeColors.untilBreak.colors.map((color) => ({
-                      name: "",
-                      labelColor: color,
-                      activeBarColor: color,
-                    }))}
-                    valueFormatter={(value: number) => formatTime(value)}
-                  />
-                </View>
               </View>
             </View>
           </View>
-        )}
+
+          {/* Break */}
+          <View style={styles.secondaryClockCard}>
+            <Text style={[styles.secondaryClockTitle, { fontSize: secondaryLabelFontSize }]}>
+              {translate("hos.untilBreak" as any) || "Until Break"}
+            </Text>
+            <View style={styles.clockCardMeter}>
+              <Progress.Circle
+                size={isTabletWidth ? 100 : isSmallWidth ? 80 : 90}
+                progress={breakProgress}
+                color={isBreakRequired ? colors.error : colors.warning}
+                thickness={secondaryCircleThickness}
+                showsText={false}
+                strokeCap="round"
+                unfilledColor={colors.border}
+              />
+              <View style={styles.clockCardMeterOverlay}>
+                <Text
+                  style={[
+                    styles.clockCardValue,
+                    { fontSize: secondaryValueFontSize },
+                    isBreakRequired && styles.clockValueViolation,
+                  ]}
+                >
+                  {formatTime(breakTimeUntilRequired)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* Mini HOS Chart */}

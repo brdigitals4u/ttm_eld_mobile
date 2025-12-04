@@ -40,6 +40,7 @@ import type {
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
 import type { CarrierInfo } from "@/types/carrier"
+import { SafeAreaContainer } from "@/components/SafeAreaContainer"
 
 const formatDate = (date: Date) => date.toISOString().split("T")[0]
 
@@ -930,6 +931,7 @@ const styles = StyleSheet.create({
 })
 
 export default TransferLogsScreen
+
 
 
 

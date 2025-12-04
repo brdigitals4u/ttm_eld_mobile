@@ -34,6 +34,10 @@ export default function Index() {
     hasSeenWelcome,
   )
 
+  // Safety check for theme
+  const backgroundColor = theme?.colors?.background || "#FFFFFF"
+  const tintColor = theme?.colors?.tint || "#0071ce"
+
   if (isLoading || hasSeenPermissions === null || hasSeenWelcome === null) {
     return (
       <View
@@ -41,10 +45,10 @@ export default function Index() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: theme.colors.background,
+          backgroundColor: backgroundColor,
         }}
       >
-        <ActivityIndicator size="large" color={theme.colors.tint} />
+        <ActivityIndicator size="large" color={tintColor} />
       </View>
     )
   }

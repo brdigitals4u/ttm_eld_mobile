@@ -612,6 +612,24 @@ const es: Translations = {
     location: "Ubicación:",
     description: "Descripción",
   },
+  rideOverview: {
+    title: "Resumen del Viaje",
+    shippingNo: "Número de Envío",
+    trailerNo: "Número de Remolque",
+    coDriver: "Copiloto",
+    view7DaysLog: "Ver registro de 7 días",
+    vehicleInspection: "Inspección de Vehículo",
+    dotInspection: "Inspección DOT",
+    logout: "Cerrar Sesión",
+    notAssigned: "No Asignado",
+    actions: "Acciones",
+    // Optional metrics
+    limitSpeedRoad: "Límite de Velocidad en Carretera",
+    distance: "Distancia",
+    averageSpeed: "Velocidad promedio",
+    roadConditions: "Condiciones de la carretera",
+    good: "Bueno",
+  },
 }
 
 export default es

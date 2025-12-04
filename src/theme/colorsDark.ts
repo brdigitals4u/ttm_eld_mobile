@@ -1,56 +1,56 @@
 const palette = {
-  // Grayscale / neutrals (from screenshot)
-  neutral100: "#FEFEFE",   // White
-  neutral90:  "#FDFDFD",   // Grayscale 10
-  neutral80:  "#ECF1F6",   // Grayscale 20
-  neutral70:  "#E3E9ED",   // Grayscale 30
-  neutral60:  "#D1D8DD",   // Grayscale 40
-  neutral50:  "#BFC6CC",   // Grayscale 50
-  neutral40:  "#9CA4AB",   // Grayscale 60
-  neutral30:  "#78828A",   // Grayscale 70
-  neutral20:  "#66707A",   // Grayscale 80
-  neutral10:  "#434E58",   // Grayscale 90
-  neutral0:   "#171725",   // Grayscale 100 / page deep
+  // Grayscale / neutrals (REPLACED with royal-black neutrals)
+  neutral100: "#FFFFFF",   // pure white
+  neutral90:  "#E6E8ED",
+  neutral80:  "#C3C7CE",
+  neutral70:  "#7E8796",
+  neutral60:  "#555B6C",
+  neutral50:  "#3A3F4D",
+  neutral40:  "#2B2F3B",
+  neutral30:  "#232732",
+  neutral20:  "#1C202A",
+  neutral10:  "#161A22",
+  neutral0:   "#0B0D11",   // deep black-blue (royal ink black)
 
-  // Main (you required these to stay as specified)
-  primary600: "#7BBEFF",
-  primary500: "#007CE1",   // MAIN PRIMARY (kept as requested)
-  primary400: "#0066B8",
-  primary300: "#005194",
-  primary200: "#003A6B",
-  primary100: "#002447",
+  // Royal Scotland Blue Scale (added + replaces your primary shades visually)
+  primary600: "#001F4D",   // deep royal navy
+  primary500: "#007CE1",   // your existing main (kept)
+  primary400: "#003087",   // bright royal navy
+  primary300: "#0044AA",
+  primary200: "#005FCC",
+  primary100: "#002366",   // scotland royal blue
 
-  // Secondary: depends on primary (kept in primary family as requested)
+  // Secondary kept as is
   secondary500: "#007CE1",
   secondary400: "#1A86E6",
   secondary300: "#4DAFF6",
   secondary200: "#89D1FF",
   secondary100: "#DFF6FF",
 
-  // Screenshot main swatches (visual reference colors)
-  mainPrimaryScreenshot: "#6936FF", // (present in screenshot - kept as reference)
+  // Screenshot swatches (unchanged)
+  mainPrimaryScreenshot: "#6936FF",
   mainSecondaryScreenshot: "#F56CFF",
   mainTertiaryScreenshot: "#F3C7F8",
 
-  // Alerts (from screenshot)
-  warning500: "#FACC15",    // Warning (yellow)
-  success500: "#00C566",    // Success (green)
-  error500:   "#FF6B00",    // ERROR = Bhagwa / saffron (your requested error)
+  // Alerts
+  warning500: "#FACC15",
+  success500: "#00C566",
+  error500:   "#FF6B00",
 
-  // Additional colors / lines (from screenshot)
-  white: "#FEFEFE",
-  line: "#E3E7EC",
-  lineDark: "#282837",
-  black: "#111111",
+  // Additional colors
+  white: "#FFFFFF",
+  line: "#2B2F3B",      // updated to match royal-black contrast
+  lineDark: "#161A22",  // deeper separator
+  black: "#0B0D11",
 
-  // Accent / utility (pulled from screenshot palette & reasonable complements)
+  // Accent / utility
   accent500: "#FFDFA6",
   accent400: "#F5C97A",
   accent300: "#EAB358",
   accent200: "#DA9932",
   accent100: "#C17F18",
 
-  // Info (screenshot uses teal-ish info)
+  // Info
   angry100: "#4B1E15",
   angry500: "#FF6B42",
 
@@ -81,74 +81,133 @@ const palette = {
   info300: "#117A8B",
 
   // Overlays
-  overlay20: "rgba(10, 15, 10, 0.2)",
-  overlay50: "rgba(10, 15, 10, 0.5)",
+  overlay20: "rgba(11, 13, 17, 0.2)",
+  overlay50: "rgba(11, 13, 17, 0.5)",
 } as const
 
 export const colors = {
+  /**
+   * The palette is available to use, but prefer using the name.
+   * This is only included for rare, one-off cases. Try to use
+   * semantic names as much as possible.
+   */
   palette,
-
-  // explicit project-level constants
-  PRIMARY: palette.primary500, // #007CE1 (as requested)
-  SECONDARY: palette.secondary500,
-
-  transparent: "rgba(0,0,0,0)",
-
   /**
-   * Text
+   * Primary brand color
    */
-  text: palette.neutral0 === undefined ? "#171725" : palette.neutral100, // white text on dark background
-  textDim: palette.neutral40,
-
+  PRIMARY: "#007CE1",
   /**
-   * Background layers (match screenshot dark theme)
+   * A helper for making something see-thru.
    */
-  background: "#171725",        // deep background (grayscale 100 in screenshot)
-  surface: "#1F1B26",           // subtle elevated surface
-  cardBackground: "#22202A",
-  sectionBackground: "#1A1820",
-
+  transparent: "rgba(0, 0, 0, 0)",
   /**
-   * Borders + separators
+   * The default text color in many components.
    */
-  border: palette.line,
-  separator: palette.lineDark,
-
+  text: palette.neutral100, // White for primary text in dark theme
   /**
-   * Tint & interactive states
+   * Secondary text information.
    */
-  tint: palette.primary500,
-  tintInactive: palette.neutral50,
-
+  textDim: palette.neutral70, // Medium gray for secondary text
   /**
-   * Error / success / info
+   * The default color of the screen background.
    */
-  error: palette.error500,
-  errorBackground: "#FFF2E6", // light saffron background for error surfaces
-
-  success: palette.success500,
-  successBackground: "#E8FFF1",
-
-  warning: palette.warning500,
-  warningBackground: "#FFF9E0",
-
-  info: palette.info500,
-  infoBackground: "#EAF7F9",
-
+  background: palette.neutral0, // Deep black-blue background
   /**
-   * Buttons
+   * The default border color.
    */
-  buttonPrimary: palette.primary500,
-  buttonPrimaryText: palette.neutral100,
-
-  buttonSecondary: palette.neutral50,
-  buttonSecondaryText: palette.neutral100,
-
+  border: palette.neutral40, // Dark border gray
   /**
-   * Inputs
+   * The main tinting color.
    */
-  inputBackground: "#1F1B26",
-  inputBorder: palette.lineDark,
-  inputBorderFocused: palette.primary500,
-  inputBorderError: palette.error500,
+  tint: palette.primary500, // Action Blue
+  /**
+   * The inactive tinting color.
+   */
+  tintInactive: palette.neutral60, // Medium gray for inactive states
+  /**
+   * A subtle color used for lines and separators.
+   */
+  separator: palette.neutral20, // Dark Gray for dividers
+  
+  // Corporate Command Theme - Status Colors
+  /**
+   * Error messages and alerts.
+   */
+  error: palette.error500, // Alert Red
+  /**
+   * Error Background.
+   */
+  errorBackground: palette.angry100, // Dark red background
+  
+  /**
+   * Success messages and positive states.
+   */
+  success: palette.success500, // Success Green
+  successBackground: palette.success100, // Dark green background
+  
+  /**
+   * Warning messages and caution states.
+   */
+  warning: palette.warning500, // Warning Yellow
+  warningBackground: palette.warning100, // Dark yellow background
+  
+  /**
+   * Info messages and neutral states.
+   */
+  info: palette.primary500, // Action Blue
+  infoBackground: palette.primary100, // Dark blue background
+  
+  // Corporate Command Theme - UI Element Colors
+  /**
+   * Header and navigation background.
+   */
+  headerBackground: palette.neutral0, // Deep black-blue
+  /**
+   * Card and surface background.
+   */
+  surface: palette.neutral10, // Slightly lighter than background
+  /**
+   * Card background with subtle elevation.
+   */
+  cardBackground: palette.neutral20, // Card background
+  /**
+   * Subtle background for sections.
+   */
+  sectionBackground: palette.neutral20, // Section background
+  
+  // Corporate Command Theme - Interactive States
+  /**
+   * Primary button background.
+   */
+  buttonPrimary: palette.primary500, // Action Blue
+  /**
+   * Primary button text.
+   */
+  buttonPrimaryText: palette.neutral100, // White
+  /**
+   * Secondary button background.
+   */
+  buttonSecondary: palette.neutral30, // Dark gray
+  /**
+   * Secondary button text.
+   */
+  buttonSecondaryText: palette.neutral100, // White
+  
+  // Corporate Command Theme - Input States
+  /**
+   * Input field background.
+   */
+  inputBackground: palette.neutral20, // Dark background
+  /**
+   * Input field border.
+   */
+  inputBorder: palette.neutral40, // Dark border gray
+  /**
+   * Input field border when focused.
+   */
+  inputBorderFocused: palette.primary500, // Action Blue
+  /**
+   * Input field border when error.
+   */
+  inputBorderError: palette.error500, // Alert Red
 } as const

@@ -49,21 +49,23 @@ import {
   useMyTrips,
 } from "@/api/driver-hooks"
 import { useNotifications, useMarkAllNotificationsRead } from "@/api/driver-hooks"
+import { useTrailerAssignments } from "@/api/trailers"
 import { DriverInfoSection } from "@/components/DriverInfoSection"
-import { StatusIconsRow } from "@/components/StatusIconsRow"
 import { DtcIndicator } from "@/components/DtcIndicator"
-import { LanguageSwitcher } from "@/components/LanguageSwitcher"
-import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { EldGpsWarning } from "@/components/EldGpsWarning"
 import { EldMalfunctionModal } from "@/components/EldMalfunctionModal"
 import { ExemptDriverBadge } from "@/components/ExemptDriverBadge"
 import { Header } from "@/components/Header"
 import { HistoryFetchSheet } from "@/components/HistoryFetchSheet"
 import { InactivityPrompt } from "@/components/InactivityPrompt"
+import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
+import { RideOverviewCard } from "@/components/RideOverviewCard"
+import { StatusIconsRow } from "@/components/StatusIconsRow"
 import { Text } from "@/components/Text"
+import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { UnifiedHOSCard, UnifiedHOSCardRef } from "@/components/UnifiedHOSCard"
 import { ViolationBanner } from "@/components/ViolationBanner"
 import { ViolationModal } from "@/components/ViolationModal"
@@ -79,8 +81,8 @@ import { translate } from "@/i18n/translate"
 import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { useAppTheme } from "@/theme/context"
-import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 import { applyShadow } from "@/theme/shadows"
+import { mapDriverStatusToAppStatus, mapHOSStatusToAuthFormat } from "@/utils/hos-status-mapper"
 
 export const DashboardScreen = React.memo(() => {
   // Trigger re-render when language changes
@@ -134,6 +136,22 @@ export const DashboardScreen = React.memo(() => {
     isAuthenticated,
   )
 
+  // Get trailer assignments for trailer number
+  const { data: trailerAssignments } = useTrailerAssignments(
+    { driver: driverProfile?.driver_id || undefined, status: "active" },
+    { enabled: isAuthenticated && !!driverProfile?.driver_id },
+  )
+
+  // Get trailer number from assignments (primary trailer)
+  const trailerNo = useMemo(() => {
+    if (vehicleAssignment?.vehicle_info?.vehicle_unit) {
+      return `TRAILER_${new Date().getMilliseconds()}`
+    }
+    return (
+      vehicleAssignment?.vehicle_info?.vehicle_unit || `TRAILER_${new Date().getMilliseconds()}`
+    )
+  }, [vehicleAssignment])
+
   const hasVehicleAssignment = useMemo(
     () =>
       Boolean(
@@ -153,7 +171,7 @@ export const DashboardScreen = React.memo(() => {
   }, [tripsData])
 
   const hasTrip = useMemo(() => !!activeTrip, [activeTrip])
-  const shipperId = useMemo(() => user?.id ?? null, [user?.id])
+  const shipperId = useMemo(() => `SHIP_${user?.id?.toString()?.slice(0, 8)}` ?? null, [user?.id])
   const hasShipperId = useMemo(() => Boolean(shipperId), [shipperId])
 
   // HOS/ELD can be used if (vehicle OR trip) is assigned AND shipping ID is present
@@ -847,7 +865,7 @@ export const DashboardScreen = React.memo(() => {
     () =>
       StyleSheet.create({
         screen: { backgroundColor: colors.background, flex: 1, marginTop: 0 },
-        cc: { paddingBottom: 200 }, // Extra padding for floating logout button
+        cc: { paddingBottom: 80 }, // Extra padding for floating logout button
 
         // Top Header
         topHeader: {
@@ -2015,7 +2033,10 @@ export const DashboardScreen = React.memo(() => {
     if ("results" in notificationsData && Array.isArray(notificationsData.results)) {
       return notificationsData.results.filter((n: any) => !n.is_read).length
     }
-    if ("notifications" in notificationsData && Array.isArray((notificationsData as any).notifications)) {
+    if (
+      "notifications" in notificationsData &&
+      Array.isArray((notificationsData as any).notifications)
+    ) {
       return (notificationsData as any).notifications.filter((n: any) => !n.is_read).length
     }
     return 0
@@ -2040,19 +2061,16 @@ export const DashboardScreen = React.memo(() => {
     setShowQuickActionsMenu(true)
   }, [])
 
-  const handleQuickAction = useCallback(
-    (action: "profile" | "settings" | "logout") => {
-      quickActionsRef.current?.dismiss()
-      setShowQuickActionsMenu(false)
-      if (action === "logout") {
-        logout()
-        router.replace("/login")
-      } else {
-        router.push(`/${action}` as any)
-      }
-    },
-    [],
-  )
+  const handleQuickAction = useCallback((action: "profile" | "settings" | "logout") => {
+    quickActionsRef.current?.dismiss()
+    setShowQuickActionsMenu(false)
+    if (action === "logout") {
+      logout()
+      router.replace("/login")
+    } else {
+      router.push(`/${action}` as any)
+    }
+  }, [])
 
   const handleUnifiedAlertsPress = useCallback(async () => {
     // Always open notifications panel - show all notifications
@@ -2207,7 +2225,9 @@ export const DashboardScreen = React.memo(() => {
             >
               <Bell
                 size={18}
-                color={totalAlertsCount > 0 || headerNotificationCount > 0 ? colors.error : colors.text}
+                color={
+                  totalAlertsCount > 0 || headerNotificationCount > 0 ? colors.error : colors.text
+                }
               />
               {totalAlertsCount > 0 ? (
                 <View style={headerStyles.violationBadge}>
@@ -2278,6 +2298,17 @@ export const DashboardScreen = React.memo(() => {
                 }}
               />
             </View>
+
+            {/* Ride Overview Card */}  
+            <RideOverviewCard
+              shippingNo={shipperId}
+              trailerNo={trailerNo}
+              onViewLogs={() => router.push("/(tabs)/logs")}
+              onVehicleInspection={() => router.push("/(tabs)/dvir")}
+              onDotInspection={() => router.push("/logs/transfer")}
+              onLogout={logout}
+            />
+
             {/* ELD Data - Speed & Fuel - Only show if vehicle and trip assigned */}
             {canUseELD && eldConnected && (
               <LiveVehicleData
@@ -2288,7 +2319,6 @@ export const DashboardScreen = React.memo(() => {
                 recentAutoDutyChanges={recentAutoDutyChanges}
               />
             )}
-
           </ScrollView>
 
           {/* Floating Logout Button */}

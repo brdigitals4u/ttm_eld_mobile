@@ -145,6 +145,24 @@ const ar: Translations = {
       },
     },
   },
+  rideOverview: {
+    title: "نظرة عامة على الرحلة",
+    shippingNo: "رقم الشحن",
+    trailerNo: "رقم المقطورة",
+    coDriver: "السائق المساعد",
+    view7DaysLog: "عرض سجل 7 أيام",
+    vehicleInspection: "فحص المركبة",
+    dotInspection: "فحص DOT",
+    logout: "تسجيل الخروج",
+    notAssigned: "غير معين",
+    actions: "الإجراءات",
+    // Optional metrics
+    limitSpeedRoad: "حد السرعة على الطريق",
+    distance: "المسافة",
+    averageSpeed: "متوسط السرعة",
+    roadConditions: "حالة الطريق",
+    good: "جيد",
+  },
 }
 
 export default ar

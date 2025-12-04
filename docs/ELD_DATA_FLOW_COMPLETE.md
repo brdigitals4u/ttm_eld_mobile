@@ -753,3 +753,6 @@ The system uses dual synchronization (Local API + AWS Lambda) with adaptive batc
 
 
 
+
+
+

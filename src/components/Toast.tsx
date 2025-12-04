@@ -46,41 +46,84 @@ export const Toast: React.FC<ToastProps> = ({
   })
 
   const getToastColors = () => {
+    // Safety check for theme initialization
+    const palette = theme?.colors?.palette
+    if (!palette) {
+      // Fallback colors if theme is not initialized
+      const fallback = {
+        success: { bg: "#D4EDDA", border: "#28A745", text: "#032017", icon: "#28A745" },
+        warning: { bg: "#FFF3CD", border: "#FFC107", text: "#6B4C00", icon: "#FFC107" },
+        error: { bg: "#F8D7DA", border: "#DC3545", text: "#0A2A4E", icon: "#DC3545" },
+        info: { bg: "#FFFFFF", border: "#6C7293", text: "#0A2A4E", icon: "#6C7293" },
+      }
+      switch (type) {
+        case "success":
+          return {
+            background: fallback.success.bg,
+            border: fallback.success.border,
+            text: fallback.success.text,
+            icon: fallback.success.icon,
+          }
+        case "warning":
+          return {
+            background: fallback.warning.bg,
+            border: fallback.warning.border,
+            text: fallback.warning.text,
+            icon: fallback.warning.icon,
+          }
+        case "error":
+          return {
+            background: fallback.error.bg,
+            border: fallback.error.border,
+            text: fallback.error.text,
+            icon: fallback.error.icon,
+          }
+        case "info":
+        default:
+          return {
+            background: fallback.info.bg,
+            border: fallback.info.border,
+            text: fallback.info.text,
+            icon: fallback.info.icon,
+          }
+      }
+    }
+
     switch (type) {
       case "success":
         return {
-          background: theme.colors.palette.success100,
-          border: theme.colors.palette.success500,
-          text: theme.colors.palette.success900,
-          icon: theme.colors.palette.success500,
+          background: palette.success100,
+          border: palette.success500,
+          text: palette.success900,
+          icon: palette.success500,
         }
       case "warning":
         return {
-          background: theme.colors.palette.warning100,
-          border: theme.colors.palette.warning500,
-          text: theme.colors.palette.warning900,
-          icon: theme.colors.palette.warning500,
+          background: palette.warning100,
+          border: palette.warning500,
+          text: palette.warning900,
+          icon: palette.warning500,
         }
       case "error":
         return {
-          background: theme.colors.palette.angry100,
-          border: theme.colors.palette.angry500,
-          text: theme.colors.palette.neutral900,
-          icon: theme.colors.palette.angry500,
+          background: palette.angry100,
+          border: palette.angry500,
+          text: palette.neutral900,
+          icon: palette.angry500,
         }
       case "info":
         return {
-          background: theme.colors.palette.neutral100,
-          border: theme.colors.palette.neutral500,
-          text: theme.colors.palette.neutral900,
-          icon: theme.colors.palette.neutral500,
+          background: palette.neutral100,
+          border: palette.neutral500,
+          text: palette.neutral900,
+          icon: palette.neutral500,
         }
       default:
         return {
-          background: theme.colors.palette.neutral100,
-          border: theme.colors.palette.neutral500,
-          text: theme.colors.palette.neutral900,
-          icon: theme.colors.palette.neutral500,
+          background: palette.neutral100,
+          border: palette.neutral500,
+          text: palette.neutral900,
+          icon: palette.neutral500,
         }
     }
   }

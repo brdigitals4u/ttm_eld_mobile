@@ -79,8 +79,8 @@ const en = {
   login: {
     welcomeTitle: "Welcome to TTM Family",
     welcomeSubtitle: "Sign in to continue your journey",
-    tenant: "Tenant",
-    selectTenant: "Select tenant",
+    tenant: "Fleet Id",
+    selectTenant: "Select Fleet",
     email: "Email",
     password: "Password",
     signIn: "Sign In",
@@ -603,6 +603,24 @@ const en = {
     time: "Time:",
     location: "Location:",
     description: "Description",
+  },
+  rideOverview: {
+    title: "Trip Overview",
+    shippingNo: "Shipping No",
+    trailerNo: "Trailer No",
+    coDriver: "Co Driver",
+    view7DaysLog: "View 7 days log",
+    vehicleInspection: "Vehicle Inspection",
+    dotInspection: "DOT Inspection",
+    logout: "Logout",
+    notAssigned: "Not Assigned",
+    actions: "Actions",
+    // Optional metrics
+    limitSpeedRoad: "Limit Speed Road",
+    distance: "Distance",
+    averageSpeed: "Average speed",
+    roadConditions: "Road conditions",
+    good: "Good",
   },
 }
 
