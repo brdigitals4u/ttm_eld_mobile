@@ -14,6 +14,8 @@ import { mapDriverStatusToAppStatus } from "@/utils/hos-status-mapper"
 // Status configuration with icons
 type StatusConfigEntry = {
   label: string
+  shortCode: string
+  fullName: string
   icon: typeof Truck
   color: string
   bgColor: string
@@ -58,57 +60,71 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
 
   // Remove undo snackbar and optimistic update state - no longer needed
 
-  // Status configuration with icons and labels
+  // Status configuration with short codes and full names
   const STATUS_CONFIG: Record<DriverStatus, StatusConfigEntry> = useMemo(
     () => ({
-      driving: {
-        label: "Driving",
-        icon: Truck,
-        color: colors.success,
-        bgColor: colors.successBackground,
-        textColor: colors.success,
+      offDuty: {
+        label: "Off Duty",
+        shortCode: "OFF",
+        fullName: "Off Duty",
+        icon: MapPin,
+        color: "#FFFFFF",
+        bgColor: colors.cardBackground,
+        textColor: "#FFFFFF",
       },
       onDuty: {
         label: "On Duty",
+        shortCode: "ON",
+        fullName: "On Duty",
         icon: Briefcase,
-        color: colors.tint,
-        bgColor: `${colors.tint}20`,
-        textColor: colors.buttonPrimaryText,
-      },
-      offDuty: {
-        label: "Off Duty",
-        icon: MapPin,
-        color: colors.textDim,
-        bgColor: "transparent",
-        textColor: colors.textDim,
+        color: "#F59E0B",
+        bgColor: colors.cardBackground,
+        textColor: "#F59E0B",
       },
       sleeperBerth: {
-        label: "Sleeper",
+        label: "Sleeper Berth",
+        shortCode: "SB",
+        fullName: "Sleeper Berth",
         icon: Bed,
-        color: colors.textDim,
-        bgColor: "transparent",
-        textColor: colors.textDim,
+        color: "#6366F1",
+        bgColor: colors.cardBackground,
+        textColor: "#6366F1",
+      },
+      driving: {
+        label: "Driving",
+        shortCode: "D",
+        fullName: "Drive",
+        icon: Truck,
+        color: "#0071ce",
+        bgColor: colors.cardBackground,
+        textColor: "#0071ce",
+      },
+      personalConveyance: {
+        label: "Personal Conveyance",
+        shortCode: "PC",
+        fullName: "Personal Use",
+        icon: User,
+        color: "#10B981",
+        bgColor: colors.cardBackground,
+        textColor: "#10B981",
+      },
+      yardMove: {
+        label: "Yard Move",
+        shortCode: "YM",
+        fullName: "Yard Move",
+        icon: Navigation,
+        color: "#6366F1",
+        bgColor: colors.cardBackground,
+        textColor: "#6366F1",
       },
       sleeping: {
         label: "Sleeper",
+        shortCode: "SB",
+        fullName: "Sleeper Berth",
         icon: Bed,
-        color: colors.textDim,
-        bgColor: "transparent",
-        textColor: colors.textDim,
-      },
-      personalConveyance: {
-        label: "PC",
-        icon: User,
-        color: colors.textDim,
-        bgColor: "transparent",
-        textColor: colors.textDim,
-      },
-      yardMove: {
-        label: "YM",
-        icon: Navigation,
-        color: colors.textDim,
-        bgColor: "transparent",
-        textColor: colors.textDim,
+        color: "#6366F1",
+        bgColor: colors.cardBackground,
+        textColor: "#6366F1",
       },
     }),
     [colors],
@@ -149,38 +165,46 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
         },
         statusButton: {
           alignItems: "center",
-          borderColor: colors.PRIMARY,
-          borderRadius: 35,
-          borderWidth: 2,
-          height: 70,
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.border,
+          borderRadius: 12,
+          borderWidth: 1,
+          flex: 1,
           justifyContent: "center",
+          minHeight: 80,
           paddingHorizontal: 8,
-          paddingVertical: 8,
-          width: screenWidth < 600 ? (screenWidth - 64) / 3 : 70,
+          paddingVertical: 12,
+          position: "relative",
         },
         statusButtonActive: {
-          backgroundColor: colors.tint,
-          borderColor: colors.textDim,
+          borderColor: "#0071ce",
+          borderWidth: 2,
         },
         statusButtonDisabled: {
           opacity: 0.5,
         },
-        statusButtonInactive: {
-          backgroundColor: colors.transparent,
-          borderColor: colors.text,
+        statusButtonDot: {
+          backgroundColor: "#0071ce",
+          borderRadius: 4,
+          height: 8,
+          position: "absolute",
+          right: 8,
+          top: 8,
+          width: 8,
         },
-        statusIcon: {
+        statusShortCode: {
+          fontSize: 16,
+          fontWeight: "700",
           marginBottom: 4,
         },
-        statusLabel: {
+        statusFullName: {
           fontSize: 11,
-          fontWeight: "600",
+          fontWeight: "500",
           textAlign: "center",
         },
         statusRow: {
           flexDirection: "row",
-          flexWrap: screenWidth < 600 ? "wrap" : "nowrap",
-          gap: 12,
+          gap: 8,
           justifyContent: "space-between",
         },
       }),
@@ -194,35 +218,39 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
           const config = STATUS_CONFIG[status]
           const isActive =
             displayStatus === status || (status === "sleeperBerth" && displayStatus === "sleeping")
-          const IconComponent = config.icon
 
           return (
             <TouchableOpacity
               key={status}
               style={[
                 styles.statusButton,
-                isActive ? styles.statusButtonActive : styles.statusButtonInactive,
+                isActive && styles.statusButtonActive,
                 disabled && styles.statusButtonDisabled,
               ]}
               onPress={() => handleStatusPress(status)}
               disabled={disabled}
               activeOpacity={0.7}
             >
-              <IconComponent
-                size={20}
-                color={isActive ? colors.buttonPrimaryText : colors.text}
-                style={styles.statusIcon}
-              />
+              {isActive && <View style={styles.statusButtonDot} />}
               <Text
                 style={[
-                  styles.statusLabel,
+                  styles.statusShortCode,
                   {
-                    color: isActive ? colors.buttonPrimaryText : colors.text,
-                    fontWeight: (isActive ? "700" : "500") as "700" | "500",
+                    color: config.textColor,
                   },
                 ]}
               >
-                {config.label}
+                {config.shortCode}
+              </Text>
+              <Text
+                style={[
+                  styles.statusFullName,
+                  {
+                    color: config.textColor,
+                  },
+                ]}
+              >
+                {config.fullName}
               </Text>
             </TouchableOpacity>
           )

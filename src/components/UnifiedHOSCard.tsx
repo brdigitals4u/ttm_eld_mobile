@@ -39,6 +39,7 @@ import { useHOSLogs } from "@/api/driver-hooks"
 import HOSCircle from "@/components/HOSSvg"
 import { Text } from "@/components/Text"
 import HOSChart from "@/components/VictoryHOS"
+import { SemiCircularGauge } from "@/components/SemiCircularGauge"
 import { useLocation } from "@/contexts/location-context"
 import { useEldVehicleData } from "@/hooks/useEldVehicleData"
 import { useLocationData } from "@/hooks/useLocationData"
@@ -156,8 +157,8 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
         label: "Off Duty",
         icon: Coffee,
         color: colors.tint,
-        bgColor: colors.infoBackground,
-        textColor: colors.info,
+        bgColor: `${colors.tint}15`,
+        textColor: colors.text,
       },
       sleeperBerth: {
         label: "Sleeper",
@@ -199,7 +200,7 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
   const { width: screenWidth } = useWindowDimensions()
 
   const isSmallWidth = screenWidth < 600
-  const isTabletWidth = screenWidth >= 900
+  const isTabletWidth = screenWidth >= 768
 
   const driveCircleSize = isTabletWidth ? 150 : isSmallWidth ? 120 : 140
   const driveCircleThickness = isTabletWidth ? 10 : isSmallWidth ? 8 : 10
@@ -971,7 +972,95 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
           fontSize: 14,
           fontWeight: "500",
         },
-        // Clocks Container - New Layout
+        // HOS Widgets Container - 4 Equal Widgets
+        hosWidgetContainer: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 12,
+          marginVertical: 12,
+          justifyContent: "space-between",
+        },
+        hosWidgetContainerTablet: {
+          flexWrap: "nowrap",
+          justifyContent: "space-between",
+        },
+        hosWidgetCard: {
+          alignItems: "center",
+          backgroundColor: colors.cardBackground,
+          borderRadius: 16,
+          elevation: 2,
+          minWidth: "48%",
+          maxWidth: "48%",
+          padding: 12,
+          shadowColor: colors.palette.neutral900,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        hosWidgetCardTablet: {
+          flex: 1,
+          minWidth: 0,
+          maxWidth: "23%",
+        },
+        hosWidgetTitle: {
+          color: colors.text,
+          fontSize: 10,
+          fontWeight: "600",
+          marginBottom: 4,
+          textAlign: "center",
+        },
+        hosWidgetTitleTablet: {
+          fontSize: 11,
+        },
+        hosWidgetValue: {
+          color: colors.text,
+          fontSize: 20,
+          fontWeight: "700",
+        },
+        hosWidgetValueTablet: {
+          fontSize: 24,
+        },
+        hosWidgetValueViolation: {
+          color: colors.error,
+        },
+        hosWidgetProgress: {
+          alignItems: "center",
+          height: isSmallWidth ? 100 : 120,
+          justifyContent: "center",
+          marginBottom: 8,
+          position: "relative",
+          width: "100%",
+        },
+        hosWidgetProgressTablet: {
+          height: 140,
+        },
+        hosWidgetValueOverlay: {
+          alignItems: "center",
+          bottom: 0,
+          justifyContent: "center",
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        },
+        hosWidgetFooter: {
+          color: colors.textDim,
+          fontSize: 9,
+          marginTop: 4,
+          textAlign: "center",
+        },
+        hosWidgetFooterTablet: {
+          fontSize: 10,
+        },
+        hosWidgetUsedLeft: {
+          color: colors.textDim,
+          fontSize: 9,
+          textAlign: "center",
+        },
+        hosWidgetUsedLeftTablet: {
+          fontSize: 11,
+        },
+        // Legacy clock styles (kept for compatibility)
         clocksContainer: {
           marginVertical: 20,
         },
@@ -1330,118 +1419,128 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
         </View>
       )}
 
-      {/* HOS Clocks - New Layout: Driving large on top, 3 smaller below */}
-      <View style={styles.clocksContainer}>
-        {/* Top Row - Large Driving Clock */}
-        <View style={styles.drivingClockContainer}>
-          <Text style={[styles.drivingClockTitle, { fontSize: driveLabelFontSize + 2 }]}>
-            {translate("hos.driveRemaining" as any) || "Drive Remaining"}
-          </Text>
-          <HOSCircle
-            text={formatTime(clocks.drive.remaining_minutes)}
-            size={isTabletWidth ? 160 : isSmallWidth ? 140 : 150}
-            progress={Math.min(100, Math.max(0, driveProgress * 100))}
-            strokeWidth={driveCircleThickness}
-          />
-          <Text style={[styles.drivingClockSubtitle, { fontSize: driveLabelFontSize }]}>
-            11-Hour Drive Limit
-          </Text>
-          {clocks.drive.remaining_minutes <= 0 && (
-            <View style={styles.clockCardWarning}>
-              <AlertTriangle size={14} color={colors.error} strokeWidth={2} />
-              <Text style={styles.clockCardWarningText}>Violation</Text>
+      {/* HOS Clocks - 4 Equal Widgets: Driver, 14 Hr Shift, 70 Hr Cycle, 30 Min Break */}
+      <View style={[styles.hosWidgetContainer, isTabletWidth && styles.hosWidgetContainerTablet]}>
+        {/* Driver Widget */}
+        <View style={[styles.hosWidgetCard, isTabletWidth && styles.hosWidgetCardTablet]}>
+          <View style={[styles.hosWidgetProgress, isTabletWidth && styles.hosWidgetProgressTablet]}>
+            <SemiCircularGauge
+              size={isTabletWidth ? 140 : isSmallWidth ? 100 : 120}
+              value={clocks.drive.remaining_minutes}
+              max={clocks.drive.limit_minutes}
+              strokeWidth={isTabletWidth ? 10 : 8}
+              progressColor={clocks.drive.remaining_minutes <= 0 ? "#FF6B00" : "#6936FF"}
+              bgColor="#3A3F4D"
+            />
+            <View style={styles.hosWidgetValueOverlay}>
+              <Text style={[styles.hosWidgetTitle, isTabletWidth && styles.hosWidgetTitleTablet]}>Driver</Text>
+              <Text
+                style={[
+                  styles.hosWidgetValue,
+                  isTabletWidth && styles.hosWidgetValueTablet,
+                  clocks.drive.remaining_minutes <= 0 && styles.hosWidgetValueViolation,
+                ]}
+              >
+                {formatTime(clocks.drive.remaining_minutes)}
+              </Text>
+              <Text style={[styles.hosWidgetFooter, isTabletWidth && styles.hosWidgetFooterTablet]}>
+                11 Hour Drive Limit
+              </Text>
             </View>
-          )}
+          </View>
+          <Text style={[styles.hosWidgetUsedLeft, isTabletWidth && styles.hosWidgetUsedLeftTablet]}>
+            Used {formatTime(driveUsedMinutes)} - Left: {formatTime(clocks.drive.remaining_minutes)}
+          </Text>
         </View>
 
-        {/* Bottom Row - 3 Smaller Clocks */}
-        <View style={styles.secondaryClocksRow}>
-          {/* 14-Hr Shift */}
-          <View style={styles.secondaryClockCard}>
-            <Text style={[styles.secondaryClockTitle, { fontSize: secondaryLabelFontSize }]}>
-              {translate("hos.shiftRemaining" as any) || "Shift Remaining"}
-            </Text>
-            <View style={styles.clockCardMeter}>
-              <Progress.Circle
-                size={isTabletWidth ? 100 : isSmallWidth ? 80 : 90}
-                progress={Math.min(1, Math.max(0, shiftProgress))}
-                color={clocks.shift.remaining_minutes <= 0 ? colors.error : colors.warning}
-                thickness={secondaryCircleThickness}
-                showsText={false}
-                strokeCap="round"
-                unfilledColor={colors.border}
-              />
-              <View style={styles.clockCardMeterOverlay}>
-                <Text
-                  style={[
-                    styles.clockCardValue,
-                    { fontSize: secondaryValueFontSize },
-                    clocks.shift.remaining_minutes <= 0 && styles.clockValueViolation,
-                  ]}
-                >
-                  {formatTime(clocks.shift.remaining_minutes)}
-                </Text>
-              </View>
+        {/* 14 Hr Shift Widget */}
+        <View style={[styles.hosWidgetCard, isTabletWidth && styles.hosWidgetCardTablet]}>
+          <View style={[styles.hosWidgetProgress, isTabletWidth && styles.hosWidgetProgressTablet]}>
+            <SemiCircularGauge
+              size={isTabletWidth ? 140 : isSmallWidth ? 100 : 120}
+              value={clocks.shift.remaining_minutes}
+              max={clocks.shift.limit_minutes}
+              strokeWidth={isTabletWidth ? 10 : 8}
+              progressColor={clocks.shift.remaining_minutes <= 0 ? "#FF6B00" : "#4DAFF6"}
+              bgColor="#3A3F4D"
+            />
+            <View style={styles.hosWidgetValueOverlay}>
+              <Text style={[styles.hosWidgetTitle, isTabletWidth && styles.hosWidgetTitleTablet]}>14 Hr Shift</Text>
+              <Text
+                style={[
+                  styles.hosWidgetValue,
+                  isTabletWidth && styles.hosWidgetValueTablet,
+                  clocks.shift.remaining_minutes <= 0 && styles.hosWidgetValueViolation,
+                ]}
+              >
+                {formatTime(clocks.shift.remaining_minutes)}
+              </Text>
+              <Text style={[styles.hosWidgetFooter, isTabletWidth && styles.hosWidgetFooterTablet]}>14 Hour Shift</Text>
             </View>
           </View>
+          <Text style={[styles.hosWidgetUsedLeft, isTabletWidth && styles.hosWidgetUsedLeftTablet]}>
+            Used {formatTime(shiftUsedMinutes)} - Left: {formatTime(clocks.shift.remaining_minutes)}
+          </Text>
+        </View>
 
-          {/* Cycle */}
-          <View style={styles.secondaryClockCard}>
-            <Text style={[styles.secondaryClockTitle, { fontSize: secondaryLabelFontSize }]}>
-              {translate("hos.cycleRemaining" as any) || "Cycle Remaining"}
-            </Text>
-            <View style={styles.clockCardMeter}>
-              <Progress.Circle
-                size={isTabletWidth ? 100 : isSmallWidth ? 80 : 90}
-                progress={Math.min(1, Math.max(0, cycleProgress))}
-                color={clocks.cycle.remaining_minutes <= 0 ? colors.error : colors.tint}
-                thickness={secondaryCircleThickness}
-                showsText={false}
-                strokeCap="round"
-                unfilledColor={colors.border}
-              />
-              <View style={styles.clockCardMeterOverlay}>
-                <Text
-                  style={[
-                    styles.clockCardValue,
-                    { fontSize: secondaryValueFontSize },
-                    clocks.cycle.remaining_minutes <= 0 && styles.clockValueViolation,
-                  ]}
-                >
-                  {formatCycleTime(clocks.cycle.remaining_minutes)}
-                </Text>
-              </View>
+        {/* 70 Hr Cycle Widget */}
+        <View style={[styles.hosWidgetCard, isTabletWidth && styles.hosWidgetCardTablet]}>
+          <View style={[styles.hosWidgetProgress, isTabletWidth && styles.hosWidgetProgressTablet]}>
+            <SemiCircularGauge
+              size={isTabletWidth ? 140 : isSmallWidth ? 100 : 120}
+              value={clocks.cycle.remaining_minutes}
+              max={clocks.cycle.limit_minutes}
+              strokeWidth={isTabletWidth ? 10 : 8}
+              progressColor={clocks.cycle.remaining_minutes <= 0 ? "#FF6B00" : "#6936FF"}
+              bgColor="#3A3F4D"
+            />
+            <View style={styles.hosWidgetValueOverlay}>
+              <Text style={[styles.hosWidgetTitle, isTabletWidth && styles.hosWidgetTitleTablet]}>70 Hr Cycle</Text>
+              <Text
+                style={[
+                  styles.hosWidgetValue,
+                  isTabletWidth && styles.hosWidgetValueTablet,
+                  clocks.cycle.remaining_minutes <= 0 && styles.hosWidgetValueViolation,
+                ]}
+              >
+                {formatCycleTime(clocks.cycle.remaining_minutes)}
+              </Text>
+              <Text style={[styles.hosWidgetFooter, isTabletWidth && styles.hosWidgetFooterTablet]}>70 Hour Cycle</Text>
             </View>
           </View>
+          <Text style={[styles.hosWidgetUsedLeft, isTabletWidth && styles.hosWidgetUsedLeftTablet]}>
+            Used {formatTime(cycleUsedMinutes)} - Left: {formatCycleTime(clocks.cycle.remaining_minutes)}
+          </Text>
+        </View>
 
-          {/* Break */}
-          <View style={styles.secondaryClockCard}>
-            <Text style={[styles.secondaryClockTitle, { fontSize: secondaryLabelFontSize }]}>
-              {translate("hos.untilBreak" as any) || "Until Break"}
-            </Text>
-            <View style={styles.clockCardMeter}>
-              <Progress.Circle
-                size={isTabletWidth ? 100 : isSmallWidth ? 80 : 90}
-                progress={breakProgress}
-                color={isBreakRequired ? colors.error : colors.warning}
-                thickness={secondaryCircleThickness}
-                showsText={false}
-                strokeCap="round"
-                unfilledColor={colors.border}
-              />
-              <View style={styles.clockCardMeterOverlay}>
-                <Text
-                  style={[
-                    styles.clockCardValue,
-                    { fontSize: secondaryValueFontSize },
-                    isBreakRequired && styles.clockValueViolation,
-                  ]}
-                >
-                  {formatTime(breakTimeUntilRequired)}
-                </Text>
-              </View>
+        {/* 30 Min Break Widget */}
+        <View style={[styles.hosWidgetCard, isTabletWidth && styles.hosWidgetCardTablet]}>
+          <View style={[styles.hosWidgetProgress, isTabletWidth && styles.hosWidgetProgressTablet]}>
+            <SemiCircularGauge
+              size={isTabletWidth ? 140 : isSmallWidth ? 100 : 120}
+              value={breakTimeUntilRequired}
+              max={clocks.break.trigger_after_minutes || 480}
+              strokeWidth={isTabletWidth ? 10 : 8}
+              progressColor={isBreakRequired ? "#FF6B00" : "#F56CFF"}
+              bgColor="#3A3F4D"
+            />
+            <View style={styles.hosWidgetValueOverlay}>
+              <Text style={[styles.hosWidgetTitle, isTabletWidth && styles.hosWidgetTitleTablet]}>30 Min Break</Text>
+              <Text
+                style={[
+                  styles.hosWidgetValue,
+                  isTabletWidth && styles.hosWidgetValueTablet,
+                  isBreakRequired && styles.hosWidgetValueViolation,
+                ]}
+              >
+                {formatTime(breakTimeUntilRequired)}
+              </Text>
+              <Text style={[styles.hosWidgetFooter, isTabletWidth && styles.hosWidgetFooterTablet]}>Break Required</Text>
             </View>
           </View>
+          <Text style={[styles.hosWidgetUsedLeft, isTabletWidth && styles.hosWidgetUsedLeftTablet]}>
+            Used {formatTime((clocks.break.driving_since_break || 0))} - Left: {formatTime(breakTimeUntilRequired)}
+          </Text>
         </View>
       </View>
 

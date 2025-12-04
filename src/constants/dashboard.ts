@@ -9,12 +9,13 @@ import { DriverStatus } from "@/types/status"
 
 /**
  * Status order for display in StatusIconsRow
+ * Order matches screenshot: OFF, ON, SB, D, PC, YM
  */
 export const STATUS_ORDER: DriverStatus[] = [
-  "driving",
-  "onDuty",
   "offDuty",
+  "onDuty",
   "sleeperBerth",
+  "driving",
   "personalConveyance",
   "yardMove",
 ]
@@ -46,6 +47,7 @@ export const DEFAULT_ORGANIZATION_NAME = "Organization"
  * Default username when not available
  */
 export const DEFAULT_USERNAME = "N/A"
+
 
 
 
