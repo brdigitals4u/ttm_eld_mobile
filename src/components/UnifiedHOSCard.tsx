@@ -1190,15 +1190,24 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
           clockValueViolation: {
             color: colors.error,
           },
-          // Chart
-          chartContainer: {
+          // Chart Card
+          chartCard: {
+            backgroundColor: colors.cardBackground,
+            borderRadius: 16,
+            elevation: 4,
             marginBottom: 16,
-            marginTop: 16,
+            marginHorizontal: 16,
+            marginTop: 12,
+            padding: 16,
+            shadowColor: colors.palette.neutral900,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
           },
-          chartContainerSmall: {
+          chartCardSmall: {
             alignSelf: "stretch",
           },
-          chartContainerLarge: {
+          chartCardLarge: {
             alignSelf: "center",
             maxWidth: 760,
             width: "100%",
@@ -1208,6 +1217,28 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
             flexDirection: "row",
             justifyContent: "space-between",
             marginBottom: 12,
+          },
+          chartBody: {
+            marginVertical: 12,
+          },
+          chartFooter: {
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 12,
+            paddingTop: 12,
+          },
+          chartFooterLink: {
+            alignItems: "center",
+            flexDirection: "row",
+            gap: 8,
+          },
+          chartFooterText: {
+            color: colors.tint,
+            fontSize: 14,
+            fontWeight: "600",
           },
           chartTitle: {
             color: colors.text,
@@ -1390,7 +1421,8 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
     const gridColumns = isSmallWidth ? 2 : 3
 
     return (
-      <View style={styles.container}>
+      <>
+        <View style={styles.container}>
         {/* Header Bar */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -1579,20 +1611,43 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
           </View>
         </View>
 
-        {/* Mini HOS Chart */}
-        <View
-          style={[
-            styles.chartContainer,
-            isTabletWidth && styles.chartContainerLarge,
-            isSmallWidth && styles.chartContainerSmall,
-          ]}
-        >
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Today's Activity</Text>
-            <TouchableOpacity onPress={() => router.push("/hos" as any)}>
-              <Text style={styles.chartViewAll}>View Full Log →</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          {clocks.break.required && (
+            <View style={styles.breakInfo}>
+              <Clock size={14} color={colors.warning} />
+              <Text style={styles.breakText}>
+                Break required in{" "}
+                {formatTime(
+                  Math.max(
+                    0,
+                    clocks.break.trigger_after_minutes - clocks.break.driving_since_break,
+                  ),
+                )}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* HOS Chart Card - Separate Card */}
+      <View
+        style={[
+          styles.chartCard,
+          isTabletWidth && styles.chartCardLarge,
+          isSmallWidth && styles.chartCardSmall,
+        ]}
+      >
+        {/* Chart Header */}
+        <View style={styles.chartHeader}>
+          <Text style={styles.chartTitle}>Today's Activity</Text>
+          <TouchableOpacity onPress={() => router.push("/hos" as any)}>
+            <Text style={styles.chartViewAll}>View Full Log →</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Chart Body */}
+        <View style={styles.chartBody}>
           {chartLogs.length > 0 ? (
             <HOSChart data={chartLogs} dayStartIso={`${todayStr}T00:00:00Z`} />
           ) : (
@@ -1601,6 +1656,15 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
             </View>
           )}
         </View>
+
+        {/* Chart Footer */}
+        <View style={styles.chartFooter}>
+          <TouchableOpacity style={styles.chartFooterLink} onPress={() => router.push("/logs")}>
+            <Text style={styles.chartFooterText}>View HOS Logs</Text>
+            <ChevronRight size={16} color={colors.tint} />
+          </TouchableOpacity>
+        </View>
+      </View>
         {/* Status Grid */}
         {/* <View style={styles.statusGrid}>
         {STATUS_ORDER.map((status) => {
@@ -1667,30 +1731,8 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
         </View>
       )} */}
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          {clocks.break.required && (
-            <View style={styles.breakInfo}>
-              <Clock size={14} color={colors.warning} />
-              <Text style={styles.breakText}>
-                Break required in{" "}
-                {formatTime(
-                  Math.max(
-                    0,
-                    clocks.break.trigger_after_minutes - clocks.break.driving_since_break,
-                  ),
-                )}
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.auditLinkButton} onPress={() => router.push("/logs")}>
-            <Text style={styles.auditLink}>View HOS Logs</Text>
-            <ChevronRight size={16} color={colors.tint} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Undo Snackbar */}
-        <Modal
+      {/* Status Modal */}
+      <Modal
           visible={statusModalVisible}
           transparent
           animationType="slide"
@@ -1781,7 +1823,7 @@ const UnifiedHOSCardComponent = forwardRef<UnifiedHOSCardRef, UnifiedHOSCardProp
             )}
           </View>
         </Modal>
-      </View>
+      </>
     )
   },
   )

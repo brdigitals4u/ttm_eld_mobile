@@ -77,13 +77,16 @@ export default function HOSChart({
 
   // FMCSA standard colors with theme
   const THEME_COLOR = colors.tint
-  // Chart background: secondary primary in light mode, secondary black in dark mode
+  // Chart background: secondary primary in light mode, subtle primary shade in dark mode
   const CHART_BACKGROUND = useMemo(() => {
     if (themeContext === "dark") {
-      return colors.cardBackground // secondary black (neutral20 in dark mode)
+      // Use neutral30 with a subtle primary tint for better visibility
+      // This creates a slight blue-gray shade that's distinguishable from cardBackground
+      // neutral30 (#232732) blended with primary100 (#002366) creates a subtle scotland blue tint
+      return colors.palette.neutral30 || "#232732"
     }
     return colors.palette.primary100 // secondary primary (light blue #E3F2FD in light mode)
-  }, [themeContext, colors.cardBackground, colors.palette.primary100])
+  }, [themeContext, colors.palette.primary100, colors.palette.neutral30])
 
   const FMCSA_STATUS = useMemo(
     () => ({
@@ -93,7 +96,7 @@ export default function HOSChart({
         shortLabel: "OFF",
         color: colors.sectionBackground,
         row: 1,
-        iconColor: colors.textDim,
+        iconColor: "#39FF14", // neon green
       },
       SLEEPER: {
         key: "SLEEPER",
@@ -101,7 +104,7 @@ export default function HOSChart({
         shortLabel: "SB",
         color: colors.cardBackground,
         row: 2,
-        iconColor: colors.text,
+        iconColor: colors.PRIMARY || colors.tint, // primary blue
       },
       DRIVING: {
         key: "DRIVING",
@@ -109,7 +112,7 @@ export default function HOSChart({
         shortLabel: "D",
         color: colors.successBackground,
         row: 3,
-        iconColor: colors.success,
+        iconColor: "#F59E0B", // saffron
       },
       ON_DUTY: {
         key: "ON_DUTY",
@@ -117,7 +120,7 @@ export default function HOSChart({
         shortLabel: "ON",
         color: colors.warningBackground,
         row: 4,
-        iconColor: colors.warning,
+        iconColor: "#FFEB3B", // yellow
       },
     }),
     [colors],
