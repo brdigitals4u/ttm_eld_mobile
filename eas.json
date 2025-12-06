@@ -39,7 +39,10 @@
     },
     "production-apk": {
       "extends": "production",
-      "android": { "buildType": "apk" }
+      "android": { 
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
     }
   },
   "submit": {

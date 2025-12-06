@@ -7,6 +7,7 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
+  cancelAnimation,
 } from "react-native-reanimated"
 
 import { Text } from "@/components/Text"
@@ -34,6 +35,11 @@ export default function HOSChartSkeleton() {
       -1, // Infinite repeat
       true, // Reverse animation
     )
+
+    // Cleanup: Cancel animation on unmount to prevent "Illegal node ID" errors
+    return () => {
+      cancelAnimation(shimmerOpacity)
+    }
   }, [])
 
   const shimmerStyle = useAnimatedStyle(() => ({

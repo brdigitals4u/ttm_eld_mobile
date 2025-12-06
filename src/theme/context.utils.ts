@@ -23,6 +23,6 @@ export const setSystemUIBackgroundColor = (color: string) => {
 export const setImperativeTheming = (theme: Theme) => {
   // Safety check: ensure theme and colors are initialized
   if (theme?.colors?.background) {
-    setSystemUIBackgroundColor(theme.colors.background)
+  setSystemUIBackgroundColor(theme.colors.background)
   }
 }

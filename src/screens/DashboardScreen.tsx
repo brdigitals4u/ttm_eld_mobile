@@ -39,6 +39,7 @@ import {
   withRepeat,
   withSequence,
   Easing,
+  cancelAnimation,
 } from "react-native-reanimated"
 
 import {
@@ -806,6 +807,12 @@ export const DashboardScreen = React.memo(() => {
       -1,
       true,
     )
+
+    // Cleanup: Cancel animations on unmount to prevent "Illegal node ID" errors
+    return () => {
+      cancelAnimation(vehicleIconScale)
+      cancelAnimation(vehicleIconOpacity)
+    }
   }, [])
 
   // Removed excessive location requests - location is handled by:

@@ -63,10 +63,12 @@ export const ViolationBanner: React.FC<ViolationBannerProps> = ({ violation, onD
           opacity: fadeAnim,
           transform: [
             {
-              translateY: fadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-100, 0],
-              }),
+              translateY: fadeAnim && fadeAnim.interpolate
+                ? fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-100, 0],
+                  })
+                : -100, // Fallback value
             },
           ],
         },

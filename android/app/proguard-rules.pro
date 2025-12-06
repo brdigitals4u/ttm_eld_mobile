@@ -17,8 +17,8 @@
 -allowaccessmodification
 -repackageclasses ''
 
-# Enable class merging
--mergeinterfacesaggressively
+# Enable class merging (disabled for stability - can cause crashes)
+# -mergeinterfacesaggressively
 
 # Aggressive obfuscation settings
 -dontpreverify
@@ -69,6 +69,12 @@
 # React Native TurboModules
 -keep class com.facebook.react.turbomodule.** { *; }
 
+# React Native Async Storage
+-keep class com.reactnativecommunity.asyncstorage.** { *; }
+
+# React Native DateTimePicker
+-keep class com.reactcommunity.rndatetimepicker.** { *; }
+
 # ============================================================================
 # React Native Reanimated
 # ============================================================================
@@ -109,9 +115,19 @@
 -keep class expo.router.** { *; }
 
 # ============================================================================
-# React Native Skia (REMOVED - package no longer used)
+# React Native Skia
 # ============================================================================
-# -keep class com.shopify.reactnative.skia.** { *; }
+-keep class com.shopify.reactnative.skia.** { *; }
+-keep class org.jetbrains.skija.** { *; }
+-keep class org.jetbrains.skia.** { *; }
+
+# ============================================================================
+# React Native Freshchat
+# ============================================================================
+-keep class com.freshchat.** { *; }
+-keep class com.freshdesk.** { *; }
+-dontwarn com.freshchat.**
+-dontwarn com.freshdesk.**
 
 # ============================================================================
 # React Navigation

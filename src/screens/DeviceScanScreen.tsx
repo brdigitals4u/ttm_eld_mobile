@@ -614,10 +614,14 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     [],
   )
 
-  const waveOpacity = waveAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.3, 1, 0.3],
-  })
+  // Safety check: Ensure waveAnim exists before interpolation
+  // This prevents "Illegal node ID" errors from Animated.multiply
+  const waveOpacity = waveAnim && waveAnim.interpolate
+    ? waveAnim.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [0.3, 1, 0.3],
+      })
+    : new Animated.Value(0.3) // Fallback value
 
   const EmptyState = () => {
     if (!isInitialized) {
@@ -669,7 +673,9 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
                 {
                   opacity: waveOpacity,
                   transform: [
-                    { scale: waveAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] }) },
+                    { scale: waveAnim && waveAnim.interpolate
+                        ? waveAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] })
+                        : 1 }, // Fallback value
                   ],
                 },
               ]}

@@ -33,19 +33,24 @@ const HOSCircle: React.FC<HOSCircleProps> = ({
   const strokeOffset = useSharedValue(circumference)
 
   const animatedCircleProps = useAnimatedProps(() => {
+    // Don't use withTiming inside useAnimatedProps - just return the value
+    // The timing is handled when updating strokeOffset.value
     return {
-      strokeDashoffset: withTiming(strokeOffset.value, { duration: 1500 }),
+      strokeDashoffset: strokeOffset.value,
     }
   })
 
   const percentage = useDerivedValue(() => {
+    // Safety check: prevent division by zero or invalid calculations
+    if (!circumference || circumference === 0) return 0
     return ((circumference - strokeOffset.value) / circumference) * 100
   })
 
   useEffect(() => {
     const offset = circumference - (progress / 100) * circumference
-    strokeOffset.value = offset
-  }, [progress])
+    // Apply timing when updating the value, not inside useAnimatedProps
+    strokeOffset.value = withTiming(offset, { duration: 1500 })
+  }, [progress, circumference])
 
   return (
     <SafeAreaView style={styles.container}>

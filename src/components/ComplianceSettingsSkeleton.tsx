@@ -6,6 +6,7 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
+  cancelAnimation,
 } from "react-native-reanimated"
 
 import { useAppTheme } from "@/theme/context"
@@ -27,6 +28,11 @@ export default function ComplianceSettingsSkeleton() {
       -1, // Infinite repeat
       true, // Reverse animation
     )
+
+    // Cleanup: Cancel animation on unmount to prevent "Illegal node ID" errors
+    return () => {
+      cancelAnimation(shimmerOpacity)
+    }
   }, [])
 
   const shimmerStyle = useAnimatedStyle(() => ({

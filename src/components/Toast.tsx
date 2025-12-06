@@ -9,6 +9,7 @@ import Animated, {
   withSequence,
   Easing,
   runOnJS,
+  cancelAnimation,
 } from "react-native-reanimated"
 
 import { useAppTheme } from "@/theme/context"
@@ -175,10 +176,21 @@ export const Toast: React.FC<ToastProps> = ({
         hideToast()
       }, duration)
 
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(timer)
+        // Cancel animations on unmount to prevent "Illegal node ID" errors
+        cancelAnimation(translateY)
+        cancelAnimation(opacity)
+        cancelAnimation(scale)
+      }
     } else {
       hideToast()
-      return undefined
+      return () => {
+        // Cancel animations when hiding
+        cancelAnimation(translateY)
+        cancelAnimation(opacity)
+        cancelAnimation(scale)
+      }
     }
   }, [visible])
 

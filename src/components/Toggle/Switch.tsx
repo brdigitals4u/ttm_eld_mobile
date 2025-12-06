@@ -130,16 +130,28 @@ function SwitchInput(props: SwitchInputProps) {
     $themedSwitchInner?.paddingRight ||
     0) as number
 
-  const outputRange =
+  // Calculate outputRange with safety checks to prevent NaN or undefined values
+  // This prevents "Illegal node ID" errors from Animated.multiply in interpolation
+  const safeKnobWidth = typeof knobWidth === 'number' && !isNaN(knobWidth) ? knobWidth : 0
+  const safeOffsetLeft = typeof offsetLeft === 'number' && !isNaN(offsetLeft) ? offsetLeft : 0
+  const safeOffsetRight = typeof offsetRight === 'number' && !isNaN(offsetRight) ? offsetRight : 0
+
+  const outputRange: [number, number] =
     Platform.OS === "web"
       ? isRTL
-        ? [+(knobWidth || 0) + offsetRight, offsetLeft]
-        : [offsetLeft, +(knobWidth || 0) + offsetRight]
-      : [rtlAdjustment * offsetLeft, rtlAdjustment * (+(knobWidth || 0) + offsetRight)]
+        ? [safeKnobWidth + safeOffsetRight, safeOffsetLeft]
+        : [safeOffsetLeft, safeKnobWidth + safeOffsetRight]
+      : [rtlAdjustment * safeOffsetLeft, rtlAdjustment * (safeKnobWidth + safeOffsetRight)]
+
+  // Ensure outputRange values are valid numbers (not NaN or Infinity)
+  const validatedOutputRange: [number, number] = [
+    isFinite(outputRange[0]) ? outputRange[0] : 0,
+    isFinite(outputRange[1]) ? outputRange[1] : 0,
+  ]
 
   const $animatedSwitchKnob = animate.current.interpolate({
     inputRange: [0, 1],
-    outputRange,
+    outputRange: validatedOutputRange,
   })
 
   return (

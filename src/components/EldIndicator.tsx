@@ -65,10 +65,14 @@ export const EldIndicator: React.FC = () => {
     }
   }, [isAnySyncing, rotateAnim])
 
-  const rotation = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  })
+  // Safety check: Ensure rotateAnim exists before interpolation
+  // This prevents "Illegal node ID" errors from Animated.multiply
+  const rotation = rotateAnim && rotateAnim.interpolate
+    ? rotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["0deg", "360deg"],
+      })
+    : "0deg" // Fallback value
 
   // Determine color based on state (prioritize errors)
   const getColor = () => {

@@ -84,11 +84,9 @@ if (process.env.NODE_ENV === "production") {
     ...config.serializer,
     // Enable source map optimization
     getModulesRunBeforeMainModule: () => [],
-    // Optimize module output
-    createModuleIdFactory: () => {
-      let nextId = 0
-      return () => nextId++
-    },
+    // NOTE: Removed custom createModuleIdFactory - let Metro handle module IDs
+    // Custom ID factory can cause "unknown module" errors if bundle is regenerated
+    // Metro's default ID factory is more reliable
   }
 }
 
