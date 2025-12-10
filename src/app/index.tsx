@@ -58,17 +58,15 @@ export default function Index() {
     return <Redirect href="/(tabs)/dashboard" />
   }
 
-  // Flow: splash → welcome → permissions → login
+  // Flow: splash → welcome → login → privacy policy → location consent → permissions → device scan
   if (!hasSeenWelcome) {
     console.log("👋 Redirecting to welcome")
     return <Redirect href="/welcome" />
   }
 
-  // Check permissions after welcome (allows proper app initialization)
-  if (!hasSeenPermissions) {
-    console.log("🔐 Redirecting to permissions")
-    return <Redirect href="/permissions" />
-  }
+  // REMOVED: Automatic redirect to /permissions screen
+  // Permissions flow is now: Login → Privacy Policy → Location Consent → Permissions → Device Scan
+  // Users will reach permissions through the proper consent flow
 
   console.log("🔑 Redirecting to login")
   return <Redirect href="/login" />

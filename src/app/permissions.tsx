@@ -23,8 +23,16 @@ import { SafeAreaContainer } from "@/components/SafeAreaContainer"
 import { Text } from "@/components/Text"
 import { usePermissions } from "@/contexts/permissions-context"
 import { translate } from "@/i18n/translate"
+import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
-import { requestCorePermissions, checkCorePermissions, PermissionResult } from "@/utils/permissions"
+import {
+  requestCorePermissions,
+  checkCorePermissions,
+  PermissionResult,
+  requestMediaLibraryPermission,
+  requestCameraPermission,
+  requestBluetoothPermission,
+} from "@/utils/permissions"
 import { settingsStorage } from "@/utils/storage"
 
 interface PermissionItem {
@@ -35,6 +43,8 @@ interface PermissionItem {
   color: string
 }
 
+// Location permission is handled separately in LocationConsent screen
+// Only include camera, gallery, and bluetooth here
 const PERMISSIONS: PermissionItem[] = [
   {
     id: "camera",
@@ -57,25 +67,21 @@ const PERMISSIONS: PermissionItem[] = [
     icon: Bluetooth,
     color: "#10B981",
   },
-  {
-    id: "location",
-    name: "Location",
-    description: "Track location for HOS compliance and logging",
-    icon: MapPin,
-    color: "#F59E0B",
-  },
 ]
 
 export default function PermissionsScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
   const { requestPermissions } = usePermissions()
+  const { user } = useAuth()
   const [permissions, setPermissions] = useState<Record<string, PermissionResult>>({})
   const [isRequesting, setIsRequesting] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [allGranted, setAllGranted] = useState(false)
   const [_hasSeenPermissionsBefore, setHasSeenPermissionsBefore] = useState(false)
   const hasSeenPermissionsRef = useRef(false)
+  const [locationDeclined, setLocationDeclined] = useState(false)
+  const [locationAccepted, setLocationAccepted] = useState(false)
 
   // Animation values
   const progress = useSharedValue(0)
@@ -84,14 +90,21 @@ export default function PermissionsScreen() {
   const checkmarkScale = useSharedValue(0)
   const buttonScale = useSharedValue(1)
 
-  useFocusEffect(
-    useCallback(() => {
-      requestPermissions({ skipIfGranted: true }).catch((error) =>
-        console.warn("⚠️ Dashboard: Permission request failed:", error),
-      )
-      return undefined
-    }, [requestPermissions]),
-  )
+  // REMOVED: Automatic permission request on screen focus
+  // Permissions should only be requested when user explicitly taps a button
+  // Check if location was declined or accepted
+  useEffect(() => {
+    const checkLocationStatus = async () => {
+      if (user?.id) {
+        const declined = await settingsStorage.getLocationDisclosureDeclined(user.id)
+        const accepted = await settingsStorage.getLocationDisclosureAccepted(user.id)
+        setLocationDeclined(declined)
+        setLocationAccepted(accepted)
+      }
+    }
+    checkLocationStatus()
+  }, [user?.id])
+
   // Check initial permissions
   useEffect(() => {
     checkInitialPermissions()
@@ -210,9 +223,6 @@ export default function PermissionsScreen() {
           case "mediaLibrary":
             result = await requestMediaLibraryPermission(false)
             break
-          case "location":
-            result = await requestLocationPermission(false)
-            break
           case "bluetooth":
             // Bluetooth needs extra delay and retry logic
             await new Promise((resolve) => setTimeout(resolve, 300))
@@ -275,12 +285,28 @@ export default function PermissionsScreen() {
     )
 
     try {
-      const results = await requestCorePermissions({ skipIfGranted: false, parallel: false })
       const permissionsMap: Record<string, PermissionResult> = {}
 
-      results.forEach((result) => {
-        permissionsMap[result.name] = result
-      })
+      // If location was accepted, request all permissions including location
+      // If location was declined, only request camera, gallery, and bluetooth
+      if (locationAccepted) {
+        // Request all permissions including location
+        const results = await requestCorePermissions({ skipIfGranted: false, parallel: false })
+        results.forEach((result) => {
+          permissionsMap[result.name] = result
+        })
+      } else {
+        // Only request camera, gallery, and bluetooth (skip location)
+        const [mediaLibraryResult, cameraResult, bluetoothResult] = await Promise.all([
+          requestMediaLibraryPermission(false),
+          requestCameraPermission(false),
+          requestBluetoothPermission(false),
+        ])
+
+        permissionsMap["mediaLibrary"] = mediaLibraryResult
+        permissionsMap["camera"] = cameraResult
+        permissionsMap["bluetooth"] = bluetoothResult
+      }
 
       setPermissions(permissionsMap)
       updateProgress(permissionsMap)
@@ -289,7 +315,7 @@ export default function PermissionsScreen() {
     } finally {
       setIsRequesting(false)
     }
-  }, [isRequesting, buttonScale, updateProgress])
+  }, [isRequesting, buttonScale, updateProgress, locationAccepted])
 
   // Animated progress bar
   const progressBarStyle = useAnimatedStyle(() => {
@@ -504,11 +530,11 @@ export default function PermissionsScreen() {
         <View style={styles.permissionsList}>
           {PERMISSIONS.map((permission, index) => {
             // Map permission ID to PermissionResult name
+            // Note: location is not included here as it's handled separately in LocationConsent screen
             const permissionNameMap: Record<PermissionItem["id"], PermissionResult["name"]> = {
               camera: "camera",
               mediaLibrary: "mediaLibrary",
               bluetooth: "bluetooth",
-              location: "location",
             }
             const permissionName = permissionNameMap[permission.id]
             const permissionResult = permissions[permissionName]
@@ -533,19 +559,17 @@ export default function PermissionsScreen() {
 
         {/* Action Button */}
         {!allPermissionsGranted && (
-          <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
-            <Animated.View style={buttonStyle}>
-              <TouchableOpacity
-                style={[styles.primaryButton, isRequesting && styles.primaryButtonDisabled]}
-                onPress={requestAllPermissions}
-                disabled={isRequesting}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isRequesting ? "Requesting..." : "Grant All Permissions"}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </SafeAreaContainer>
+          <Animated.View style={buttonStyle}>
+            <TouchableOpacity
+              style={[styles.primaryButton, isRequesting && styles.primaryButtonDisabled]}
+              onPress={requestAllPermissions}
+              disabled={isRequesting}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isRequesting ? "Requesting..." : "Grant All Permissions"}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
         )}
 
         {/* Success State */}

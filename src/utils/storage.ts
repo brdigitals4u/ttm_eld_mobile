@@ -196,6 +196,34 @@ export const settingsStorage = {
     const value = await asyncStorage.getItem(`${STORAGE_KEYS.PRIVACY_POLICY_ACCEPTED}_${userId}`)
     return value === "true"
   },
+
+  // Location consent storage methods
+  async setLocationConsentShown(userId: string): Promise<void> {
+    await asyncStorage.setItem(`location_consent_shown_${userId}`, "true")
+  },
+
+  async getLocationConsentShown(userId: string): Promise<boolean> {
+    const value = await asyncStorage.getItem(`location_consent_shown_${userId}`)
+    return value === "true"
+  },
+
+  async setLocationDisclosureAccepted(userId: string): Promise<void> {
+    await asyncStorage.setItem(`location_disclosure_accepted_${userId}`, "true")
+  },
+
+  async getLocationDisclosureAccepted(userId: string): Promise<boolean> {
+    const value = await asyncStorage.getItem(`location_disclosure_accepted_${userId}`)
+    return value === "true"
+  },
+
+  async setLocationDisclosureDeclined(userId: string): Promise<void> {
+    await asyncStorage.setItem(`location_disclosure_declined_${userId}`, "true")
+  },
+
+  async getLocationDisclosureDeclined(userId: string): Promise<boolean> {
+    const value = await asyncStorage.getItem(`location_disclosure_declined_${userId}`)
+    return value === "true"
+  },
 }
 
 // Helper function to get stored token (for API client)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   View,
   StyleSheet,
@@ -6,15 +6,13 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
-  Linking,
 } from "react-native"
 import { Asset } from "expo-asset"
 import { router } from "expo-router"
-import { ArrowLeft, CheckCircle, ChevronRight } from "lucide-react-native"
+import { ArrowLeft } from "lucide-react-native"
 import Pdf from "react-native-pdf"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { submitPrivacyPolicyAcceptance } from "@/api/submissions"
 import { Text } from "@/components/Text"
 import { translate } from "@/i18n/translate"
 import { useToast } from "@/providers/ToastProvider"
@@ -30,7 +28,6 @@ export const LocationConsentScreen: React.FC = () => {
   const { user, logout } = useAuth()
 
   // Selection screen state
-  const [termsAccepted, setTermsAccepted] = useState(true) // Checked by default
   const [selectedOption, setSelectedOption] = useState<"terms" | "privacy" | null>(null)
 
   // PDF viewer state (only used when selectedOption === "terms")
@@ -94,8 +91,62 @@ export const LocationConsentScreen: React.FC = () => {
     console.error("PDF Error:", error)
   }
 
-  const handleSubmit = async () => {
-    router.replace("/permissions")
+  const handleAllow = async () => {
+    if (!user?.id) {
+      toast.error("User not found. Please login again.")
+      return
+    }
+
+    if (isSubmitting) {
+      return // Prevent multiple clicks
+    }
+
+    setIsSubmitting(true)
+    try {
+      // Store that disclosure was shown and user accepted
+      await settingsStorage.setLocationConsentShown(user.id)
+      await settingsStorage.setLocationDisclosureAccepted(user.id)
+      
+      // Navigate to permissions screen - permissions will be requested there
+      router.replace("/permissions")
+    } catch (error) {
+      console.error("Error saving location consent:", error)
+      toast.error("Failed to save preference. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleNotNow = async () => {
+    if (!user?.id) {
+      toast.error("User not found. Please login again.")
+      return
+    }
+
+    if (isSubmitting) {
+      return // Prevent multiple clicks
+    }
+
+    setIsSubmitting(true)
+    try {
+      // Store that disclosure was shown but declined
+      await settingsStorage.setLocationConsentShown(user.id)
+      await settingsStorage.setLocationDisclosureDeclined(user.id)
+      
+      // Show warning toast
+      toast.warning(
+        translate("locationConsent.notNowWarning" as any) ||
+          "Location access is required for ELD compliance. Without location permissions, you will not be able to use the app for FMCSA-compliant logging.",
+      )
+      
+      // Navigate to permissions screen (skip location, request others)
+      router.replace("/permissions")
+    } catch (error) {
+      console.error("Error handling Not Now:", error)
+      toast.error("Failed to save preference. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleBack = async () => {
@@ -118,28 +169,6 @@ export const LocationConsentScreen: React.FC = () => {
     }
   }
 
-  const handleTermsTap = () => {
-    setSelectedOption("terms")
-  }
-
-  const handlePrivacyTap = async () => {
-    try {
-      const url = "https://ttmkonnect.com/privacy"
-      const canOpen = await Linking.canOpenURL(url)
-      if (canOpen) {
-        await Linking.openURL(url)
-      } else {
-        toast.error("Unable to open privacy policy URL")
-      }
-    } catch (error) {
-      console.error("Error opening privacy policy URL:", error)
-      toast.error("Failed to open privacy policy. Please try again.")
-    }
-  }
-
-  const handleTermsCheckboxToggle = () => {
-    setTermsAccepted(!termsAccepted)
-  }
 
   // Dynamic styles based on theme
   const styles = useMemo(
@@ -241,13 +270,28 @@ export const LocationConsentScreen: React.FC = () => {
           fontSize: 18,
           fontWeight: "bold",
         },
+        notNowButton: {
+          alignItems: "center",
+          backgroundColor: "transparent" as const,
+          borderRadius: 16,
+          justifyContent: "center",
+          marginTop: 12,
+          minHeight: 56,
+          paddingHorizontal: 32,
+          paddingVertical: 16,
+        },
+        notNowButtonText: {
+          color: colors.textDim,
+          fontSize: 16,
+          fontWeight: "600",
+        },
         // PDF viewer styles (when selectedOption === "terms")
         pdfContainer: {
           flex: 1,
         },
         loadingContainer: {
           alignItems: "center",
-          backgroundColor: `${colors.palette.neutral900}1A`,
+          backgroundColor: colors.background + "E6", // 90% opacity
           bottom: 0,
           justifyContent: "center",
           left: 0,
@@ -286,7 +330,7 @@ export const LocationConsentScreen: React.FC = () => {
         },
         scrollHint: {
           alignItems: "center",
-          backgroundColor: `${colors.palette.neutral900}B3`,
+          backgroundColor: colors.sectionBackground + "E6", // 90% opacity
           bottom: 80,
           left: 0,
           paddingHorizontal: 20,
@@ -395,7 +439,6 @@ export const LocationConsentScreen: React.FC = () => {
                 // Close PDF viewer and return to selection screen
                 setCanSubmit(false)
                 setSelectedOption(null)
-                setTermsAccepted(true)
               }}
               style={[
                 styles.submitButton,
@@ -431,41 +474,89 @@ export const LocationConsentScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.subtitle}>
-          This app collects your precise location, including in the background, to comply with FMCSA
-          ELD regulations
+          {translate("locationConsent.subtitle" as any) ||
+            "This app collects your precise location, including in the background, to comply with FMCSA ELD regulations"}
         </Text>
 
+        {/* Why We Need Your Location */}
         <View style={styles.card}>
-          <View style={styles.cardRow}>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}> Location data is used to:</Text>
-              <Text style={styles.cardDescription}>
-                Record driver duty status Map vehicle movement, mileage & driving time Synchronize
-                with engine ELD devices Generate FMCSA-required electronic logs, even
-                when the app is closed or not in use. Your location data is only used for ELD
-                compliance and is not shared with third parties except as required by FMCSA
-                regulations.
-              </Text>
-            </View>
-            <ChevronRight size={24} color={colors.textDim} />
-          </View>
+          <Text style={styles.cardTitle}>
+            {translate("locationConsent.whyNeeded" as any) || "Why We Need Your Location"}
+          </Text>
+          <Text style={styles.cardDescription}>
+            {translate("locationConsent.whyNeededText" as any) ||
+              "Federal Motor Carrier Safety Administration (FMCSA) regulations require Electronic Logging Devices (ELD) to automatically record vehicle location data to ensure accurate Hours of Service (HOS) compliance."}
+          </Text>
+        </View>
+
+        {/* What Location Data We Collect */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {translate("locationConsent.whatWeCollect" as any) || "What Location Data We Collect"}
+          </Text>
+          <Text style={styles.cardDescription}>
+            {translate("locationConsent.whatWeCollectText" as any) ||
+              "• Precise GPS coordinates (latitude and longitude)\n• Timestamp for each location point\n• Vehicle movement and motion detection\n• Continuous tracking while driving, even when the app is closed"}
+          </Text>
+        </View>
+
+        {/* How We Use Your Location Data */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {translate("locationConsent.howWeUse" as any) || "How We Use Your Location Data"}
+          </Text>
+          <Text style={styles.cardDescription}>
+            {translate("locationConsent.howWeUseText" as any) ||
+              "• Record driver duty status changes\n• Generate FMCSA-required electronic logs\n• Detect vehicle movement and driving time\n• Synchronize with ELD hardware devices\n• Ensure compliance with FMCSA 49 CFR §395 regulations\n• Provide accurate HOS calculations"}
+          </Text>
+        </View>
+
+        {/* Data Sharing & Privacy */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {translate("locationConsent.dataSharing" as any) || "Data Sharing & Privacy"}
+          </Text>
+          <Text style={styles.cardDescription}>
+            {translate("locationConsent.dataSharingText" as any) ||
+              "Your location data is used solely for ELD compliance and is not shared with third parties except as required by FMCSA regulations or during FMCSA audits. We do not use your location for advertising or marketing purposes."}
+          </Text>
+        </View>
+
+        {/* Data Retention */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            {translate("locationConsent.retention" as any) || "Data Retention"}
+          </Text>
+          <Text style={styles.cardDescription}>
+            {translate("locationConsent.retentionText" as any) ||
+              "Location data is retained for a minimum of 6 months as required by FMCSA regulations, and may be retained longer for compliance and audit purposes."}
+          </Text>
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={!termsAccepted || isSubmitting}
-          style={[
-            styles.continueButton,
-            (!termsAccepted || isSubmitting) && styles.continueButtonDisabled,
-          ]}
+          onPress={handleAllow}
+          disabled={isSubmitting}
+          style={[styles.continueButton, isSubmitting && styles.continueButtonDisabled]}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={colors.buttonPrimaryText} />
           ) : (
-            <Text style={styles.continueButtonText}>Allow & Continue</Text>
+            <Text style={styles.continueButtonText}>
+              {translate("locationConsent.allowButton" as any) || "Allow & Continue"}
+            </Text>
           )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          onPress={handleNotNow}
+          disabled={isSubmitting}
+          style={[styles.notNowButton, isSubmitting && styles.continueButtonDisabled]}
+        >
+          <Text style={styles.notNowButtonText}>
+            {translate("locationConsent.notNowButton" as any) || "Not Now"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

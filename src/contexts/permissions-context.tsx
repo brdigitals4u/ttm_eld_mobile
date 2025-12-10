@@ -57,7 +57,7 @@ function toPermissionStatus(result: any): PermissionStatus {
 export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [permissions, setPermissions] = useState<PermissionStatus[]>([])
   const [isRequesting, setIsRequesting] = useState(false)
-  const [initialRequestComplete, setInitialRequestComplete] = useState(false)
+  const [initialRequestComplete, setInitialRequestComplete] = useState(true) // Set to true to prevent auto-request
   const lastDeniedRef = useRef<CorePermissionName[]>([])
   const appStateRef = useRef(AppState.currentState)
   const isMountedRef = useRef(true)
@@ -163,32 +163,9 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [])
 
-  // Initial permission request on mount
-  useEffect(() => {
-    if (initialRequestComplete) return
-
-    let cancelled = false
-    const init = async () => {
-      try {
-        const results = await requestCorePermissions({ skipIfGranted: false, parallel: false })
-        if (!cancelled) {
-          updatePermissions(results)
-          setInitialRequestComplete(true)
-        }
-      } catch (error) {
-        console.error("Initial permission request failed:", error)
-        if (!cancelled) {
-          setInitialRequestComplete(true)
-        }
-      }
-    }
-
-    init()
-
-    return () => {
-      cancelled = true
-    }
-  }, [initialRequestComplete, updatePermissions])
+  // REMOVED: Initial permission request on mount
+  // Permissions should only be requested when explicitly called via requestPermissions() from user action
+  // This prevents automatic permission requests when the app first opens
 
   // Re-check when app returns to foreground
   useEffect(() => {

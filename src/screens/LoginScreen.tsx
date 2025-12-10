@@ -37,7 +37,8 @@ const TENANT_OPTIONS = [{ value: "TTM_001", label: "OmVahana Fleet" }]
 
 export const LoginScreen: React.FC = () => {
   const { theme } = useAppTheme()
-  const { colors, isDark } = theme
+  const { colors } = theme
+  const isDark = false
   const { login } = useAuth()
   const toast = useToast()
   const driverLoginMutation = useDriverLogin()

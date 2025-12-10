@@ -48,15 +48,16 @@ export const useLocationData = () => {
       return {
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        address: currentLocation.address,
+        address: currentLocation.address || "-",
         source: "expo" as const,
       }
     }
 
-    // Priority 3: Fallback to 0, 0
+    // Priority 3: Fallback to 0, 0 with "-" address when permission denied
     return {
       latitude: 0,
       longitude: 0,
+      address: "-",
       source: "fallback" as const,
     }
   }, [eldLocation, currentLocation])
@@ -66,6 +67,7 @@ export const useLocationData = () => {
       return
     }
     // Only attempt to fetch when permission is granted and we don't have a meaningful fix yet
+    // Don't auto-request if permission is denied - user explicitly declined on LocationConsent screen
     if (hasPermission && locationData.source === "fallback") {
       hasRequestedOnceRef.current = true
       requestLocation().catch((error) => {
@@ -73,12 +75,13 @@ export const useLocationData = () => {
         hasRequestedOnceRef.current = false
       })
     }
+    // If permission is denied, don't attempt to request - just use fallback with "-" address
   }, [hasPermission, locationData.source, requestLocation])
 
   return {
     latitude: locationData.latitude || 0,
     longitude: locationData.longitude || 0,
-    address: "address" in locationData ? locationData.address : "",
+    address: "address" in locationData ? (locationData.address || "-") : "-",
     source: locationData.source || "fallback_source",
     // Non-blocking function to refresh expo location (doesn't block if called)
     refreshLocation: async () => {

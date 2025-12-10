@@ -2068,16 +2068,22 @@ export const DashboardScreen = React.memo(() => {
     setShowQuickActionsMenu(true)
   }, [])
 
-  const handleQuickAction = useCallback((action: "profile" | "settings" | "logout") => {
+  const handleQuickAction = useCallback(async (action: "profile" | "settings" | "logout") => {
     quickActionsRef.current?.dismiss()
     setShowQuickActionsMenu(false)
     if (action === "logout") {
-      logout()
-      router.replace("/login")
+      try {
+        await logout()
+        router.replace("/login")
+      } catch (error) {
+        console.error("Logout error:", error)
+        // Still navigate to login even if logout fails
+        router.replace("/login")
+      }
     } else {
       router.push(`/${action}` as any)
     }
-  }, [])
+  }, [logout])
 
   const handleUnifiedAlertsPress = useCallback(async () => {
     // Always open notifications panel - show all notifications
@@ -2313,7 +2319,15 @@ export const DashboardScreen = React.memo(() => {
               onViewLogs={() => router.push("/(tabs)/logs")}
               onVehicleInspection={() => router.push("/(tabs)/dvir")}
               onDotInspection={() => router.push("/logs/transfer")}
-              onLogout={logout}
+              onLogout={async () => {
+                try {
+                  await logout()
+                  router.replace("/login")
+                } catch (error) {
+                  console.error("Logout error:", error)
+                  router.replace("/login")
+                }
+              }}
             />
 
             {/* ELD Data - Speed & Fuel - Only show if vehicle and trip assigned */}

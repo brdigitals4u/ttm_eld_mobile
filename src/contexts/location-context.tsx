@@ -87,13 +87,26 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   const getCurrentLocation = async (): Promise<LocationData | null> => {
     const permissionGranted = hasPermission || locationPermissionState?.granted
 
-    // Request permission if we don't have it yet
+    // Don't auto-request permission - only check if already granted
+    // Permission should be requested explicitly from LocationConsent screen
     if (!permissionGranted) {
-      await requestLocationPermission()
-      if (!hasPermission && !locationPermissionState?.granted) {
-        setError("Location permission not granted")
-        return null
+      // Return location data with "-" address when permission is denied
+      const deniedLocationData: LocationData = {
+        latitude: 0,
+        longitude: 0,
+        accuracy: null,
+        altitude: null,
+        timestamp: Date.now(),
+        address: "-",
       }
+      setCurrentLocation(deniedLocationData)
+      setStatusLocation({
+        latitude: 0,
+        longitude: 0,
+        address: "-",
+      })
+      setError(null) // Don't show error, just return "-" address
+      return deniedLocationData
     }
 
     try {

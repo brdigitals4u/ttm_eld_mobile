@@ -16,8 +16,10 @@ import { EldConnectionModal } from "@/components/EldConnectionModal"
 import { Header } from "@/components/Header"
 import { Text } from "@/components/Text"
 import { toast } from "@/components/Toast"
+import { useAuth } from "@/contexts"
 import { translate } from "@/i18n/translate"
 import { useAppTheme } from "@/theme/context"
+
 import { useConnectionState } from "../services/ConnectionStateService"
 import JMBluetoothService from "../services/JMBluetoothService"
 import { BleDevice } from "../types/JMBluetooth"
@@ -150,6 +152,8 @@ DeviceCard.displayName = "DeviceCard"
 
 const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _navigation }) => {
   const { theme } = useAppTheme()
+  const { driverProfile } = useAuth()
+
   const { colors: themeColors, isDark } = theme
   const [devices, setDevices] = useState<BleDevice[]>([])
   const [isScanning, setIsScanning] = useState(false)
@@ -603,6 +607,7 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
   const keyExtractor = useCallback((item: BleDevice) => item.address || `device-${item.name}`, [])
 
+  const handleSkip = () => router.replace("/dashboard")
   // Estimate item height for getItemLayout optimization
   const DEVICE_ITEM_HEIGHT = 100
   const getItemLayout = useCallback(
@@ -616,12 +621,13 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
   // Safety check: Ensure waveAnim exists before interpolation
   // This prevents "Illegal node ID" errors from Animated.multiply
-  const waveOpacity = waveAnim && waveAnim.interpolate
-    ? waveAnim.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0.3, 1, 0.3],
-      })
-    : new Animated.Value(0.3) // Fallback value
+  const waveOpacity =
+    waveAnim && waveAnim.interpolate
+      ? waveAnim.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0.3, 1, 0.3],
+        })
+      : new Animated.Value(0.3) // Fallback value
 
   const EmptyState = () => {
     if (!isInitialized) {
@@ -673,9 +679,12 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
                 {
                   opacity: waveOpacity,
                   transform: [
-                    { scale: waveAnim && waveAnim.interpolate
-                        ? waveAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] })
-                        : 1 }, // Fallback value
+                    {
+                      scale:
+                        waveAnim && waveAnim.interpolate
+                          ? waveAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] })
+                          : 1,
+                    }, // Fallback value
                   ],
                 },
               ]}
@@ -697,8 +706,11 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
       )
     }
 
+
     return (
       <View style={styles.emptyState}>
+
+
         <View style={styles.emptyStateIconContainer}>
           <Bluetooth size={64} color={themeColors.textDim} />
         </View>
@@ -712,6 +724,8 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
     )
   }
 
+      const hasSkipButton = driverProfile?.email === "testdriver.cognito@ttmkonnect.com"
+      
   return (
     <>
       {/* Header */}
@@ -780,6 +794,15 @@ const DeviceScanScreen: React.FC<DeviceScanScreenProps> = ({ navigation: _naviga
 
       {/* Status Row */}
       <View style={styles.statusContainer}>
+      {hasSkipButton && (
+          <TouchableOpacity style={styles.scanButton} onPress={handleSkip} activeOpacity={0.8}>
+            <View style={styles.scanButtonContent}>
+              <Text style={styles.scanButtonText} weight="semiBold">
+                Skip
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
         <View style={styles.statusRow}>
           <View
             style={[

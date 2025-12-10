@@ -622,6 +622,25 @@ const en = {
     roadConditions: "Road conditions",
     good: "Good",
   },
+  locationConsent: {
+    title: "Location Access Required for FMCSA Compliance",
+    subtitle: "This app collects your precise location, including in the background, to comply with FMCSA ELD regulations",
+    whyNeeded: "Why We Need Your Location",
+    whyNeededText: "Federal Motor Carrier Safety Administration (FMCSA) regulations require Electronic Logging Devices (ELD) to automatically record vehicle location data to ensure accurate Hours of Service (HOS) compliance.",
+    whatWeCollect: "What Location Data We Collect",
+    whatWeCollectText: "• Precise GPS coordinates (latitude and longitude)\n• Timestamp for each location point\n• Vehicle movement and motion detection\n• Continuous tracking while driving, even when the app is closed",
+    howWeUse: "How We Use Your Location Data",
+    howWeUseText: "• Record driver duty status changes\n• Generate FMCSA-required electronic logs\n• Detect vehicle movement and driving time\n• Synchronize with ELD hardware devices\n• Ensure compliance with FMCSA 49 CFR §395 regulations\n• Provide accurate HOS calculations",
+    dataSharing: "Data Sharing & Privacy",
+    dataSharingText: "Your location data is used solely for ELD compliance and is not shared with third parties except as required by FMCSA regulations or during FMCSA audits. We do not use your location for advertising or marketing purposes.",
+    retention: "Data Retention",
+    retentionText: "Location data is retained for a minimum of 6 months as required by FMCSA regulations, and may be retained longer for compliance and audit purposes.",
+    allowButton: "Allow & Continue",
+    notNowButton: "Not Now",
+    notNowWarning: "Location access is required for ELD compliance. Without location permissions, you will not be able to use the app for FMCSA-compliant logging.",
+    permissionDenied: "Location permission is required for ELD compliance. Please enable location access in Settings.",
+    backgroundPermissionRequired: "Background location access is required to maintain accurate logs when the app is closed.",
+  },
 }
 
 export default en

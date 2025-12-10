@@ -159,7 +159,7 @@ export const DriverInfoSection: React.FC = () => {
         {driverName} {`(${driverUsername})`}
         </Text>
         
-        {!eldConnected ? (
+        {eldConnected ? (
           <View style={styles.eldBadge}>
             <Bluetooth size={12} color={colors.tint} />
             <Text style={[styles.eldBadgeText, { color: colors.tint }]}>

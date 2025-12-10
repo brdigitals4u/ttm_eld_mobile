@@ -18,12 +18,10 @@ import { shadows } from "@/theme/shadows"
 import { settingsStorage } from "@/utils/storage"
 
 export const WelcomeScreen: React.FC = () => {
-  const goToPermissions = async () => {
-    await settingsStorage.setHasSeenWelcome(true)
-  }
-
   const handleNext = async () => {
-    await goToPermissions()
+    await settingsStorage.setHasSeenWelcome(true)
+    // Navigate to login screen after setting the flag
+    router.replace("/login")
   }
 
   const handleSkip = async () => {
