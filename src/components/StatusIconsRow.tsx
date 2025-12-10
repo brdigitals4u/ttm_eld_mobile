@@ -180,8 +180,10 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
         },
         statusRow: {
           flexDirection: "row",
+          flexWrap: "wrap",
           gap: 8,
           justifyContent: "space-between",
+          width: "100%",
         },
       }),
     [colors, screenWidth],
@@ -225,6 +227,8 @@ export const StatusIconsRow: React.FC<StatusIconsRowProps> = ({
                     color: colors.text,
                   },
                 ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
               >
                 {config.fullName}
               </Text>

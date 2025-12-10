@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react"
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, SafeAreaView, ScrollView, Linking } from "react-native"
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  Linking,
+} from "react-native"
 import { Asset } from "expo-asset"
 import { router } from "expo-router"
 import { ArrowLeft, CheckCircle, ChevronRight } from "lucide-react-native"
@@ -14,7 +22,7 @@ import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
 import { settingsStorage } from "@/utils/storage"
 
-export const PrivacyPolicyScreen: React.FC = () => {
+export const LocationConsentScreen: React.FC = () => {
   const { theme } = useAppTheme()
   const colors = theme.colors
   const insets = useSafeAreaInsets()
@@ -87,68 +95,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
   }
 
   const handleSubmit = async () => {
-    if (!user || !termsAccepted || isSubmitting) {
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      // Get user name from firstName and lastName
-      const userName = user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim()
-
-      // Submit to API with navigateOnError option
-      // This ensures navigation happens even if API call fails
-      const result = await submitPrivacyPolicyAcceptance(
-        {
-          userId: user.id,
-          email: user.email,
-          name: userName,
-        },
-        {
-          navigateOnError: true, // Navigate even on error
-        },
-      )
-
-      // Store acceptance locally (always store, even if API failed)
-      await settingsStorage.setPrivacyPolicyAccepted(user.id)
-
-      // Show appropriate message based on API result
-      if (result.success) {
-        toast.success("Privacy policy accepted successfully!", 2000)
-      } else {
-        // API failed but we still proceed with navigation
-        toast.warning(
-          result.message || "Privacy policy saved locally. Some features may be limited.",
-          3000,
-        )
-      }
-
-      // Navigate to location consent screen (always navigate, regardless of API result)
-      // Use setTimeout to ensure UI updates before navigation
-      setTimeout(() => {
-        router.replace("/location-consent")
-      }, 500)
-    } catch (error: any) {
-      // This catch block should rarely execute now due to navigateOnError,
-      // but keep it as a safety net
-      console.error("Error submitting privacy policy acceptance:", error)
-
-      // Still store acceptance locally and navigate
-      try {
-        await settingsStorage.setPrivacyPolicyAccepted(user.id)
-        toast.warning("Privacy policy saved locally. Please check your connection.", 3000)
-
-        // Navigate even on error
-        setTimeout(() => {
-          router.replace("/location-consent")
-        }, 500)
-      } catch (storageError) {
-        console.error("Error storing privacy policy acceptance:", storageError)
-        toast.error(error.message || translate("privacyPolicy.error" as any), 4000)
-        setIsSubmitting(false)
-      }
-    }
+    router.replace("/permissions")
   }
 
   const handleBack = async () => {
@@ -267,9 +214,9 @@ export const PrivacyPolicyScreen: React.FC = () => {
         footer: {
           borderTopColor: colors.border,
           borderTopWidth: 1,
+          paddingBottom: 32,
           paddingHorizontal: 24,
           paddingTop: 20,
-          paddingBottom: 32,
         },
         continueButton: {
           alignItems: "center",
@@ -473,7 +420,7 @@ export const PrivacyPolicyScreen: React.FC = () => {
           <ArrowLeft size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-          Review and Accept Terms of Use
+          📍 Location Access Required for FMCSA Compliance
         </Text>
         <View style={styles.headerPlaceholder} />
       </View>
@@ -484,62 +431,25 @@ export const PrivacyPolicyScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.subtitle}>
-          Read and accept our terms and privacy policy to protect your data and guarantee a smooth,
-          reliable experience with all TTM Konnect safety and tracking features.
+          This app collects your precise location, including in the background, to comply with FMCSA
+          ELD regulations
         </Text>
 
-        {/* Terms of Service Card */}
-        <TouchableOpacity onPress={handleTermsTap} activeOpacity={0.7}>
-          <View style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Terms of Service</Text>
-                <Text style={styles.cardDescription}>
-                  Read and agree to our service terms covering usage policies, privacy standards,
-                  and user responsibilities for a safe and reliable app experience.
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation()
-                  handleTermsCheckboxToggle()
-                }}
-                style={styles.checkboxContainer}
-                activeOpacity={0.7}
-              >
-                {termsAccepted ? (
-                  <CheckCircle size={24} color={colors.tint} fill={colors.tint} />
-                ) : (
-                  <View
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      borderWidth: 2,
-                      borderColor: colors.border,
-                    }}
-                  />
-                )}
-              </TouchableOpacity>
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}> Location data is used to:</Text>
+              <Text style={styles.cardDescription}>
+                Record driver duty status Map vehicle movement, mileage & driving time Synchronize
+                with engine ELD devices Generate FMCSA-required electronic logs, even
+                when the app is closed or not in use. Your location data is only used for ELD
+                compliance and is not shared with third parties except as required by FMCSA
+                regulations.
+              </Text>
             </View>
+            <ChevronRight size={24} color={colors.textDim} />
           </View>
-        </TouchableOpacity>
-
-        {/* Privacy Policy Card */}
-        <TouchableOpacity onPress={handlePrivacyTap} activeOpacity={0.7}>
-          <View style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Privacy Policy</Text>
-                <Text style={styles.cardDescription}>
-                  Read and agree to our privacy policy explaining how your data is collected, used,
-                  and protected to maintain a secure and trusted experience.
-                </Text>
-              </View>
-              <ChevronRight size={24} color={colors.textDim} />
-            </View>
-          </View>
-        </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -554,11 +464,10 @@ export const PrivacyPolicyScreen: React.FC = () => {
           {isSubmitting ? (
             <ActivityIndicator size="small" color={colors.buttonPrimaryText} />
           ) : (
-            <Text style={styles.continueButtonText}>Continue</Text>
+            <Text style={styles.continueButtonText}>Allow & Continue</Text>
           )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   )
 }
-

@@ -8,7 +8,7 @@
 
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { View, StyleSheet, TouchableOpacity, StatusBar } from "react-native"
-import { router } from "expo-router"
+import { router, useFocusEffect } from "expo-router"
 import { Camera, Image as ImageIcon, Bluetooth, MapPin, CheckCircle } from "lucide-react-native"
 import Animated, {
   useSharedValue,
@@ -21,6 +21,7 @@ import Animated, {
 import { Header } from "@/components/Header"
 import { SafeAreaContainer } from "@/components/SafeAreaContainer"
 import { Text } from "@/components/Text"
+import { usePermissions } from "@/contexts/permissions-context"
 import { translate } from "@/i18n/translate"
 import { useAppTheme } from "@/theme/context"
 import { requestCorePermissions, checkCorePermissions, PermissionResult } from "@/utils/permissions"
@@ -68,6 +69,7 @@ const PERMISSIONS: PermissionItem[] = [
 export default function PermissionsScreen() {
   const { theme } = useAppTheme()
   const { colors, isDark } = theme
+  const { requestPermissions } = usePermissions()
   const [permissions, setPermissions] = useState<Record<string, PermissionResult>>({})
   const [isRequesting, setIsRequesting] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -82,6 +84,14 @@ export default function PermissionsScreen() {
   const checkmarkScale = useSharedValue(0)
   const buttonScale = useSharedValue(1)
 
+  useFocusEffect(
+    useCallback(() => {
+      requestPermissions({ skipIfGranted: true }).catch((error) =>
+        console.warn("⚠️ Dashboard: Permission request failed:", error),
+      )
+      return undefined
+    }, [requestPermissions]),
+  )
   // Check initial permissions
   useEffect(() => {
     checkInitialPermissions()
@@ -151,7 +161,7 @@ export default function PermissionsScreen() {
     await settingsStorage.setHasSeenPermissions(true)
     hasSeenPermissionsRef.current = true
     setHasSeenPermissionsBefore(true)
-    router.replace("/login")
+    router.replace("/device-scan")
   }, [])
 
   const requestPermission = useCallback(

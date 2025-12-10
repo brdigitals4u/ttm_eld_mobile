@@ -20,7 +20,6 @@ import { settingsStorage } from "@/utils/storage"
 export const WelcomeScreen: React.FC = () => {
   const goToPermissions = async () => {
     await settingsStorage.setHasSeenWelcome(true)
-    router.replace("/permissions")
   }
 
   const handleNext = async () => {
