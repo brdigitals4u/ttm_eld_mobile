@@ -102,3 +102,6 @@
 - Prominent disclosure is shown before requesting location permissions
 - Users have control over location permissions
 
+
+
+

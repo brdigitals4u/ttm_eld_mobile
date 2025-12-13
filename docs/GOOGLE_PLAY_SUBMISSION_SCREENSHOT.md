@@ -154,3 +154,6 @@ When submitting to Google Play:
 - [ ] Layout is clean and mobile-appropriate
 - [ ] All required content is visible or clearly scrollable
 
+
+
+
