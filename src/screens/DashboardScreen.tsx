@@ -64,6 +64,7 @@ import { LiveVehicleData } from "@/components/LiveVehicleData"
 import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
 import { RideOverviewCard } from "@/components/RideOverviewCard"
+import { useShipperStore } from "@/stores/shipperStore"
 import { StatusIconsRow } from "@/components/StatusIconsRow"
 import { Text } from "@/components/Text"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
@@ -172,8 +173,14 @@ export const DashboardScreen = React.memo(() => {
   }, [tripsData])
 
   const hasTrip = useMemo(() => !!activeTrip, [activeTrip])
-  const shipperId = useMemo(() => `SHIP_${user?.id?.toString()?.slice(0, 8)}` ?? null, [user?.id])
-  const hasShipperId = useMemo(() => Boolean(shipperId), [shipperId])
+  
+  // Get active shipper from store
+  const { activeShipper } = useShipperStore()
+  const hasShipperId = useMemo(() => Boolean(activeShipper), [activeShipper])
+  const shipperDisplayName = useMemo(() => {
+    if (!activeShipper) return null
+    return `${activeShipper.first_name} ${activeShipper.last_name}`
+  }, [activeShipper])
 
   // HOS/ELD can be used if (vehicle OR trip) is assigned AND shipping ID is present
   // Either vehicle assignment OR trip assignment is sufficient
@@ -2322,7 +2329,7 @@ export const DashboardScreen = React.memo(() => {
             )}
             {/* Ride Overview Card */}  
             <RideOverviewCard
-              shippingNo={shipperId}
+              shippingNo={shipperDisplayName}
               trailerNo={trailerNo}
               onViewLogs={() => router.push("/(tabs)/logs")}
               onShipPress={() => router.push("/assignments")}
@@ -2428,7 +2435,7 @@ export const DashboardScreen = React.memo(() => {
           )}
 
         {/* Mandatory Setup Screen - Blocks HOS/ELD if (vehicle AND trip) or shipper ID missing */}
-        {showMandatorySetup && (
+        {/* {showMandatorySetup && (
           <MandatorySetupScreen
             hasVehicle={hasVehicleAssignment}
             hasTrip={hasTrip}
@@ -2436,7 +2443,7 @@ export const DashboardScreen = React.memo(() => {
             onAddVehicle={handleAddVehicle}
             onAddShipperId={handleAddShipperId}
           />
-        )}
+        )} */}
 
         {/* Inactivity Prompt */}
         <InactivityPrompt

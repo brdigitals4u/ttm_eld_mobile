@@ -10,12 +10,13 @@ import {
   View,
 } from "react-native"
 import { router, Stack } from "expo-router"
-import { ArrowLeft, Plus, X } from "lucide-react-native"
+import { ArrowLeft, Plus } from "lucide-react-native"
 
 import { useTrailerAssignments, useAssignTrailer, useRemoveTrailer } from "@/api/trailers"
 import { useVehicles } from "@/api/vehicles"
 import ElevatedCard from "@/components/EvevatedCard"
 import LoadingButton from "@/components/LoadingButton"
+import { ShipperList } from "@/components/ShipperList"
 import { toast } from "@/components/Toast"
 import { useLocationData } from "@/hooks/useLocationData"
 import { translate } from "@/i18n/translate"
@@ -57,20 +58,11 @@ export default function AssignmentsScreen() {
   const assignTrailerMutation = useAssignTrailer()
   const removeTrailerMutation = useRemoveTrailer()
 
-  // Mock data for shipping IDs (not in API spec)
-  const shippingIDs: any[] = []
-  const shippingLoading = false
-  const addShippingID = (shipping: any) => {}
-  const removeShippingID = (id: string) => {}
-
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
     vehicleAssignment?.vehicle_info?.vehicle_unit || null,
   )
   const [showTrailerModal, setShowTrailerModal] = useState(false)
-  const [showShippingModal, setShowShippingModal] = useState(false)
   const [newTrailerNumber, setNewTrailerNumber] = useState("")
-  const [newShippingNumber, setNewShippingNumber] = useState("")
-  const [newShippingDescription, setNewShippingDescription] = useState("")
 
   const handleAddTrailer = async () => {
     if (!newTrailerNumber.trim()) {
@@ -107,26 +99,6 @@ export default function AssignmentsScreen() {
     }
   }
 
-  const handleAddShippingID = async () => {
-    if (!newShippingNumber.trim()) {
-      toast.warning("Please enter a shipping ID number")
-      return
-    }
-
-    try {
-      await addShippingID({
-        number: newShippingNumber.trim(),
-        description: newShippingDescription.trim() || "No description",
-      })
-      setNewShippingNumber("")
-      setNewShippingDescription("")
-      setShowShippingModal(false)
-      toast.success("Shipping ID added successfully")
-    } catch (error) {
-      toast.warning("Failed to add shipping ID")
-    }
-  }
-
   const handleRemoveTrailer = async (id: string) => {
     try {
       await removeTrailerMutation.mutateAsync(id)
@@ -138,14 +110,6 @@ export default function AssignmentsScreen() {
     }
   }
 
-  const handleRemoveShippingID = async (id: string) => {
-    try {
-      await removeShippingID(id)
-      toast.success("Shipping ID removed successfully")
-    } catch (error) {
-      toast.error("Failed to remove shipping ID")
-    }
-  }
 
   return (
     <>
@@ -246,34 +210,7 @@ export default function AssignmentsScreen() {
 
         {/* Shipping IDs Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Shipping IDs</Text>
-
-          {shippingIDs.map((shipping) => (
-            <ElevatedCard key={shipping.id} style={styles.itemCard}>
-              <View style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={[styles.itemNumber, { color: colors.text }]}>{shipping.number}</Text>
-                  <Text style={[styles.itemType, { color: colors.textDim }]}>
-                    {shipping.description}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleRemoveShippingID(shipping.id)}
-                  style={styles.removeButton}
-                >
-                  <X size={20} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            </ElevatedCard>
-          ))}
-
-          <TouchableOpacity
-            style={[styles.addButton, { borderColor: colors.tint }]}
-            onPress={() => setShowShippingModal(true)}
-          >
-            <Plus size={20} color={colors.tint} />
-            <Text style={[styles.addButtonText, { color: colors.tint }]}>Add a Shipping ID</Text>
-          </TouchableOpacity>
+          <ShipperList />
         </View>
 
         <LoadingButton
@@ -335,69 +272,6 @@ export default function AssignmentsScreen() {
         </View>
       </Modal>
 
-      {/* Add Shipping ID Modal */}
-      <Modal
-        visible={showShippingModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowShippingModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Add Shipping ID</Text>
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder="Shipping ID Number"
-              placeholderTextColor={colors.textDim}
-              value={newShippingNumber}
-              onChangeText={setNewShippingNumber}
-              autoCapitalize="characters"
-            />
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder="Description (optional)"
-              placeholderTextColor={colors.textDim}
-              value={newShippingDescription}
-              onChangeText={setNewShippingDescription}
-            />
-
-            <View style={styles.modalButtons}>
-              <LoadingButton
-                title="Cancel"
-                onPress={() => {
-                  setShowShippingModal(false)
-                  setNewShippingNumber("")
-                  setNewShippingDescription("")
-                }}
-                variant="outline"
-                style={styles.modalButton}
-              />
-              <LoadingButton
-                title="Add"
-                onPress={handleAddShippingID}
-                loading={shippingLoading}
-                style={styles.modalButton}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   )
 }

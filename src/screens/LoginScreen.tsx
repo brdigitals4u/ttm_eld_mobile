@@ -37,8 +37,7 @@ const TENANT_OPTIONS = [{ value: "TTM_001", label: "OmVahana Fleet" }]
 
 export const LoginScreen: React.FC = () => {
   const { theme } = useAppTheme()
-  const { colors } = theme
-  const isDark = false
+  const { colors, isDark } = theme
   const { login } = useAuth()
   const toast = useToast()
   const driverLoginMutation = useDriverLogin()
@@ -542,6 +541,11 @@ export const LoginScreen: React.FC = () => {
     [colors],
   )
 
+  const logoSource = useMemo(() => {
+    return isDark
+      ? require("assets/images/ttm-white-logo-border.png")
+      : require("assets/images/ttm-logo.png")
+  }, [isDark])
   // Lottie animations (import your own JSON files or use existing ones)
   return (
     <SafeAreaView style={[styles.safeArea, styles.scrollContent]}>
@@ -558,11 +562,7 @@ export const LoginScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Image
-            source={require("assets/images/trident_logo.png")}
-            style={styles.loginHeaderImage}
-            resizeMode="contain"
-          />
+          <Image source={logoSource} style={styles.loginHeaderImage} resizeMode="contain" />
           <Text style={styles.welcomeTitle}>{translate("login.welcomeTitle" as any)}</Text>
           <Text style={styles.welcomeSubtitle}>{translate("login.welcomeSubtitle" as any)}</Text>
         </View>

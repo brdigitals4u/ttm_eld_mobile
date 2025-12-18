@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: "https://api.ttmkonnect.com/api",
+  BASE_URL: __DEV__ ? "http://10.0.2.2:8000/api" : "https://api.ttmkonnect.com/api",
   TIMEOUT: 30000, // Increased to 30 seconds for slow networks/dev environments
   RETRY_ATTEMPTS: 3,
 }
@@ -148,6 +148,13 @@ export const API_ENDPOINTS = {
     ADD_DEFECT: "/compliance/dvir-defects/",
     GET_DEFECTS: "/compliance/dvir-defects/",
   },
+
+  // Contacts (Shippers) APIs
+  CONTACTS: {
+    LIST: "/contacts/",
+    CREATE: "/contacts/",
+    UPDATE: "/contacts/{id}/",
+  },
 }
 
 // HTTP Status Codes
@@ -223,6 +230,10 @@ export const QUERY_KEYS = {
   // DVIR
   DVIRS: ["dvirs"] as const,
   DVIR_DEFECTS: ["dvir", "defects"] as const,
+
+  // Contacts (Shippers)
+  CONTACTS: ["contacts"] as const,
+  CONTACT: (id: string) => ["contacts", id] as const,
 
   // Driver APIs (new mobile endpoints)
   DRIVER_HOS_CURRENT_STATUS: ["driver", "hos", "current-status"] as const,

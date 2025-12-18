@@ -192,9 +192,16 @@ export function RideOverviewCard({
               <Text style={styles.infoLabel}>
                 {translate("rideOverview.shippingNo" as any) || "Shipping No"}
               </Text>
-              <Text style={styles.infoValue}>
-                {shippingNo || "—"} <Edit2Icon size={12} color={colors.text} />
-              </Text>
+              {shippingNo ? (
+                <Text style={styles.infoValue}>
+                  {shippingNo} <Edit2Icon size={12} color={colors.text} />
+                </Text>
+              ) : (
+                <Text style={[styles.infoValue, { color: colors.tint }]}>
+                  {translate("shippers.addShipper" as any) || "Add Shipper"}{" "}
+                  <Edit2Icon size={12} color={colors.tint} />
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
 
