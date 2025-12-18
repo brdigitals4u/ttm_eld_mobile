@@ -52,6 +52,7 @@ import { useAuth } from "@/stores/authStore"
 import { useStatusStore } from "@/stores/statusStore"
 import { useAppTheme } from "@/theme/context"
 import { getEldDevice, EldDeviceInfo } from "@/utils/eldStorage"
+import { COLORS } from "@/constants"
 
 const { width } = Dimensions.get("window")
 
@@ -476,17 +477,17 @@ export default function ProfileScreen() {
           paddingVertical: 6,
         },
         headerBadgeText: {
-          color: colors.cardBackground,
+          color: isDark ? colors.text : COLORS.white,
           fontSize: 14,
           fontWeight: "600",
         },
         headerDriverId: {
-          color: `${colors.cardBackground}E6`,
+          color: isDark ? colors.text : COLORS.white,
           fontSize: 13,
           fontWeight: "500",
         },
         headerName: {
-          color: colors.cardBackground,
+          color: isDark ? colors.text : COLORS.white,
           fontSize: 26,
           fontWeight: "800",
           marginBottom: 8,
@@ -525,7 +526,7 @@ export default function ProfileScreen() {
           marginBottom: 2,
         },
         logoutButton: {
-          marginBottom: 140,
+          marginBottom: 20,
           marginTop: 0,
         },
         menuItem: {
@@ -646,8 +647,14 @@ export default function ProfileScreen() {
           marginBottom: 4,
         },
       }),
-    [colors],
+    [colors, COLORS, isDark],
   )
+
+  const logoSource = useMemo(() => {
+    return isDark
+      ? require("assets/images/ttm-white-logo-border.png")
+      : require("assets/images/ttm-logo.png")
+  }, [isDark])
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -673,7 +680,7 @@ export default function ProfileScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Image
-                    source={require("assets/images/ttm-logo.png")}
+                    source={logoSource}
                     style={{ width: 120, height: 32, resizeMode: "contain" }}
                   />
                 </Pressable>
@@ -701,7 +708,9 @@ export default function ProfileScreen() {
             {/* Gradient Header Card */}
             <Animated.View style={headerAnimatedStyle}>
               <LinearGradient
-                colors={isDark ? [colors.tint, colors.palette.primary400] : [colors.tint, colors.info]}
+                colors={
+                  isDark ? [colors.tint, colors.palette.primary400] : [colors.tint, colors.info]
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gradientHeader}
@@ -779,13 +788,13 @@ export default function ProfileScreen() {
             {/* Status Badge */}
             {hosStatus?.current_status && (
               <Animated.View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: colors.cardBackground,
-                    },
-                  ]}
-                >
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: colors.cardBackground,
+                  },
+                ]}
+              >
                 <View
                   style={[
                     styles.statusDot,
@@ -849,9 +858,9 @@ export default function ProfileScreen() {
               {driverProfile?.license_expiry && (
                 <InfoCard
                   icon={<Calendar size={20} color={colors.warning} />}
-                label="License Expiry"
-                value={new Date(driverProfile.license_expiry).toLocaleDateString()}
-                color={colors.warning}
+                  label="License Expiry"
+                  value={new Date(driverProfile.license_expiry).toLocaleDateString()}
+                  color={colors.warning}
                   index={3}
                 />
               )}
@@ -925,36 +934,36 @@ export default function ProfileScreen() {
 
                 <InfoCard
                   icon={<Truck size={20} color={colors.tint} />}
-                label="Vehicle Details"
-                value={`${vehicleAssignment.vehicle_info.year} ${vehicleAssignment.vehicle_info.make} ${vehicleAssignment.vehicle_info.model}`}
-                subtext={`License Plate: ${vehicleAssignment.vehicle_info.license_plate}`}
-                color={colors.tint}
+                  label="Vehicle Details"
+                  value={`${vehicleAssignment.vehicle_info.year} ${vehicleAssignment.vehicle_info.make} ${vehicleAssignment.vehicle_info.model}`}
+                  subtext={`License Plate: ${vehicleAssignment.vehicle_info.license_plate}`}
+                  color={colors.tint}
                   index={1}
                 />
 
                 <InfoCard
                   icon={<Calendar size={20} color={colors.success} />}
-                label="Assigned Date"
-                value={new Date(vehicleAssignment.vehicle_info.assigned_at).toLocaleDateString()}
-                color={colors.success}
+                  label="Assigned Date"
+                  value={new Date(vehicleAssignment.vehicle_info.assigned_at).toLocaleDateString()}
+                  color={colors.success}
                   index={2}
                 />
 
                 {vehicleAssignment.vehicle_info.current_odometer && (
                   <InfoCard
                     icon={<TrendingUp size={20} color={colors.warning} />}
-                label="Current Odometer"
-                value={`${vehicleAssignment.vehicle_info.current_odometer.value || 0} ${
-                  vehicleAssignment.vehicle_info.current_odometer.unit || "miles"
-                }`}
-                subtext={
-                  vehicleAssignment.vehicle_info.current_odometer.last_updated
-                    ? `Updated: ${new Date(
-                        vehicleAssignment.vehicle_info.current_odometer.last_updated,
-                      ).toLocaleString()}`
-                    : undefined
-                }
-                color={colors.warning}
+                    label="Current Odometer"
+                    value={`${vehicleAssignment.vehicle_info.current_odometer.value || 0} ${
+                      vehicleAssignment.vehicle_info.current_odometer.unit || "miles"
+                    }`}
+                    subtext={
+                      vehicleAssignment.vehicle_info.current_odometer.last_updated
+                        ? `Updated: ${new Date(
+                            vehicleAssignment.vehicle_info.current_odometer.last_updated,
+                          ).toLocaleString()}`
+                        : undefined
+                    }
+                    color={colors.warning}
                     index={3}
                   />
                 )}

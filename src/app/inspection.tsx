@@ -4,6 +4,7 @@ import { router } from "expo-router"
 import { ArrowLeft, CheckCircle, Clock, XCircle } from "lucide-react-native"
 
 import ElevatedCard from "@/components/EvevatedCard"
+import { Header } from "@/components/Header"
 import LoadingButton from "@/components/LoadingButton"
 import { Text } from "@/components/Text"
 import { toast } from "@/components/Toast"
@@ -242,15 +243,19 @@ export default function InspectionScreen() {
   if (!currentInspection) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {translate("inspection.title" as any)}
-          </Text>
-          <View style={styles.placeholder} />
-        </View>
+        <Header
+          title={translate("inspection.title" as any)}
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+            paddingLeft: 20,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+        />
 
         <View style={styles.startForm}>
           <ElevatedCard>
@@ -263,7 +268,6 @@ export default function InspectionScreen() {
               {[
                 { key: "pre-trip", label: "Pre-Trip Inspection" },
                 { key: "post-trip", label: "Post-Trip Inspection" },
-                { key: "dot", label: "DOT Inspection" },
               ].map((type) => (
                 <Pressable
                   key={type.key}
@@ -308,16 +312,20 @@ export default function InspectionScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>
-          {currentInspection.type.charAt(0).toUpperCase() + currentInspection.type.slice(1)}{" "}
-          Inspection
-        </Text>
-        <View style={styles.placeholder} />
-      </View>
+
+      <Header
+        title={`${currentInspection.type.charAt(0).toUpperCase() + currentInspection.type.slice(1)} Inspection`}
+        titleStyle={{
+          fontSize: 22,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: 0.3,
+          paddingLeft: 20,
+        }}
+        leftIcon="back"
+        leftIconColor={colors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+      />
 
       <ElevatedCard style={styles.progressCard}>
         <View style={styles.progressHeader}>
@@ -351,15 +359,13 @@ export default function InspectionScreen() {
         contentContainerStyle={styles.inspectionListContent}
       />
 
-      <SafeAreaContainer edges={["bottom"]} bottomPadding={16}>
-        <View style={styles.completeButton}>
-          <LoadingButton
-            title={translate("inspection.complete" as any)}
-            onPress={handleCompleteInspection}
-            fullWidth
-          />
-        </View>
-      </SafeAreaContainer>
+      <View style={styles.completeButton}>
+        <LoadingButton
+          title={translate("inspection.complete" as any)}
+          onPress={handleCompleteInspection}
+          fullWidth
+        />
+      </View>
     </View>
   )
 }
@@ -369,6 +375,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   completeButton: {
+    marginBottom: 40,
     padding: 20,
   },
   container: {

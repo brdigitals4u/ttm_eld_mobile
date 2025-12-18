@@ -10,7 +10,7 @@
 import { useMemo } from "react"
 import { View, StyleSheet, TouchableOpacity, Pressable } from "react-native"
 import { router } from "expo-router"
-import { FileCheck, BookOpen, LogOut, Truck, Package, User } from "lucide-react-native"
+import { FileCheck, BookOpen, LogOut, Truck, Package, User, Edit2Icon } from "lucide-react-native"
 
 import { Text } from "@/components/Text"
 import { translate } from "@/i18n/translate"
@@ -22,6 +22,8 @@ interface RideOverviewCardProps {
   onViewLogs?: () => void
   onVehicleInspection?: () => void
   onDotInspection?: () => void
+  onShipPress?: () => void
+  onCoDriverPress?: () => void
   onLogout?: () => void
 }
 
@@ -32,6 +34,8 @@ export function RideOverviewCard({
   onVehicleInspection,
   onDotInspection,
   onLogout,
+  onShipPress,
+  onCoDriverPress,
 }: RideOverviewCardProps) {
   // Get theme colors - supports both light and dark themes
   const { theme } = useAppTheme()
@@ -155,7 +159,7 @@ export function RideOverviewCard({
     if (onVehicleInspection) {
       onVehicleInspection()
     } else {
-      router.push("/(tabs)/dvir")
+      router.push("/inspection")
     }
   }
 
@@ -175,47 +179,53 @@ export function RideOverviewCard({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        {translate("rideOverview.title" as any) || "Ride Overview"}
-      </Text>
+      <Text style={styles.title}>{translate("rideOverview.title" as any) || "Ride Overview"}</Text>
 
       {/* Info Grid - Two Column Layout */}
       <View style={styles.infoGrid}>
         {/* Left Column */}
+
         <View style={styles.infoColumn}>
           {/* Shipping No */}
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>
-              {translate("rideOverview.shippingNo" as any) || "Shipping No"}
-            </Text>
-            <Text style={styles.infoValue}>
-              {shippingNo || "—"}
-            </Text>
+            <TouchableOpacity onPress={onShipPress}>
+              <Text style={styles.infoLabel}>
+                {translate("rideOverview.shippingNo" as any) || "Shipping No"}
+              </Text>
+              <Text style={styles.infoValue}>
+                {shippingNo || "—"} <Edit2Icon size={12} color={colors.text} />
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Trailer No */}
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>
-              {translate("rideOverview.trailerNo" as any) || "Trailer No"}
-            </Text>
-            <Text style={styles.infoValue}>
-              {trailerNo || "—"}
-            </Text>
+            <TouchableOpacity onPress={onShipPress}>
+              <Text style={styles.infoLabel}>
+                {translate("rideOverview.trailerNo" as any) || "Trailer No"}
+              </Text>
+              <Text style={styles.infoValue}>
+                {trailerNo || "—"} <Edit2Icon size={12} color={colors.text} />
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Right Column */}
-        <View style={styles.infoColumn}>
-          {/* Co Driver - Disabled */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>
-              {translate("rideOverview.coDriver" as any) || "Co Driver"}
-            </Text>
-            <Text style={styles.infoValueDisabled}>
-              {translate("rideOverview.notAssigned" as any) || "Not Assigned"}
-            </Text>
+        <TouchableOpacity onPress={onCoDriverPress}>
+          <View style={styles.infoColumn}>
+            {/* Co Driver - Disabled */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>
+                {translate("rideOverview.coDriver" as any) || "Co Driver"}
+              </Text>
+              <Text style={styles.infoValueDisabled}>
+                {translate("rideOverview.notAssigned" as any) || "Not Assigned"}{" "}
+                <Edit2Icon size={12} color={colors.text} />
+              </Text>
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Action Buttons Section */}
@@ -226,11 +236,7 @@ export function RideOverviewCard({
 
         {/* View 7 days log */}
         <TouchableOpacity style={styles.actionButton} onPress={handleViewLogs}>
-          <BookOpen
-            size={20}
-            color={colors.tint}
-            style={styles.actionButtonIcon}
-          />
+          <BookOpen size={20} color={colors.tint} style={styles.actionButtonIcon} />
           <Text style={styles.actionButtonText}>
             {translate("rideOverview.view7DaysLog" as any) || "View 7 days log"}
           </Text>
@@ -238,36 +244,21 @@ export function RideOverviewCard({
 
         {/* Vehicle Inspection */}
         <Pressable
-          style={({ pressed }) => [
-            styles.actionButton,
-            pressed && { opacity: 0.7 },
-          ]}
+          style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
           onPress={() => {
             console.log("Vehicle Inspection Pressable pressed")
             handleVehicleInspection()
           }}
         >
-          <FileCheck
-            size={20}
-            color={colors.tint}
-            style={styles.actionButtonIcon}
-          />
+          <FileCheck size={20} color={colors.tint} style={styles.actionButtonIcon} />
           <Text style={styles.actionButtonText}>
-            {translate("rideOverview.vehicleInspection" as any) ||
-              "Vehicle Inspection"}
+            {translate("rideOverview.vehicleInspection" as any) || "Vehicle Inspection"}
           </Text>
         </Pressable>
 
         {/* DOT inspection */}
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleDotInspection}
-        >
-          <FileCheck
-            size={20}
-            color={colors.tint}
-            style={styles.actionButtonIcon}
-          />
+        <TouchableOpacity style={styles.actionButton} onPress={handleDotInspection}>
+          <FileCheck size={20} color={colors.tint} style={styles.actionButtonIcon} />
           <Text style={styles.actionButtonText}>
             {translate("rideOverview.dotInspection" as any) || "DOT Inspection"}
           </Text>
@@ -275,11 +266,7 @@ export function RideOverviewCard({
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut
-            size={20}
-            color={colors.error}
-            style={styles.actionButtonIcon}
-          />
+          <LogOut size={20} color={colors.error} style={styles.actionButtonIcon} />
           <Text style={styles.logoutButtonText}>
             {translate("rideOverview.logout" as any) || "Logout"}
           </Text>
@@ -288,4 +275,3 @@ export function RideOverviewCard({
     </View>
   )
 }
-

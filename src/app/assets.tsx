@@ -12,6 +12,7 @@ import { useAssets } from "@/contexts"
 import { translate } from "@/i18n/translate"
 import { useAppTheme } from "@/theme/context"
 import { Asset } from "@/types/assets"
+import { Header } from "@/components/Header"
 
 export default function AssetsScreen() {
   const { theme } = useAppTheme()
@@ -319,17 +320,20 @@ export default function AssetsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>My Assets</Text>
-        <LoadingButton
-          title="Add"
-          onPress={handleAddAsset}
-          icon={<Plus size={16} color={isDark ? colors.text : "#fff"} />}
-        />
-      </View>
+
+      <Header
+              title="My Assets"
+              titleStyle={{
+                fontSize: 22,
+                fontWeight: "800",
+                color: colors.text,
+                letterSpacing: 0.3,
+                paddingLeft: 20,
+              }}
+              leftIcon="back"
+              leftIconColor={colors.tint}
+              onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+            />
 
       {assets.length === 0 ? (
         <ElevatedCard style={styles.emptyContainer}>

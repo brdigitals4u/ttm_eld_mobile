@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, Plus, User, UserMinus, UserPlus, Users } from "lucide-
 
 import { useDrivers, useCreateCoDriverEvent } from "@/api/drivers"
 import ElevatedCard from "@/components/EvevatedCard"
+import { Header } from "@/components/Header"
 import LoadingButton from "@/components/LoadingButton"
 import { SafeAreaContainer } from "@/components/SafeAreaContainer"
 import { Text } from "@/components/Text"
@@ -285,17 +286,19 @@ export default function CoDriverScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Co-Drivers</Text>
-        <LoadingButton
-          title="Add"
-          onPress={handleAddCoDriver}
-          icon={<Plus size={16} color={isDark ? colors.text : "#fff"} />}
-        />
-      </View>
+      <Header
+        title="Co-Drivers"
+        titleStyle={{
+          fontSize: 22,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: 0.3,
+          paddingLeft: 20,
+        }}
+        leftIcon="back"
+        leftIconColor={colors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+      />
 
       {activeCoDriver && (
         <ElevatedCard style={[styles.activeDriverCard, { backgroundColor: colors.success }]}>

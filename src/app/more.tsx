@@ -40,32 +40,11 @@ export default function MoreScreen() {
       title: "DVIR",
       subtitle: "Driver Vehicle Inspection Report",
       icon: "check",
-      onPress: () => router.push("/dvir"),
-    },
-    {
-      title: "Inspection",
-      subtitle: "Vehicle inspection checklist",
-      icon: "check",
       onPress: () => router.push("/inspection"),
-    },
-    {
-      title: "Inspector Mode",
-      subtitle: "DOT inspection interface",
-      icon: "lock",
-      onPress: () => router.push("/inspector-mode"),
     },
   ]
 
   const secondaryItems = [
-    {
-      title: "ELD History",
-      subtitle: "View and fetch historical ELD records",
-      icon: "clock",
-      onPress: () => {
-        // Open history fetch sheet
-        setShowHistoryFetchSheet(true)
-      },
-    },
     {
       title: "Assignments",
       subtitle: "Vehicle & load assignments",
@@ -79,19 +58,13 @@ export default function MoreScreen() {
       onPress: () => router.push("/assets"),
     },
     {
-      title: "Carrier",
-      subtitle: "Carrier information & contacts",
-      icon: "more",
-      onPress: () => router.push("/carrier"),
-    },
-    {
       title: "Co-Driver",
       subtitle: "Manage co-driver information",
       icon: "user",
       onPress: () => router.push("/codriver"),
     },
     {
-      title: "Unidentified Drivers",
+      title: "Unidentified Drivers Events",
       subtitle: "Review and assume unidentified records",
       icon: "user",
       onPress: () => router.push("/unidentified-drivers"),

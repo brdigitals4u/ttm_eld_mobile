@@ -2025,7 +2025,7 @@ export const DashboardScreen = React.memo(() => {
   // Logo source based on theme
   const logoSource = useMemo(() => {
     return isDark
-      ? require("assets/images/ttm-white-logo.png")
+      ? require("assets/images/ttm-white-logo-border.png")
       : require("assets/images/ttm-logo.png")
   }, [isDark])
 
@@ -2311,13 +2311,23 @@ export const DashboardScreen = React.memo(() => {
                 }}
               />
             </View>
-
+            {canUseELD && eldConnected && (
+              <LiveVehicleData
+                eldConnected={eldConnected}
+                obdData={obdData}
+                currentSpeed={currentSpeed}
+                fuelLevel={fuelLevel}
+                recentAutoDutyChanges={recentAutoDutyChanges}
+              />
+            )}
             {/* Ride Overview Card */}  
             <RideOverviewCard
               shippingNo={shipperId}
               trailerNo={trailerNo}
               onViewLogs={() => router.push("/(tabs)/logs")}
-              onVehicleInspection={() => router.push("/(tabs)/dvir")}
+              onShipPress={() => router.push("/assignments")}
+              onCoDriverPress={() => router.push("/codriver")}
+              onVehicleInspection={() => router.push("/inspection")}
               onDotInspection={() => router.push("/logs/transfer")}
               onLogout={async () => {
                 try {
@@ -2330,16 +2340,6 @@ export const DashboardScreen = React.memo(() => {
               }}
             />
 
-            {/* ELD Data - Speed & Fuel - Only show if vehicle and trip assigned */}
-            {canUseELD && eldConnected && (
-              <LiveVehicleData
-                eldConnected={eldConnected}
-                obdData={obdData}
-                currentSpeed={currentSpeed}
-                fuelLevel={fuelLevel}
-                recentAutoDutyChanges={recentAutoDutyChanges}
-              />
-            )}
           </ScrollView>
 
           {/* Floating Logout Button */}

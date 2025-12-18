@@ -13,6 +13,7 @@ import { ArrowLeft, User, AlertCircle, CheckCircle } from "lucide-react-native"
 
 import { getUnidentifiedRecords, reassignUnidentifiedRecords } from "@/api/unidentified-drivers"
 import ElevatedCard from "@/components/EvevatedCard"
+import { Header } from "@/components/Header"
 import LoadingButton from "@/components/LoadingButton"
 import { Text } from "@/components/Text"
 import { toast } from "@/components/Toast"
@@ -89,29 +90,38 @@ export default function UnidentifiedDriversScreen() {
   if (isLoading && records.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>Unidentified Drivers</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading records...
-          </Text>
-        </View>
+        <Header
+          title="Unidentified Drivers Events"
+          titleStyle={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: colors.text,
+            letterSpacing: 0.3,
+            paddingLeft: 20,
+          }}
+          leftIcon="back"
+          leftIconColor={colors.tint}
+          onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+        />
       </View>
     )
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Unidentified Drivers</Text>
-      </View>
+      <Header
+        title="Unidentified Drivers Events"
+        titleStyle={{
+          fontSize: 22,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: 0.3,
+          paddingLeft: 20,
+        }}
+        leftIcon="back"
+        leftIconColor={colors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -120,9 +130,9 @@ export default function UnidentifiedDriversScreen() {
       >
         {records.length === 0 ? (
           <ElevatedCard style={styles.emptyCard}>
-            <User size={48} color={colors.textSecondary} />
+            <User size={48} color={colors.text} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>No Unidentified Records</Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            <Text style={[styles.emptyText, { color: colors.text }]}>
               All records have been assigned to drivers.
             </Text>
           </ElevatedCard>
@@ -135,7 +145,7 @@ export default function UnidentifiedDriversScreen() {
                   <Text style={[styles.infoTitle, { color: colors.text }]}>
                     {records.length} Unidentified Record{records.length !== 1 ? "s" : ""}
                   </Text>
-                  <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                  <Text style={[styles.infoText, { color: colors.text }]}>
                     These records were created when the ELD was powered on without a driver logged
                     in. Review and assume them to assign to your account.
                   </Text>
@@ -153,12 +163,12 @@ export default function UnidentifiedDriversScreen() {
                     <Text style={[styles.recordTime, { color: colors.text }]}>
                       {format(new Date(record.timestamp), "MMM dd, yyyy HH:mm:ss")}
                     </Text>
-                    <Text style={[styles.recordType, { color: colors.textSecondary }]}>
+                    <Text style={[styles.recordType, { color: colors.text }]}>
                       Event: {record.event_type}
                     </Text>
                     {record.missing_fields && record.missing_fields.length > 0 && (
                       <View style={styles.missingFields}>
-                        <Text style={[styles.missingFieldsLabel, { color: colors.textSecondary }]}>
+                        <Text style={[styles.missingFieldsLabel, { color: colors.text }]}>
                           Missing: {record.missing_fields.join(", ")}
                         </Text>
                       </View>

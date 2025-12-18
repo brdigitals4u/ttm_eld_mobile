@@ -21,6 +21,7 @@ import { useLocationData } from "@/hooks/useLocationData"
 import { translate } from "@/i18n/translate"
 import { useAuth } from "@/stores/authStore"
 import { useAppTheme } from "@/theme/context"
+import { Header } from "@/components/Header"
 
 export default function AssignmentsScreen() {
   const { theme } = useAppTheme()
@@ -158,25 +159,19 @@ export default function AssignmentsScreen() {
           ),
         }}
       />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>
-          {translate("assignments.title" as any)}
-        </Text>
-        <LoadingButton
-          loading={vehiclesLoading}
-          title={
-            selectedVehicle
-              ? `${translate("assignments.vehicle" as any)} ${selectedVehicle}`
-              : translate("assignments.noAssignments" as any)
-          }
-          onPress={() => toast.info("Vehicle assignment is managed by organization admin")}
-          disabled={true}
-          variant="secondary"
-        />
-      </View>
+      <Header
+        title={translate("assignments.title" as any)}
+        titleStyle={{
+          fontSize: 22,
+          fontWeight: "800",
+          color: colors.text,
+          letterSpacing: 0.3,
+          paddingLeft: 20,
+        }}
+        leftIcon="back"
+        leftIconColor={colors.tint}
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.push("/dashboard"))}
+      />
 
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
