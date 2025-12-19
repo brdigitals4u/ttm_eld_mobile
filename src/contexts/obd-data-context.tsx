@@ -148,7 +148,7 @@ interface ObdDataContextType {
   refreshConnectionStatus: () => Promise<void>
 }
 
-const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
+export const ObdDataContext = createContext<ObdDataContextType | undefined>(undefined)
 
 export const ObdDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, driverProfile, vehicleAssignment } = useAuth()

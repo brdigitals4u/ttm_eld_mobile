@@ -7,8 +7,10 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { useAuthStore } from "@/stores/authStore"
+import { useDriverTeamStore } from "@/stores/driverTeamStore"
+
 import { ApiError } from "./client"
-import { QUERY_KEYS } from "./constants"
 import { driverApi } from "./driver"
 
 // ============================================================================
@@ -18,12 +20,23 @@ import { driverApi } from "./driver"
 /**
  * Hook: Get Current HOS Status
  * Polls every 30 seconds when enabled
+ * Reactive to active team changes - automatically refetches when driver switches
  */
 export const useHOSCurrentStatus = (options?: { enabled?: boolean; refetchInterval?: number }) => {
+  // Subscribe to activeTeam to make this hook reactive to team changes
+  const activeTeam = useDriverTeamStore((state) => state.activeTeam)
+  const driverProfile = useAuthStore((state) => state.driverProfile)
+
+  // Compute effective driver ID reactively
+  const effectiveDriverId =
+    activeTeam?.codriver_id && activeTeam.status === "active" && activeTeam.is_active === true
+      ? activeTeam.codriver_id
+      : driverProfile?.driver_id || null
+
   return useQuery({
-    queryKey: ["driver", "hos", "current-status"],
+    queryKey: ["driver", "hos", "current-status", effectiveDriverId],
     queryFn: () => driverApi.getCurrentHOSStatus(),
-    enabled: options?.enabled !== false,
+    enabled: options?.enabled !== false && !!effectiveDriverId,
     refetchInterval: options?.refetchInterval ?? 30000, // 30 seconds
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status === 401) {
@@ -38,12 +51,23 @@ export const useHOSCurrentStatus = (options?: { enabled?: boolean; refetchInterv
 /**
  * Hook: Get Detailed HOS Clocks
  * On-demand (no auto-refetch)
+ * Reactive to active team changes - automatically refetches when driver switches
  */
 export const useHOSClocks = (enabled: boolean = true) => {
+  // Subscribe to activeTeam to make this hook reactive to team changes
+  const activeTeam = useDriverTeamStore((state) => state.activeTeam)
+  const driverProfile = useAuthStore((state) => state.driverProfile)
+
+  // Compute effective driver ID reactively
+  const effectiveDriverId =
+    activeTeam?.codriver_id && activeTeam.status === "active" && activeTeam.is_active === true
+      ? activeTeam.codriver_id
+      : driverProfile?.driver_id || null
+
   return useQuery({
-    queryKey: ["driver", "hos", "clocks"],
+    queryKey: ["driver", "hos", "clocks", effectiveDriverId],
     queryFn: () => driverApi.getHOSClocks(),
-    enabled,
+    enabled: enabled && !!effectiveDriverId,
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status === 401) {
         return false
@@ -76,12 +100,23 @@ export const useChangeDutyStatus = () => {
 
 /**
  * Hook: Get HOS Logs
+ * Reactive to active team changes - automatically refetches when driver switches
  */
 export const useHOSLogs = (date: string, enabled: boolean = true) => {
+  // Subscribe to activeTeam to make this hook reactive to team changes
+  const activeTeam = useDriverTeamStore((state) => state.activeTeam)
+  const driverProfile = useAuthStore((state) => state.driverProfile)
+
+  // Compute effective driver ID reactively
+  const effectiveDriverId =
+    activeTeam?.codriver_id && activeTeam.status === "active" && activeTeam.is_active === true
+      ? activeTeam.codriver_id
+      : driverProfile?.driver_id || null
+
   return useQuery({
-    queryKey: ["driver", "hos", "logs", date],
+    queryKey: ["driver", "hos", "logs", date, effectiveDriverId],
     queryFn: () => driverApi.getHOSLogs(date),
-    enabled: enabled && !!date,
+    enabled: enabled && !!date && !!effectiveDriverId,
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status === 401) {
         return false
@@ -94,12 +129,23 @@ export const useHOSLogs = (date: string, enabled: boolean = true) => {
 
 /**
  * Hook: Get Violations
+ * Reactive to active team changes - automatically refetches when driver switches
  */
 export const useViolations = (enabled: boolean = true) => {
+  // Subscribe to activeTeam to make this hook reactive to team changes
+  const activeTeam = useDriverTeamStore((state) => state.activeTeam)
+  const driverProfile = useAuthStore((state) => state.driverProfile)
+
+  // Compute effective driver ID reactively
+  const effectiveDriverId =
+    activeTeam?.codriver_id && activeTeam.status === "active" && activeTeam.is_active === true
+      ? activeTeam.codriver_id
+      : driverProfile?.driver_id || null
+
   return useQuery({
-    queryKey: ["driver", "hos", "violations"],
+    queryKey: ["driver", "hos", "violations", effectiveDriverId],
     queryFn: () => driverApi.getViolations(),
-    enabled,
+    enabled: enabled && !!effectiveDriverId,
     retry: (failureCount, error) => {
       if (error instanceof ApiError && error.status === 401) {
         return false
@@ -136,7 +182,7 @@ export const useAnnotateLog = () => {
 
   return useMutation({
     mutationFn: driverApi.annotateLog,
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Invalidate logs to refetch with annotation
       queryClient.invalidateQueries({ queryKey: ["driver", "hos", "logs"] })
     },

@@ -12,6 +12,7 @@
 
 import * as Crypto from "expo-crypto"
 
+import { useDriverTeamStore } from "@/stores/driverTeamStore"
 import { getDeviceId, getAppVersion, getEldDeviceId } from "@/utils/device"
 
 import { apiClient, ApiError } from "./client"
@@ -143,6 +144,7 @@ export interface ChangeDutyStatusRequest {
     longitude: number
     address?: string
   }
+  driver_id?: string // Optional - will be auto-included from effective driver ID
   odometer?: number
   engine_hours?: number
   remark?: string
@@ -431,11 +433,16 @@ export const driverApi = {
 
   /**
    * Get Current HOS Status
-   * GET /api/driver/hos/current-status/
+   * GET /api/driver/hos/current-status/?driver_id={effective_driver_id}
    * Poll every 30 seconds when HOS screen is visible
+   * Uses effective driver ID (co-driver if active, otherwise driver)
    */
   async getCurrentHOSStatus(): Promise<HOSCurrentStatus> {
-    const response = await apiClient.get<HOSCurrentStatus>(API_ENDPOINTS.DRIVER.HOS_CURRENT_STATUS)
+    const effectiveDriverId = useDriverTeamStore.getState().getEffectiveDriverId()
+    const endpoint = effectiveDriverId
+      ? `${API_ENDPOINTS.DRIVER.HOS_CURRENT_STATUS}?driver_id=${effectiveDriverId}`
+      : API_ENDPOINTS.DRIVER.HOS_CURRENT_STATUS
+    const response = await apiClient.get<HOSCurrentStatus>(endpoint)
     if (!response.success || !response.data) {
       throw new ApiError({ message: "Failed to fetch HOS status", status: 500 })
     }
@@ -444,11 +451,16 @@ export const driverApi = {
 
   /**
    * Get Detailed HOS Clocks
-   * GET /api/driver/hos/clocks/
+   * GET /api/driver/hos/clocks/?driver_id={effective_driver_id}
    * On-demand when viewing detailed clocks screen
+   * Uses effective driver ID (co-driver if active, otherwise driver)
    */
   async getHOSClocks(): Promise<HOSClocks> {
-    const response = await apiClient.get<HOSClocks>(API_ENDPOINTS.DRIVER.HOS_CLOCKS)
+    const effectiveDriverId = useDriverTeamStore.getState().getEffectiveDriverId()
+    const endpoint = effectiveDriverId
+      ? `${API_ENDPOINTS.DRIVER.HOS_CLOCKS}?driver_id=${effectiveDriverId}`
+      : API_ENDPOINTS.DRIVER.HOS_CLOCKS
+    const response = await apiClient.get<HOSClocks>(endpoint)
     if (!response.success || !response.data) {
       throw new ApiError({ message: "Failed to fetch HOS clocks", status: 500 })
     }
@@ -459,8 +471,25 @@ export const driverApi = {
    * Change Duty Status
    * POST /api/driver/hos/change-status/
    * User-initiated action (button tap)
+   * Uses effective driver ID (co-driver if active team, otherwise primary driver)
    */
   async changeDutyStatus(request: ChangeDutyStatusRequest): Promise<ChangeDutyStatusResponse> {
+    // Get effective driver ID (co-driver if active team, otherwise primary driver)
+    const effectiveDriverId = useDriverTeamStore.getState().getEffectiveDriverId()
+
+    if (!effectiveDriverId) {
+      throw new ApiError({
+        message: "Driver ID is required to change duty status",
+        status: 400,
+      })
+    }
+
+    // Include driver_id in request if not already provided
+    const requestWithDriverId: ChangeDutyStatusRequest = {
+      ...request,
+      driver_id: request.driver_id || effectiveDriverId,
+    }
+
     // Generate idempotency key
     const idempotencyKey = `driver-hos-change-${Date.now()}-${await generateUUID()}`
     const deviceId = await getDeviceId()
@@ -468,7 +497,7 @@ export const driverApi = {
 
     const response = await apiClient.post<ChangeDutyStatusResponse>(
       API_ENDPOINTS.DRIVER.HOS_CHANGE_STATUS,
-      request,
+      requestWithDriverId,
       { idempotencyKey, deviceId, appVersion },
     )
 
@@ -481,11 +510,17 @@ export const driverApi = {
 
   /**
    * Get HOS Logs (History)
-   * GET /api/driver/hos/logs/?date=YYYY-MM-DD
+   * GET /api/driver/hos/logs/?date=YYYY-MM-DD&driver_id={effective_driver_id}
    * On-demand when viewing daily log screen
+   * Uses effective driver ID (co-driver if active, otherwise driver)
    */
   async getHOSLogs(date: string): Promise<HOSLogsResponse> {
-    const endpoint = `${API_ENDPOINTS.DRIVER.HOS_LOGS}?date=${date}`
+    const effectiveDriverId = useDriverTeamStore.getState().getEffectiveDriverId()
+    const queryParams = new URLSearchParams({ date })
+    if (effectiveDriverId) {
+      queryParams.append("driver_id", effectiveDriverId)
+    }
+    const endpoint = `${API_ENDPOINTS.DRIVER.HOS_LOGS}?${queryParams.toString()}`
     const response = await apiClient.get<HOSLogsResponse>(endpoint)
 
     if (!response.success || !response.data) {
@@ -497,11 +532,16 @@ export const driverApi = {
 
   /**
    * Get Violations
-   * GET /api/driver/hos/violations/
+   * GET /api/driver/hos/violations/?driver_id={effective_driver_id}
    * On app foreground or when viewing violations screen
+   * Uses effective driver ID (co-driver if active, otherwise driver)
    */
   async getViolations(): Promise<ViolationsResponse> {
-    const response = await apiClient.get<ViolationsResponse>(API_ENDPOINTS.DRIVER.HOS_VIOLATIONS)
+    const effectiveDriverId = useDriverTeamStore.getState().getEffectiveDriverId()
+    const endpoint = effectiveDriverId
+      ? `${API_ENDPOINTS.DRIVER.HOS_VIOLATIONS}?driver_id=${effectiveDriverId}`
+      : API_ENDPOINTS.DRIVER.HOS_VIOLATIONS
+    const response = await apiClient.get<ViolationsResponse>(endpoint)
 
     if (!response.success || !response.data) {
       throw new ApiError({ message: "Failed to fetch violations", status: 500 })

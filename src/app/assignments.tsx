@@ -1,18 +1,16 @@
 import React, { useState, useMemo } from "react"
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native"
 import { router, Stack } from "expo-router"
-import { ArrowLeft, Plus } from "lucide-react-native"
+import { ArrowLeft } from "lucide-react-native"
 
-import { useTrailerAssignments, useAssignTrailer, useRemoveTrailer } from "@/api/trailers"
+import { TrailerList } from "@/components/TrailerList"
 import { useVehicles } from "@/api/vehicles"
 import ElevatedCard from "@/components/EvevatedCard"
 import LoadingButton from "@/components/LoadingButton"
@@ -45,70 +43,10 @@ export default function AssignmentsScreen() {
     return allVehicles.filter((v) => v.id === assignedVehicleId)
   }, [allVehicles, assignedVehicleId])
 
-  // GET API: Get trailer assignments for this driver
-  const {
-    data: trailerAssignments,
-    isLoading: trailersLoading,
-    refetch: refetchTrailers,
-  } = useTrailerAssignments(
-    { driver: driverProfile?.driver_id || undefined, status: "active" },
-    { enabled: isAuthenticated && !!driverProfile?.driver_id },
-  )
-
-  const assignTrailerMutation = useAssignTrailer()
-  const removeTrailerMutation = useRemoveTrailer()
-
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
     vehicleAssignment?.vehicle_info?.vehicle_unit || null,
   )
-  const [showTrailerModal, setShowTrailerModal] = useState(false)
-  const [newTrailerNumber, setNewTrailerNumber] = useState("")
 
-  const handleAddTrailer = async () => {
-    if (!newTrailerNumber.trim()) {
-      toast.warning("Please enter a trailer number")
-      return
-    }
-
-    if (!driverProfile?.driver_id) {
-      toast.error("Driver information not available")
-      return
-    }
-
-    try {
-      // Note: This assumes trailer already exists and we're just assigning it
-      // If we need to create trailer first, we'd need trailer ID/asset_id
-      // For now, we'll assign by asset_id (assuming trailer number is asset_id)
-
-      await assignTrailerMutation.mutateAsync({
-        driver: driverProfile.driver_id,
-        trailer: newTrailerNumber.trim(), // Assuming this is trailer UUID or asset_id
-        start_time: new Date().toISOString(),
-        status: "active",
-        is_primary: true,
-        notes: `Assigned trailer ${newTrailerNumber.trim()}`,
-      })
-
-      setNewTrailerNumber("")
-      setShowTrailerModal(false)
-      refetchTrailers()
-      toast.success("Trailer assigned successfully")
-    } catch (error: any) {
-      console.error("Failed to assign trailer:", error)
-      toast.error(error?.message || "Failed to assign trailer")
-    }
-  }
-
-  const handleRemoveTrailer = async (id: string) => {
-    try {
-      await removeTrailerMutation.mutateAsync(id)
-      refetchTrailers()
-      toast.success("Trailer removed successfully")
-    } catch (error: any) {
-      console.error("Failed to remove trailer:", error)
-      toast.error(error?.message || "Failed to remove trailer")
-    }
-  }
 
 
   return (
@@ -165,48 +103,7 @@ export default function AssignmentsScreen() {
         )}
 
         {/* Trailers Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {translate("assignments.trailer" as any)}
-          </Text>
-
-          {trailerAssignments && trailerAssignments.length > 0 ? (
-            trailerAssignments.map((assignment) => (
-              <ElevatedCard key={assignment.id} style={styles.itemCard}>
-                <View style={styles.itemRow}>
-                  <View style={styles.itemInfo}>
-                    <Text style={[styles.itemNumber, { color: colors.text }]}>
-                      Trailer {assignment.trailer_asset_id || assignment.trailer}
-                    </Text>
-                    <Text style={[styles.itemType, { color: colors.textDim }]}>
-                      {assignment.is_primary ? "Primary" : "Secondary"} • {assignment.status}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveTrailer(assignment.id)}
-                    style={styles.removeButton}
-                  >
-                    <X size={20} color={colors.error} />
-                  </TouchableOpacity>
-                </View>
-              </ElevatedCard>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: colors.textDim }]}>
-              {translate("assignments.noAssignments" as any)}
-            </Text>
-          )}
-
-          <TouchableOpacity
-            style={[styles.addButton, { borderColor: colors.tint }]}
-            onPress={() => setShowTrailerModal(true)}
-          >
-            <Plus size={20} color={colors.tint} />
-            <Text style={[styles.addButtonText, { color: colors.tint }]}>
-              {translate("assignments.addTrailer" as any)}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TrailerList />
 
         {/* Shipping IDs Section */}
         <View style={styles.section}>
@@ -220,58 +117,6 @@ export default function AssignmentsScreen() {
           style={styles.doneButton}
         />
       </ScrollView>
-
-      {/* Add Trailer Modal */}
-      <Modal
-        visible={showTrailerModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowTrailerModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {translate("assignments.addTrailer" as any)}
-            </Text>
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder="Trailer Number"
-              placeholderTextColor={colors.textDim}
-              value={newTrailerNumber}
-              onChangeText={setNewTrailerNumber}
-              autoCapitalize="characters"
-            />
-
-            <View style={styles.modalButtons}>
-              <LoadingButton
-                title="Cancel"
-                onPress={() => {
-                  setShowTrailerModal(false)
-                  setNewTrailerNumber("")
-                }}
-                variant="outline"
-                style={styles.modalButton}
-              />
-              <LoadingButton
-                title="Add"
-                onPress={handleAddTrailer}
-                loading={trailersLoading || assignTrailerMutation.isPending}
-                disabled={assignTrailerMutation.isPending}
-                style={styles.modalButton}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
     </>
   )
 }

@@ -65,6 +65,7 @@ import { MandatorySetupScreen } from "@/components/MandatorySetupScreen"
 import { NotificationsPanel } from "@/components/NotificationsPanel"
 import { RideOverviewCard } from "@/components/RideOverviewCard"
 import { useShipperStore } from "@/stores/shipperStore"
+import { useTrailerStore } from "@/stores/trailerStore"
 import { StatusIconsRow } from "@/components/StatusIconsRow"
 import { Text } from "@/components/Text"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
@@ -138,21 +139,12 @@ export const DashboardScreen = React.memo(() => {
     isAuthenticated,
   )
 
-  // Get trailer assignments for trailer number
-  const { data: trailerAssignments } = useTrailerAssignments(
-    { driver: driverProfile?.driver_id || undefined, status: "active" },
-    { enabled: isAuthenticated && !!driverProfile?.driver_id },
-  )
-
-  // Get trailer number from assignments (primary trailer)
+  // Get active trailer from store
+  const { activeTrailer } = useTrailerStore()
   const trailerNo = useMemo(() => {
-    if (vehicleAssignment?.vehicle_info?.vehicle_unit) {
-      return `TRAILER_${new Date().getMilliseconds()}`
-    }
-    return (
-      vehicleAssignment?.vehicle_info?.vehicle_unit || `TRAILER_${new Date().getMilliseconds()}`
-    )
-  }, [vehicleAssignment])
+    if (!activeTrailer) return null
+    return activeTrailer.trailer_name || 'Trailer'
+  }, [activeTrailer])
 
   const hasVehicleAssignment = useMemo(
     () =>
@@ -2318,6 +2310,8 @@ export const DashboardScreen = React.memo(() => {
                 }}
               />
             </View>
+
+
             {canUseELD && eldConnected && (
               <LiveVehicleData
                 eldConnected={eldConnected}

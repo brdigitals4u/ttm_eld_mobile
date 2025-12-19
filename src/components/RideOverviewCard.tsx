@@ -15,6 +15,7 @@ import { FileCheck, BookOpen, LogOut, Truck, Package, User, Edit2Icon } from "lu
 import { Text } from "@/components/Text"
 import { translate } from "@/i18n/translate"
 import { useAppTheme } from "@/theme/context"
+import { useDriverTeamStore } from "@/stores/driverTeamStore"
 
 interface RideOverviewCardProps {
   shippingNo?: string | null
@@ -25,6 +26,28 @@ interface RideOverviewCardProps {
   onShipPress?: () => void
   onCoDriverPress?: () => void
   onLogout?: () => void
+}
+
+// Co-Driver Info Component
+function CoDriverInfo() {
+  const { theme } = useAppTheme()
+  const { colors } = theme
+  const { activeTeam } = useDriverTeamStore()
+
+  if (activeTeam?.codriver_name && activeTeam.is_active) {
+    return (
+      <Text style={{ color: colors.text, fontSize: 16, fontWeight: "600" }}>
+        {activeTeam.codriver_name} <Edit2Icon size={12} color={colors.text} />
+      </Text>
+    )
+  }
+
+  return (
+    <Text style={{ color: colors.tint, fontSize: 16, fontWeight: "600" }}>
+      {translate("driverTeam.requestTeam" as any) || "Request Team"}{" "}
+      <Edit2Icon size={12} color={colors.tint} />
+    </Text>
+  )
 }
 
 export function RideOverviewCard({
@@ -211,9 +234,16 @@ export function RideOverviewCard({
               <Text style={styles.infoLabel}>
                 {translate("rideOverview.trailerNo" as any) || "Trailer No"}
               </Text>
-              <Text style={styles.infoValue}>
-                {trailerNo || "—"} <Edit2Icon size={12} color={colors.text} />
-              </Text>
+              {trailerNo ? (
+                <Text style={styles.infoValue}>
+                  {trailerNo} <Edit2Icon size={12} color={colors.text} />
+                </Text>
+              ) : (
+                <Text style={[styles.infoValue, { color: colors.tint }]}>
+                  {translate("trailers.addTrailer" as any) || "Add Trailer"}{" "}
+                  <Edit2Icon size={12} color={colors.tint} />
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -221,15 +251,12 @@ export function RideOverviewCard({
         {/* Right Column */}
         <TouchableOpacity onPress={onCoDriverPress}>
           <View style={styles.infoColumn}>
-            {/* Co Driver - Disabled */}
+            {/* Co Driver */}
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>
                 {translate("rideOverview.coDriver" as any) || "Co Driver"}
               </Text>
-              <Text style={styles.infoValueDisabled}>
-                {translate("rideOverview.notAssigned" as any) || "Not Assigned"}{" "}
-                <Edit2Icon size={12} color={colors.text} />
-              </Text>
+              <CoDriverInfo />
             </View>
           </View>
         </TouchableOpacity>

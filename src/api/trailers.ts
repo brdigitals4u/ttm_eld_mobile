@@ -1,41 +1,63 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { z } from "zod"
 
 import { apiClient, ApiError } from "./client"
 import { API_ENDPOINTS, QUERY_KEYS } from "./constants"
 
 // ============================================================================
-// Trailer API Types
+// Zod Schemas for Validation
 // ============================================================================
 
-export interface Trailer {
-  id: string
-  asset_id: string
-  name: string
-  asset_type: "trailer"
-  trailer_type: string // dry_van/refrigerated/flatbed/tanker/etc.
-  status?: string // active/inactive
-  make?: string
-  model?: string
-  year?: number
-  vin?: string
-  license_plate?: string
-  registration_state?: string
-  registration_expiry?: string
-  length?: number
-  width?: number
-  height?: number
-  weight_capacity?: number
-  volume_capacity?: number
-  temperature_setting?: number
-  is_tracked?: boolean
-  created_at?: string
-}
+export const TrailerSchema = z.object({
+  id: z.string(),
+  asset_id: z.string().min(1),
+  name: z.string().min(1),
+  asset_type: z.literal("trailer"),
+  trailer_type: z.string().optional(),
+  status: z.string().optional(),
+  make: z.string().optional(),
+  model: z.string().optional(),
+  year: z.number().optional(),
+  vin: z.string().optional(),
+  license_plate: z.string().optional(),
+  registration_state: z.string().optional(),
+  registration_expiry: z.string().optional(),
+  length: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  weight_capacity: z.number().optional(),
+  volume_capacity: z.number().optional(),
+  temperature_setting: z.number().optional(),
+  is_tracked: z.boolean().optional(),
+  created_at: z.string().optional(),
+})
+
+export const TrailerAssignmentSchema = z.object({
+  id: z.string(),
+  driver: z.string(),
+  driver_id: z.string().optional(),
+  driver_name: z.string().optional(),
+  trailer: z.string(),
+  trailer_id: z.string().optional(),
+  trailer_name: z.string().optional(),
+  trailer_asset_id: z.string().optional(),
+  assigned_by: z.string().nullable().optional(),
+  assigned_by_name: z.string().optional(),
+  assigned_at: z.string().optional(),
+  start_time: z.string(),
+  end_time: z.string().nullable().optional(),
+  status: z.enum(["active", "inactive"]),
+  is_primary: z.boolean().optional(),
+  notes: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+})
 
 export interface CreateTrailerRequest {
-  asset_id: string // Required, unique
+  asset_id: string // Required, unique (auto-generated if not provided)
   name: string // Required
-  asset_type: "trailer" // Required, must be "trailer"
-  trailer_type: string // Required: dry_van/refrigerated/flatbed/tanker/etc.
+  asset_type?: "trailer" // Required, must be "trailer"
+  trailer_type: string // Optional: dry_van/refrigerated/flatbed/tanker/etc.
   status?: string
   make?: string
   model?: string
@@ -51,22 +73,19 @@ export interface CreateTrailerRequest {
   volume_capacity?: number
   temperature_setting?: number
   is_tracked?: boolean
+  assigned_by?: string
 }
 
-export interface TrailerAssignment {
-  id: string
-  driver: string
-  driver_name?: string
-  trailer: string
-  trailer_asset_id?: string
-  assigned_by?: string
-  start_time: string // ISO 8601
-  end_time?: string | null
-  status: string // active/inactive
-  is_primary?: boolean
-  notes?: string
-  created_at?: string
+/**
+ * Generate unique asset_id using date milliseconds
+ */
+export const generateUniqueAssetId = (): string => {
+  return `TRAILER-${Date.now()}`
 }
+
+// Type exports from Zod schemas
+export type Trailer = z.infer<typeof TrailerSchema>
+export type TrailerAssignment = z.infer<typeof TrailerAssignmentSchema>
 
 export interface CreateTrailerAssignmentRequest {
   driver: string // UUID, required
@@ -96,7 +115,7 @@ export const trailersApi = {
   async createTrailer(data: CreateTrailerRequest): Promise<Trailer> {
     const response = await apiClient.post<Trailer>(API_ENDPOINTS.TRAILERS.CREATE, data)
     if (response.success && response.data) {
-      return response.data
+      return TrailerSchema.parse(response.data)
     }
     throw new ApiError({ message: "Failed to create trailer", status: 400 })
   },
@@ -108,7 +127,7 @@ export const trailersApi = {
   async assignTrailer(data: CreateTrailerAssignmentRequest): Promise<TrailerAssignment> {
     const response = await apiClient.post<TrailerAssignment>(API_ENDPOINTS.TRAILERS.ASSIGN, data)
     if (response.success && response.data) {
-      return response.data
+      return TrailerAssignmentSchema.parse(response.data)
     }
     throw new ApiError({ message: "Failed to assign trailer", status: 400 })
   },
@@ -138,13 +157,14 @@ export const trailersApi = {
 
     const response = await apiClient.get<TrailerAssignment[]>(endpoint)
     if (response.success && response.data) {
+      let assignments: TrailerAssignment[] = []
       if (Array.isArray(response.data)) {
-        return response.data
+        assignments = response.data
+      } else if ((response.data as any).results) {
+        assignments = (response.data as any).results
       }
-      if ((response.data as any).results) {
-        return (response.data as any).results
-      }
-      return []
+      // Validate and parse each assignment
+      return assignments.map((assignment) => TrailerAssignmentSchema.parse(assignment))
     }
     throw new ApiError({ message: "Failed to get trailer assignments", status: 400 })
   },
@@ -160,7 +180,7 @@ export const trailersApi = {
     const endpoint = API_ENDPOINTS.TRAILERS.UPDATE_ASSIGNMENT.replace("{id}", assignmentId)
     const response = await apiClient.patch<TrailerAssignment>(endpoint, data)
     if (response.success && response.data) {
-      return response.data
+      return TrailerAssignmentSchema.parse(response.data)
     }
     throw new ApiError({ message: "Failed to update trailer assignment", status: 400 })
   },

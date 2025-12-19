@@ -155,6 +155,22 @@ export const API_ENDPOINTS = {
     CREATE: "/contacts/",
     UPDATE: "/contacts/{id}/",
   },
+
+  // Co-Driver Assignment APIs
+  CODRIVER_ASSIGNMENTS: {
+    LIST: "/drivers/codriver-assignments/",
+    ACTIVE: "/drivers/codriver-assignments/active/{driver_id}/",
+    CREATE: "/drivers/codriver-assignments/",
+    UPDATE: "/drivers/codriver-assignments/{id}/",
+  },
+
+  // Driver Team Management APIs
+  DRIVER_TEAMS: {
+    LIST: "/drivers/teams/",
+    DETAILS: "/drivers/teams/{id}/",
+    STATUS: "/drivers/teams/{id}/status/",
+    REQUEST: "/drivers/teams/request-team/", // Auto-approved team request
+  },
 }
 
 // HTTP Status Codes
@@ -234,6 +250,16 @@ export const QUERY_KEYS = {
   // Contacts (Shippers)
   CONTACTS: ["contacts"] as const,
   CONTACT: (id: string) => ["contacts", id] as const,
+
+  // Co-Driver Assignments
+  CODRIVER_ASSIGNMENTS: ["codriver-assignments"] as const,
+  CODRIVER_ASSIGNMENT: (id: string) => ["codriver-assignments", id] as const,
+  ACTIVE_CODRIVER: (driverId: string) => ["codriver-assignments", "active", driverId] as const,
+
+  // Driver Teams
+  DRIVER_TEAMS: ["driver-teams"] as const,
+  DRIVER_TEAM: (id: string) => ["driver-teams", id] as const,
+  ACTIVE_TEAM: (driverId: string) => ["driver-teams", "active", driverId] as const,
 
   // Driver APIs (new mobile endpoints)
   DRIVER_HOS_CURRENT_STATUS: ["driver", "hos", "current-status"] as const,
