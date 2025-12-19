@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { QueryClient } from "@tanstack/react-query"
 
 import {
   driverTeamsApi,
@@ -8,6 +9,13 @@ import {
 } from "@/api/driver-teams"
 
 import { useAuthStore } from "./authStore"
+
+// Global query client instance for invalidating queries
+let queryClient: QueryClient | null = null
+
+export const setDriverTeamQueryClient = (client: QueryClient) => {
+  queryClient = client
+}
 
 // ============================================================================
 // Driver Team Store State Interface
@@ -191,6 +199,12 @@ export const useDriverTeamStore = create<DriverTeamStore>((set, get) => ({
         error: null,
       })
 
+      // Invalidate HOS-related queries to refetch data for new driver
+      if (queryClient) {
+        console.log("🔄 DriverTeamStore: Invalidating HOS queries after team status change")
+        queryClient.invalidateQueries({ queryKey: ["driver", "hos"] })
+      }
+
       return updatedTeam
     } catch (error: any) {
       console.error("❌ DriverTeamStore: Failed to update team status:", error)
@@ -226,6 +240,12 @@ export const useDriverTeamStore = create<DriverTeamStore>((set, get) => ({
         isLoading: false,
         error: null,
       })
+
+      // Invalidate HOS-related queries to refetch data for new driver
+      if (queryClient) {
+        console.log("🔄 DriverTeamStore: Invalidating HOS queries after team creation")
+        queryClient.invalidateQueries({ queryKey: ["driver", "hos"] })
+      }
 
       return createdTeam
     } catch (error: any) {

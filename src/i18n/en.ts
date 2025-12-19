@@ -153,15 +153,15 @@ const en = {
     selectRemark: "Select remark (required)",
   },
   fuel: {
-    title: "Fuel Purchases",
+    title: "IFTA Purchases",
     addPurchase: "Add Purchase",
-    noPurchases: "No fuel purchases recorded",
+    noPurchases: "No IFTA purchases recorded",
     total: "Total",
     gallons: "Gallons",
     pricePerGallon: "Price/Gallon",
     date: "Date",
     location: "Location",
-    autoSwitched: "Switched to non-driving mode for fuel entry",
+    autoSwitched: "Switched to non-driving mode for IFTA entry",
   },
   profile: {
     title: "Profile",

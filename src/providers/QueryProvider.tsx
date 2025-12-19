@@ -1,5 +1,7 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+
+import { setDriverTeamQueryClient } from "@/stores/driverTeamStore"
 
 // Create query client with optimized settings
 export const queryClient = new QueryClient({
@@ -34,5 +36,10 @@ interface QueryProviderProps {
 }
 
 export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
+  // Pass queryClient to stores that need to invalidate queries
+  useEffect(() => {
+    setDriverTeamQueryClient(queryClient)
+  }, [])
+
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }

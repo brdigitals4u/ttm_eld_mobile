@@ -20,7 +20,8 @@ const initialState: FuelState = {
 
 export const [FuelProvider, useFuel] = createContextHook(() => {
   const [state, setState] = useState<FuelState>(initialState)
-  const { isAuthenticated } = useAuth()
+  const authStore = useAuth()
+  const isAuthenticated = authStore?.isAuthenticated ?? false
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -127,7 +128,9 @@ export const [FuelProvider, useFuel] = createContextHook(() => {
   }
 
   return {
-    ...state,
+    receipts: state.receipts,
+    isLoading: state.isLoading,
+    error: state.error,
     addFuelReceipt,
     updateFuelReceipt,
     deleteFuelReceipt,

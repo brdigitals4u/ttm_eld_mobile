@@ -37,7 +37,6 @@ const TAB_CONFIG = [
   { name: "dashboard", href: "/dashboard", icon: "menu", labelKey: "tabs.home" },
   { name: "fuel", href: "/fuel", icon: "bell", labelKey: "tabs.fuel" },
   { name: "logs", href: "/logs", icon: "view", labelKey: "tabs.logs" },
-  { name: "support", href: "/support", icon: "bell", labelKey: "tabs.support" },
   { name: "profile", href: "/profile", icon: "user", labelKey: "tabs.profile" },
 ] as const
 
